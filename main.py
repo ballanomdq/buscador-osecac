@@ -4,21 +4,21 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: CORRECCIÓN DE LOGO Y COLORES
+# 2. CSS: DISEÑO ORIGINAL CON MARGEN EXTRA PARA QUE NO SE CORTE
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
-    .block-container { max-width: 850px !important; padding-top: 1rem !important; }
-
-    /* Evitar que el logo se corte y quitar fondo blanco */
-    [data-testid="stImage"] {
-        text-align: left;
-        display: block;
+    
+    /* Margen superior para que la barra de GitHub no tape el logo */
+    .block-container { 
+        max-width: 850px !important; 
+        padding-top: 3.5rem !important; 
     }
+
+    /* Logo sin fondo blanco y con tamaño fijo para que no se deforme */
     [data-testid="stImage"] img {
-        mix-blend-mode: screen; /* Quita el fondo blanco del logo */
+        mix-blend-mode: screen;
         object-fit: contain;
-        max-height: 100px;
     }
 
     /* ESTILO BOTONES */
@@ -66,19 +66,25 @@ st.markdown("""
     }
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; }
     
-    /* Título Azul MDP */
-    h1 { font-weight: 900; color: #38bdf8; margin: 0; font-size: 2rem !important; }
+    /* Título MDP */
+    h1 { font-weight: 900; color: #e2e8f0; margin: 0; font-size: 1.7rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA ===
-try:
-    # Usamos st.image directamente para que no se corte en columnas
-    st.image("LOGO.jpg", width=150)
-except:
-    pass
+# === CABECERA ORIGINAL (Logo y Título en la misma línea) ===
+col_logo, col_titulo = st.columns([1, 4])
 
-st.title("OSECAC MDP / AGENCIAS")
+with col_logo:
+    try:
+        st.image("LOGO.jpg", width=110)
+    except:
+        pass
+
+with col_titulo:
+    # Un pequeño espacio para nivelar con el logo
+    st.markdown("<div style='padding-top:10px;'></div>", unsafe_allow_html=True)
+    st.title("OSECAC MDP / AGENCIAS")
+
 st.markdown("---")
 
 # ==========================================
@@ -99,7 +105,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR AGENDAS/MAILS (PLANILLA NUEVA)
+# BUSCADOR AGENDAS/MAILS
 # ==========================================
 @st.cache_data
 def cargar_datos():
