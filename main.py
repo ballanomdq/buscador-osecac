@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 # CONFIGURACIÓN DIRECTA (Sin Secrets para que no falle)
 # Ponemos la clave directamente acá:
-CLAVE_DIRECTA = "AIzaSyDYP-16R40O6-1X6L0m9Gv0BfV_8jO6GDA"
+CLAVE_DIRECTA = "AIzaSyDRxaZXnAdEDt-C-AZvjqa004dwII8KesQ"
 
 genai.configure(api_key=CLAVE_DIRECTA)
 
