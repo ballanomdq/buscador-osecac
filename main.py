@@ -4,82 +4,59 @@ import pandas as pd
 # Configuración de la página
 st.set_page_config(page_title="OSECAC MDQ / AGENCIAS", layout="wide")
 
-# CSS para Diseño Ultra Moderno y Serio
+# CSS Ajustado para Máxima Compatibilidad Móvil
 st.markdown("""
     <style>
-    /* Fondo Profundo Moderno */
     .stApp {
         background-color: #0e1117;
         color: #f8fafc;
     }
 
-    /* Contenedor del menú desplegable estilizado */
+    /* Contenedor del menú */
     .stExpander {
         background-color: #1e293b !important;
         border: 1px solid #334155 !important;
         border-radius: 12px !important;
-        margin-bottom: 20px !important;
     }
 
-    /* Botones Estilo Minimalista Pro */
+    /* Botones con compatibilidad total para clics en móviles */
     div.stLinkButton > a {
         background-color: #1e293b !important;
-        color: #94a3b8 !important;
+        color: #38bdf8 !important;
         border: 1px solid #334155 !important;
         border-radius: 8px !important;
-        padding: 12px 20px !important;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        padding: 12px 10px !important;
+        transition: all 0.3s ease !important;
         text-decoration: none !important;
         display: block !important;
         text-align: center !important;
         font-size: 13px !important;
-        letter-spacing: 0.5px !important;
-        text-transform: uppercase !important;
+        font-weight: bold !important;
+        width: 100% !important;
     }
     
-    /* Efecto Hover Tecnológico */
-    div.stLinkButton > a:hover {
+    div.stLinkButton > a:active, div.stLinkButton > a:hover {
         background-color: #334155 !important;
-        color: #38bdf8 !important; /* Azul eléctrico */
         border-color: #38bdf8 !important;
-        box-shadow: 0px 0px 20px rgba(56, 189, 248, 0.2) !important;
-        transform: translateY(-2px) !important;
+        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.4) !important;
     }
 
-    /* Buscador Minimalista */
     .stTextInput > div > div > input {
         background-color: #1e293b !important;
-        color: #f8fafc !important;
+        color: white !important;
         border: 1px solid #334155 !important;
-        border-radius: 10px !important;
-        padding: 10px !important;
     }
 
-    /* Títulos */
-    h1 {
-        font-weight: 800 !important;
-        color: #f8fafc !important;
-        letter-spacing: -1px !important;
-    }
-    
-    h3 {
-        color: #94a3b8 !important;
-        font-size: 1rem !important;
-    }
-
-    /* Línea divisoria sutil */
-    hr {
-        border-top: 1px solid #334155 !important;
-    }
+    h1 { font-weight: 800; letter-spacing: -1px; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("OSECAC MDQ / AGENCIAS")
 
 # ==========================================
-# MENÚ DESPLEGABLE TÉCNICO
+# MENÚ DESPLEGABLE
 # ==========================================
-with st.expander("SISTEMAS Y HERRAMIENTAS EXTERNAS"):
+with st.expander("MENU"):
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -92,7 +69,7 @@ with st.expander("SISTEMAS Y HERRAMIENTAS EXTERNAS"):
     
     with col3:
         st.link_button("PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform", use_container_width=True)
-        st.link_button("PROGRAMA LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform", use_container_width=True)
+        st.link_button("PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform", use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
