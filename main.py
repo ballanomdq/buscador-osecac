@@ -26,7 +26,7 @@ pregunta = st.text_input("¿Qué dato buscás hoy?")
 if pregunta:
     with st.spinner("Buscando..."):
         try:
-            model = genai.GenerativeModel("models/gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-1.5-flash")
             # Le pasamos solo un poquito de info para probar
             contexto = f"Datos: {df1.head(20).to_string()}"
             res = model.generate_content(f"{contexto}\n\nPregunta: {pregunta}")
