@@ -4,15 +4,15 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDQ", layout="wide")
 
-# 2. CSS: FONDO BLANCO Y COLORES AJUSTADOS
+# 2. CSS: FONDO OSCURO Y AZUL LOGO (#00529b es el azul de OSECAC)
 st.markdown("""
     <style>
-    /* Fondo de la página blanco y letras oscuras */
-    .stApp { background-color: #ffffff; color: #1e293b; }
-    .block-container { max-width: 850px !important; padding-top: 1.5rem !important; }
+    .stApp { background-color: #0b0e14; color: #e2e8f0; }
+    .block-container { max-width: 850px !important; padding-top: 1rem !important; }
 
-    /* Ajuste para que el logo no se corte */
+    /* Efecto para disimular el fondo blanco del logo */
     [data-testid="stImage"] img {
+        mix-blend-mode: screen; /* Esto hace que el blanco se vuelva transparente en fondo oscuro */
         object-fit: contain;
     }
 
@@ -22,78 +22,72 @@ st.markdown("""
         font-size: 11px !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
-        letter-spacing: 1px !important;
+        letter-spacing: 1.5px !important;
         padding: 10px 15px !important;
         display: inline-block !important;
         width: 100% !important;
         text-align: center !important;
         transition: all 0.3s ease !important;
-        text-decoration: none !important;
     }
 
-    /* --- NOMENCLADORES (Azul Profesional sobre blanco) --- */
+    /* --- NOMENCLADORES (Azul OSECAC del Logo) --- */
     div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] {
-        color: #0369a1 !important;
-        border: 1px solid #e2e8f0 !important;
-        background-color: #f0f9ff !important;
+        color: #38bdf8 !important; /* Celeste brillante para que se lea bien */
+        border: 1px solid #00529b !important; /* Azul del logo */
+        background-color: rgba(0, 82, 155, 0.2) !important;
     }
 
-    /* --- PEDIDOS (Tus colores hermosos, ajustados para fondo blanco) --- */
+    /* --- PEDIDOS (Tus colores hermosos originales) --- */
     /* Rosa para Leches */
     div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { 
-        color: #be185d !important;
-        border: 1px solid #fbcfe8 !important;
-        background-color: #fdf2f8 !important;
+        color: #ff85a2 !important;
+        border: 1px solid #ff85a2 !important;
+        background-color: rgba(255, 133, 162, 0.1) !important;
     }
     /* Verde para Suministros */
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { 
-        color: #047857 !important;
-        border: 1px solid #a7f3d0 !important;
-        background-color: #ecfdf5 !important;
+        color: #2dd4bf !important;
+        border: 1px solid #2dd4bf !important;
+        background-color: rgba(45, 212, 191, 0.1) !important;
     }
     /* Violeta para Estado */
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { 
-        color: #6d28d9 !important;
-        border: 1px solid #ddd6fe !important;
-        background-color: #f5f3ff !important;
+        color: #a78bfa !important;
+        border: 1px solid #a78bfa !important;
+        background-color: rgba(167, 139, 250, 0.1) !important;
     }
 
-    div.stLinkButton > a:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    div.stLinkButton > a:hover { transform: scale(1.02); filter: brightness(1.2); }
 
-    /* Estilo de las cajas desplegables */
     .stExpander {
-        background-color: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
+        background-color: rgba(23, 32, 48, 0.8) !important;
+        border: 1px solid #1e293b !important;
         border-radius: 10px !important;
-        color: #1e293b !important;
     }
+    .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; }
     
-    /* Buscador */
-    .stTextInput > div > div > input { background-color: #f8fafc !important; color: #1e293b !important; border: 1px solid #e2e8f0 !important; }
-    
-    h1 { font-weight: 900; color: #0f172a; margin: 0; font-size: 1.8rem !important; }
-    h3 { color: #334155; }
+    /* Título en el azul del logo */
+    h1 { font-weight: 900; text-align: left; color: #00529b; margin: 0; }
     </style>
     """, unsafe_allow_html=True)
 
 # === CABECERA: LOGO IZQUIERDA Y TÍTULO ===
-# El [2, 5] da un poco más de aire al logo a la izquierda
-col_logo, col_titulo = st.columns([2, 5])
+col_logo, col_titulo = st.columns([1, 3])
 
 with col_logo:
     try:
-        # Asegurate que sea LOGO.jpg o LOGO.png según lo que subiste
-        st.image("LOGO.jpg", width=180)
+        st.image("LOGO.jpg", width=120)
     except:
         st.write(" ")
 
 with col_titulo:
+    st.markdown("<br>", unsafe_allow_html=True)
     st.title("OSECAC MDQ / AGENCIAS")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 
 # ==========================================
-# MENÚS
+# MENÚS (Nomencladores y Pedidos)
 # ==========================================
 with st.expander("NOMENCLADORES"):
     c1, c2, c3 = st.columns(3)
@@ -110,7 +104,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR AGENDAS/MAILS
+# BUSCADOR AGENDAS/MAILS (PLANILLA NUEVA)
 # ==========================================
 @st.cache_data
 def cargar_datos():
@@ -120,3 +114,21 @@ def cargar_datos():
         return df
     except:
         return pd.DataFrame()
+
+df = cargar_datos()
+
+st.subheader("AGENDAS/MAILS")
+col_busc, col_borrar = st.columns([5, 1])
+with col_busc:
+    pregunta = st.text_input("Buscador", placeholder="Buscar...", label_visibility="collapsed", key="input_busqueda")
+with col_borrar:
+    if st.button("LIMPIAR"):
+        st.rerun()
+
+if pregunta:
+    pregunta = pregunta.strip()
+    resultados = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
+    if not resultados.empty:
+        st.dataframe(resultados, use_container_width=True)
+    else:
+        st.warning("SIN COINCIDENCIAS")
