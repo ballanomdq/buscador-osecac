@@ -4,69 +4,83 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDQ", layout="wide")
 
-# 2. CSS: ESTILO PREMIUM SIN ICONOS (CHAU OCHENTAS)
+# 2. CSS: AZULES PROFUNDOS + ESTILO TECNOLÓGICO
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap');
-
-    html, body, [class*="css"]  {
-        font-family: 'Inter', sans-serif;
-        background-color: #0e1117;
-        color: #f8fafc;
+    /* Fondo Azul Noche Profundo */
+    .stApp {
+        background-color: #0b0e14;
+        color: #e2e8f0;
     }
 
-    .block-container { max-width: 900px !important; }
+    /* Contenedor central */
+    .block-container { max-width: 850px !important; }
 
-    /* Menús Desplegables Minimalistas */
+    /* Menús Desplegables (Efecto Cristal) */
     .stExpander {
-        background-color: #1e293b !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-        margin-bottom: 10px !important;
+        background-color: rgba(23, 32, 48, 0.8) !important;
+        border: 1px solid #1e293b !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
     }
 
-    /* BOTONES MODERNOS: Cortos, sin iconos, fuente limpia */
+    /* BOTONES: Cortos, modernos y con brillo azul al pasar el mouse */
     div.stLinkButton > a {
-        background-color: #0f172a !important;
-        color: #38bdf8 !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 6px !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
+        background-color: #172030 !important;
+        color: #38bdf8 !important; /* El celeste que te gustaba */
+        border: 1px solid #334155 !important;
+        border-radius: 4px !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
         text-transform: uppercase !important;
-        letter-spacing: 1px !important;
-        padding: 8px 15px !important;
-        width: auto !important;
+        letter-spacing: 1.5px !important;
+        padding: 10px 15px !important;
         display: inline-block !important;
-        transition: all 0.2s ease !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        text-decoration: none !important;
     }
     
     div.stLinkButton > a:hover {
         background-color: #38bdf8 !important;
-        color: #0f172a !important;
+        color: #0b0e14 !important;
         border-color: #38bdf8 !important;
+        box-shadow: 0px 0px 12px rgba(56, 189, 248, 0.5) !important;
+        transform: translateY(-1px);
     }
 
-    /* Buscador Serio */
+    /* Buscador Minimalista */
     .stTextInput > div > div > input {
-        background-color: #1e293b !important;
+        background-color: #172030 !important;
         border: 1px solid #334155 !important;
-        border-radius: 6px !important;
+        border-radius: 4px !important;
         color: white !important;
+        height: 45px;
+    }
+
+    /* Títulos */
+    h1 { 
+        font-size: 2.2rem !important;
+        font-weight: 900 !important; 
+        color: #f8fafc; 
+        text-align: center;
+        letter-spacing: -1px;
     }
     
-    h1 { font-weight: 700; letter-spacing: -2px; text-align: center; }
-    h3 { font-size: 14px !important; color: #94a3b8 !important; text-transform: uppercase; }
+    h3 { 
+        font-size: 0.9rem !important; 
+        font-weight: 800 !important;
+        color: #64748b !important; 
+        letter-spacing: 1px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("OSECAC MDQ / AGENCIAS")
 
 # ==========================================
-# MENÚS (Sin iconos, texto limpio)
+# MENÚS (Sin iconos, estilo sobrio)
 # ==========================================
 with st.expander("NOMENCLADORES"):
-    # Usamos 3 columnas para que los botones queden cortitos uno al lado del otro
     c1, c2, c3 = st.columns(3)
     c1.link_button("NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     c2.link_button("NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
@@ -81,7 +95,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# SECCIÓN AGENDAS/MAILS
+# AGENDAS/MAILS
 # ==========================================
 @st.cache_data
 def cargar_datos():
@@ -102,7 +116,7 @@ st.subheader("AGENDAS/MAILS")
 
 col_busc, col_borrar = st.columns([5, 1])
 with col_busc:
-    pregunta = st.text_input("Buscador", placeholder="Buscar...", label_visibility="collapsed", key="input_busqueda")
+    pregunta = st.text_input("Buscador", placeholder="Buscar en la base de datos...", label_visibility="collapsed", key="input_busqueda")
 with col_borrar:
     if st.button("LIMPIAR"):
         st.rerun()
