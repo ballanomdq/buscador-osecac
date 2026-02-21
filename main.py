@@ -4,7 +4,7 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO Y CONTROL DE ZOOM
+# 2. CSS: DISEÑO OSCURO, ANCHO Y CENTRADO
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
@@ -33,6 +33,11 @@ st.markdown("""
 
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
     
+    /* Buscador elegante */
+    .stTextInput > div > div > input { 
+        background-color: #172030 !important; color: white !important; height: 45px !important; 
+    }
+
     h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px !important; font-size: 2.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -64,7 +69,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR
+# BUSCADOR AGENDAS
 # ==========================================
 @st.cache_data(ttl=600)
 def cargar_datos():
@@ -77,29 +82,8 @@ df = cargar_datos()
 
 st.subheader("AGENDAS/MAILS")
 
-# La perilla ahora controla el modo de lectura
-modo_lectura = st.toggle("MODO LECTURA (Letra Grande)")
-
-pregunta = st.text_input("Buscador", placeholder="Escribí para buscar...", label_visibility="collapsed")
+pregunta = st.text_input("Buscador", placeholder="Escribí para buscar (Ej: Miramar)...", label_visibility="collapsed")
 
 if pregunta:
     pregunta = pregunta.strip()
-    res = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
-    
-    if not res.empty:
-        # Si la perilla está activa, mostramos la tabla mucho más alta y con columnas anchas
-        st.data_editor(
-            res,
-            use_container_width=True,
-            hide_index=True,
-            disabled=True,
-            height=800 if modo_lectura else 400, # Aca se nota el cambio
-            column_config={
-                "MAIL/DIR": st.column_config.LinkColumn("MAIL/DIR", width="large" if modo_lectura else "medium"),
-                "DIRECCION": st.column_config.LinkColumn("DIRECCION", width="large" if modo_lectura else "medium"),
-            }
-        )
-    else:
-        st.info("Sin coincidencias.")
-else:
-    st.write("Escribí arriba para buscar.")
+    res = df[df.astype(str).apply(lambda row
