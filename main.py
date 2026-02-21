@@ -4,7 +4,7 @@ import pandas as pd
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="OSECAC MDP - Portal", layout="wide")
 
-# 2. CARGA DE DATOS (Conexión directa a tus Google Sheets)
+# 2. CARGA DE DATOS
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
@@ -12,14 +12,13 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
-# Tus enlaces de Excel publicados como CSV
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERSONALIZADO (Alineación, Colores y Fichas)
+# 3. CSS PERSONALIZADO (Mantenemos tus fichas espectaculares)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -36,7 +35,6 @@ st.markdown("""
     
     .block-container { max-width: 1200px !important; padding-top: 1.5rem !important; }
 
-    /* Cabecera y Logo Centrados */
     .cabecera-centrada { 
         display: flex; flex-direction: column; align-items: center; 
         justify-content: center; text-align: center; width: 100%; 
@@ -51,7 +49,6 @@ st.markdown("""
         margin: 10px auto; display: block;
     }
 
-    /* Diseño de Ficha de Trámite */
     .ficha-tramite {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 25px;
@@ -63,15 +60,18 @@ st.markdown("""
     .ficha-titulo { color: #fbbf24; font-size: 1.5rem; font-weight: bold; margin-bottom: 12px; }
     .ficha-contenido { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
 
-    /* Estilo para botones de enlace */
     div.stLinkButton > a {
         border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
         text-transform: uppercase !important; letter-spacing: 1.2px !important;
         padding: 12px !important; width: 100% !important; text-align: center !important;
-        transition: all 0.3s ease !important;
     }
     
-    .stExpander { background-color: rgba(30, 41, 59, 0.5) !important; border: 1px solid #334155 !important; border-radius: 10px !important; }
+    /* Estilo especial para los Expanders */
+    .stExpander { 
+        background-color: rgba(30, 41, 59, 0.6) !important; 
+        border: 1px solid #fbbf24 !important; 
+        border-radius: 12px !important; 
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -89,35 +89,32 @@ st.markdown(f"""
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: BUSCADOR DE TRÁMITES (TU EXCEL NUEVO)
+# SECCIÓN 1: BUSCADOR DE TRÁMITES (DENTRO DE BOTÓN/EXPANDER)
 # ==========================================
-st.markdown("### 🔍 GUÍA DE TRÁMITES")
-busqueda_t = st.text_input("Buscá por nombre o palabra clave (ej: 'sordera', 'renuncia', 'leche')...", key="search_tramites")
+with st.expander("🔍 **HACÉ CLIC AQUÍ PARA BUSCAR UN TRÁMITE**", expanded=False):
+    busqueda_t = st.text_input("Escribí palabras relacionadas (ej: 'sordera', 'renuncia', 'leche')...", key="search_tramites")
 
-if busqueda_t:
-    t = busqueda_t.lower().strip()
-    # Filtramos por TRAMITE (Columna A) o PALABRA CLAVE (Columna D)
-    res_t = df_tramites[
-        df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | 
-        df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)
-    ]
-    
-    if not res_t.empty:
-        for i, row in res_t.iterrows():
-            st.markdown(f"""
-                <div class="ficha-tramite">
-                    <div class="ficha-titulo">📋 {row['TRAMITE']}</div>
-                    <div class="ficha-contenido">{row['DESCRIPCIÓN Y REQUISITOS']}</div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Botón de Drive debajo de la ficha
-            st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
-            st.markdown("<br>", unsafe_allow_html=True)
-    else:
-        st.warning("No se encontró ningún trámite con esa palabra. Intentá con otra.")
+    if busqueda_t:
+        t = busqueda_t.lower().strip()
+        res_t = df_tramites[
+            df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | 
+            df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)
+        ]
+        
+        if not res_t.empty:
+            for i, row in res_t.iterrows():
+                st.markdown(f"""
+                    <div class="ficha-tramite">
+                        <div class="ficha-titulo">📋 {row['TRAMITE']}</div>
+                        <div class="ficha-contenido">{row['DESCRIPCIÓN Y REQUISITOS']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
+                st.markdown("<br>", unsafe_allow_html=True)
+        else:
+            st.warning("No se encontró ningún trámite con esa palabra.")
 
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
 # SECCIÓN 2: MENÚS DE ACCESO RÁPIDO
@@ -163,5 +160,3 @@ if busqueda_a:
         st.dataframe(res_a, use_container_width=True, hide_index=True)
     else:
         st.info("No hay contactos que coincidan.")
-else:
-    st.write("Escribí arriba para filtrar los datos de la agenda.")
