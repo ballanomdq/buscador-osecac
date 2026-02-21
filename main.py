@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
-import google.generativeai as genai
+from google import genai
 
-# CONFIGURACIÓN
+# CONFIGURACIÓN NUEVA (API v1 Estable)
 CLAVE_DIRECTA = "AIzaSyDRxaZXnAdEDt-C-AZvjqa004dwII8KesQ"
-genai.configure(api_key=CLAVE_DIRECTA)
+client = genai.Client(api_key=CLAVE_DIRECTA)
 
+st.set_page_config(page_title="Buscador OSECAC Miramar", layout="centered")
 st.title("🤖 Buscador OSECAC Miramar")
 
 @st.cache_data
@@ -21,18 +22,17 @@ df1, df2 = cargar_datos()
 pregunta = st.text_input("¿Qué dato buscás hoy?")
 
 if pregunta:
-    with st.spinner("Buscando..."):
+    with st.spinner("Buscando con IA estable..."):
         try:
-            # ESTA ES LA SOLUCIÓN AL ERROR 404:
-            # Usamos el nombre del modelo tal cual lo pide la versión estable
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            contexto = f"Datos OSECAC: {df1.head(10).to_string()}\nDatos FABA: {df2.head(10).to_string()}"
             
-            contexto = f"Datos: {df1.head(10).to_string()}"
-            # Forzamos la llamada sin usar v1beta internamente
-            res = model.generate_content(f"{contexto}\n\nPregunta: {pregunta}")
+            # NUEVA FORMA DE LLAMAR A GEMINI
+            response = client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=f"{contexto}\n\nPregunta: {pregunta}"
+            )
             
             st.success("Respuesta:")
-            st.write(res.text)
+            st.write(response.text)
         except Exception as e:
-            st.error(f"Error: {e}")
-            st.info("Si el error persiste, probá reiniciar la app desde el menú 'Manage App'.")
+            st.error(f"Error técnico: {e}")
