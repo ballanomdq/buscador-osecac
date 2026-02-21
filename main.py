@@ -4,84 +4,100 @@ import pandas as pd
 # Configuración de la página
 st.set_page_config(page_title="OSECAC MDQ / AGENCIAS", layout="wide")
 
-# CSS para un estilo moderno, limpio y profesional
+# CSS para Diseño Ultra Moderno y Serio
 st.markdown("""
     <style>
-    /* Fondo general más suave */
+    /* Fondo Profundo Moderno */
     .stApp {
-        background-color: #f0f2f6;
-    }
-    
-    /* Personalización del contenedor colapsable */
-    .streamlit-expanderHeader {
-        background-color: #ffffff !important;
-        border-radius: 10px !important;
-        border: 1px solid #d1d9e6 !important;
-        font-weight: bold !important;
-        color: #1e3a5a !important;
+        background-color: #0e1117;
+        color: #f8fafc;
     }
 
-    /* Estilo minimalista para los botones */
+    /* Contenedor del menú desplegable estilizado */
+    .stExpander {
+        background-color: #1e293b !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        margin-bottom: 20px !important;
+    }
+
+    /* Botones Estilo Minimalista Pro */
     div.stLinkButton > a {
-        background-color: #ffffff !important;
-        color: #1e3a5a !important;
-        border: 1px solid #cbd5e0 !important;
+        background-color: #1e293b !important;
+        color: #94a3b8 !important;
+        border: 1px solid #334155 !important;
         border-radius: 8px !important;
-        padding: 10px !important;
-        transition: all 0.2s ease !important;
+        padding: 12px 20px !important;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
         text-decoration: none !important;
         display: block !important;
         text-align: center !important;
-        font-size: 14px !important;
+        font-size: 13px !important;
+        letter-spacing: 0.5px !important;
+        text-transform: uppercase !important;
     }
     
+    /* Efecto Hover Tecnológico */
     div.stLinkButton > a:hover {
-        background-color: #e2e8f0 !important;
-        border-color: #4a90e2 !important;
-        color: #4a90e2 !important;
-        transform: scale(1.02);
+        background-color: #334155 !important;
+        color: #38bdf8 !important; /* Azul eléctrico */
+        border-color: #38bdf8 !important;
+        box-shadow: 0px 0px 20px rgba(56, 189, 248, 0.2) !important;
+        transform: translateY(-2px) !important;
     }
 
-    /* Títulos limpios */
-    h1 {
-        color: #1e3a5a !important;
-        font-family: 'Inter', sans-serif;
-        font-weight: 700;
-    }
-
-    /* Input de búsqueda moderno */
+    /* Buscador Minimalista */
     .stTextInput > div > div > input {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid #334155 !important;
         border-radius: 10px !important;
-        border: 1px solid #cbd5e0 !important;
+        padding: 10px !important;
+    }
+
+    /* Títulos */
+    h1 {
+        font-weight: 800 !important;
+        color: #f8fafc !important;
+        letter-spacing: -1px !important;
+    }
+    
+    h3 {
+        color: #94a3b8 !important;
+        font-size: 1rem !important;
+    }
+
+    /* Línea divisoria sutil */
+    hr {
+        border-top: 1px solid #334155 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🔎 OSECAC MDQ / AGENCIAS")
+st.title("OSECAC MDQ / AGENCIAS")
 
-# =========================
-# MENÚ DESPLEGABLE (MODERNO)
-# =========================
-with st.expander("🚀 ACCESOS DIRECTOS Y HERRAMIENTAS"):
-    st.write("Seleccioná la herramienta que necesites utilizar:")
+# ==========================================
+# MENÚ DESPLEGABLE TÉCNICO
+# ==========================================
+with st.expander("SISTEMAS Y HERRAMIENTAS EXTERNAS"):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.link_button("🤖 Nomenclador IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc", use_container_width=True)
-        st.link_button("📊 Nomenclador FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF", use_container_width=True)
+        st.link_button("NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc", use_container_width=True)
+        st.link_button("NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF", use_container_width=True)
     
     with col2:
-        st.link_button("🏥 Nomenclador OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF", use_container_width=True)
-        st.link_button("📈 Estado de Pedidos", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true", use_container_width=True)
+        st.link_button("NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF", use_container_width=True)
+        st.link_button("ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true", use_container_width=True)
     
     with col3:
-        st.link_button("📦 Útiles / Tóner", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform", use_container_width=True)
-        st.link_button("🍼 Pedido Leches", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform", use_container_width=True)
+        st.link_button("PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform", use_container_width=True)
+        st.link_button("PROGRAMA LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform", use_container_width=True)
 
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # =========================
-# CARGA DE DATOS (AGENDA)
+# CARGA DE DATOS
 # =========================
 @st.cache_data
 def cargar_datos():
@@ -99,20 +115,20 @@ def cargar_datos():
 df = cargar_datos()
 
 # =========================
-# BUSCADOR PRINCIPAL
+# BUSCADOR
 # =========================
-st.subheader("📞 Buscador de Agenda y Contactos")
-pregunta = st.text_input("Ingresá nombre, interno, dirección o mail...", placeholder="Ej: Miramar, Juan Pérez, Auditoría...")
+st.subheader("BÚSQUEDA DE AGENDA Y CONTACTOS")
+pregunta = st.text_input("", placeholder="Escriba aquí para buscar...")
 
 if pregunta and not df.empty:
     pregunta = pregunta.strip()
     resultados = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
 
     if not resultados.empty:
-        st.success(f"Se encontraron {len(resultados)} coincidencia(s):")
+        st.success(f"REGISTROS ENCONTRADOS: {len(resultados)}")
         st.dataframe(resultados, use_container_width=True)
     else:
-        st.warning("No se encontraron resultados.")
+        st.warning("SIN RESULTADOS")
 
 if df.empty:
-    st.warning("⚠️ Error de conexión con las planillas de Google.")
+    st.error("ERROR: NO SE PUDO SINCRONIZAR CON LAS BASES DE DATOS")
