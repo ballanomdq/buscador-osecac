@@ -1,21 +1,21 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACIÓN
+# 1. CONFIGURACIÓN - Cambiamos a layout="wide" y título MDP
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO ORIGINAL CON MARGEN EXTRA PARA QUE NO SE CORTE
+# 2. CSS: DISEÑO OSCURO Y MÁS ANCHO
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
     
-    /* Margen superior para que la barra de GitHub no tape el logo */
+    /* Aumentamos el ancho máximo a 1200px para que la tabla sea grande */
     .block-container { 
-        max-width: 850px !important; 
+        max-width: 1200px !important; 
         padding-top: 3.5rem !important; 
     }
 
-    /* Logo sin fondo blanco y con tamaño fijo para que no se deforme */
+    /* Logo sin fondo blanco */
     [data-testid="stImage"] img {
         mix-blend-mode: screen;
         object-fit: contain;
@@ -35,54 +35,34 @@ st.markdown("""
         transition: all 0.3s ease !important;
     }
 
-    /* NOMENCLADORES (Azul Logo) */
+    /* COLORES BOTONES */
     div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] {
         color: #38bdf8 !important;
         border: 1px solid #00529b !important;
         background-color: rgba(0, 82, 155, 0.2) !important;
     }
+    div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { color: #ff85a2 !important; border: 1px solid #ff85a2 !important; background-color: rgba(255, 133, 162, 0.1) !important; }
+    div.stLinkButton > a[href*="MlwRSUf6dAww"] { color: #2dd4bf !important; border: 1px solid #2dd4bf !important; background-color: rgba(45, 212, 191, 0.1) !important; }
+    div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
 
-    /* PEDIDOS (Rosa, Verde, Violeta) */
-    div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { 
-        color: #ff85a2 !important;
-        border: 1px solid #ff85a2 !important;
-        background-color: rgba(255, 133, 162, 0.1) !important;
-    }
-    div.stLinkButton > a[href*="MlwRSUf6dAww"] { 
-        color: #2dd4bf !important;
-        border: 1px solid #2dd4bf !important;
-        background-color: rgba(45, 212, 191, 0.1) !important;
-    }
-    div.stLinkButton > a[href*="21d6f3bf-24c1"] { 
-        color: #a78bfa !important;
-        border: 1px solid #a78bfa !important;
-        background-color: rgba(167, 139, 250, 0.1) !important;
-    }
-
-    .stExpander {
-        background-color: rgba(23, 32, 48, 0.8) !important;
-        border: 1px solid #1e293b !important;
-        border-radius: 10px !important;
-    }
+    .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; }
     
-    /* Título MDP */
-    h1 { font-weight: 900; color: #e2e8f0; margin: 0; font-size: 1.7rem !important; }
+    h1 { font-weight: 900; color: #e2e8f0; margin: 0; font-size: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA ORIGINAL (Logo y Título en la misma línea) ===
-col_logo, col_titulo = st.columns([1, 4])
+# === CABECERA ===
+col_logo, col_titulo = st.columns([1, 6]) # Ajustamos proporción para más espacio al título
 
 with col_logo:
     try:
-        st.image("LOGO.jpg", width=110)
+        st.image("LOGO.jpg", width=120)
     except:
         pass
 
 with col_titulo:
-    # Un pequeño espacio para nivelar con el logo
-    st.markdown("<div style='padding-top:10px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='padding-top:15px;'></div>", unsafe_allow_html=True)
     st.title("OSECAC MDP / AGENCIAS")
 
 st.markdown("---")
@@ -119,9 +99,9 @@ def cargar_datos():
 df = cargar_datos()
 
 st.subheader("AGENDAS/MAILS")
-col_busc, col_borrar = st.columns([5, 1])
+col_busc, col_borrar = st.columns([6, 1])
 with col_busc:
-    pregunta = st.text_input("Buscador", placeholder="Buscar...", label_visibility="collapsed", key="input_busqueda")
+    pregunta = st.text_input("Buscador", placeholder="Buscar por nombre, mail o número...", label_visibility="collapsed", key="input_busqueda")
 with col_borrar:
     if st.button("LIMPIAR"):
         st.rerun()
@@ -130,6 +110,7 @@ if pregunta:
     pregunta = pregunta.strip()
     resultados = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
     if not resultados.empty:
-        st.dataframe(resultados, use_container_width=True)
+        # st.dataframe con ancho completo y ajuste de columnas
+        st.dataframe(resultados, use_container_width=True, hide_index=True)
     else:
         st.warning("SIN COINCIDENCIAS")
