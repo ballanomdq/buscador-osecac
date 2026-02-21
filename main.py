@@ -2,48 +2,35 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 
-# 1. LLAVE DE SEGURIDAD
-if "GOOGLE_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-else:
-    st.error("Falta la clave en Secrets")
-    st.stop()
+# CONFIGURACIÓN DIRECTA (Sin Secrets para que no falle)
+# Ponemos la clave directamente acá:
+CLAVE_DIRECTA = "AIzaSyDYP-16R40O6-1X6L0m9Gv0BfV_8jO6GDA"
 
-st.title("🤖 Buscador Exclusivo OSECAC Miramar")
-st.write("Consultando únicamente tus archivos de Google Sheets y Documentos.")
+genai.configure(api_key=CLAVE_DIRECTA)
 
-# 2. CARGA DE TUS ARCHIVOS (Sheets y Docs)
+st.title("🤖 Buscador OSECAC Miramar (MODO DIRECTO)")
+
 @st.cache_data
-def cargar_datos_propios():
+def cargar_datos():
     try:
-        # Aquí cargamos tu planilla de OSECAC/FABA
-        url_hoja = "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
-        # Aquí podrías poner el link de exportación de tu Google Doc si lo tenés como CSV o texto
-        df = pd.read_csv(url_hoja)
-        return df
+        url_osecac = "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
+        url_faba = "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/export?format=csv"
+        return pd.read_csv(url_osecac), pd.read_csv(url_faba)
     except:
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
 
-df_propio = cargar_datos_propios()
+df1, df2 = cargar_datos()
 
-# 3. INTERFAZ DE BÚSQUEDA
-pregunta = st.text_input("¿Qué dato de tus archivos necesitás buscar?")
+pregunta = st.text_input("¿Qué dato buscás hoy?")
 
 if pregunta:
-    with st.spinner("Buscando en tus documentos personales..."):
+    with st.spinner("Buscando..."):
         try:
             model = genai.GenerativeModel("gemini-1.5-flash")
-            
-            # Le pasamos solo las filas más importantes para que no se sature
-            contexto = df_propio.head(100).to_string() 
-            
-            prompt = f"Sos el asistente privado de la oficina. Basate SOLO en esta información de tus archivos:\n{contexto}\n\nPregunta: {pregunta}"
-            
-            res = model.generate_content(prompt)
-            st.success("Información encontrada:")
+            # Le pasamos solo un poquito de info para probar
+            contexto = f"Datos: {df1.head(20).to_string()}"
+            res = model.generate_content(f"{contexto}\n\nPregunta: {pregunta}")
+            st.success("Respuesta de la IA:")
             st.write(res.text)
         except Exception as e:
             st.error(f"Error: {e}")
-
-st.markdown("---")
-st.caption("Nota: Este buscador solo usa la información de tus Google Sheets configurados.")
