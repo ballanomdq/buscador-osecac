@@ -8,7 +8,12 @@ st.set_page_config(page_title="OSECAC MDQ", layout="wide")
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
-    .block-container { max-width: 850px !important; }
+    .block-container { max-width: 850px !important; padding-top: 1rem !important; }
+
+    /* Estilo para que el logo no sea gigante */
+    [data-testid="stImage"] img {
+        border-radius: 5px;
+    }
 
     /* ESTILO BASE BOTONES */
     div.stLinkButton > a {
@@ -24,27 +29,24 @@ st.markdown("""
         transition: all 0.3s ease !important;
     }
 
-    /* --- ARRIBA: NOMENCLADORES (Azul/Celeste) --- */
+    /* --- NOMENCLADORES (Azul/Celeste) --- */
     div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] {
         color: #38bdf8 !important;
         border: 1px solid #334155 !important;
         background-color: #172030 !important;
     }
 
-    /* --- ABAJO: PEDIDOS (Colores Hermosos) --- */
-    /* Rosa para Leches */
+    /* --- PEDIDOS (Colores Hermosos) --- */
     div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { 
         color: #ff85a2 !important;
         border: 1px solid #ff85a2 !important;
         background-color: rgba(255, 133, 162, 0.1) !important;
     }
-    /* Verde para Suministros */
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { 
         color: #2dd4bf !important;
         border: 1px solid #2dd4bf !important;
         background-color: rgba(45, 212, 191, 0.1) !important;
     }
-    /* Violeta para Estado */
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { 
         color: #a78bfa !important;
         border: 1px solid #a78bfa !important;
@@ -59,14 +61,28 @@ st.markdown("""
         border-radius: 10px !important;
     }
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; }
-    h1 { font-weight: 900; text-align: center; }
+    h1 { font-weight: 900; margin: 0; padding-top: 10px; font-size: 1.8rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("OSECAC MDQ / AGENCIAS")
+# === CABECERA: LOGO IZQUIERDA Y TÍTULO ===
+col_logo, col_titulo = st.columns([1, 4])
+
+with col_logo:
+    try:
+        # Aquí cargamos el que se llama LOGO
+        # Si el tuyo es .png, cambia abajo donde dice .jpg por .png
+        st.image("LOGO.jpg", width=100)
+    except:
+        st.write(" ") # Espacio si no encuentra la imagen
+
+with col_titulo:
+    st.title("OSECAC MDQ / AGENCIAS")
+
+st.markdown("---")
 
 # ==========================================
-# MENÚS (Nomencladores y Pedidos)
+# MENÚS
 # ==========================================
 with st.expander("NOMENCLADORES"):
     c1, c2, c3 = st.columns(3)
@@ -83,12 +99,11 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# NUEVO BUSCADOR AGENDAS/MAILS (SÓLO UNA DIRECCIÓN)
+# BUSCADOR AGENDAS/MAILS (NUEVA PLANILLA)
 # ==========================================
 @st.cache_data
 def cargar_datos():
     try:
-        # Usamos el nuevo enlace que pasaste convertido a formato exportable CSV
         url_unica = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
         df = pd.read_csv(url_unica)
         return df
@@ -100,7 +115,7 @@ df = cargar_datos()
 st.subheader("AGENDAS/MAILS")
 col_busc, col_borrar = st.columns([5, 1])
 with col_busc:
-    pregunta = st.text_input("Buscador", placeholder="Buscar en la nueva base de datos...", label_visibility="collapsed", key="input_busqueda")
+    pregunta = st.text_input("Buscador", placeholder="Buscar...", label_visibility="collapsed", key="input_busqueda")
 with col_borrar:
     if st.button("LIMPIAR"):
         st.rerun()
