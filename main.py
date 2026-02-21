@@ -4,15 +4,20 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO Y CENTRADO
+# 2. CSS: DISEÑO PRO, CENTRADO Y TABLA GRANDE
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
-    .block-container { max-width: 1200px !important; padding-top: 2rem !important; }
-    .cabecera-centrada { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 100%; margin-bottom: 20px; }
+    .block-container { max-width: 1250px !important; padding-top: 1.5rem !important; }
+    
+    .cabecera-centrada { 
+        display: flex; flex-direction: column; align-items: center; 
+        justify-content: center; text-align: center; width: 100%; margin-bottom: 10px; 
+    }
+    
     [data-testid="stImage"] img { mix-blend-mode: screen; filter: brightness(1.1); }
 
-    /* ESTILO BOTONES */
+    /* BOTONES SUPERIORES */
     div.stLinkButton > a {
         border-radius: 6px !important; font-size: 11px !important; font-weight: 700 !important;
         text-transform: uppercase !important; letter-spacing: 1.5px !important;
@@ -27,14 +32,20 @@ st.markdown("""
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
 
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
-    h1 { font-weight: 900; color: #e2e8f0; margin-bottom: 0px !important; font-size: 2.2rem !important; }
+    
+    /* Buscador más grande */
+    .stTextInput > div > div > input { 
+        background-color: #172030 !important; color: white !important; height: 50px !important; font-size: 20px !important;
+    }
+
+    h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px !important; font-size: 2.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # === CABECERA ===
 st.markdown('<div class="cabecera-centrada">', unsafe_allow_html=True)
 st.title("OSECAC MDP / AGENCIAS")
-try: st.image("LOGO.jpg", width=95)
+try: st.image("LOGO.jpg", width=100)
 except: pass
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -58,7 +69,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR CON CLIC DIRECTO
+# BUSCADOR CON VISTA EXPANDIDA
 # ==========================================
 @st.cache_data(ttl=600)
 def cargar_datos():
@@ -70,27 +81,33 @@ def cargar_datos():
 df = cargar_datos()
 
 st.subheader("AGENDAS/MAILS")
-pregunta = st.text_input("Buscador", placeholder="Escribí para buscar...", label_visibility="collapsed")
+
+# Switch para agrandar la vista
+expandir = st.toggle("PANTALLA COMPLETA (Vista amplia)")
+
+pregunta = st.text_input("Buscador", placeholder="Escribí para filtrar...", label_visibility="collapsed")
 
 if pregunta:
     pregunta = pregunta.strip()
     res = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
     
     if not res.empty:
-        # AQUÍ ESTÁ EL TRUCO: Configuramos las columnas como Enlaces (LinkColumn)
+        # Si el usuario activa el switch, la tabla usa todo el ancho
+        ancho_tabla = True if expandir else False
+        
         st.data_editor(
             res,
             use_container_width=True,
             hide_index=True,
             disabled=True,
+            height=600 if expandir else 300, # Se agranda la altura si expande
             column_config={
-                "Mail": st.column_config.LinkColumn("Mail", display_text="Enviar Mail"),
-                "Direccion": st.column_config.LinkColumn("Direccion", display_text="Ver Mapa"),
-                "Web": st.column_config.LinkColumn("Web")
+                "MAIL/DIR": st.column_config.LinkColumn("MAIL/DIR", width="large"),
+                "DIRECCION": st.column_config.LinkColumn("DIRECCION", width="large"),
+                "DESCRIPCION": st.column_config.Column(width="medium")
             }
         )
     else:
-        st.info("Sin resultados.")
+        st.info("Sin coincidencias.")
 else:
-    st.write("Escribí arriba para buscar.")
-    
+    st.write("Ingresá un nombre arriba.")
