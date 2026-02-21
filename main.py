@@ -25,7 +25,7 @@ st.markdown("""
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { color: #2dd4bf !important; border: 1px solid #2dd4bf !important; background-color: rgba(45, 212, 191, 0.1) !important; }
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
     div.stLinkButton > a[href*="sssalud"], div.stLinkButton > a[href*="anses"], div.stLinkButton > a[href*="afip"], 
-    div.stLinkButton > a[href*="osecac"], div.stLinkButton > a[href*="gmssa"], div.stLinkButton > a[href*="kairos"], div.stLinkButton > a[href*="alfabeta"] { 
+    div.stLinkButton > a[href*="osecac"], div.stLinkButton > a[href*="gmssa"], div.stLinkButton > a[href*="kairos"], div.stLinkButton > a[href*="alfabeta"], div.stLinkButton > a[href*="SolicitudTramitesMpp"] { 
         color: #fbbf24 !important; border: 1px solid #b45309 !important; background-color: rgba(180, 83, 9, 0.1) !important; 
     }
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
@@ -59,23 +59,24 @@ with col2:
         st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true")
 
 # ==========================================
-# SECCIÓN: PAGINAS (TÍTULO MODIFICADO)
+# SECCIÓN: PAGINAS
 # ==========================================
 with st.expander("🌐 PAGINAS"):
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.link_button("🏥 SSSALUD - PADRÓN", "https://www.sssalud.gob.ar/consultas/")
         st.link_button("🏛️ AFIP", "https://www.afip.gob.ar/")
+        st.link_button("💊 VADEMÉCUM OSECAC", "https://www.osecac.org.ar/Vademecus")
     with c2:
         st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
         st.link_button("🏢 OSECAC WEB", "https://www.osecac.org.ar/")
+        st.link_button("📖 PRECIOS ALFABETA", "https://www.alfabeta.net/vademecum/")
     with c3:
         st.link_button("❌ CERTIF. NEGATIVA", "https://servicioswww.anses.gob.ar/censite/index.aspx")
         st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
     with c4:
         st.link_button("💻 PORTAL SAES", "http://portal.gmssa.com.ar/saes/Login.aspx")
-        st.link_button("💊 VADEMÉCUM OSECAC", "https://www.osecac.org.ar/Vademecus")
-        st.link_button("📖 PRECIOS ALFABETA", "https://www.alfabeta.net/vademecum/")
+        st.link_button("🧪 PORTAL MEDICAMENTOS", "http://servicios-externos.osecac.org.ar/SolicitudTramitesMpp/tramites")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
