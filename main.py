@@ -4,7 +4,7 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO PRO, CENTRADO Y TABLA GRANDE
+# 2. CSS: DISEÑO Y CONTROL DE ZOOM
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
@@ -17,7 +17,7 @@ st.markdown("""
     
     [data-testid="stImage"] img { mix-blend-mode: screen; filter: brightness(1.1); }
 
-    /* BOTONES SUPERIORES */
+    /* ESTILO BOTONES SUPERIORES */
     div.stLinkButton > a {
         border-radius: 6px !important; font-size: 11px !important; font-weight: 700 !important;
         text-transform: uppercase !important; letter-spacing: 1.5px !important;
@@ -33,11 +33,6 @@ st.markdown("""
 
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
     
-    /* Buscador más grande */
-    .stTextInput > div > div > input { 
-        background-color: #172030 !important; color: white !important; height: 50px !important; font-size: 20px !important;
-    }
-
     h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px !important; font-size: 2.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -69,7 +64,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR CON VISTA EXPANDIDA
+# BUSCADOR
 # ==========================================
 @st.cache_data(ttl=600)
 def cargar_datos():
@@ -82,32 +77,29 @@ df = cargar_datos()
 
 st.subheader("AGENDAS/MAILS")
 
-# Switch para agrandar la vista
-expandir = st.toggle("PANTALLA COMPLETA (Vista amplia)")
+# La perilla ahora controla el modo de lectura
+modo_lectura = st.toggle("MODO LECTURA (Letra Grande)")
 
-pregunta = st.text_input("Buscador", placeholder="Escribí para filtrar...", label_visibility="collapsed")
+pregunta = st.text_input("Buscador", placeholder="Escribí para buscar...", label_visibility="collapsed")
 
 if pregunta:
     pregunta = pregunta.strip()
     res = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
     
     if not res.empty:
-        # Si el usuario activa el switch, la tabla usa todo el ancho
-        ancho_tabla = True if expandir else False
-        
+        # Si la perilla está activa, mostramos la tabla mucho más alta y con columnas anchas
         st.data_editor(
             res,
             use_container_width=True,
             hide_index=True,
             disabled=True,
-            height=600 if expandir else 300, # Se agranda la altura si expande
+            height=800 if modo_lectura else 400, # Aca se nota el cambio
             column_config={
-                "MAIL/DIR": st.column_config.LinkColumn("MAIL/DIR", width="large"),
-                "DIRECCION": st.column_config.LinkColumn("DIRECCION", width="large"),
-                "DESCRIPCION": st.column_config.Column(width="medium")
+                "MAIL/DIR": st.column_config.LinkColumn("MAIL/DIR", width="large" if modo_lectura else "medium"),
+                "DIRECCION": st.column_config.LinkColumn("DIRECCION", width="large" if modo_lectura else "medium"),
             }
         )
     else:
         st.info("Sin coincidencias.")
 else:
-    st.write("Ingresá un nombre arriba.")
+    st.write("Escribí arriba para buscar.")
