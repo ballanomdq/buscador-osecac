@@ -4,13 +4,13 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDQ", layout="wide")
 
-# 2. CSS: VOLVEMOS A LOS COLORES QUE TE GUSTARON
+# 2. CSS: COLORES DIFERENCIADOS POR CAJA
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
     .block-container { max-width: 850px !important; }
 
-    /* ESTILO BASE BOTONES */
+    /* ESTILO BASE PARA TODOS LOS BOTONES */
     div.stLinkButton > a {
         border-radius: 6px !important;
         font-size: 11px !important;
@@ -25,36 +25,50 @@ st.markdown("""
         text-align: center !important;
     }
 
-    /* --- GRUPO 1: NOMENCLADORES (Celeste/Azul) --- */
-    /* Usamos el índice de los botones del primer expander */
-    .stExpander:nth-of-type(1) div.stLinkButton > a {
+    /* --- BOTONES DE ARRIBA (NOMENCLADORES): SE QUEDAN EN AZUL/CELESTE --- */
+    .nomen-container div.stLinkButton > a {
         color: #38bdf8 !important;
         border: 1px solid #334155 !important;
         background-color: #172030 !important;
     }
+    .nomen-container div.stLinkButton > a:hover {
+        background-color: #38bdf8 !important;
+        color: #0b0e14 !important;
+    }
 
-    /* --- GRUPO 2: PEDIDOS (Tus colores hermosos) --- */
-    /* 1. Pedido de Leches: ROSA */
-    .stExpander:nth-of-type(2) div[data-testid="stHorizontalBlock"] > div:nth-child(1) div.stLinkButton > a {
+    /* --- BOTONES DE ABAJO (PEDIDOS): TUS COLORES HERMOSOS --- */
+    /* 1. Rosa para Leches */
+    .pink-btn div.stLinkButton > a {
         color: #ff85a2 !important;
         border: 1px solid #ff85a2 !important;
         background-color: rgba(255, 133, 162, 0.1) !important;
     }
-    /* 2. Pedido Suministros: VERDE */
-    .stExpander:nth-of-type(2) div[data-testid="stHorizontalBlock"] > div:nth-child(2) div.stLinkButton > a {
+    .pink-btn div.stLinkButton > a:hover {
+        background-color: #ff85a2 !important;
+        color: #0b0e14 !important;
+    }
+
+    /* 2. Verde para Suministros */
+    .green-btn div.stLinkButton > a {
         color: #2dd4bf !important;
         border: 1px solid #2dd4bf !important;
         background-color: rgba(45, 212, 191, 0.1) !important;
     }
-    /* 3. Estado de Pedidos: VIOLETA */
-    .stExpander:nth-of-type(2) div[data-testid="stHorizontalBlock"] > div:nth-child(3) div.stLinkButton > a {
+    .green-btn div.stLinkButton > a:hover {
+        background-color: #2dd4bf !important;
+        color: #0b0e14 !important;
+    }
+
+    /* 3. Violeta para Estado */
+    .purple-btn div.stLinkButton > a {
         color: #a78bfa !important;
         border: 1px solid #a78bfa !important;
         background-color: rgba(167, 139, 250, 0.1) !important;
     }
-
-    /* Efectos Hover para todos */
-    div.stLinkButton > a:hover { transform: scale(1.02); brightness: 1.2; }
+    .purple-btn div.stLinkButton > a:hover {
+        background-color: #a78bfa !important;
+        color: #0b0e14 !important;
+    }
 
     .stExpander {
         background-color: rgba(23, 32, 48, 0.8) !important;
@@ -69,27 +83,39 @@ st.markdown("""
 st.title("OSECAC MDQ / AGENCIAS")
 
 # ==========================================
-# NOMENCLADORES (Caja 1)
+# NOMENCLADORES (Caja de arriba)
 # ==========================================
 with st.expander("NOMENCLADORES"):
+    # Envolvemos en un div para fijar el color azul
+    st.markdown('<div class="nomen-container">', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     with c1: st.link_button("NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     with c2: st.link_button("NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
     with c3: st.link_button("NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# PEDIDOS (Caja 2)
+# PEDIDOS (Caja de abajo con colores hermosos)
 # ==========================================
 with st.expander("PEDIDOS"):
     col_l, col_s, col_e = st.columns(3)
-    with col_l: st.link_button("PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-    with col_s: st.link_button("PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-    with col_e: st.link_button("ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true")
+    with col_l: 
+        st.markdown('<div class="pink-btn">', unsafe_allow_html=True)
+        st.link_button("PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_s: 
+        st.markdown('<div class="green-btn">', unsafe_allow_html=True)
+        st.link_button("PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_e: 
+        st.markdown('<div class="purple-btn">', unsafe_allow_html=True)
+        st.link_button("ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# AGENDAS/MAILS
+# AGENDAS/MAILS (Lógica intacta)
 # ==========================================
 @st.cache_data
 def cargar_datos():
@@ -121,3 +147,4 @@ if pregunta:
         st.dataframe(resultados, use_container_width=True)
     else:
         st.warning("SIN COINCIDENCIAS")
+        
