@@ -4,22 +4,48 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO OSCURO Y BOTONES
+# 2. CSS: DISEÑO ORIGINAL CON DEGRADADO ANIMADO
 st.markdown("""
     <style>
-    .stApp { background-color: #0b0e14; color: #e2e8f0; }
+    /* Degradado animado de fondo */
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .stApp { 
+        background: linear-gradient(-45deg, #0b0e14, #0f172a, #0b0e14, #1e293b);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        color: #e2e8f0; 
+    }
+
     .block-container { max-width: 1250px !important; padding-top: 1.5rem !important; }
+    
     .cabecera-centrada { 
         display: flex; flex-direction: column; align-items: center; 
         justify-content: center; text-align: center; width: 100%; margin-bottom: 10px; 
     }
+    
+    .subtitulo-azul {
+        color: #00529b;
+        font-size: 14px;
+        font-weight: 600;
+        margin-top: -10px;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
     [data-testid="stImage"] img { mix-blend-mode: screen; filter: brightness(1.1); }
+    
     div.stLinkButton > a {
         border-radius: 6px !important; font-size: 11px !important; font-weight: 700 !important;
         text-transform: uppercase !important; letter-spacing: 1.5px !important;
         padding: 10px 15px !important; display: inline-block !important;
         width: 100% !important; text-align: center !important; transition: all 0.3s ease !important;
     }
+    
     div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] { color: #38bdf8 !important; border: 1px solid #00529b !important; background-color: rgba(0, 82, 155, 0.2) !important; }
     div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { color: #ff85a2 !important; border: 1px solid #ff85a2 !important; background-color: rgba(255, 133, 162, 0.1) !important; }
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { color: #2dd4bf !important; border: 1px solid #2dd4bf !important; background-color: rgba(45, 212, 191, 0.1) !important; }
@@ -28,6 +54,7 @@ st.markdown("""
     div.stLinkButton > a[href*="osecac"], div.stLinkButton > a[href*="gmssa"], div.stLinkButton > a[href*="kairos"], div.stLinkButton > a[href*="alfabeta"], div.stLinkButton > a[href*="SolicitudTramitesMpp"] { 
         color: #fbbf24 !important; border: 1px solid #b45309 !important; background-color: rgba(180, 83, 9, 0.1) !important; 
     }
+    
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; height: 45px !important; }
     h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px !important; font-size: 2.5rem !important; }
@@ -37,6 +64,7 @@ st.markdown("""
 # === CABECERA ===
 st.markdown('<div class="cabecera-centrada">', unsafe_allow_html=True)
 st.title("OSECAC MDP / AGENCIAS")
+st.markdown('<div class="subtitulo-azul">PROGRAMA INTERNO PARA LOS COMPAÑEROS DE OSECAC</div>', unsafe_allow_html=True)
 try: st.image("LOGO.jpg", width=100)
 except: pass
 st.markdown('</div>', unsafe_allow_html=True)
