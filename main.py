@@ -4,7 +4,7 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: CORRECCIÓN DE ALINEACIÓN CENTRAL Y DISEÑO
+# 2. CSS: CORRECCIÓN DE ALINEACIÓN Y TAMAÑO RESPONSIVO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -21,7 +21,7 @@ st.markdown("""
 
     .block-container { max-width: 1250px !important; padding-top: 1.5rem !important; }
     
-    /* CABECERA FORZADA AL CENTRO TOTAL */
+    /* CABECERA CENTRADA RESPONSIVA */
     .cabecera-centrada { 
         display: flex; 
         flex-direction: column; 
@@ -35,27 +35,26 @@ st.markdown("""
     .titulo-principal {
         font-weight: 900; 
         color: #e2e8f0; 
-        font-size: 2.5rem !important;
+        font-size: 2.2rem !important; /* Un poco más chico para que entre en celulares */
         margin-bottom: 5px !important;
-        width: 100%;
     }
 
     .subtitulo-equipo {
         color: #94a3b8; 
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 400;
-        letter-spacing: 2px;
+        letter-spacing: 1.5px;
         text-transform: uppercase;
         margin-bottom: 15px;
-        width: 100%;
     }
 
-    .logo-img {
+    /* CONTROL DEL LOGO PARA QUE NO SEA ENORME EN CELULAR */
+    .logo-container img {
+        max-width: 120px !important; /* Tamaño fijo máximo */
+        height: auto;
         mix-blend-mode: screen; 
         filter: brightness(1.1);
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
+        margin: 0 auto;
     }
 
     div.stLinkButton > a {
@@ -79,19 +78,17 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA CORREGIDA ===
+# === CABECERA COMPLETA Y CENTRADA ===
+# Usamos HTML puro para el logo también, así controlamos el tamaño exacto
 st.markdown(f"""
     <div class="cabecera-centrada">
         <div class="titulo-principal">OSECAC MDP / AGENCIAS</div>
         <div class="subtitulo-equipo">PORTAL DE APOYO PARA COMPAÑEROS</div>
+        <div class="logo-container">
+            <img src="https://raw.githubusercontent.com/ballanomdq/buscador-osecac/main/LOGO.jpg" alt="Logo">
+        </div>
     </div>
     """, unsafe_allow_html=True)
-
-# Logo centrado usando columnas para asegurar el medio
-col_l1, col_l2, col_l3 = st.columns([2, 1, 2])
-with col_l2:
-    try: st.image("LOGO.jpg", use_container_width=True)
-    except: pass
 
 st.markdown("---")
 
