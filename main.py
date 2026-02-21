@@ -26,16 +26,15 @@ st.markdown("""
     }
 
     /* COLORES POR SECCIÓN */
-    /* Nomencladores - Azul */
     div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] { color: #38bdf8 !important; border: 1px solid #00529b !important; background-color: rgba(0, 82, 155, 0.2) !important; }
     
-    /* Pedidos - Colores variados */
     div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { color: #ff85a2 !important; border: 1px solid #ff85a2 !important; background-color: rgba(255, 133, 162, 0.1) !important; }
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { color: #2dd4bf !important; border: 1px solid #2dd4bf !important; background-color: rgba(45, 212, 191, 0.1) !important; }
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
 
-    /* Consultas Externas (NUEVO) - Naranja/Ambar */
-    div.stLinkButton > a[href*="sssalud"], div.stLinkButton > a[href*="anses"] { 
+    /* PAGINAS - Naranja/Ambar */
+    div.stLinkButton > a[href*="sssalud"], div.stLinkButton > a[href*="anses"], div.stLinkButton > a[href*="afip"], 
+    div.stLinkButton > a[href*="osecac.org"], div.stLinkButton > a[href*="gmssa"] { 
         color: #fbbf24 !important; border: 1px solid #b45309 !important; background-color: rgba(180, 83, 9, 0.1) !important; 
     }
 
@@ -72,16 +71,21 @@ with col2:
         st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true")
 
 # ==========================================
-# NUEVA SECCIÓN: CONSULTAS EXTERNAS
+# SECCIÓN: PAGINAS (SSSALUD / ANSES / OTROS)
 # ==========================================
-with st.expander("🔍 CONSULTAS EXTERNAS (SSSALUD / ANSES)"):
-    c1, c2, c3 = st.columns(3)
+with st.expander("🌐 PAGINAS"):
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.link_button("🏥 SSSALUD - PADRÓN", "https://www.sssalud.gob.ar/consultas/")
+        st.link_button("🏛️ AFIP", "https://www.afip.gob.ar/")
     with c2:
         st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+        st.link_button("🏢 OSECAC WEB", "https://www.osecac.org.ar/")
     with c3:
         st.link_button("❌ CERTIF. NEGATIVA", "https://servicioswww.anses.gob.ar/censite/index.aspx")
+        st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
+    with c4:
+        st.link_button("💻 PORTAL SAES", "http://portal.gmssa.com.ar/saes/Login.aspx")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
