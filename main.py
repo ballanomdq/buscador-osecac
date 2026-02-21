@@ -2,9 +2,56 @@ import streamlit as st
 import pandas as pd
 
 # Configuración de la página
-st.set_page_config(page_title="Portal OSECAC Miramar", layout="wide")
+st.set_page_config(page_title="OSECAC MDQ / AGENCIAS", layout="wide")
 
-st.title("🔎 Portal Interno OSECAC Miramar")
+# CSS personalizado para el estilo Minimalista y Celeste Oscuro
+st.markdown("""
+    <style>
+    /* Fondo de la página */
+    .stApp {
+        background-color: #1e2b3c;
+        color: #e0e6ed;
+    }
+    
+    /* Estilo para los botones (Links) */
+    div.stLinkButton > a {
+        background-color: #2c3e50 !important;
+        color: #ffffff !important;
+        border: 1px solid #4a90e2 !important;
+        border-radius: 10px !important;
+        padding: 15px !important;
+        transition: all 0.3s ease !important;
+        font-weight: 500 !important;
+        text-decoration: none !important;
+        display: block !important;
+        text-align: center !important;
+    }
+    
+    /* Efecto al pasar el mouse (Hover) */
+    div.stLinkButton > a:hover {
+        background-color: #4a90e2 !important;
+        border-color: #ffffff !important;
+        transform: translateY(-3px) !important;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3) !important;
+    }
+
+    /* Ajuste de los títulos */
+    h1, h2, h3 {
+        color: #ffffff !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Estilo del buscador */
+    .stTextInput > div > div > input {
+        background-color: #2c3e50 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: 1px solid #4a90e2 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("🔎 OSECAC MDQ / AGENCIAS")
 st.markdown("---")
 
 # ==========================================
@@ -12,7 +59,6 @@ st.markdown("---")
 # ==========================================
 st.subheader("🚀 Accesos Directos")
 
-# Primera fila de botones
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -37,16 +83,12 @@ def cargar_datos():
     try:
         url_osecac = "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
         url_faba = "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/export?format=csv"
-
         df1 = pd.read_csv(url_osecac)
         df1["Origen"] = "OSECAC"
-
         df2 = pd.read_csv(url_faba)
         df2["Origen"] = "FABA"
-
         return pd.concat([df1, df2], ignore_index=True)
-    except Exception as e:
-        st.error(f"Error cargando planillas: {e}")
+    except:
         return pd.DataFrame()
 
 df = cargar_datos()
@@ -59,14 +101,13 @@ pregunta = st.text_input("Ingresá nombre, teléfono o dato a buscar:")
 
 if pregunta and not df.empty:
     pregunta = pregunta.strip()
-    # Filtro inteligente en todas las columnas
     resultados = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
 
     if not resultados.empty:
         st.success(f"Se encontraron {len(resultados)} coincidencia(s):")
         st.dataframe(resultados, use_container_width=True)
     else:
-        st.warning("No se encontraron resultados para esa búsqueda.")
+        st.warning("No se encontraron resultados.")
 
 if df.empty:
     st.warning("Aviso: No se pudo conectar con las planillas de Google.")
