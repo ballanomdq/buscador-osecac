@@ -69,7 +69,7 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR AGENDAS
+# BUSCADOR AGENDAS (CORREGIDO)
 # ==========================================
 @st.cache_data(ttl=600)
 def cargar_datos():
@@ -82,8 +82,26 @@ df = cargar_datos()
 
 st.subheader("AGENDAS/MAILS")
 
-pregunta = st.text_input("Buscador", placeholder="Escribí para buscar (Ej: Miramar)...", label_visibility="collapsed")
+pregunta = st.text_input("Buscador", placeholder="Escribí para buscar...", label_visibility="collapsed")
 
 if pregunta:
     pregunta = pregunta.strip()
-    res = df[df.astype(str).apply(lambda row
+    # Filtro corregido con los paréntesis cerrados correctamente
+    res = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
+    
+    if not res.empty:
+        st.data_editor(
+            res,
+            use_container_width=True,
+            hide_index=True,
+            disabled=True,
+            height=500,
+            column_config={
+                "MAIL/DIR": st.column_config.LinkColumn("MAIL/DIR", width="large"),
+                "DIRECCION": st.column_config.LinkColumn("DIRECCION", width="large"),
+            }
+        )
+    else:
+        st.info("Sin coincidencias.")
+else:
+    st.write("Escribí arriba para filtrar los datos.")
