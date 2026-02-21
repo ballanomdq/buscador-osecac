@@ -2,13 +2,12 @@ import streamlit as st
 import pandas as pd
 import google.generativeai as genai
 
-# CONFIGURACIÓN DIRECTA (Sin Secrets para que no falle)
-# Ponemos la clave directamente acá:
+# CONFIGURACIÓN DIRECTA
 CLAVE_DIRECTA = "AIzaSyDRxaZXnAdEDt-C-AZvjqa004dwII8KesQ"
-
 genai.configure(api_key=CLAVE_DIRECTA)
 
-st.title("🤖 Buscador OSECAC Miramar (MODO DIRECTO)")
+st.set_page_config(page_title="Buscador OSECAC Miramar", layout="centered")
+st.title("🤖 Buscador OSECAC Miramar")
 
 @st.cache_data
 def cargar_datos():
@@ -26,11 +25,10 @@ pregunta = st.text_input("¿Qué dato buscás hoy?")
 if pregunta:
     with st.spinner("Buscando..."):
         try:
-model = genai.GenerativeModel("gemini-1.5-flash")
-            # Le pasamos solo un poquito de info para probar
-            contexto = f"Datos: {df1.head(20).to_string()}"
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            contexto = f"Datos OSECAC: {df1.head(10).to_string()}\nDatos FABA: {df2.head(10).to_string()}"
             res = model.generate_content(f"{contexto}\n\nPregunta: {pregunta}")
-            st.success("Respuesta de la IA:")
+            st.success("Respuesta:")
             st.write(res.text)
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error técnico: {e}")
