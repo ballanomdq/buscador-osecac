@@ -4,30 +4,31 @@ import pandas as pd
 # Configuración de la página
 st.set_page_config(page_title="OSECAC MDQ / AGENCIAS", layout="wide")
 
-# Estilo sutil para mantener el modo oscuro pero asegurar clics
+# Estilo para modo oscuro y profesional
 st.markdown("""
     <style>
     .stApp {
         background-color: #0e1117;
         color: #f8fafc;
     }
+    /* Estilo para los dos menús desplegables */
     .stExpander {
         background-color: #1e293b !important;
         border: 1px solid #334155 !important;
         border-radius: 12px !important;
+        margin-bottom: 10px !important;
     }
     h1 { font-weight: 800; letter-spacing: -1px; }
+    h3 { color: #94a3b8 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("OSECAC MDQ / AGENCIAS")
 
 # ==========================================
-# MENÚ DESPLEGABLE REAGRUPADO
+# SECCIÓN 1: NOMENCLADORES
 # ==========================================
-with st.expander("MENU"):
-    
-    st.markdown("### 🔍 Nomencladores")
+with st.expander("📖 NOMENCLADORES"):
     col1, col2, col3 = st.columns(3)
     with col1:
         st.link_button("NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc", use_container_width=True)
@@ -36,8 +37,10 @@ with st.expander("MENU"):
     with col3:
         st.link_button("NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF", use_container_width=True)
 
-    st.markdown("---")
-    st.markdown("### 📦 Gestión de Pedidos")
+# ==========================================
+# SECCIÓN 2: PEDIDOS
+# ==========================================
+with st.expander("📦 PEDIDOS"):
     col4, col5, col6 = st.columns(3)
     with col4:
         st.link_button("PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform", use_container_width=True)
@@ -49,7 +52,7 @@ with st.expander("MENU"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # =========================
-# CARGA DE DATOS
+# CARGA DE DATOS (AGENDA)
 # =========================
 @st.cache_data
 def cargar_datos():
@@ -81,3 +84,6 @@ if pregunta and not df.empty:
         st.dataframe(resultados, use_container_width=True)
     else:
         st.warning("SIN RESULTADOS")
+
+if df.empty:
+    st.error("ERROR: NO SE PUDO SINCRONIZAR CON LAS BASES DE DATOS")
