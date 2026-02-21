@@ -4,14 +4,20 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO OSCURO, ANCHO Y TABLA FLUIDA
+# 2. CSS: DISEÑO OSCURO Y POSICIONAMIENTO
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
-    .block-container { max-width: 1200px !important; padding-top: 2rem !important; }
+    .block-container { max-width: 1200px !important; padding-top: 1.5rem !important; }
 
-    /* Logo sin fondo blanco */
-    [data-testid="stImage"] img { mix-blend-mode: screen; object-fit: contain; }
+    /* Estilo del Logo centrado */
+    .logo-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        mix-blend-mode: screen;
+        filter: brightness(1.1);
+    }
 
     /* ESTILO BOTONES */
     div.stLinkButton > a {
@@ -37,31 +43,28 @@ st.markdown("""
 
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
     
-    /* Buscador más alto y prolijo */
-    .stTextInput > div > div > input { 
-        background-color: #172030 !important; 
-        color: white !important; 
-        height: 45px !important;
-        font-size: 18px !important;
-    }
-    
-    h1 { font-weight: 900; color: #e2e8f0; margin: 0; font-size: 2rem !important; }
+    /* Buscador */
+    .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; height: 45px !important; }
+
+    h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px; padding-bottom: 0px; font-size: 2.2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # === CABECERA ===
-col_logo, col_titulo = st.columns([1, 6])
+st.title("OSECAC MDP / AGENCIAS")
+
+# LOGO DEBAJO DEL TÍTULO
+col_espacio1, col_logo, col_espacio2 = st.columns([2, 1, 2])
 with col_logo:
-    try: st.image("LOGO.jpg", width=120)
-    except: pass
-with col_titulo:
-    st.markdown("<div style='padding-top:15px;'></div>", unsafe_allow_html=True)
-    st.title("OSECAC MDP / AGENCIAS")
+    try:
+        st.image("LOGO.jpg", width=90) # Tamaño bien discreto
+    except:
+        pass
 
 st.markdown("---")
 
 # ==========================================
-# MENÚS
+# MENÚS (NOMENCLADORES Y PEDIDOS)
 # ==========================================
 with st.expander("NOMENCLADORES"):
     c1, c2, c3 = st.columns(3)
@@ -78,9 +81,9 @@ with st.expander("PEDIDOS"):
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# BUSCADOR AGENDAS (BÚSQUEDA EN VIVO)
+# BUSCADOR AGENDAS (BÚSQUEDA EN VIVO + COPIAR)
 # ==========================================
-@st.cache_data(ttl=600) # Se actualiza cada 10 min por si cambias la planilla
+@st.cache_data(ttl=600)
 def cargar_datos():
     try:
         url_unica = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
@@ -91,23 +94,21 @@ def cargar_datos():
 df = cargar_datos()
 
 st.subheader("AGENDAS/MAILS")
-
-# El buscador ahora reacciona a cada cambio
-pregunta = st.text_input("Buscador", placeholder="Escribí para filtrar resultados...", label_visibility="collapsed")
+pregunta = st.text_input("Buscador", placeholder="Escribí para buscar...", label_visibility="collapsed")
 
 if pregunta:
-    # Filtro rápido
+    pregunta = pregunta.strip()
     resultados = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
     
     if not resultados.empty:
-        # Mostramos la tabla optimizada
-        st.dataframe(
-            resultados, 
-            use_container_width=True, 
-            hide_index=True
+        # Usamos data_editor para permitir copiar con un clic
+        st.data_editor(
+            resultados,
+            use_container_width=True,
+            hide_index=True,
+            disabled=True # Evita que borren datos, solo lectura/copia
         )
     else:
-        st.info("No se encontraron coincidencias para: " + pregunta)
+        st.info("No se encontraron coincidencias.")
 else:
-    # Opcional: Mostrar los primeros 5 resultados si no hay búsqueda
-    st.write("Escribí arriba el nombre de una agencia o servicio.")
+    st.write("Escribí arriba para filtrar los datos.")
