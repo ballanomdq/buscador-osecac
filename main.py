@@ -4,17 +4,16 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO ORIGINAL CON DEGRADADO ANIMADO
+# 2. CSS: DISEÑO ORIGINAL CON DEGRADADO SUTIL
 st.markdown("""
     <style>
-    /* Degradado animado de fondo */
     @keyframes gradientBG {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
     .stApp { 
-        background: linear-gradient(-45deg, #0b0e14, #0f172a, #0b0e14, #1e293b);
+        background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
@@ -27,17 +26,17 @@ st.markdown("""
         justify-content: center; text-align: center; width: 100%; margin-bottom: 10px; 
     }
     
-    .subtitulo-azul {
-        color: #00529b;
-        font-size: 14px;
-        font-weight: 600;
-        margin-top: -10px;
-        margin-bottom: 10px;
+    .subtitulo-equipo {
+        color: #94a3b8; /* Azul clarito elegante */
+        font-size: 15px;
+        font-weight: 400;
+        margin-top: -5px;
+        margin-bottom: 15px;
+        letter-spacing: 2px;
         text-transform: uppercase;
-        letter-spacing: 1px;
     }
 
-    [data-testid="stImage"] img { mix-blend-mode: screen; filter: brightness(1.1); }
+    [data-testid="stImage"] img { mix-blend-mode: screen; filter: brightness(1.1); margin-top: 5px; }
     
     div.stLinkButton > a {
         border-radius: 6px !important; font-size: 11px !important; font-weight: 700 !important;
@@ -64,7 +63,7 @@ st.markdown("""
 # === CABECERA ===
 st.markdown('<div class="cabecera-centrada">', unsafe_allow_html=True)
 st.title("OSECAC MDP / AGENCIAS")
-st.markdown('<div class="subtitulo-azul">PROGRAMA INTERNO PARA LOS COMPAÑEROS DE OSECAC</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitulo-equipo">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
 try: st.image("LOGO.jpg", width=100)
 except: pass
 st.markdown('</div>', unsafe_allow_html=True)
