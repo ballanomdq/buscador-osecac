@@ -12,13 +12,14 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
+# URLs de tus Sheets (Publicados como CSV)
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERSONALIZADO (Mantenemos tus fichas espectaculares)
+# 3. CSS PERSONALIZADO (Diseño de Fichas para Trámites y Agendas)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -45,37 +46,47 @@ st.markdown("""
 
     .logo-container img {
         max-width: 120px !important; height: auto;
-        mix-blend-mode: screen; filter: brightness(1.1);
         margin: 10px auto; display: block;
     }
 
-    .ficha-tramite {
+    /* Ficha General (Trámites y Agendas) */
+    .ficha {
         background-color: rgba(23, 32, 48, 0.9);
-        padding: 25px;
-        border-radius: 15px;
-        border-left: 6px solid #fbbf24;
+        padding: 20px;
+        border-radius: 12px;
         margin-bottom: 10px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
-    .ficha-titulo { color: #fbbf24; font-size: 1.5rem; font-weight: bold; margin-bottom: 12px; }
-    .ficha-contenido { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
+    
+    /* Estilo Trámites (Borde Amarillo) */
+    .ficha-tramite { border-left: 6px solid #fbbf24; }
+    .titulo-tramite { color: #fbbf24; font-size: 1.4rem; font-weight: bold; margin-bottom: 10px; }
 
+    /* Estilo Agendas (Borde Celeste) */
+    .ficha-agenda { border-left: 6px solid #38bdf8; }
+    .titulo-agenda { color: #38bdf8; font-size: 1.3rem; font-weight: bold; margin-bottom: 8px; }
+    
+    .cuerpo-ficha { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
+
+    /* Botones y Expanders */
     div.stLinkButton > a {
         border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
-        text-transform: uppercase !important; letter-spacing: 1.2px !important;
-        padding: 12px !important; width: 100% !important; text-align: center !important;
+        text-transform: uppercase !important; padding: 12px !important; width: 100% !important; text-align: center !important;
     }
     
-    /* Estilo especial para los Expanders */
     .stExpander { 
         background-color: rgba(30, 41, 59, 0.6) !important; 
-        border: 1px solid #fbbf24 !important; 
         border-radius: 12px !important; 
+        margin-bottom: 10px !important;
     }
+    
+    /* Colores de borde para identificar cada buscador */
+    div[data-testid="stExpander"]:nth-of-type(1) { border: 1px solid #fbbf24 !important; }
+    div[data-testid="stExpander"]:nth-of-type(2) { border: 1px solid #38bdf8 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA Y LOGO ===
+# === CABECERA ===
 st.markdown(f"""
     <div class="cabecera-centrada">
         <div class="titulo-principal">OSECAC MDP / AGENCIAS</div>
@@ -89,10 +100,10 @@ st.markdown(f"""
 st.markdown("---")
 
 # ==========================================
-# SECCIÓN 1: BUSCADOR DE TRÁMITES (DENTRO DE BOTÓN/EXPANDER)
+# SECCIÓN 1: GESTIONES / DATOS (Fichas Amarillas)
 # ==========================================
-with st.expander("🔍 **HACÉ CLIC AQUÍ PARA BUSCAR UN TRÁMITE**", expanded=False):
-    busqueda_t = st.text_input("Escribí palabras relacionadas (ej: 'sordera', 'renuncia', 'leche')...", key="search_tramites")
+with st.expander("📂 **GESTIONES / DATOS**", expanded=False):
+    busqueda_t = st.text_input("Buscá trámites, prácticas o prestadores...", key="search_tramites")
 
     if busqueda_t:
         t = busqueda_t.lower().strip()
@@ -104,20 +115,49 @@ with st.expander("🔍 **HACÉ CLIC AQUÍ PARA BUSCAR UN TRÁMITE**", expanded=F
         if not res_t.empty:
             for i, row in res_t.iterrows():
                 st.markdown(f"""
-                    <div class="ficha-tramite">
-                        <div class="ficha-titulo">📋 {row['TRAMITE']}</div>
-                        <div class="ficha-contenido">{row['DESCRIPCIÓN Y REQUISITOS']}</div>
+                    <div class="ficha ficha-tramite">
+                        <div class="titulo-tramite">📋 {row['TRAMITE']}</div>
+                        <div class="cuerpo-ficha">{row['DESCRIPCIÓN Y REQUISITOS']}</div>
                     </div>
                 """, unsafe_allow_html=True)
                 st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
                 st.markdown("<br>", unsafe_allow_html=True)
         else:
-            st.warning("No se encontró ningún trámite con esa palabra.")
+            st.warning("No se encontró información en Gestiones.")
+
+# ==========================================
+# SECCIÓN 2: AGENDAS / MAILS (Fichas Celestes)
+# ==========================================
+with st.expander("📞 **AGENDAS / MAILS**", expanded=False):
+    busqueda_a = st.text_input("Buscá un contacto, delegación o mail...", key="search_agendas")
+
+    if busqueda_a:
+        q = busqueda_a.lower().strip()
+        # Buscamos en todo el DataFrame de agendas
+        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
+        
+        if not res_a.empty:
+            for i, row in res_a.iterrows():
+                # Armamos la ficha con los datos de las columnas de tu agenda
+                # Nota: Usamos row.iloc para evitar errores si los nombres de columna varían
+                contenido_agenda = ""
+                for col in df_agendas.columns:
+                    if pd.notna(row[col]):
+                        contenido_agenda += f"**{col}:** {row[col]}  \n"
+                
+                st.markdown(f"""
+                    <div class="ficha ficha-agenda">
+                        <div class="titulo-agenda">👤 {row.iloc[0]}</div>
+                        <div class="cuerpo-ficha">{contenido_agenda}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.warning("No se encontraron contactos en la Agenda.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
-# SECCIÓN 2: MENÚS DE ACCESO RÁPIDO
+# SECCIÓN 3: ACCESOS RÁPIDOS (Expanders inferiores)
 # ==========================================
 col_m1, col_m2 = st.columns(2)
 with col_m1:
@@ -143,20 +183,3 @@ with st.expander("🌐 PAGINAS ÚTILES"):
     with c3:
         st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
         st.link_button("🧪 PORTAL MEDICAMENTOS", "http://servicios-externos.osecac.org.ar/SolicitudTramitesMpp/tramites")
-
-st.markdown("---")
-
-# ==========================================
-# SECCIÓN 3: BUSCADOR DE AGENDAS / MAILS
-# ==========================================
-st.subheader("📞 AGENDAS / MAILS")
-busqueda_a = st.text_input("Buscá un contacto, mail o delegación...", key="search_agendas")
-
-if busqueda_a:
-    q = busqueda_a.lower().strip()
-    res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
-    
-    if not res_a.empty:
-        st.dataframe(res_a, use_container_width=True, hide_index=True)
-    else:
-        st.info("No hay contactos que coincidan.")
