@@ -4,19 +4,24 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO OSCURO Y POSICIONAMIENTO
+# 2. CSS: DISEÑO OSCURO Y CENTRADO TOTAL
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
     .block-container { max-width: 1200px !important; padding-top: 1.5rem !important; }
 
-    /* Estilo del Logo centrado */
+    /* Forzar centrado absoluto del logo */
+    .centrar-todo {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        width: 100%;
+    }
+
     .logo-img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
         mix-blend-mode: screen;
-        filter: brightness(1.1);
+        margin-top: 10px;
     }
 
     /* ESTILO BOTONES */
@@ -42,24 +47,20 @@ st.markdown("""
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
 
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
-    
-    /* Buscador */
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; height: 45px !important; }
 
-    h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px; padding-bottom: 0px; font-size: 2.2rem !important; }
+    h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px; font-size: 2.2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA ===
+# === CABECERA CENTRADA AL 100% ===
+st.markdown('<div class="centrar-todo">', unsafe_allow_html=True)
 st.title("OSECAC MDP / AGENCIAS")
-
-# LOGO DEBAJO DEL TÍTULO
-col_espacio1, col_logo, col_espacio2 = st.columns([2, 1, 2])
-with col_logo:
-    try:
-        st.image("LOGO.jpg", width=90) # Tamaño bien discreto
-    except:
-        pass
+try:
+    st.image("LOGO.jpg", width=95)
+except:
+    pass
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -101,14 +102,13 @@ if pregunta:
     resultados = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
     
     if not resultados.empty:
-        # Usamos data_editor para permitir copiar con un clic
         st.data_editor(
             resultados,
             use_container_width=True,
             hide_index=True,
-            disabled=True # Evita que borren datos, solo lectura/copia
+            disabled=True
         )
     else:
-        st.info("No se encontraron coincidencias.")
+        st.info("No hay coincidencias.")
 else:
     st.write("Escribí arriba para filtrar los datos.")
