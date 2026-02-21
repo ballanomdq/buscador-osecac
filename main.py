@@ -2,21 +2,26 @@ import streamlit as st
 import pandas as pd
 
 # 1. CONFIGURACIÓN
-st.set_page_config(page_title="OSECAC MDQ", layout="wide")
+st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: FONDO OSCURO Y AZUL LOGO (#00529b es el azul de OSECAC)
+# 2. CSS: CORRECCIÓN DE LOGO Y COLORES
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
     .block-container { max-width: 850px !important; padding-top: 1rem !important; }
 
-    /* Efecto para disimular el fondo blanco del logo */
+    /* Evitar que el logo se corte y quitar fondo blanco */
+    [data-testid="stImage"] {
+        text-align: left;
+        display: block;
+    }
     [data-testid="stImage"] img {
-        mix-blend-mode: screen; /* Esto hace que el blanco se vuelva transparente en fondo oscuro */
+        mix-blend-mode: screen; /* Quita el fondo blanco del logo */
         object-fit: contain;
+        max-height: 100px;
     }
 
-    /* ESTILO BASE BOTONES */
+    /* ESTILO BOTONES */
     div.stLinkButton > a {
         border-radius: 6px !important;
         font-size: 11px !important;
@@ -30,34 +35,29 @@ st.markdown("""
         transition: all 0.3s ease !important;
     }
 
-    /* --- NOMENCLADORES (Azul OSECAC del Logo) --- */
+    /* NOMENCLADORES (Azul Logo) */
     div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] {
-        color: #38bdf8 !important; /* Celeste brillante para que se lea bien */
-        border: 1px solid #00529b !important; /* Azul del logo */
+        color: #38bdf8 !important;
+        border: 1px solid #00529b !important;
         background-color: rgba(0, 82, 155, 0.2) !important;
     }
 
-    /* --- PEDIDOS (Tus colores hermosos originales) --- */
-    /* Rosa para Leches */
+    /* PEDIDOS (Rosa, Verde, Violeta) */
     div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { 
         color: #ff85a2 !important;
         border: 1px solid #ff85a2 !important;
         background-color: rgba(255, 133, 162, 0.1) !important;
     }
-    /* Verde para Suministros */
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { 
         color: #2dd4bf !important;
         border: 1px solid #2dd4bf !important;
         background-color: rgba(45, 212, 191, 0.1) !important;
     }
-    /* Violeta para Estado */
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { 
         color: #a78bfa !important;
         border: 1px solid #a78bfa !important;
         background-color: rgba(167, 139, 250, 0.1) !important;
     }
-
-    div.stLinkButton > a:hover { transform: scale(1.02); filter: brightness(1.2); }
 
     .stExpander {
         background-color: rgba(23, 32, 48, 0.8) !important;
@@ -66,28 +66,23 @@ st.markdown("""
     }
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; }
     
-    /* Título en el azul del logo */
-    h1 { font-weight: 900; text-align: left; color: #00529b; margin: 0; }
+    /* Título Azul MDP */
+    h1 { font-weight: 900; color: #38bdf8; margin: 0; font-size: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA: LOGO IZQUIERDA Y TÍTULO ===
-col_logo, col_titulo = st.columns([1, 3])
+# === CABECERA ===
+try:
+    # Usamos st.image directamente para que no se corte en columnas
+    st.image("LOGO.jpg", width=150)
+except:
+    pass
 
-with col_logo:
-    try:
-        st.image("LOGO.jpg", width=120)
-    except:
-        st.write(" ")
-
-with col_titulo:
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.title("OSECAC MDQ / AGENCIAS")
-
+st.title("OSECAC MDP / AGENCIAS")
 st.markdown("---")
 
 # ==========================================
-# MENÚS (Nomencladores y Pedidos)
+# MENÚS
 # ==========================================
 with st.expander("NOMENCLADORES"):
     c1, c2, c3 = st.columns(3)
