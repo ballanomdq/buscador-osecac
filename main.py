@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO OSCURO Y BOTONES PROFESIONALES
+# 2. CSS: DISEÑO OSCURO Y BOTONES
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; color: #e2e8f0; }
@@ -31,7 +31,7 @@ st.markdown("""
     div.stLinkButton > a[href*="MlwRSUf6dAww"] { color: #2dd4bf !important; border: 1px solid #2dd4bf !important; background-color: rgba(45, 212, 191, 0.1) !important; }
     div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
 
-    /* COLOR NARANJA PARA PÁGINAS Y VADEMÉCUM */
+    /* PAGINAS Y VADEMÉCUM - Ámbar */
     div.stLinkButton > a[href*="sssalud"], div.stLinkButton > a[href*="anses"], div.stLinkButton > a[href*="afip"], 
     div.stLinkButton > a[href*="osecac"], div.stLinkButton > a[href*="gmssa"], div.stLinkButton > a[href*="alfabeta"] { 
         color: #fbbf24 !important; border: 1px solid #b45309 !important; background-color: rgba(180, 83, 9, 0.1) !important; 
@@ -70,9 +70,9 @@ with col2:
         st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true")
 
 # ==========================================
-# SECCIÓN: PAGINAS (CORREGIDO)
+# SECCIÓN: PAGINAS / VADEMÉCUM
 # ==========================================
-with st.expander("🌐 PAGINAS / VADEMÉCUM"):
+with st.expander("🌐 PAGINAS"):
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.link_button("🏥 SSSALUD - PADRÓN", "https://www.sssalud.gob.ar/consultas/")
@@ -85,8 +85,8 @@ with st.expander("🌐 PAGINAS / VADEMÉCUM"):
         st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
     with c4:
         st.link_button("💻 PORTAL SAES", "http://portal.gmssa.com.ar/saes/Login.aspx")
-        # LINK CORREGIDO PARA EVITAR ERROR 404
-        st.link_button("💊 VADEMÉCUM OSECAC", "https://www.osecac.org.ar/vademecum/")
+        # LINK ACTUALIZADO A LA VERSIÓN DE PRESTADORES (MÁS ESTABLE)
+        st.link_button("💊 VADEMÉCUM OSECAC", "https://www.osecac.org.ar/vademecum/vademecum.php")
         st.link_button("📖 PRECIOS ALFABETA", "https://www.alfabeta.net/vademecum/")
 
 st.markdown("<br>", unsafe_allow_html=True)
