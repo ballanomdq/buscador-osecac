@@ -4,49 +4,18 @@ import pandas as pd
 # Configuración de la página
 st.set_page_config(page_title="OSECAC MDQ / AGENCIAS", layout="wide")
 
-# CSS Ajustado para Máxima Compatibilidad Móvil
+# Estilo sutil para mantener el modo oscuro pero asegurar clics
 st.markdown("""
     <style>
     .stApp {
         background-color: #0e1117;
         color: #f8fafc;
     }
-
-    /* Contenedor del menú */
     .stExpander {
         background-color: #1e293b !important;
         border: 1px solid #334155 !important;
         border-radius: 12px !important;
     }
-
-    /* Botones con compatibilidad total para clics en móviles */
-    div.stLinkButton > a {
-        background-color: #1e293b !important;
-        color: #38bdf8 !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
-        padding: 12px 10px !important;
-        transition: all 0.3s ease !important;
-        text-decoration: none !important;
-        display: block !important;
-        text-align: center !important;
-        font-size: 13px !important;
-        font-weight: bold !important;
-        width: 100% !important;
-    }
-    
-    div.stLinkButton > a:active, div.stLinkButton > a:hover {
-        background-color: #334155 !important;
-        border-color: #38bdf8 !important;
-        box-shadow: 0px 0px 15px rgba(56, 189, 248, 0.4) !important;
-    }
-
-    .stTextInput > div > div > input {
-        background-color: #1e293b !important;
-        color: white !important;
-        border: 1px solid #334155 !important;
-    }
-
     h1 { font-weight: 800; letter-spacing: -1px; }
     </style>
     """, unsafe_allow_html=True)
@@ -54,22 +23,28 @@ st.markdown("""
 st.title("OSECAC MDQ / AGENCIAS")
 
 # ==========================================
-# MENÚ DESPLEGABLE
+# MENÚ DESPLEGABLE REAGRUPADO
 # ==========================================
 with st.expander("MENU"):
-    col1, col2, col3 = st.columns(3)
     
+    st.markdown("### 🔍 Nomencladores")
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.link_button("NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc", use_container_width=True)
-        st.link_button("NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF", use_container_width=True)
-    
     with col2:
-        st.link_button("NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF", use_container_width=True)
-        st.link_button("ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true", use_container_width=True)
-    
+        st.link_button("NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF", use_container_width=True)
     with col3:
-        st.link_button("PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform", use_container_width=True)
+        st.link_button("NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF", use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("### 📦 Gestión de Pedidos")
+    col4, col5, col6 = st.columns(3)
+    with col4:
         st.link_button("PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform", use_container_width=True)
+    with col5:
+        st.link_button("PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform", use_container_width=True)
+    with col6:
+        st.link_button("ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true", use_container_width=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -106,6 +81,3 @@ if pregunta and not df.empty:
         st.dataframe(resultados, use_container_width=True)
     else:
         st.warning("SIN RESULTADOS")
-
-if df.empty:
-    st.error("ERROR: NO SE PUDO SINCRONIZAR CON LAS BASES DE DATOS")
