@@ -4,7 +4,7 @@ import pandas as pd
 # 1. CONFIGURACIÓN
 st.set_page_config(page_title="OSECAC MDP", layout="wide")
 
-# 2. CSS: DISEÑO ORIGINAL CON DEGRADADO SUTIL
+# 2. CSS: CORRECCIÓN DE ALINEACIÓN CENTRAL Y DISEÑO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -21,23 +21,43 @@ st.markdown("""
 
     .block-container { max-width: 1250px !important; padding-top: 1.5rem !important; }
     
+    /* CABECERA FORZADA AL CENTRO TOTAL */
     .cabecera-centrada { 
-        display: flex; flex-direction: column; align-items: center; 
-        justify-content: center; text-align: center; width: 100%; margin-bottom: 10px; 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
+        width: 100%; 
+        margin-bottom: 20px;
     }
     
-    .subtitulo-equipo {
-        color: #94a3b8; /* Azul clarito elegante */
-        font-size: 15px;
-        font-weight: 400;
-        margin-top: -5px;
-        margin-bottom: 15px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
+    .titulo-principal {
+        font-weight: 900; 
+        color: #e2e8f0; 
+        font-size: 2.5rem !important;
+        margin-bottom: 5px !important;
+        width: 100%;
     }
 
-    [data-testid="stImage"] img { mix-blend-mode: screen; filter: brightness(1.1); margin-top: 5px; }
-    
+    .subtitulo-equipo {
+        color: #94a3b8; 
+        font-size: 15px;
+        font-weight: 400;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 15px;
+        width: 100%;
+    }
+
+    .logo-img {
+        mix-blend-mode: screen; 
+        filter: brightness(1.1);
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
     div.stLinkButton > a {
         border-radius: 6px !important; font-size: 11px !important; font-weight: 700 !important;
         text-transform: uppercase !important; letter-spacing: 1.5px !important;
@@ -56,17 +76,23 @@ st.markdown("""
     
     .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
     .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; height: 45px !important; }
-    h1 { font-weight: 900; color: #e2e8f0; text-align: center; margin-bottom: 0px !important; font-size: 2.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA ===
-st.markdown('<div class="cabecera-centrada">', unsafe_allow_html=True)
-st.title("OSECAC MDP / AGENCIAS")
-st.markdown('<div class="subtitulo-equipo">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
-try: st.image("LOGO.jpg", width=100)
-except: pass
-st.markdown('</div>', unsafe_allow_html=True)
+# === CABECERA CORREGIDA ===
+st.markdown(f"""
+    <div class="cabecera-centrada">
+        <div class="titulo-principal">OSECAC MDP / AGENCIAS</div>
+        <div class="subtitulo-equipo">PORTAL DE APOYO PARA COMPAÑEROS</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Logo centrado usando columnas para asegurar el medio
+col_l1, col_l2, col_l3 = st.columns([2, 1, 2])
+with col_l2:
+    try: st.image("LOGO.jpg", use_container_width=True)
+    except: pass
+
 st.markdown("---")
 
 # ==========================================
