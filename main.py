@@ -25,7 +25,8 @@ pregunta = st.text_input("¿Qué dato buscás hoy?")
 if pregunta:
     with st.spinner("Buscando..."):
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            # CAMBIO AQUÍ PARA EVITAR EL ERROR 404
+            model = genai.GenerativeModel(model_name="gemini-1.5-flash")
             contexto = f"Datos OSECAC: {df1.head(10).to_string()}\nDatos FABA: {df2.head(10).to_string()}"
             res = model.generate_content(f"{contexto}\n\nPregunta: {pregunta}")
             st.success("Respuesta:")
