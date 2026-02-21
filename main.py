@@ -1,10 +1,25 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="OSECAC MDP", layout="wide")
+# 1. CONFIGURACIÓN DE PÁGINA
+st.set_page_config(page_title="OSECAC MDP - Portal", layout="wide")
 
-# 2. CSS: CORRECCIÓN DE ALINEACIÓN Y TAMAÑO RESPONSIVO
+# 2. CARGA DE DATOS (Conexión directa a tus Google Sheets)
+@st.cache_data(ttl=300)
+def cargar_datos(url):
+    try:
+        return pd.read_csv(url)
+    except:
+        return pd.DataFrame()
+
+# Tus enlaces de Excel publicados como CSV
+URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
+URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
+
+df_agendas = cargar_datos(URL_AGENDAS_CSV)
+df_tramites = cargar_datos(URL_TRAMITES_CSV)
+
+# 3. CSS PERSONALIZADO (Alineación, Colores y Fichas)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -18,68 +33,49 @@ st.markdown("""
         animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
     }
-
-    .block-container { max-width: 1250px !important; padding-top: 1.5rem !important; }
     
-    /* CABECERA CENTRADA RESPONSIVA */
+    .block-container { max-width: 1200px !important; padding-top: 1.5rem !important; }
+
+    /* Cabecera y Logo Centrados */
     .cabecera-centrada { 
-        display: flex; 
-        flex-direction: column; 
-        align-items: center; 
-        justify-content: center; 
-        text-align: center; 
-        width: 100%; 
-        margin-bottom: 20px;
+        display: flex; flex-direction: column; align-items: center; 
+        justify-content: center; text-align: center; width: 100%; 
     }
     
-    .titulo-principal {
-        font-weight: 900; 
-        color: #e2e8f0; 
-        font-size: 2.2rem !important; /* Un poco más chico para que entre en celulares */
-        margin-bottom: 5px !important;
-    }
+    .titulo-principal { font-weight: 900; color: #e2e8f0; font-size: 2.2rem !important; margin-bottom: 5px !important; }
+    .subtitulo-equipo { color: #94a3b8; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px; }
 
-    .subtitulo-equipo {
-        color: #94a3b8; 
-        font-size: 14px;
-        font-weight: 400;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        margin-bottom: 15px;
-    }
-
-    /* CONTROL DEL LOGO PARA QUE NO SEA ENORME EN CELULAR */
     .logo-container img {
-        max-width: 120px !important; /* Tamaño fijo máximo */
-        height: auto;
-        mix-blend-mode: screen; 
-        filter: brightness(1.1);
-        margin: 0 auto;
+        max-width: 120px !important; height: auto;
+        mix-blend-mode: screen; filter: brightness(1.1);
+        margin: 10px auto; display: block;
     }
 
+    /* Diseño de Ficha de Trámite */
+    .ficha-tramite {
+        background-color: rgba(23, 32, 48, 0.9);
+        padding: 25px;
+        border-radius: 15px;
+        border-left: 6px solid #fbbf24;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .ficha-titulo { color: #fbbf24; font-size: 1.5rem; font-weight: bold; margin-bottom: 12px; }
+    .ficha-contenido { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
+
+    /* Estilo para botones de enlace */
     div.stLinkButton > a {
-        border-radius: 6px !important; font-size: 11px !important; font-weight: 700 !important;
-        text-transform: uppercase !important; letter-spacing: 1.5px !important;
-        padding: 10px 15px !important; display: inline-block !important;
-        width: 100% !important; text-align: center !important; transition: all 0.3s ease !important;
+        border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
+        text-transform: uppercase !important; letter-spacing: 1.2px !important;
+        padding: 12px !important; width: 100% !important; text-align: center !important;
+        transition: all 0.3s ease !important;
     }
     
-    div.stLinkButton > a[href*="notebook"], div.stLinkButton > a[href*="reporting"] { color: #38bdf8 !important; border: 1px solid #00529b !important; background-color: rgba(0, 82, 155, 0.2) !important; }
-    div.stLinkButton > a[href*="Aj2BBSfXFwXR"] { color: #ff85a2 !important; border: 1px solid #ff85a2 !important; background-color: rgba(255, 133, 162, 0.1) !important; }
-    div.stLinkButton > a[href*="MlwRSUf6dAww"] { color: #2dd4bf !important; border: 1px solid #2dd4bf !important; background-color: rgba(45, 212, 191, 0.1) !important; }
-    div.stLinkButton > a[href*="21d6f3bf-24c1"] { color: #a78bfa !important; border: 1px solid #a78bfa !important; background-color: rgba(167, 139, 250, 0.1) !important; }
-    div.stLinkButton > a[href*="sssalud"], div.stLinkButton > a[href*="anses"], div.stLinkButton > a[href*="afip"], 
-    div.stLinkButton > a[href*="osecac"], div.stLinkButton > a[href*="gmssa"], div.stLinkButton > a[href*="kairos"], div.stLinkButton > a[href*="alfabeta"], div.stLinkButton > a[href*="SolicitudTramitesMpp"] { 
-        color: #fbbf24 !important; border: 1px solid #b45309 !important; background-color: rgba(180, 83, 9, 0.1) !important; 
-    }
-    
-    .stExpander { background-color: rgba(23, 32, 48, 0.8) !important; border: 1px solid #1e293b !important; border-radius: 10px !important; }
-    .stTextInput > div > div > input { background-color: #172030 !important; color: white !important; height: 45px !important; }
+    .stExpander { background-color: rgba(30, 41, 59, 0.5) !important; border: 1px solid #334155 !important; border-radius: 10px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA COMPLETA Y CENTRADA ===
-# Usamos HTML puro para el logo también, así controlamos el tamaño exacto
+# === CABECERA Y LOGO ===
 st.markdown(f"""
     <div class="cabecera-centrada">
         <div class="titulo-principal">OSECAC MDP / AGENCIAS</div>
@@ -93,74 +89,79 @@ st.markdown(f"""
 st.markdown("---")
 
 # ==========================================
-# MENÚS PRINCIPALES
+# SECCIÓN 1: BUSCADOR DE TRÁMITES (TU EXCEL NUEVO)
 # ==========================================
-col1, col2 = st.columns(2)
-with col1:
+st.markdown("### 🔍 GUÍA DE TRÁMITES")
+busqueda_t = st.text_input("Buscá por nombre o palabra clave (ej: 'sordera', 'renuncia', 'leche')...", key="search_tramites")
+
+if busqueda_t:
+    t = busqueda_t.lower().strip()
+    # Filtramos por TRAMITE (Columna A) o PALABRA CLAVE (Columna D)
+    res_t = df_tramites[
+        df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | 
+        df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)
+    ]
+    
+    if not res_t.empty:
+        for i, row in res_t.iterrows():
+            st.markdown(f"""
+                <div class="ficha-tramite">
+                    <div class="ficha-titulo">📋 {row['TRAMITE']}</div>
+                    <div class="ficha-contenido">{row['DESCRIPCIÓN Y REQUISITOS']}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Botón de Drive debajo de la ficha
+            st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
+            st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        st.warning("No se encontró ningún trámite con esa palabra. Intentá con otra.")
+
+st.markdown("---")
+
+# ==========================================
+# SECCIÓN 2: MENÚS DE ACCESO RÁPIDO
+# ==========================================
+col_m1, col_m2 = st.columns(2)
+with col_m1:
     with st.expander("📂 NOMENCLADORES"):
         st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
         st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
         st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
-with col2:
+with col_m2:
     with st.expander("📝 PEDIDOS"):
         st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
         st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-        st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF&disable_select=true")
+        st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
 
-# ==========================================
-# SECCIÓN: PAGINAS
-# ==========================================
-with st.expander("🌐 PAGINAS"):
-    c1, c2, c3, c4 = st.columns(4)
+with st.expander("🌐 PAGINAS ÚTILES"):
+    c1, c2, c3 = st.columns(3)
     with c1:
-        st.link_button("🏥 SSSALUD - PADRÓN", "https://www.sssalud.gob.ar/consultas/")
+        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
         st.link_button("🏛️ AFIP", "https://www.afip.gob.ar/")
-        st.link_button("💊 VADEMÉCUM OSECAC", "https://www.osecac.org.ar/Vademecus")
     with c2:
         st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
-        st.link_button("🏢 OSECAC WEB", "https://www.osecac.org.ar/")
-        st.link_button("📖 PRECIOS ALFABETA", "https://www.alfabeta.net/vademecum/")
+        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
     with c3:
-        st.link_button("❌ CERTIF. NEGATIVA", "https://servicioswww.anses.gob.ar/censite/index.aspx")
         st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
-    with c4:
-        st.link_button("💻 PORTAL SAES", "http://portal.gmssa.com.ar/saes/Login.aspx")
         st.link_button("🧪 PORTAL MEDICAMENTOS", "http://servicios-externos.osecac.org.ar/SolicitudTramitesMpp/tramites")
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 
 # ==========================================
-# BUSCADOR AGENDAS
+# SECCIÓN 3: BUSCADOR DE AGENDAS / MAILS
 # ==========================================
-@st.cache_data(ttl=600)
-def cargar_datos():
-    try:
-        url = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
-        return pd.read_csv(url)
-    except:
-        return pd.DataFrame()
+st.subheader("📞 AGENDAS / MAILS")
+busqueda_a = st.text_input("Buscá un contacto, mail o delegación...", key="search_agendas")
 
-df = cargar_datos()
-st.subheader("AGENDAS/MAILS")
-pregunta = st.text_input("Buscador", placeholder="Escribí para buscar...", label_visibility="collapsed")
-
-if pregunta:
-    pregunta = pregunta.strip()
-    res = df[df.astype(str).apply(lambda row: row.str.contains(pregunta, case=False, na=False).any(), axis=1)]
-    if not res.empty:
-        st.data_editor(
-            res,
-            use_container_width=True,
-            hide_index=True,
-            disabled=True,
-            height=450,
-            column_config={
-                "MAIL/DIR": st.column_config.LinkColumn("MAIL/DIR", width="large"),
-                "DIRECCION": st.column_config.LinkColumn("DIRECCION", width="large"),
-            }
-        )
+if busqueda_a:
+    q = busqueda_a.lower().strip()
+    res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
+    
+    if not res_a.empty:
+        st.dataframe(res_a, use_container_width=True, hide_index=True)
     else:
-        st.info("Sin coincidencias.")
+        st.info("No hay contactos que coincidan.")
 else:
-    st.write("Escribí arriba para filtrar los datos.")
+    st.write("Escribí arriba para filtrar los datos de la agenda.")
