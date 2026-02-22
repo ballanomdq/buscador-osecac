@@ -6,6 +6,9 @@ from datetime import datetime
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="OSECAC MDP - Portal", layout="wide")
 
+# --- CLAVE SEGÚN TU SOLICITUD ---
+PASSWORD_JEFE = "2026"
+
 # 2. CARGA DE DATOS
 @st.cache_data(ttl=300)
 def cargar_datos(url):
@@ -20,7 +23,13 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: DISEÑO RESPONSIVO (EL QUE TE GUSTA)
+# Inicializar historial de novedades si no existe
+if 'historial_novedades' not in st.session_state:
+    st.session_state.historial_novedades = [
+        {"id": 0, "mensaje": "Bienvenidos al portal. Las novedades se publicarán aquí.", "fecha": "21/02/2026 23:45"}
+    ]
+
+# 3. CSS: TU DISEÑO + MEJORAS EN NOVEDADES
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -28,11 +37,14 @@ st.markdown("""
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
-    
     @keyframes shine {
         0% { left: -100%; opacity: 0; }
         50% { opacity: 0.6; }
         100% { left: 100%; opacity: 0; }
+    }
+    @keyframes pulso {
+        0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); }
+        100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); }
     }
 
     .stApp { 
@@ -44,75 +56,45 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    .header-master {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        margin-bottom: 10px;
+    /* LUZ DE ALERTA */
+    .punto-alerta {
+        width: 12px; height: 12px;
+        background-color: #ff4b4b;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 12px;
+        animation: pulso 1.5s infinite;
+        vertical-align: middle;
     }
 
+    .header-master { text-align: center; margin-bottom: 10px; }
     .capsula-header-mini {
-        position: relative;
-        padding: 10px 30px;
+        position: relative; padding: 10px 30px;
         background: rgba(56, 189, 248, 0.05);
-        border-radius: 35px;
-        border: 1px solid rgba(56, 189, 248, 0.5);
-        overflow: hidden;
-        margin-bottom: 12px;
+        border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5);
+        overflow: hidden; margin-bottom: 12px; display: inline-block;
     }
-
-    .titulo-mini {
-        font-family: 'sans-serif';
-        font-weight: 800;
-        font-size: 1.4rem;
-        color: #ffffff;
-        margin: 0;
-        z-index: 2;
-        position: relative;
-    }
-
+    .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff; margin: 0; z-index: 2; position: relative; }
     .shimmer-efecto {
-        position: absolute;
-        top: 0;
-        width: 100px;
-        height: 100%;
+        position: absolute; top: 0; width: 100px; height: 100%;
         background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
-        transform: skewX(-20deg);
-        animation: shine 4s infinite linear;
-        z-index: 1;
+        transform: skewX(-20deg); animation: shine 4s infinite linear; z-index: 1;
     }
 
-    .subtitulo-lema {
-        color: #94a3b8;
-        font-size: 11px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-bottom: 15px;
-        font-weight: 500;
-    }
-
-    .logo-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-
-    .logo-fijo {
-        width: 85px !important;
-        height: auto;
-    }
-
+    /* FICHAS */
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
-    .titulo-tramite { color: #fbbf24; font-size: 1.3rem; font-weight: bold; margin-bottom: 10px; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .titulo-agenda { color: #38bdf8; font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; }
+    .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
+    /* TEXTO NOVEDADES */
+    .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
+    .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
+
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
+    .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -123,7 +105,6 @@ st.markdown("""
             <div class="shimmer-efecto"></div>
             <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
         </div>
-        <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -131,66 +112,81 @@ st.markdown("""
 def get_base64_img(img_path):
     with open(img_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
-
 try:
     img_base64 = get_base64_img("LOGO1.png")
-    st.markdown(f"""
-        <div class="logo-container">
-            <img src="data:image/png;base64,{img_base64}" class="logo-fijo">
-        </div>
-        """, unsafe_allow_html=True)
-except:
-    st.write("")
+    st.markdown(f'<center><img src="data:image/png;base64,{img_base64}" style="width:85px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
+except: pass
 
 st.markdown("---")
 
-# ==========================================
-# SECCIÓN 1: NOMENCLADORES
-# ==========================================
+# === SECCIONES 1, 2 y 3 ===
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
     st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
-# ==========================================
-# SECCIÓN 2: PEDIDOS (AHORA CON ESTADÍSTICA)
-# ==========================================
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-    st.link_button("📊 ESTADÍSTICA", "https://docs.google.com/forms/d/e/1FAIpQLSclR_u076y_mNshv_O0T9_i5rFzS02_TzR_e7I7B1u7_S_T-w/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# ==========================================
-# SECCIÓN 3: PÁGINAS ÚTILES
-# ==========================================
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
     st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
     st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
 
-# ==========================================
-# SECCIÓN 4: GESTIONES
-# ==========================================
+# === SECCIONES 4 y 5 (BUSCADORES) ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
-    busqueda_t = st.text_input("Buscá trámites...", key="search_tramites")
+    busqueda_t = st.text_input("Buscá trámites...", key="search_t")
     if busqueda_t and not df_tramites.empty:
-        t = busqueda_t.lower().strip()
-        res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False)]
+        res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(busqueda_t.lower(), na=False)]
         for i, row in res_t.iterrows():
-            st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div>{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# SECCIÓN 5: AGENDAS
-# ==========================================
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
-    busqueda_a = st.text_input("Buscá contactos...", key="search_agendas")
+    busqueda_a = st.text_input("Buscá contactos...", key="search_a")
     if busqueda_a and not df_agendas.empty:
-        q = busqueda_a.lower().strip()
-        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
+        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a, case=False).any(), axis=1)]
         for i, row in res_a.iterrows():
-            st.markdown(f'<div class="ficha ficha-agenda"><div class="titulo-agenda">👤 {row.iloc[0]}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha ficha-agenda"><b style="color:#38bdf8;">👤 {row.iloc[0]}</b></div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# === SECCIÓN 6: NOVEDADES (FINAL) ===
+st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
+with st.expander(f"📢 **6. NOVEDADES**", expanded=True):
+    st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
+    
+    # Mostrar Novedades
+    for n in st.session_state.historial_novedades:
+        st.markdown(f"""
+        <div class="ficha ficha-novedad">
+            <span class="novedad-fecha-grande">📅 FECHA: {n['fecha']}</span>
+            <div class="novedad-texto">{n['mensaje']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.write("---")
+    # Panel de escritura para el Jefe
+    with st.popover("✍️ PANEL DE CONTROL"):
+        clave = st.text_input("Contraseña:", type="password")
+        if clave == PASSWORD_JEFE:
+            with st.form("form_novedad", clear_on_submit=True):
+                msg = st.text_area("Escribí el nuevo comunicado (espacio generoso):", height=200)
+                if st.form_submit_button("📢 PUBLICAR"):
+                    ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    nuevo_id = datetime.now().timestamp()
+                    st.session_state.historial_novedades.insert(0, {"id": nuevo_id, "mensaje": msg, "fecha": ahora})
+                    st.rerun()
+            
+            st.write("**Borrar mensajes:**")
+            for i, n in enumerate(st.session_state.historial_novedades):
+                c1, c2 = st.columns([4, 1])
+                c1.caption(f"{n['fecha']}")
+                if c2.button("🗑️", key=f"del_{i}"):
+                    st.session_state.historial_novedades.pop(i)
+                    st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
