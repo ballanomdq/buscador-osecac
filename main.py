@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERMANENTE + MARCO MINIMALISTA AJUSTADO
+# 3. CSS PERMANENTE CON EFECTOS DE BRILLO (SHIMMER)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -27,11 +27,12 @@ st.markdown("""
         100% { background-position: 0% 50%; }
     }
     
-    /* Brillo Súper Lento y Suave */
+    /* Animación de Brillo Lento */
     @keyframes slowShine {
-        0% { left: -100%; opacity: 0; }
-        50% { opacity: 0.3; }
-        100% { left: 100%; opacity: 0; }
+        0% { left: -150%; opacity: 0; }
+        20% { opacity: 0.4; }
+        80% { opacity: 0.4; }
+        100% { left: 150%; opacity: 0; }
     }
 
     .stApp { 
@@ -41,13 +42,23 @@ st.markdown("""
         color: #e2e8f0; 
     }
     
-    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
+    .block-container { max-width: 1000px !important; padding-top: 1rem !important; }
 
-    /* Marco Pequeño y No Invasivo */
+    /* Contenedor de Imagen LOGO1 con Brillo */
+    .contenedor-logo1 {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+        overflow: hidden;
+        border-radius: 15px;
+    }
+
+    /* Cápsula OSECAC MDP con Brillo */
     .capsula-header-mini {
         position: relative;
         display: inline-block;
-        padding: 8px 25px;
+        padding: 10px 30px;
         background: rgba(56, 189, 248, 0.05);
         border-radius: 30px;
         border: 1px solid rgba(56, 189, 248, 0.4);
@@ -59,7 +70,7 @@ st.markdown("""
     .titulo-mini {
         font-family: 'sans-serif';
         font-weight: 800;
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         color: #e2e8f0;
         letter-spacing: 1px;
         margin: 0;
@@ -67,26 +78,27 @@ st.markdown("""
         position: relative;
     }
 
-    .subtitulo-lema {
-        color: #94a3b8;
-        font-size: 12px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-top: 8px;
-        opacity: 0.8;
-    }
-
     .shimmer-suave {
         position: absolute;
         top: 0;
-        width: 60px;
+        width: 100px;
         height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.08), transparent);
-        transform: skewX(-20deg);
-        animation: slowShine 7s infinite linear;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.12), transparent);
+        transform: skewX(-25deg);
+        animation: slowShine 6s infinite linear;
+        z-index: 1;
     }
 
-    /* Estilos de Fichas y Buscadores (Tus favoritos) */
+    .subtitulo-lema {
+        color: #94a3b8;
+        font-size: 13px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-top: 12px;
+        font-weight: 400;
+    }
+
+    /* Fichas y Buscadores (Mantenidos intactos) */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -116,21 +128,31 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA COMPACTA ===
+# === CABECERA: LOGO1 + CÁPSULA ANIMADA ===
+st.markdown('<div style="text-align: center; margin-top: 20px;">', unsafe_allow_html=True)
+
+# 1. Imagen LOGO1.png arriba con brillo
+try:
+    st.markdown('<div class="contenedor-logo1"><div class="shimmer-suave"></div>', unsafe_allow_html=True)
+    st.image("LOGO1.png", width=120)
+    st.markdown('</div>', unsafe_allow_html=True)
+except:
+    st.markdown('<p style="color:#94a3b8;">*</p>', unsafe_allow_html=True)
+
+# 2. Cápsula OSECAC MDP con brillo
 st.markdown("""
-    <div style="text-align: center; margin-bottom: 30px;">
-        <div class="capsula-header-mini">
-            <div class="shimmer-suave"></div>
-            <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
-        </div>
-        <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
+    <div class="capsula-header-mini">
+        <div class="shimmer-suave"></div>
+        <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
+    </div>
+    <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # ==========================================
-# ORDEN DE SECCIONES
+# SECCIONES EN ORDEN
 # ==========================================
 
 # 1. NOMENCLADORES
@@ -163,23 +185,21 @@ st.markdown("<br>", unsafe_allow_html=True)
 # 4. GESTIONES / DATOS (Buscador Amarillo)
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
-    busqueda_t = st.text_input("Buscá trámites, prácticas o prestadores...", key="search_tramites")
+    busqueda_t = st.text_input("Buscá trámites...", key="search_tramites")
     if busqueda_t:
         t = busqueda_t.lower().strip()
         res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)]
         if not res_t.empty:
             for i, row in res_t.iterrows():
                 st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div class="cuerpo-ficha">{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
-                st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
+                st.link_button(f"📂 CARPETA {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
                 st.markdown("<br>", unsafe_allow_html=True)
-        else:
-            st.warning("No se encontró información.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # 5. AGENDAS / MAILS (Buscador Celeste)
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
-    busqueda_a = st.text_input("Buscá un contacto, delegación o mail...", key="search_agendas")
+    busqueda_a = st.text_input("Buscá un contacto...", key="search_agendas")
     if busqueda_a:
         q = busqueda_a.lower().strip()
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
@@ -187,6 +207,4 @@ with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
             for i, row in res_a.iterrows():
                 contenido_agenda = "".join([f"**{col}:** {row[col]}  \n" for col in df_agendas.columns if pd.notna(row[col])])
                 st.markdown(f'<div class="ficha ficha-agenda"><div class="titulo-agenda">👤 {row.iloc[0]}</div><div class="cuerpo-ficha">{contenido_agenda}</div></div>', unsafe_allow_html=True)
-        else:
-            st.warning("No se encontraron contactos.")
 st.markdown('</div>', unsafe_allow_html=True)
