@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: DISEÑO ORIGINAL RECUPERADO + LOGOS EN ITEMS
+# 3. CSS: RECUPERANDO TODO EL DISEÑO ORIGINAL DE FICHAS + ENCABEZADO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -42,7 +42,7 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* CABECERA ORIGINAL */
+    /* ENCABEZADO: Cartel y Logo Juntos */
     .header-container {
         display: flex;
         align-items: center;
@@ -92,7 +92,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* FICHAS Y BUSCADORES */
+    /* FICHAS: Recuperadas exactamente como te gustaban */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -119,17 +119,10 @@ st.markdown("""
     
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
-    
-    /* Mini logo para los items */
-    .mini-logo {
-        vertical-align: middle;
-        margin-right: 10px;
-        height: 20px;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA ORIGINAL ===
+# === CABECERA COMPACTA: CARTEL + LOGO A LA DERECHA ===
 st.markdown('<div class="header-container">', unsafe_allow_html=True)
 st.markdown("""
     <div class="capsula-header-mini">
@@ -148,13 +141,8 @@ st.markdown('<div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>'
 st.markdown("---")
 
 # ==========================================
-# SECCIONES CON MINI LOGO EN CADA TÍTULO
+# SECCIONES: 1, 2 y 3
 # ==========================================
-
-# Función para mostrar mini logo si existe
-def label_con_logo(texto):
-    return f" {texto}"
-
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
