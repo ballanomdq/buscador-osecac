@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: CENTRADO TOTAL Y DISEÑO PROFESIONAL
+# 3. CSS: DISEÑO RESPONSIVO (PC Y MÓVIL)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -40,9 +40,9 @@ st.markdown("""
         color: #e2e8f0; 
     }
     
-    .block-container { max-width: 1000px !important; padding-top: 2rem !important; }
+    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* CONTENEDOR DE CABECERA */
+    /* CABECERA CENTRADA */
     .header-master {
         display: flex;
         flex-direction: column;
@@ -54,18 +54,18 @@ st.markdown("""
 
     .capsula-header-mini {
         position: relative;
-        padding: 10px 35px;
+        padding: 10px 30px;
         background: rgba(56, 189, 248, 0.05);
         border-radius: 35px;
         border: 1px solid rgba(56, 189, 248, 0.5);
         overflow: hidden;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
     }
 
     .titulo-mini {
         font-family: 'sans-serif';
         font-weight: 800;
-        font-size: 1.6rem;
+        font-size: 1.4rem; /* Un poco más chico para que entre bien en móviles */
         color: #ffffff;
         margin: 0;
         z-index: 2;
@@ -77,7 +77,7 @@ st.markdown("""
         top: 0;
         width: 100px;
         height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
         transform: skewX(-20deg);
         animation: shine 4s infinite linear;
         z-index: 1;
@@ -85,28 +85,39 @@ st.markdown("""
 
     .subtitulo-lema {
         color: #94a3b8;
-        font-size: 13px;
+        font-size: 11px;
         letter-spacing: 2px;
         text-transform: uppercase;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
         font-weight: 500;
     }
 
-    /* ESTILOS DE FICHAS Y BUSCADORES */
+    /* CONTENEDOR DEL LOGO FIJO */
+    .logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+
+    .logo-fijo {
+        width: 85px !important; /* TAMAÑO FIJO PARA QUE NO SEA GIGANTE */
+        height: auto;
+    }
+
+    /* FICHAS Y BUSCADORES */
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
-    .titulo-tramite { color: #fbbf24; font-size: 1.4rem; font-weight: bold; margin-bottom: 10px; }
+    .titulo-tramite { color: #fbbf24; font-size: 1.3rem; font-weight: bold; margin-bottom: 10px; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .titulo-agenda { color: #38bdf8; font-size: 1.3rem; font-weight: bold; margin-bottom: 8px; }
-    .cuerpo-ficha { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
-
+    .titulo-agenda { color: #38bdf8; font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; }
+    
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA: CARTEL -> FRASE -> LOGO (CENTRADOS) ===
+# === CABECERA CENTRADA ===
 st.markdown("""
     <div class="header-master">
         <div class="capsula-header-mini">
@@ -117,13 +128,22 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# Logo centrado debajo de la frase
-col1, col2, col3 = st.columns([1, 0.3, 1])
-with col2:
-    try:
-        st.image("LOGO1.png", use_container_width=True)
-    except:
-        st.write("")
+# === LOGO CON TAMAÑO CONTROLADO (NO SE AGRANDA EN CELULAR) ===
+import base64
+
+def get_base64_img(img_path):
+    with open(img_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+try:
+    img_base64 = get_base64_img("LOGO1.png")
+    st.markdown(f"""
+        <div class="logo-container">
+            <img src="data:image/png;base64,{img_base64}" class="logo-fijo">
+        </div>
+        """, unsafe_allow_html=True)
+except:
+    st.write("")
 
 st.markdown("---")
 
@@ -139,12 +159,8 @@ with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
 
-with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
-    st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
-    st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
-
 # ==========================================
-# SECCIÓN 4: GESTIONES (BUSCADOR AMARILLO)
+# SECCIÓN 4: GESTIONES
 # ==========================================
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
@@ -153,11 +169,11 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
         t = busqueda_t.lower().strip()
         res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False)]
         for i, row in res_t.iterrows():
-            st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div class="cuerpo-ficha">{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div>{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# SECCIÓN 5: AGENDAS (BUSCADOR CELESTE)
+# SECCIÓN 5: AGENDAS
 # ==========================================
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
