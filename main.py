@@ -17,11 +17,17 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
+# URLs de las planillas
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
+# Nueva planilla con dos solapas (gid=0 es la primera, gid=... la segunda)
+URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
+URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
+df_practicas = cargar_datos(URL_PRACTICAS_CSV)
+df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
 
 # Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
@@ -83,6 +89,7 @@ st.markdown("""
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
+    .ficha-practica { border-left: 6px solid #10b981; } /* Verde para prácticas */
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
     .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
@@ -90,6 +97,7 @@ st.markdown("""
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
+    .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
@@ -143,34 +151,41 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 5: AGENDAS (MEJORADO PARA MOSTRAR TODO) ===
-st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
-with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
-    busqueda_a = st.text_input("Buscá contactos...", key="search_a")
-    if busqueda_a and not df_agendas.empty:
-        # Filtra filas donde cualquier columna contenga la búsqueda
-        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
+# === NUEVA SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
+st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
+with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
+    busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
+    if busqueda_p:
+        # Buscar en Prácticas
+        if not df_practicas.empty:
+            res_p = df_practicas[df_practicas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
+            for i, row in res_p.iterrows():
+                datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+                st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">📑 PRÁCTICA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        for i, row in res_a.iterrows():
-            # Creamos una lista con los datos de todas las columnas que no estén vacías
-            datos_completos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
-            info_html = "<br>".join(datos_completos)
-            
-            st.markdown(f"""
-                <div class="ficha ficha-agenda">
-                    <div style="color:#e2e8f0; font-size: 16px;">
-                        {info_html}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+        # Buscar en Especialistas
+        if not df_especialistas.empty:
+            res_e = df_especialistas[df_especialistas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
+            for i, row in res_e.iterrows():
+                datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+                st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">👨‍⚕️ ESPECIALISTA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 6: NOVEDADES (CON BORRADO SELECTIVO) ===
+# === SECCIÓN 6: AGENDAS ===
+st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
+with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
+    busqueda_a = st.text_input("Buscá contactos...", key="search_a")
+    if busqueda_a and not df_agendas.empty:
+        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
+        for i, row in res_a.iterrows():
+            datos_completos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+            st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos_completos)}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# === SECCIÓN 7: NOVEDADES ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
-with st.expander("📢 **6. NOVEDADES**", expanded=True):
+with st.expander("📢 **7. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
-    
-    # Renderizado del historial
     for n in st.session_state.historial_novedades:
         st.markdown(f"""
         <div class="ficha ficha-novedad">
@@ -179,7 +194,6 @@ with st.expander("📢 **6. NOVEDADES**", expanded=True):
         </div>
         """, unsafe_allow_html=True)
     
-    # Panel de control oculto en Popover
     with st.popover("✍️ PANEL DE CONTROL"):
         clave = st.text_input("Ingresar Clave:", type="password")
         if clave == PASSWORD_JEFE:
@@ -205,5 +219,4 @@ with st.expander("📢 **6. NOVEDADES**", expanded=True):
                         st.rerun()
         elif clave != "":
             st.error("Clave incorrecta")
-
 st.markdown('</div>', unsafe_allow_html=True)
