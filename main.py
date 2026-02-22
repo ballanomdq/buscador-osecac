@@ -6,10 +6,10 @@ from datetime import datetime
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="OSECAC MDP - Portal", layout="wide")
 
-# --- CLAVE DE ACCESO ---
+# --- CLAVE DE ACCESO PERSONALIZADA ---
 PASSWORD_JEFE = "2026"
 
-# 2. CARGA DE DATOS (CSV)
+# 2. CARGA DE DATOS (CSV DESDE GOOGLE SHEETS)
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
@@ -23,13 +23,13 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# Inicializar historial de novedades en memoria
+# Inicializar historial de novedades si no existe en la sesión
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [
-        {"id": 0, "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
+        {"id": 0, "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO RESPONSIVO Y SOBRIO
+# 3. CSS: DISEÑO PERSONALIZADO (NO TOCAR SI NO ES NECESARIO)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -56,7 +56,6 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* LUZ DE ALERTA */
     .punto-alerta {
         width: 12px; height: 12px;
         background-color: #ff4b4b;
@@ -81,7 +80,6 @@ st.markdown("""
         transform: skewX(-20deg); animation: shine 4s infinite linear; z-index: 1;
     }
 
-    /* FICHAS DE RESULTADOS */
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
@@ -90,7 +88,6 @@ st.markdown("""
     .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
     .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
 
-    /* ESTILOS DE LOS BUSCADORES */
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -132,7 +129,7 @@ with st.expander("📝 **2. PEDIDOS**", expanded=False):
 # === SECCIÓN 3: PÁGINAS ÚTILES ===
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
-    st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
+    st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
     st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
     st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
@@ -162,23 +159,31 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **6. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
-    for n in st.session_state.historial_novedades:
-        st.markdown(f'<div class="ficha ficha-novedad"><span class="novedad-fecha-grande">📅 FECHA: {n["fecha"]}</span><div class="novedad-texto">{n["mensaje"]}</div></div>', unsafe_allow_html=True)
     
-    # PANEL DISCRETO PARA EL JEFE
+    # Renderizado del historial
+    for n in st.session_state.historial_novedades:
+        st.markdown(f"""
+        <div class="ficha ficha-novedad">
+            <span class="novedad-fecha-grande">📅 FECHA: {n['fecha']}</span>
+            <div class="novedad-texto">{n['mensaje']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Panel de control oculto en Popover
     with st.popover("✍️ PANEL DE CONTROL"):
-        clave = st.text_input("Contraseña:", type="password")
+        clave = st.text_input("Ingresar Clave:", type="password")
         if clave == PASSWORD_JEFE:
             with st.form("form_novedad", clear_on_submit=True):
-                msg = st.text_area("Escribí el comunicado:", height=200)
+                msg = st.text_area("Nuevo comunicado (Cuadro amplio):", height=200)
                 if st.form_submit_button("📢 PUBLICAR"):
                     ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
                     st.session_state.historial_novedades.insert(0, {"id": datetime.now().timestamp(), "mensaje": msg, "fecha": ahora})
                     st.rerun()
-            # Botones para eliminar novedades
-            st.write("**Historial para borrar:**")
+            
+            st.write("---")
+            st.write("**Borrar mensajes:**")
             for i, n in enumerate(st.session_state.historial_novedades):
-                if st.button(f"🗑️ Borrar: {n['mensaje'][:25]}...", key=f"del_{i}"):
+                if st.button(f"🗑️ {n['mensaje'][:20]}...", key=f"del_{i}"):
                     st.session_state.historial_novedades.pop(i)
                     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
