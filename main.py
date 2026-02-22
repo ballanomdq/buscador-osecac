@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERMANENTE + NUEVA ANIMACIÓN REFINADA
+# 3. CSS PERMANENTE + MARCO MINIMALISTA AJUSTADO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -27,19 +27,11 @@ st.markdown("""
         100% { background-position: 0% 50%; }
     }
     
-    /* Animación de Pulso muy lenta */
-    @keyframes logoPulse {
-        0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.2)); }
-        50% { transform: scale(1.02); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.4)); }
-        100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.2)); }
-    }
-
-    /* Brillo mucho más lento (6 segundos) */
+    /* Brillo Súper Lento y Suave */
     @keyframes slowShine {
-        0% { left: -150%; opacity: 0; }
-        20% { opacity: 0.5; }
-        80% { opacity: 0.5; }
-        100% { left: 150%; opacity: 0; }
+        0% { left: -100%; opacity: 0; }
+        50% { opacity: 0.3; }
+        100% { left: 100%; opacity: 0; }
     }
 
     .stApp { 
@@ -49,58 +41,52 @@ st.markdown("""
         color: #e2e8f0; 
     }
     
-    .block-container { max-width: 1200px !important; padding-top: 2rem !important; }
+    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* Cápsula Principal Animada */
-    .capsula-header {
+    /* Marco Pequeño y No Invasivo */
+    .capsula-header-mini {
         position: relative;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        margin: 0 auto 15px auto;
-        padding: 20px 40px;
-        max-width: 600px;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 20px;
+        display: inline-block;
+        padding: 8px 25px;
+        background: rgba(56, 189, 248, 0.05);
+        border-radius: 30px;
+        border: 1px solid rgba(56, 189, 248, 0.4);
         overflow: hidden;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        animation: logoPulse 5s infinite ease-in-out;
         text-align: center;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.1);
     }
 
-    .titulo-animado {
+    .titulo-mini {
         font-family: 'sans-serif';
-        font-weight: 900;
-        font-size: 1.8rem;
+        font-weight: 800;
+        font-size: 1.4rem;
         color: #e2e8f0;
-        letter-spacing: 2px;
-        z-index: 2;
+        letter-spacing: 1px;
         margin: 0;
-    }
-
-    .slow-shimmer {
-        position: absolute;
-        top: 0;
-        width: 100px;
-        height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
-        transform: skewX(-25deg);
-        animation: slowShine 6s infinite linear;
-        z-index: 1;
+        z-index: 2;
+        position: relative;
     }
 
     .subtitulo-lema {
         color: #94a3b8;
-        font-size: 14px;
-        letter-spacing: 3px;
+        font-size: 12px;
+        letter-spacing: 2px;
         text-transform: uppercase;
-        font-weight: 400;
-        margin-top: 10px;
-        text-align: center;
+        margin-top: 8px;
+        opacity: 0.8;
     }
 
-    /* Estilos de Fichas y Buscadores (Mantenidos) */
+    .shimmer-suave {
+        position: absolute;
+        top: 0;
+        width: 60px;
+        height: 100%;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.08), transparent);
+        transform: skewX(-20deg);
+        animation: slowShine 7s infinite linear;
+    }
+
+    /* Estilos de Fichas y Buscadores (Tus favoritos) */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -122,7 +108,7 @@ st.markdown("""
     .stExpander { 
         background-color: rgba(30, 41, 59, 0.6) !important; 
         border-radius: 12px !important; 
-        margin-bottom: 10px !important;
+        margin-bottom: 8px !important;
     }
     
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -130,12 +116,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === ENCABEZADO UNIFICADO Y ANIMADO ===
+# === CABECERA COMPACTA ===
 st.markdown("""
-    <div style="margin-bottom: 40px;">
-        <div class="capsula-header">
-            <div class="slow-shimmer"></div>
-            <h1 class="titulo-animado">OSECAC MDP / AGENCIAS</h1>
+    <div style="text-align: center; margin-bottom: 30px;">
+        <div class="capsula-header-mini">
+            <div class="shimmer-suave"></div>
+            <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
         </div>
         <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
     </div>
@@ -144,7 +130,7 @@ st.markdown("""
 st.markdown("---")
 
 # ==========================================
-# REPLICAR EL ORDEN DE BOTONES Y BUSCADORES
+# ORDEN DE SECCIONES
 # ==========================================
 
 # 1. NOMENCLADORES
@@ -187,7 +173,7 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
                 st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
                 st.markdown("<br>", unsafe_allow_html=True)
         else:
-            st.warning("No se encontró información en Gestiones.")
+            st.warning("No se encontró información.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # 5. AGENDAS / MAILS (Buscador Celeste)
