@@ -20,7 +20,6 @@ def cargar_datos(url):
 # URLs de las planillas
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
-# Nueva planilla con dos solapas (gid=0 es la primera, gid=... la segunda)
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
 
@@ -35,7 +34,7 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO PERSONALIZADO
+# 3. CSS: DISEÑO PERSONALIZADO + FIX FUERTE PARA BOTONES
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -101,31 +100,52 @@ st.markdown("""
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
 
-    /* CORRECCIÓN BOTONES - Fondo gris oscuro + hover gris más claro */
-    div.stButton > button,
-    a.stLinkButton > button,
+    /* FIX BOTONES st.link_button - SELECTORES ESPECÍFICOS Y FUERTE OVERRIDE */
+    [data-testid="stLinkButton"] button,
+    [data-testid="stLinkButton"] button > div,
+    button[kind="secondary"],
     button[kind="primary"],
-    button[kind="secondary"] {
+    .stLinkButton button,
+    div.stButton > button {
         background-color: #2d3748 !important;
         color: #e2e8f0 !important;
         border: 1px solid #4a5568 !important;
         border-radius: 8px !important;
-        transition: all 0.2s ease;
+        transition: all 0.25s ease !important;
     }
 
-    div.stButton > button:hover,
-    a.stLinkButton > button:hover,
+    [data-testid="stLinkButton"] button:hover,
+    [data-testid="stLinkButton"] button:hover > div,
+    button[kind="secondary"]:hover,
     button[kind="primary"]:hover,
-    button[kind="secondary"]:hover {
+    .stLinkButton button:hover,
+    div.stButton > button:hover {
         background-color: #4a5568 !important;
         color: #ffffff !important;
         border-color: #63b3ed !important;
+        box-shadow: 0 4px 12px rgba(99,179,237,0.25) !important;
     }
 
-    div.stButton > button:active,
-    a.stLinkButton > button:active {
+    [data-testid="stLinkButton"] button:focus,
+    [data-testid="stLinkButton"] button:focus-visible,
+    button:focus {
         background-color: #5a7184 !important;
         color: #ffffff !important;
+        outline: none !important;
+    }
+
+    /* Bloqueo total de cualquier fondo blanco/claro en hover o active */
+    [data-testid="stLinkButton"] button:hover,
+    button:hover {
+        background: #4a5568 !important;
+        background-color: #4a5568 !important;
+        color: white !important;
+    }
+
+    /* Para contenedores y vistas dark */
+    [data-testid="stAppViewContainer"] button:hover,
+    [data-testid="stDecoration"] + div button:hover {
+        background-color: #4a5568 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -183,14 +203,12 @@ st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
     if busqueda_p:
-        # Buscar en Prácticas
         if not df_practicas.empty:
             res_p = df_practicas[df_practicas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
             for i, row in res_p.iterrows():
                 datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
                 st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">📑 PRÁCTICA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # Buscar en Especialistas
         if not df_especialistas.empty:
             res_e = df_especialistas[df_especialistas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
             for i, row in res_e.iterrows():
