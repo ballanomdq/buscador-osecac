@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERMANENTE + ANIMACIÓN DE LOGO POR CÓDIGO
+# 3. CSS PERMANENTE + NUEVA ANIMACIÓN REFINADA
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -27,16 +27,19 @@ st.markdown("""
         100% { background-position: 0% 50%; }
     }
     
-    /* Animación del Pulso del Logo */
+    /* Animación de Pulso muy lenta */
     @keyframes logoPulse {
-        0% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 5px #38bdf8); }
-        50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 15px #38bdf8); }
-        100% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 5px #38bdf8); }
+        0% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.2)); }
+        50% { transform: scale(1.02); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.4)); }
+        100% { transform: scale(1); filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.2)); }
     }
 
-    @keyframes shine {
-        from { left: -100%; }
-        to { left: 100%; }
+    /* Brillo mucho más lento (6 segundos) */
+    @keyframes slowShine {
+        0% { left: -150%; opacity: 0; }
+        20% { opacity: 0.5; }
+        80% { opacity: 0.5; }
+        100% { left: 150%; opacity: 0; }
     }
 
     .stApp { 
@@ -46,44 +49,58 @@ st.markdown("""
         color: #e2e8f0; 
     }
     
-    .block-container { max-width: 1200px !important; padding-top: 1.5rem !important; }
+    .block-container { max-width: 1200px !important; padding-top: 2rem !important; }
 
-    /* Contenedor del Logo Animado */
-    .logo-box {
+    /* Cápsula Principal Animada */
+    .capsula-header {
         position: relative;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
-        margin: 20px auto;
-        width: 200px;
-        height: 80px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 50px;
+        margin: 0 auto 15px auto;
+        padding: 20px 40px;
+        max-width: 600px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 20px;
         overflow: hidden;
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        animation: logoPulse 3s infinite ease-in-out;
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        animation: logoPulse 5s infinite ease-in-out;
+        text-align: center;
     }
 
-    .logo-text {
+    .titulo-animado {
         font-family: 'sans-serif';
         font-weight: 900;
-        font-size: 28px;
-        color: #38bdf8;
-        letter-spacing: 3px;
-        position: relative;
+        font-size: 1.8rem;
+        color: #e2e8f0;
+        letter-spacing: 2px;
+        z-index: 2;
+        margin: 0;
     }
 
-    .shimmer {
+    .slow-shimmer {
         position: absolute;
         top: 0;
-        width: 50px;
+        width: 100px;
         height: 100%;
-        background: rgba(255, 255, 255, 0.2);
-        transform: skewX(-20deg);
-        animation: shine 2s infinite;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transform: skewX(-25deg);
+        animation: slowShine 6s infinite linear;
+        z-index: 1;
     }
 
-    /* Fichas y Expanders (Lo que te gusta) */
+    .subtitulo-lema {
+        color: #94a3b8;
+        font-size: 14px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        font-weight: 400;
+        margin-top: 10px;
+        text-align: center;
+    }
+
+    /* Estilos de Fichas y Buscadores (Mantenidos) */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -113,22 +130,21 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA CON LOGO ANIMADO POR CÓDIGO ===
+# === ENCABEZADO UNIFICADO Y ANIMADO ===
 st.markdown("""
-    <div style="text-align: center;">
-        <h1 style="font-weight: 900; color: #e2e8f0; font-size: 2.2rem; margin-bottom: 0;">OSECAC MDP / AGENCIAS</h1>
-        <p style="color: #94a3b8; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-top: 5px;">PORTAL DE APOYO PARA COMPAÑEROS</p>
-        <div class="logo-box">
-            <div class="shimmer"></div>
-            <span class="logo-text">OSECAC</span>
+    <div style="margin-bottom: 40px;">
+        <div class="capsula-header">
+            <div class="slow-shimmer"></div>
+            <h1 class="titulo-animado">OSECAC MDP / AGENCIAS</h1>
         </div>
+        <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # ==========================================
-# ORDEN DE BOTONES SOLICITADO
+# REPLICAR EL ORDEN DE BOTONES Y BUSCADORES
 # ==========================================
 
 # 1. NOMENCLADORES
