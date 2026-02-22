@@ -20,6 +20,7 @@ def cargar_datos(url):
 # URLs de las planillas
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
+# Nueva planilla con dos solapas (gid=0 es la primera, gid=... la segunda)
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
 
@@ -58,39 +59,8 @@ st.markdown("""
         animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
     }
-
+    
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
-
-    /* ====== CORRECCIÓN DE BOTONES (PROBLEMA BLANCO) ====== */
-    .stButton > button,
-    .stLinkButton > a {
-        background-color: #1f2937 !important;
-        color: #ffffff !important;
-        border-radius: 10px !important;
-        border: 1px solid #334155 !important;
-        transition: all 0.3s ease !important;
-    }
-
-    .stButton > button:hover,
-    .stLinkButton > a:hover {
-        background-color: #334155 !important;
-        color: #ffffff !important;
-    }
-
-    .stButton > button:active,
-    .stLinkButton > a:active {
-        background-color: #0f172a !important;
-        color: #ffffff !important;
-    }
-
-    .stButton > button:focus,
-    .stLinkButton > a:focus {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
-        outline: none !important;
-        box-shadow: 0 0 0 2px #38bdf8 !important;
-    }
-    /* ====================================================== */
 
     .punto-alerta {
         width: 12px; height: 12px;
@@ -119,9 +89,9 @@ st.markdown("""
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .ficha-practica { border-left: 6px solid #10b981; }
+    .ficha-practica { border-left: 6px solid #10b981; } /* Verde para prácticas */
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
-
+    
     .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
     .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
 
@@ -148,7 +118,105 @@ try:
     with open("LOGO1.png", "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
     st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:85px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
-except:
-    pass
+except: pass
 
 st.markdown("---")
+
+# === SECCIONES 1, 2 Y 3 (NOMENCLADORES, PEDIDOS, PÁGINAS) ===
+with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
+    st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
+    st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
+    st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
+
+with st.expander("📝 **2. PEDIDOS**", expanded=False):
+    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+
+with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
+    st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
+    st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
+    st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+    st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+    st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
+    st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
+
+# === SECCIÓN 4: GESTIONES ===
+st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
+with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
+    busqueda_t = st.text_input("Buscá trámites...", key="search_t")
+    if busqueda_t and not df_tramites.empty:
+        res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(busqueda_t.lower(), na=False)]
+        for i, row in res_t.iterrows():
+            st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# === NUEVA SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
+st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
+with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
+    busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
+    if busqueda_p:
+        # Buscar en Prácticas
+        if not df_practicas.empty:
+            res_p = df_practicas[df_practicas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
+            for i, row in res_p.iterrows():
+                datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+                st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">📑 PRÁCTICA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+        
+        # Buscar en Especialistas
+        if not df_especialistas.empty:
+            res_e = df_especialistas[df_especialistas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
+            for i, row in res_e.iterrows():
+                datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+                st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">👨‍⚕️ ESPECIALISTA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# === SECCIÓN 6: AGENDAS ===
+st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
+with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
+    busqueda_a = st.text_input("Buscá contactos...", key="search_a")
+    if busqueda_a and not df_agendas.empty:
+        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
+        for i, row in res_a.iterrows():
+            datos_completos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+            st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos_completos)}</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# === SECCIÓN 7: NOVEDADES ===
+st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
+with st.expander("📢 **7. NOVEDADES**", expanded=True):
+    st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
+    for n in st.session_state.historial_novedades:
+        st.markdown(f"""
+        <div class="ficha ficha-novedad">
+            <span class="novedad-fecha-grande">📅 FECHA: {n['fecha']}</span>
+            <div class="novedad-texto">{n['mensaje']}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with st.popover("✍️ PANEL DE CONTROL"):
+        clave = st.text_input("Ingresar Clave:", type="password")
+        if clave == PASSWORD_JEFE:
+            st.subheader("Publicar Novedad")
+            with st.form("form_novedad", clear_on_submit=True):
+                msg = st.text_area("Nuevo comunicado:", height=150)
+                if st.form_submit_button("📢 PUBLICAR"):
+                    if msg:
+                        ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        nuevo_id = str(datetime.now().timestamp())
+                        st.session_state.historial_novedades.insert(0, {"id": nuevo_id, "mensaje": msg, "fecha": ahora})
+                        st.rerun()
+
+            st.write("---")
+            st.subheader("Gestionar Historial")
+            for i, n in enumerate(st.session_state.historial_novedades):
+                col_txt, col_btn = st.columns([0.8, 0.2])
+                with col_txt:
+                    st.write(f"**{n['fecha']}**: {n['mensaje'][:40]}...")
+                with col_btn:
+                    if st.button("🗑️", key=f"del_{n.get('id', i)}"):
+                        st.session_state.historial_novedades.pop(i)
+                        st.rerun()
+        elif clave != "":
+            st.error("Clave incorrecta")
+st.markdown('</div>', unsafe_allow_html=True)
