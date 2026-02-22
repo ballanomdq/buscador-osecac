@@ -34,93 +34,64 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO PERSONALIZADO (BLINDAJE CONTRA EL COLOR BLANCO)
+# 3. CSS: ATAQUE TOTAL AL FONDO BLANCO
 st.markdown("""
     <style>
-    @keyframes gradientBG {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    @keyframes shine {
-        0% { left: -100%; opacity: 0; }
-        50% { opacity: 0.6; }
-        100% { left: 100%; opacity: 0; }
-    }
-    @keyframes pulso {
-        0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); }
-        100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); }
-    }
-
+    /* 1. Fondo general de la App */
     .stApp { 
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
     }
-    
-    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* --- CORRECCIÓN DEFINITIVA DE BOTONES (EXPANDERS) --- */
-    /* Fondo del botón cerrado y abierto */
-    .stExpander {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
+    /* 2. ELIMINAR EL COLOR BLANCO DE LOS EXPANDERS (BOTONES) */
+    /* Forzamos fondo transparente y texto blanco en todos los estados */
+    div[data-testid="stExpander"] {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 12px !important;
     }
 
-    /* Eliminar el fondo blanco al alejar el cursor (Focus y Hover) */
-    .stExpander:focus-within, .stExpander:hover, .stExpander:active {
-        background-color: rgba(15, 23, 42, 0.9) !important;
+    /* Título del botón (Summary) */
+    div[data-testid="stExpander"] summary {
+        background-color: transparent !important;
+        color: white !important;
     }
 
-    /* Forzar color del texto del título en blanco siempre */
-    .stExpander summary {
+    /* Cuando pasas el mouse o sacas el cursor (hover y focus) */
+    div[data-testid="stExpander"]:hover, 
+    div[data-testid="stExpander"]:focus,
+    div[data-testid="stExpander"]:focus-visible,
+    div[data-testid="stExpander"]:focus-within {
+        background-color: rgba(255, 255, 255, 0.07) !important;
+        outline: none !important;
+    }
+
+    /* Texto dentro del botón */
+    div[data-testid="stExpander"] summary p {
         color: white !important;
+    }
+
+    /* Icono de flecha */
+    div[data-testid="stExpander"] svg {
+        fill: white !important;
+    }
+
+    /* Eliminar cualquier sombra blanca que pone Streamlit al hacer click */
+    .st-emotion-cache-p5msec:focus:not(:active) {
+        background-color: transparent !important;
+        color: white !important;
+    }
+
+    /* 3. ESTILOS DE FICHAS Y OTROS (MANTENIENDO LO ANTERIOR) */
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
     }
     
-    .stExpander summary p {
-        color: white !important;
-        font-weight: 600 !important;
-    }
-
-    /* Forzar que el interior también sea oscuro */
-    div[data-testid="stExpanderDetails"] {
-        background-color: transparent !important;
-        color: #e2e8f0 !important;
-    }
-
-    /* Icono de la flechita en blanco */
-    .stExpander svg {
-        fill: white !important;
-        color: white !important;
-    }
-
-    /* --- FIN CORRECCIÓN --- */
-
-    .punto-alerta {
-        width: 12px; height: 12px;
-        background-color: #ff4b4b;
-        border-radius: 50%;
-        display: inline-block;
-        margin-right: 12px;
-        animation: pulso 1.5s infinite;
-        vertical-align: middle;
-    }
-
-    .header-master { text-align: center; margin-bottom: 10px; }
-    .capsula-header-mini {
-        position: relative; padding: 10px 30px;
-        background: rgba(56, 189, 248, 0.05);
-        border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5);
-        overflow: hidden; margin-bottom: 12px; display: inline-block;
-    }
-    .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff; margin: 0; z-index: 2; position: relative; }
-    .shimmer-efecto {
-        position: absolute; top: 0; width: 100px; height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
-        transform: skewX(-20deg); animation: shine 4s infinite linear; z-index: 1;
-    }
+    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
@@ -128,10 +99,19 @@ st.markdown("""
     .ficha-practica { border-left: 6px solid #10b981; }
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
-    .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
-    .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
-    .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
-    .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
+    .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; padding: 5px; }
+    .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; padding: 5px; }
+    .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; padding: 5px; }
+    .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; padding: 5px; }
+    
+    .header-master { text-align: center; margin-bottom: 10px; }
+    .capsula-header-mini {
+        position: relative; padding: 10px 30px;
+        background: rgba(56, 189, 248, 0.05);
+        border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5);
+        display: inline-block;
+    }
+    .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff; margin: 0; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -139,7 +119,6 @@ st.markdown("""
 st.markdown("""
     <div class="header-master">
         <div class="capsula-header-mini">
-            <div class="shimmer-efecto"></div>
             <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
         </div>
     </div>
@@ -214,19 +193,17 @@ st.markdown('</div>', unsafe_allow_html=True)
 # === SECCIÓN 7: NOVEDADES ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
-    st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
     for n in st.session_state.historial_novedades:
         st.markdown(f"""
         <div class="ficha ficha-novedad">
-            <span class="novedad-fecha-grande">📅 FECHA: {n['fecha']}</span>
-            <div class="novedad-texto">{n['mensaje']}</div>
+            <span style="color:#ff4b4b; font-weight:bold;">📅 {n['fecha']}</span><br>
+            <div style="font-size:18px;">{n['mensaje']}</div>
         </div>
         """, unsafe_allow_html=True)
     
     with st.popover("✍️ PANEL DE CONTROL"):
         clave = st.text_input("Ingresar Clave:", type="password")
         if clave == PASSWORD_JEFE:
-            st.subheader("Publicar Novedad")
             with st.form("form_novedad", clear_on_submit=True):
                 msg = st.text_area("Nuevo comunicado:", height=150)
                 if st.form_submit_button("📢 PUBLICAR"):
@@ -235,17 +212,8 @@ with st.expander("📢 **7. NOVEDADES**", expanded=True):
                         nuevo_id = str(datetime.now().timestamp())
                         st.session_state.historial_novedades.insert(0, {"id": nuevo_id, "mensaje": msg, "fecha": ahora})
                         st.rerun()
-
-            st.write("---")
-            st.subheader("Gestionar Historial")
             for i, n in enumerate(st.session_state.historial_novedades):
-                col_txt, col_btn = st.columns([0.8, 0.2])
-                with col_txt:
-                    st.write(f"**{n['fecha']}**: {n['mensaje'][:40]}...")
-                with col_btn:
-                    if st.button("🗑️", key=f"del_{n.get('id', i)}"):
-                        st.session_state.historial_novedades.pop(i)
-                        st.rerun()
-        elif clave != "":
-            st.error("Clave incorrecta")
+                if st.button(f"🗑️ Borrar: {n['mensaje'][:20]}...", key=f"del_{n.get('id', i)}"):
+                    st.session_state.historial_novedades.pop(i)
+                    st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
