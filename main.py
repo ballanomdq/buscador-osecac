@@ -20,7 +20,6 @@ def cargar_datos(url):
 # URLs de las planillas
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
-# Nueva planilla con dos solapas (gid=0 es la primera, gid=... la segunda)
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
 
@@ -35,7 +34,7 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO PERSONALIZADO
+# 3. CSS: DISEÑO PERSONALIZADO (CORREGIDO ERROR DE COLOR BLANCO)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -61,6 +60,29 @@ st.markdown("""
     }
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
+
+    /* CORRECCIÓN DE EXPANDERS (BOTONES) */
+    .stExpander {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border-radius: 12px !important;
+        margin-bottom: 8px !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    
+    /* Evitar que el texto desaparezca o se ponga blanco sobre blanco */
+    .stExpander summary p {
+        color: #ffffff !important;
+    }
+    
+    .stExpander summary:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Forzar visibilidad del contenido al abrir */
+    .stExpander div[data-testid="stExpanderDetails"] {
+        background-color: transparent !important;
+        color: #e2e8f0 !important;
+    }
 
     .punto-alerta {
         width: 12px; height: 12px;
@@ -89,13 +111,12 @@ st.markdown("""
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .ficha-practica { border-left: 6px solid #10b981; } /* Verde para prácticas */
+    .ficha-practica { border-left: 6px solid #10b981; }
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
     .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
     .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
 
-    .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -122,7 +143,7 @@ except: pass
 
 st.markdown("---")
 
-# === SECCIONES 1, 2 Y 3 (NOMENCLADORES, PEDIDOS, PÁGINAS) ===
+# === SECCIONES 1, 2 Y 3 ===
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
@@ -151,19 +172,16 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === NUEVA SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
+# === SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
 st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
     if busqueda_p:
-        # Buscar en Prácticas
         if not df_practicas.empty:
             res_p = df_practicas[df_practicas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
             for i, row in res_p.iterrows():
                 datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
                 st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">📑 PRÁCTICA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
-        
-        # Buscar en Especialistas
         if not df_especialistas.empty:
             res_e = df_especialistas[df_especialistas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
             for i, row in res_e.iterrows():
