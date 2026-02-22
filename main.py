@@ -23,13 +23,13 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# Inicializar historial de novedades si no existe
+# Inicializar historial de novedades
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [
         {"id": 0, "mensaje": "Bienvenidos al portal. Las novedades se publicarán aquí.", "fecha": "21/02/2026 23:45"}
     ]
 
-# 3. CSS: TU DISEÑO + MEJORAS EN NOVEDADES
+# 3. CSS: DISEÑO RESPONSIVO (EL QUE TE GUSTA)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -56,7 +56,6 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* LUZ DE ALERTA */
     .punto-alerta {
         width: 12px; height: 12px;
         background-color: #ff4b4b;
@@ -81,13 +80,11 @@ st.markdown("""
         transform: skewX(-20deg); animation: shine 4s infinite linear; z-index: 1;
     }
 
-    /* FICHAS */
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
-    /* TEXTO NOVEDADES */
     .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
     .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
 
@@ -109,12 +106,10 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # === LOGO ===
-def get_base64_img(img_path):
-    with open(img_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
 try:
-    img_base64 = get_base64_img("LOGO1.png")
-    st.markdown(f'<center><img src="data:image/png;base64,{img_base64}" style="width:85px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
+    with open("LOGO1.png", "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:85px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
 except: pass
 
 st.markdown("---")
@@ -131,10 +126,15 @@ with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
+    # Aquí están todas las páginas que tenías antes
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
     st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
     st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+    st.link_button("💻 MICROSITIO OSECAC", "https://micrositio.osecac.org.ar/")
+    st.link_button("⚙️ SISTEMA OSECAC", "https://sistema.osecac.org.ar/")
+    st.link_button("🗳️ PADRÓN", "https://padronelectoral.org/")
+    st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
 # === SECCIONES 4 y 5 (BUSCADORES) ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
@@ -150,43 +150,29 @@ st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
     if busqueda_a and not df_agendas.empty:
-        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a, case=False).any(), axis=1)]
+        res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
         for i, row in res_a.iterrows():
             st.markdown(f'<div class="ficha ficha-agenda"><b style="color:#38bdf8;">👤 {row.iloc[0]}</b></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # === SECCIÓN 6: NOVEDADES (FINAL) ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
-with st.expander(f"📢 **6. NOVEDADES**", expanded=True):
+with st.expander("📢 **6. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
-    
-    # Mostrar Novedades
     for n in st.session_state.historial_novedades:
-        st.markdown(f"""
-        <div class="ficha ficha-novedad">
-            <span class="novedad-fecha-grande">📅 FECHA: {n['fecha']}</span>
-            <div class="novedad-texto">{n['mensaje']}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="ficha ficha-novedad"><span class="novedad-fecha-grande">📅 FECHA: {n["fecha"]}</span><div class="novedad-texto">{n["mensaje"]}</div></div>', unsafe_allow_html=True)
     
-    st.write("---")
-    # Panel de escritura para el Jefe
     with st.popover("✍️ PANEL DE CONTROL"):
         clave = st.text_input("Contraseña:", type="password")
         if clave == PASSWORD_JEFE:
             with st.form("form_novedad", clear_on_submit=True):
-                msg = st.text_area("Escribí el nuevo comunicado (espacio generoso):", height=200)
+                msg = st.text_area("Escribí el comunicado:", height=200)
                 if st.form_submit_button("📢 PUBLICAR"):
                     ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
-                    nuevo_id = datetime.now().timestamp()
-                    st.session_state.historial_novedades.insert(0, {"id": nuevo_id, "mensaje": msg, "fecha": ahora})
+                    st.session_state.historial_novedades.insert(0, {"id": datetime.now().timestamp(), "mensaje": msg, "fecha": ahora})
                     st.rerun()
-            
-            st.write("**Borrar mensajes:**")
             for i, n in enumerate(st.session_state.historial_novedades):
-                c1, c2 = st.columns([4, 1])
-                c1.caption(f"{n['fecha']}")
-                if c2.button("🗑️", key=f"del_{i}"):
+                if st.button(f"🗑️ Borrar: {n['mensaje'][:20]}...", key=f"del_{i}"):
                     st.session_state.historial_novedades.pop(i)
                     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
