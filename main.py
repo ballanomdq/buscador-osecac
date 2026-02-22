@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: CENTRADO TOTAL, CARTEL CHICO Y MARGEN SUPERIOR
+# 3. CSS: DISEÑO ORIGINAL RECUPERADO + LOGOS EN ITEMS
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -29,7 +29,7 @@ st.markdown("""
     
     @keyframes shine {
         0% { left: -100%; opacity: 0; }
-        50% { opacity: 0.7; }
+        50% { opacity: 0.6; }
         100% { left: 100%; opacity: 0; }
     }
 
@@ -37,36 +37,34 @@ st.markdown("""
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
+        color: #e2e8f0; 
     }
     
-    .block-container { max-width: 1000px !important; padding-top: 1rem !important; }
+    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* CONTENEDOR MAESTRO DE CABECERA */
-    .cabecera-bloque {
+    /* CABECERA ORIGINAL */
+    .header-container {
         display: flex;
-        flex-direction: column;
-        align-items: center; /* ESTO CENTRA TODO */
+        align-items: center;
         justify-content: center;
-        width: 100%;
-        margin-top: 50px; /* MARGEN DE SEPARACIÓN DESDE ARRIBA */
-        margin-bottom: 30px;
+        gap: 20px;
+        margin-bottom: 5px;
     }
 
-    /* Cartel OSECAC más chico */
     .capsula-header-mini {
         position: relative;
-        padding: 6px 20px;
+        padding: 8px 25px;
         background: rgba(56, 189, 248, 0.05);
-        border-radius: 25px;
-        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 30px;
+        border: 1px solid rgba(56, 189, 248, 0.5);
         overflow: hidden;
-        margin-bottom: 15px;
+        text-align: center;
     }
 
     .titulo-mini {
         font-family: 'sans-serif';
         font-weight: 800;
-        font-size: 1.2rem; /* TAMAÑO MÁS CHICO */
+        font-size: 1.4rem;
         color: #e2e8f0;
         margin: 0;
         z-index: 2;
@@ -78,46 +76,61 @@ st.markdown("""
         top: 0;
         width: 80px;
         height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
-        transform: skewX(-25deg);
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
+        transform: skewX(-20deg);
         animation: shine 4s infinite linear;
         z-index: 1;
     }
 
     .subtitulo-lema {
         color: #94a3b8;
-        font-size: 13px;
+        font-size: 12px;
         letter-spacing: 2px;
         text-transform: uppercase;
-        margin: 0;
+        margin-top: 8px;
         text-align: center;
-        width: 100%;
+        margin-bottom: 20px;
     }
 
-    /* Logo centrado debajo del lema */
-    .logo-final {
-        margin-top: 15px;
-        display: flex;
-        justify-content: center;
+    /* FICHAS Y BUSCADORES */
+    .ficha {
+        background-color: rgba(23, 32, 48, 0.9);
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
     }
-
-    /* FICHAS ORIGINALES */
-    .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .titulo-tramite { color: #fbbf24; font-size: 1.4rem; font-weight: bold; margin-bottom: 10px; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
     .titulo-agenda { color: #38bdf8; font-size: 1.3rem; font-weight: bold; margin-bottom: 8px; }
     .cuerpo-ficha { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
 
+    div.stLinkButton > a {
+        border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
+        text-transform: uppercase !important; padding: 12px !important; width: 100% !important; text-align: center !important;
+    }
+    
+    .stExpander { 
+        background-color: rgba(30, 41, 59, 0.6) !important; 
+        border-radius: 12px !important; 
+        margin-bottom: 8px !important;
+    }
+    
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
+    
+    /* Mini logo para los items */
+    .mini-logo {
+        vertical-align: middle;
+        margin-right: 10px;
+        height: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA CENTRADA TOTAL ===
-st.markdown('<div class="cabecera-bloque">', unsafe_allow_html=True)
-
-# 1. El Cartel (Más chico)
+# === CABECERA ORIGINAL ===
+st.markdown('<div class="header-container">', unsafe_allow_html=True)
 st.markdown("""
     <div class="capsula-header-mini">
         <div class="shimmer-efecto"></div>
@@ -125,24 +138,23 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-# 2. La frase (Centrada)
-st.markdown('<p class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</p>', unsafe_allow_html=True)
-
-# 3. El Logo (Debajo y centrado)
-st.markdown('<div class="logo-final">', unsafe_allow_html=True)
 try:
-    st.image("LOGO1.png", width=80)
+    st.image("LOGO1.png", width=70)
 except:
     st.write("")
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True) # Cierra cabecera-bloque
-
+st.markdown('<div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ==========================================
-# SECCIONES: 1, 2 y 3
+# SECCIONES CON MINI LOGO EN CADA TÍTULO
 # ==========================================
+
+# Función para mostrar mini logo si existe
+def label_con_logo(texto):
+    return f" {texto}"
+
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
@@ -151,6 +163,21 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
+
+with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
+        st.link_button("🏛️ AFIP", "https://www.afip.gob.ar/")
+    with c2:
+        st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+    with c3:
+        st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
+        st.link_button("🧪 PORTAL MEDICAMENTOS", "http://servicios-externos.osecac.org.ar/SolicitudTramitesMpp/tramites")
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
 # SECCIÓN 4: GESTIONES (BUSCADOR AMARILLO)
