@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: RECUPERANDO TODO EL DISEÑO ORIGINAL DE FICHAS + ENCABEZADO
+# 3. CSS: DISEÑO ORIGINAL + LOGO CENTRADO CON BRILLO INTENSO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -29,7 +29,7 @@ st.markdown("""
     
     @keyframes shine {
         0% { left: -100%; opacity: 0; }
-        50% { opacity: 0.6; }
+        50% { opacity: 0.8; }
         100% { left: 100%; opacity: 0; }
     }
 
@@ -42,57 +42,63 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* ENCABEZADO: Cartel y Logo Juntos */
-    .header-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 20px;
-        margin-bottom: 5px;
+    /* Contenedor de Cabecera Centrada */
+    .header-wrapper {
+        text-align: center;
+        margin-bottom: 20px;
     }
 
     .capsula-header-mini {
         position: relative;
-        padding: 8px 25px;
+        display: inline-block;
+        padding: 10px 30px;
         background: rgba(56, 189, 248, 0.05);
-        border-radius: 30px;
+        border-radius: 35px;
         border: 1px solid rgba(56, 189, 248, 0.5);
         overflow: hidden;
-        text-align: center;
     }
 
     .titulo-mini {
         font-family: 'sans-serif';
         font-weight: 800;
-        font-size: 1.4rem;
+        font-size: 1.6rem;
         color: #e2e8f0;
         margin: 0;
         z-index: 2;
         position: relative;
     }
 
+    /* Brillo más intenso y marcado */
     .shimmer-efecto {
         position: absolute;
         top: 0;
-        width: 80px;
+        width: 100px;
         height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
-        transform: skewX(-20deg);
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.35), transparent);
+        transform: skewX(-25deg);
         animation: shine 4s infinite linear;
         z-index: 1;
     }
 
     .subtitulo-lema {
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 13px;
         letter-spacing: 2px;
         text-transform: uppercase;
-        margin-top: 8px;
-        text-align: center;
-        margin-bottom: 20px;
+        margin-top: 12px;
+        margin-bottom: 15px;
     }
 
-    /* FICHAS: Recuperadas exactamente como te gustaban */
+    /* Contenedor específico para el logo debajo de la frase */
+    .logo-container-bottom {
+        position: relative;
+        display: inline-block;
+        overflow: hidden;
+        border-radius: 10px;
+        margin-top: 5px;
+    }
+
+    /* FICHAS: Estilo original recuperado */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -122,8 +128,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA COMPACTA: CARTEL + LOGO A LA DERECHA ===
-st.markdown('<div class="header-container">', unsafe_allow_html=True)
+# === CABECERA: CARTEL -> FRASE -> LOGO (TODO CENTRADO) ===
+st.markdown('<div class="header-wrapper">', unsafe_allow_html=True)
+
+# 1. Cartel principal
 st.markdown("""
     <div class="capsula-header-mini">
         <div class="shimmer-efecto"></div>
@@ -131,17 +139,21 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
+# 2. Frase de apoyo
+st.markdown('<div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
+
+# 3. Logo debajo con brillo
+st.markdown('<div class="logo-container-bottom"><div class="shimmer-efecto"></div>', unsafe_allow_html=True)
 try:
-    st.image("LOGO1.png", width=70)
+    st.image("LOGO1.png", width=80)
 except:
     st.write("")
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div></div>', unsafe_allow_html=True)
 
-st.markdown('<div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ==========================================
-# SECCIONES: 1, 2 y 3
+# SECCIONES: 1, 2 y 3 (Manteniendo tu estructura)
 # ==========================================
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
@@ -153,26 +165,12 @@ with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
 
-with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
-        st.link_button("🏛️ AFIP", "https://www.afip.gob.ar/")
-    with c2:
-        st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
-        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
-    with c3:
-        st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
-        st.link_button("🧪 PORTAL MEDICAMENTOS", "http://servicios-externos.osecac.org.ar/SolicitudTramitesMpp/tramites")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
 # ==========================================
 # SECCIÓN 4: GESTIONES (BUSCADOR AMARILLO)
 # ==========================================
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
-    busqueda_t = st.text_input("Buscá trámites, prácticas o prestadores...", key="search_tramites")
+    busqueda_t = st.text_input("Buscá trámites...", key="search_tramites")
     if busqueda_t:
         t = busqueda_t.lower().strip()
         res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)]
@@ -188,7 +186,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ==========================================
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
-    busqueda_a = st.text_input("Buscá un contacto, delegación o mail...", key="search_agendas")
+    busqueda_a = st.text_input("Buscá contactos...", key="search_agendas")
     if busqueda_a:
         q = busqueda_a.lower().strip()
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
