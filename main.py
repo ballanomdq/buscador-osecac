@@ -12,14 +12,13 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
-# URLs de tus Sheets (Publicados como CSV)
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERMANENTE (Mantiene fichas, colores y líneas de búsqueda)
+# 3. CSS PERMANENTE + ANIMACIÓN DE LOGO POR CÓDIGO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -27,6 +26,19 @@ st.markdown("""
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
+    
+    /* Animación del Pulso del Logo */
+    @keyframes logoPulse {
+        0% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 5px #38bdf8); }
+        50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 15px #38bdf8); }
+        100% { transform: scale(1); opacity: 0.8; filter: drop-shadow(0 0 5px #38bdf8); }
+    }
+
+    @keyframes shine {
+        from { left: -100%; }
+        to { left: 100%; }
+    }
+
     .stApp { 
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14);
         background-size: 400% 400%;
@@ -36,21 +48,42 @@ st.markdown("""
     
     .block-container { max-width: 1200px !important; padding-top: 1.5rem !important; }
 
-    .cabecera-centrada { 
-        display: flex; flex-direction: column; align-items: center; 
-        justify-content: center; text-align: center; width: 100%; 
+    /* Contenedor del Logo Animado */
+    .logo-box {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 20px auto;
+        width: 200px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 50px;
+        overflow: hidden;
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        animation: logoPulse 3s infinite ease-in-out;
     }
-    
-    .titulo-principal { font-weight: 900; color: #e2e8f0; font-size: 2.2rem !important; margin-bottom: 5px !important; }
-    .subtitulo-equipo { color: #94a3b8; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px; }
 
-    .logo-container img {
-        max-width: 180px !important; height: auto;
-        margin: 10px auto; display: block;
-        filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.5));
+    .logo-text {
+        font-family: 'sans-serif';
+        font-weight: 900;
+        font-size: 28px;
+        color: #38bdf8;
+        letter-spacing: 3px;
+        position: relative;
     }
 
-    /* Fichas con diseño de color */
+    .shimmer {
+        position: absolute;
+        top: 0;
+        width: 50px;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: skewX(-20deg);
+        animation: shine 2s infinite;
+    }
+
+    /* Fichas y Expanders (Lo que te gusta) */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -64,64 +97,54 @@ st.markdown("""
     .titulo-agenda { color: #38bdf8; font-size: 1.3rem; font-weight: bold; margin-bottom: 8px; }
     .cuerpo-ficha { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
 
-    /* Estilo Botones Normales */
     div.stLinkButton > a {
         border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
         text-transform: uppercase !important; padding: 12px !important; width: 100% !important; text-align: center !important;
     }
     
-    /* Estilo Expanders */
     .stExpander { 
         background-color: rgba(30, 41, 59, 0.6) !important; 
         border-radius: 12px !important; 
         margin-bottom: 10px !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
     }
     
-    /* Líneas de color distintivas para buscadores */
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA Y NUEVO LOGO ===
-st.markdown(f"""
-    <div class="cabecera-centrada">
-        <div class="titulo-principal">OSECAC MDP / AGENCIAS</div>
-        <div class="subtitulo-equipo">PORTAL DE APOYO PARA COMPAÑEROS</div>
-        <div class="logo-container">
-            </div>
+# === CABECERA CON LOGO ANIMADO POR CÓDIGO ===
+st.markdown("""
+    <div style="text-align: center;">
+        <h1 style="font-weight: 900; color: #e2e8f0; font-size: 2.2rem; margin-bottom: 0;">OSECAC MDP / AGENCIAS</h1>
+        <p style="color: #94a3b8; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-top: 5px;">PORTAL DE APOYO PARA COMPAÑEROS</p>
+        <div class="logo-box">
+            <div class="shimmer"></div>
+            <span class="logo-text">OSECAC</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-
-# Cargamos el logo localmente
-try:
-    st.image("logo osecac.png", width=180)
-except:
-    st.error("No se pudo encontrar el archivo 'logo osecac.png'. Asegúrate de que esté en la misma carpeta.")
 
 st.markdown("---")
 
 # ==========================================
-# 1. NOMENCLADORES
+# ORDEN DE BOTONES SOLICITADO
 # ==========================================
-with st.expander("📂 **NOMENCLADORES**", expanded=False):
+
+# 1. NOMENCLADORES
+with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
     st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
-# ==========================================
 # 2. PEDIDOS
-# ==========================================
-with st.expander("📝 **PEDIDOS**", expanded=False):
+with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
 
-# ==========================================
 # 3. PÁGINAS ÚTILES
-# ==========================================
-with st.expander("🌐 **PÁGINAS ÚTILES**", expanded=False):
+with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     c1, c2, c3 = st.columns(3)
     with c1:
         st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
@@ -135,58 +158,33 @@ with st.expander("🌐 **PÁGINAS ÚTILES**", expanded=False):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ==========================================
 # 4. GESTIONES / DATOS (Buscador Amarillo)
-# ==========================================
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
-with st.expander("📂 **GESTIONES / DATOS**", expanded=False):
+with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites, prácticas o prestadores...", key="search_tramites")
-
     if busqueda_t:
         t = busqueda_t.lower().strip()
-        res_t = df_tramites[
-            df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | 
-            df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)
-        ]
-        
+        res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)]
         if not res_t.empty:
             for i, row in res_t.iterrows():
-                st.markdown(f"""
-                    <div class="ficha ficha-tramite">
-                        <div class="titulo-tramite">📋 {row['TRAMITE']}</div>
-                        <div class="cuerpo-ficha">{row['DESCRIPCIÓN Y REQUISITOS']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div class="cuerpo-ficha">{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
                 st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
                 st.markdown("<br>", unsafe_allow_html=True)
         else:
             st.warning("No se encontró información en Gestiones.")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
 # 5. AGENDAS / MAILS (Buscador Celeste)
-# ==========================================
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
-with st.expander("📞 **AGENDAS / MAILS**", expanded=False):
+with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá un contacto, delegación o mail...", key="search_agendas")
-
     if busqueda_a:
         q = busqueda_a.lower().strip()
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
-        
         if not res_a.empty:
             for i, row in res_a.iterrows():
-                contenido_agenda = ""
-                for col in df_agendas.columns:
-                    if pd.notna(row[col]):
-                        contenido_agenda += f"**{col}:** {row[col]}  \n"
-                
-                st.markdown(f"""
-                    <div class="ficha ficha-agenda">
-                        <div class="titulo-agenda">👤 {row.iloc[0]}</div>
-                        <div class="cuerpo-ficha">{contenido_agenda}</div>
-                    </div>
-                """, unsafe_allow_html=True)
+                contenido_agenda = "".join([f"**{col}:** {row[col]}  \n" for col in df_agendas.columns if pd.notna(row[col])])
+                st.markdown(f'<div class="ficha ficha-agenda"><div class="titulo-agenda">👤 {row.iloc[0]}</div><div class="cuerpo-ficha">{contenido_agenda}</div></div>', unsafe_allow_html=True)
         else:
-            st.warning("No se encontraron contactos en la Agenda.")
+            st.warning("No se encontraron contactos.")
 st.markdown('</div>', unsafe_allow_html=True)
