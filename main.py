@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: DISEÑO ORIGINAL SIN LOGO
+# 3. CSS: DISEÑO ORIGINAL + LOGO CONSTRUIDO POR CÓDIGO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -42,12 +42,14 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* ENCABEZADO CENTRADO */
-    .header-container {
+    /* CABECERA CENTRADA */
+    .header-master {
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        margin-bottom: 5px;
+        text-align: center;
+        margin-bottom: 20px;
     }
 
     .capsula-header-mini {
@@ -57,7 +59,7 @@ st.markdown("""
         border-radius: 30px;
         border: 1px solid rgba(56, 189, 248, 0.5);
         overflow: hidden;
-        text-align: center;
+        margin-bottom: 10px;
     }
 
     .titulo-mini {
@@ -86,52 +88,70 @@ st.markdown("""
         font-size: 12px;
         letter-spacing: 2px;
         text-transform: uppercase;
-        margin-top: 8px;
-        text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 15px;
     }
 
-    /* FICHAS */
-    .ficha {
-        background-color: rgba(23, 32, 48, 0.9);
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    /* === LOGO CONSTRUIDO CON CSS === */
+    .logo-css {
+        width: 60px;
+        height: 60px;
+        background-color: white;
+        border-radius: 50%;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
     }
-    .ficha-tramite { border-left: 6px solid #fbbf24; }
-    .titulo-tramite { color: #fbbf24; font-size: 1.4rem; font-weight: bold; margin-bottom: 10px; }
-    .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .titulo-agenda { color: #38bdf8; font-size: 1.3rem; font-weight: bold; margin-bottom: 8px; }
-    .cuerpo-ficha { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
 
-    div.stLinkButton > a {
-        border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
-        text-transform: uppercase !important; padding: 12px !important; width: 100% !important; text-align: center !important;
+    /* Arcos azules */
+    .logo-css::before, .logo-css::after {
+        content: "";
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border: 7px solid #0056b3;
+        border-radius: 50%;
+        border-left-color: transparent;
+        border-bottom-color: transparent;
     }
-    
-    .stExpander { 
-        background-color: rgba(30, 41, 59, 0.6) !important; 
-        border-radius: 12px !important; 
-        margin-bottom: 8px !important;
+
+    .logo-css::before { transform: rotate(-45deg); top: 2px; }
+    .logo-css::after { transform: rotate(135deg); bottom: 2px; }
+
+    /* Punto negro central */
+    .centro-negro {
+        width: 22px;
+        height: 22px;
+        background-color: black;
+        border-radius: 50%;
+        z-index: 5;
     }
+
+    /* FICHAS ORIGINALES */
+    .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid transparent; }
+    .ficha-tramite { border-left-color: #fbbf24; }
+    .ficha-agenda { border-left-color: #38bdf8; }
     
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA CENTRADA SIN LOGO ===
-st.markdown('<div class="header-container">', unsafe_allow_html=True)
+# === CABECERA: CARTEL -> FRASE -> LOGO (TODO POR CÓDIGO) ===
 st.markdown("""
-    <div class="capsula-header-mini">
-        <div class="shimmer-efecto"></div>
-        <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
+    <div class="header-master">
+        <div class="capsula-header-mini">
+            <div class="shimmer-efecto"></div>
+            <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
+        </div>
+        <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
+        <div class="logo-css">
+            <div class="centro-negro"></div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ==========================================
@@ -140,41 +160,21 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
-    st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
-
-with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
-        st.link_button("🏛️ AFIP", "https://www.afip.gob.ar/")
-    with c2:
-        st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
-        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
-    with c3:
-        st.link_button("🩺 GMS WEB", "https://www.gmssa.com.ar/")
-        st.link_button("🧪 PORTAL MEDICAMENTOS", "http://servicios-externos.osecac.org.ar/SolicitudTramitesMpp/tramites")
-
-st.markdown("<br>", unsafe_allow_html=True)
 
 # ==========================================
 # SECCIÓN 4: GESTIONES (BUSCADOR AMARILLO)
 # ==========================================
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
-    busqueda_t = st.text_input("Buscá trámites, prácticas o prestadores...", key="search_tramites")
-    if busqueda_t:
+    busqueda_t = st.text_input("Buscá trámites...", key="search_tramites")
+    if busqueda_t and not df_tramites.empty:
         t = busqueda_t.lower().strip()
-        res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False) | df_tramites['PALABRA CLAVE'].str.lower().str.contains(t, na=False)]
-        if not res_t.empty:
-            for i, row in res_t.iterrows():
-                st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div class="cuerpo-ficha">{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
-                st.link_button(f"📂 ABRIR CARPETA DE {row['TRAMITE']}", str(row['LINK CARPETA / ARCHIVOS']))
-                st.markdown("<br>", unsafe_allow_html=True)
+        res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False)]
+        for i, row in res_t.iterrows():
+            st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -182,12 +182,10 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ==========================================
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
-    busqueda_a = st.text_input("Buscá un contacto, delegación o mail...", key="search_agendas")
-    if busqueda_a:
+    busqueda_a = st.text_input("Buscá contactos...", key="search_agendas")
+    if busqueda_a and not df_agendas.empty:
         q = busqueda_a.lower().strip()
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
-        if not res_a.empty:
-            for i, row in res_a.iterrows():
-                contenido_agenda = "".join([f"**{col}:** {row[col]}  \n" for col in df_agendas.columns if pd.notna(row[col])])
-                st.markdown(f'<div class="ficha ficha-agenda"><div class="titulo-agenda">👤 {row.iloc[0]}</div><div class="cuerpo-ficha">{contenido_agenda}</div></div>', unsafe_allow_html=True)
+        for i, row in res_a.iterrows():
+            st.markdown(f'<div class="ficha ficha-agenda"><b style="color:#38bdf8;">👤 {row.iloc[0]}</b></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
