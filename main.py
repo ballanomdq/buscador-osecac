@@ -100,6 +100,33 @@ st.markdown("""
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
+
+    /* CORRECCIÓN BOTONES - Fondo gris oscuro + hover gris más claro */
+    div.stButton > button,
+    a.stLinkButton > button,
+    button[kind="primary"],
+    button[kind="secondary"] {
+        background-color: #2d3748 !important;
+        color: #e2e8f0 !important;
+        border: 1px solid #4a5568 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease;
+    }
+
+    div.stButton > button:hover,
+    a.stLinkButton > button:hover,
+    button[kind="primary"]:hover,
+    button[kind="secondary"]:hover {
+        background-color: #4a5568 !important;
+        color: #ffffff !important;
+        border-color: #63b3ed !important;
+    }
+
+    div.stButton > button:active,
+    a.stLinkButton > button:active {
+        background-color: #5a7184 !important;
+        color: #ffffff !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
