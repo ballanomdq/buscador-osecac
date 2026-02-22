@@ -114,7 +114,7 @@ except: pass
 
 st.markdown("---")
 
-# === SECCIONES 1, 2 Y 3 (SIN CAMBIOS) ===
+# === SECCIONES 1, 2 Y 3 (NOMENCLADORES, PEDIDOS, PÁGINAS) ===
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
@@ -133,7 +133,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# === SECCIÓN 4 Y 5: BUSCADORES ===
+# === SECCIÓN 4: GESTIONES ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
@@ -143,16 +143,29 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
+# === SECCIÓN 5: AGENDAS (MEJORADO PARA MOSTRAR TODO) ===
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
     if busqueda_a and not df_agendas.empty:
+        # Filtra filas donde cualquier columna contenga la búsqueda
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
+        
         for i, row in res_a.iterrows():
-            st.markdown(f'<div class="ficha ficha-agenda"><b style="color:#38bdf8;">👤 {row.iloc[0]}</b></div>', unsafe_allow_html=True)
+            # Creamos una lista con los datos de todas las columnas que no estén vacías
+            datos_completos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+            info_html = "<br>".join(datos_completos)
+            
+            st.markdown(f"""
+                <div class="ficha ficha-agenda">
+                    <div style="color:#e2e8f0; font-size: 16px;">
+                        {info_html}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 6: NOVEDADES (MODIFICADO PARA BORRADO SELECTIVO) ===
+# === SECCIÓN 6: NOVEDADES (CON BORRADO SELECTIVO) ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **6. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
@@ -176,23 +189,18 @@ with st.expander("📢 **6. NOVEDADES**", expanded=True):
                 if st.form_submit_button("📢 PUBLICAR"):
                     if msg:
                         ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
-                        # Usar timestamp como ID único para evitar errores al borrar
                         nuevo_id = str(datetime.now().timestamp())
                         st.session_state.historial_novedades.insert(0, {"id": nuevo_id, "mensaje": msg, "fecha": ahora})
                         st.rerun()
 
             st.write("---")
             st.subheader("Gestionar Historial")
-            st.info("Hacé clic en el botón de basura para eliminar un mensaje específico:")
-            
-            # Función para borrar por ID único
             for i, n in enumerate(st.session_state.historial_novedades):
                 col_txt, col_btn = st.columns([0.8, 0.2])
                 with col_txt:
-                    # Mostrar una pequeña parte del mensaje para identificarlo
                     st.write(f"**{n['fecha']}**: {n['mensaje'][:40]}...")
                 with col_btn:
-                    if st.button("🗑️", key=f"del_{n['id']}"):
+                    if st.button("🗑️", key=f"del_{n.get('id', i)}"):
                         st.session_state.historial_novedades.pop(i)
                         st.rerun()
         elif clave != "":
