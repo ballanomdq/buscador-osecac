@@ -23,13 +23,13 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# Inicializar historial de novedades si no existe en la sesión
+# Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [
-        {"id": 0, "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
+        {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO PERSONALIZADO (NO TOCAR SI NO ES NECESARIO)
+# 3. CSS: DISEÑO PERSONALIZADO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -114,19 +114,17 @@ except: pass
 
 st.markdown("---")
 
-# === SECCIÓN 1: NOMENCLADORES ===
+# === SECCIONES 1, 2 Y 3 (SIN CAMBIOS) ===
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
     st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
-# === SECCIÓN 2: PEDIDOS ===
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# === SECCIÓN 3: PÁGINAS ÚTILES ===
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
@@ -135,7 +133,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# === SECCIÓN 4: GESTIONES (BUSCADOR AMARILLO) ===
+# === SECCIÓN 4 Y 5: BUSCADORES ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
@@ -145,7 +143,6 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 5: AGENDAS (BUSCADOR CELESTE) ===
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
@@ -155,7 +152,7 @@ with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda"><b style="color:#38bdf8;">👤 {row.iloc[0]}</b></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 6: NOVEDADES (BUSCADOR ROJO) ===
+# === SECCIÓN 6: NOVEDADES (MODIFICADO PARA BORRADO SELECTIVO) ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **6. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
@@ -173,17 +170,32 @@ with st.expander("📢 **6. NOVEDADES**", expanded=True):
     with st.popover("✍️ PANEL DE CONTROL"):
         clave = st.text_input("Ingresar Clave:", type="password")
         if clave == PASSWORD_JEFE:
+            st.subheader("Publicar Novedad")
             with st.form("form_novedad", clear_on_submit=True):
-                msg = st.text_area("Nuevo comunicado (Cuadro amplio):", height=200)
+                msg = st.text_area("Nuevo comunicado:", height=150)
                 if st.form_submit_button("📢 PUBLICAR"):
-                    ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
-                    st.session_state.historial_novedades.insert(0, {"id": datetime.now().timestamp(), "mensaje": msg, "fecha": ahora})
-                    st.rerun()
-            
+                    if msg:
+                        ahora = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        # Usar timestamp como ID único para evitar errores al borrar
+                        nuevo_id = str(datetime.now().timestamp())
+                        st.session_state.historial_novedades.insert(0, {"id": nuevo_id, "mensaje": msg, "fecha": ahora})
+                        st.rerun()
+
             st.write("---")
-            st.write("**Borrar mensajes:**")
+            st.subheader("Gestionar Historial")
+            st.info("Hacé clic en el botón de basura para eliminar un mensaje específico:")
+            
+            # Función para borrar por ID único
             for i, n in enumerate(st.session_state.historial_novedades):
-                if st.button(f"🗑️ {n['mensaje'][:20]}...", key=f"del_{i}"):
-                    st.session_state.historial_novedades.pop(i)
-                    st.rerun()
+                col_txt, col_btn = st.columns([0.8, 0.2])
+                with col_txt:
+                    # Mostrar una pequeña parte del mensaje para identificarlo
+                    st.write(f"**{n['fecha']}**: {n['mensaje'][:40]}...")
+                with col_btn:
+                    if st.button("🗑️", key=f"del_{n['id']}"):
+                        st.session_state.historial_novedades.pop(i)
+                        st.rerun()
+        elif clave != "":
+            st.error("Clave incorrecta")
+
 st.markdown('</div>', unsafe_allow_html=True)
