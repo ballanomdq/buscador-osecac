@@ -19,7 +19,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS PERSONALIZADO (Diseño de Fichas y Expanders)
+# 3. CSS PERMANENTE (Mantiene fichas, colores y líneas de búsqueda)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -45,11 +45,12 @@ st.markdown("""
     .subtitulo-equipo { color: #94a3b8; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 15px; }
 
     .logo-container img {
-        max-width: 120px !important; height: auto;
+        max-width: 180px !important; height: auto;
         margin: 10px auto; display: block;
+        filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.5));
     }
 
-    /* Fichas */
+    /* Fichas con diseño de color */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -63,7 +64,7 @@ st.markdown("""
     .titulo-agenda { color: #38bdf8; font-size: 1.3rem; font-weight: bold; margin-bottom: 8px; }
     .cuerpo-ficha { white-space: pre-wrap; font-size: 15px; line-height: 1.6; color: #f1f5f9; }
 
-    /* Estilo Botones */
+    /* Estilo Botones Normales */
     div.stLinkButton > a {
         border-radius: 8px !important; font-size: 12px !important; font-weight: 700 !important;
         text-transform: uppercase !important; padding: 12px !important; width: 100% !important; text-align: center !important;
@@ -77,40 +78,45 @@ st.markdown("""
         border: 1px solid rgba(255,255,255,0.1) !important;
     }
     
-    /* Colores de borde específicos para los buscadores principales */
-    .buscador-gestion { border: 1px solid #fbbf24 !important; }
-    .buscador-agenda { border: 1px solid #38bdf8 !important; }
+    /* Líneas de color distintivas para buscadores */
+    .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
+    .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA ===
+# === CABECERA Y NUEVO LOGO ===
 st.markdown(f"""
     <div class="cabecera-centrada">
         <div class="titulo-principal">OSECAC MDP / AGENCIAS</div>
         <div class="subtitulo-equipo">PORTAL DE APOYO PARA COMPAÑEROS</div>
         <div class="logo-container">
-            <img src="https://raw.githubusercontent.com/ballanomdq/buscador-osecac/main/LOGO.jpg" alt="Logo">
-        </div>
+            </div>
     </div>
     """, unsafe_allow_html=True)
+
+# Cargamos el logo localmente
+try:
+    st.image("logo osecac.png", width=180)
+except:
+    st.error("No se pudo encontrar el archivo 'logo osecac.png'. Asegúrate de que esté en la misma carpeta.")
 
 st.markdown("---")
 
 # ==========================================
-# 1. NOMENCLADORES Y 2. PEDIDOS (Lado a lado)
+# 1. NOMENCLADORES
 # ==========================================
-col_m1, col_m2 = st.columns(2)
-with col_m1:
-    with st.expander("📂 **NOMENCLADORES**", expanded=False):
-        st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-        st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
-        st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
+with st.expander("📂 **NOMENCLADORES**", expanded=False):
+    st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
+    st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
+    st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
-with col_m2:
-    with st.expander("📝 **PEDIDOS**", expanded=False):
-        st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-        st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-        st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
+# ==========================================
+# 2. PEDIDOS
+# ==========================================
+with st.expander("📝 **PEDIDOS**", expanded=False):
+    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/u/0/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84/page/OoHdF")
 
 # ==========================================
 # 3. PÁGINAS ÚTILES
@@ -132,7 +138,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 # ==========================================
 # 4. GESTIONES / DATOS (Buscador Amarillo)
 # ==========================================
-# Usamos un div con clase para aplicar el borde amarillo específico
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites, prácticas o prestadores...", key="search_tramites")
