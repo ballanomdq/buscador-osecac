@@ -18,7 +18,7 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 
-# 3. CSS: RECUPERANDO TODO EL DISEÑO ORIGINAL DE FICHAS + ENCABEZADO
+# 3. CSS: DISEÑO ORIGINAL SIN LOGO
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -42,12 +42,11 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* ENCABEZADO: Cartel y Logo Juntos */
+    /* ENCABEZADO CENTRADO */
     .header-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 20px;
         margin-bottom: 5px;
     }
 
@@ -92,7 +91,7 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* FICHAS: Recuperadas exactamente como te gustaban */
+    /* FICHAS */
     .ficha {
         background-color: rgba(23, 32, 48, 0.9);
         padding: 20px;
@@ -122,7 +121,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA COMPACTA: CARTEL + LOGO A LA DERECHA ===
+# === CABECERA CENTRADA SIN LOGO ===
 st.markdown('<div class="header-container">', unsafe_allow_html=True)
 st.markdown("""
     <div class="capsula-header-mini">
@@ -130,11 +129,6 @@ st.markdown("""
         <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
     </div>
     """, unsafe_allow_html=True)
-
-try:
-    st.image("LOGO1.png", width=70)
-except:
-    st.write("")
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>', unsafe_allow_html=True)
