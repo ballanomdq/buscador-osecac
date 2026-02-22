@@ -34,7 +34,7 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP. Las novedades aparecerán aquí.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO PERSONALIZADO (CORREGIDO ERROR DE COLOR BLANCO)
+# 3. CSS: DISEÑO PERSONALIZADO (BLINDAJE CONTRA EL COLOR BLANCO)
 st.markdown("""
     <style>
     @keyframes gradientBG {
@@ -61,28 +61,42 @@ st.markdown("""
     
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
 
-    /* CORRECCIÓN DE EXPANDERS (BOTONES) */
+    /* --- CORRECCIÓN DEFINITIVA DE BOTONES (EXPANDERS) --- */
+    /* Fondo del botón cerrado y abierto */
     .stExpander {
-        background-color: rgba(30, 41, 59, 0.8) !important;
-        border-radius: 12px !important;
-        margin-bottom: 8px !important;
+        background-color: rgba(15, 23, 42, 0.8) !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
-    }
-    
-    /* Evitar que el texto desaparezca o se ponga blanco sobre blanco */
-    .stExpander summary p {
-        color: #ffffff !important;
-    }
-    
-    .stExpander summary:hover {
-        background-color: rgba(255, 255, 255, 0.05) !important;
+        border-radius: 12px !important;
     }
 
-    /* Forzar visibilidad del contenido al abrir */
-    .stExpander div[data-testid="stExpanderDetails"] {
+    /* Eliminar el fondo blanco al alejar el cursor (Focus y Hover) */
+    .stExpander:focus-within, .stExpander:hover, .stExpander:active {
+        background-color: rgba(15, 23, 42, 0.9) !important;
+    }
+
+    /* Forzar color del texto del título en blanco siempre */
+    .stExpander summary {
+        color: white !important;
+    }
+    
+    .stExpander summary p {
+        color: white !important;
+        font-weight: 600 !important;
+    }
+
+    /* Forzar que el interior también sea oscuro */
+    div[data-testid="stExpanderDetails"] {
         background-color: transparent !important;
         color: #e2e8f0 !important;
     }
+
+    /* Icono de la flechita en blanco */
+    .stExpander svg {
+        fill: white !important;
+        color: white !important;
+    }
+
+    /* --- FIN CORRECCIÓN --- */
 
     .punto-alerta {
         width: 12px; height: 12px;
@@ -114,9 +128,6 @@ st.markdown("""
     .ficha-practica { border-left: 6px solid #10b981; }
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
-    .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
-    .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
-
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
