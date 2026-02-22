@@ -3,11 +3,11 @@ import pandas as pd
 import base64
 from datetime import datetime
 
-# 1. CONFIGURACIÓN DE APP
+# 1. CONFIGURACIÓN DE APP PROFESIONAL
 st.set_page_config(page_title="OSECAC MDP", page_icon="LOGO1.png", layout="wide")
 
-# --- CLAVE JEFE ---
-PASSWORD_JEFE = "osecac2024"
+# --- CLAVE ACTUALIZADA ---
+PASSWORD_JEFE = "2026"
 
 # 2. CARGA DE DATOS
 @st.cache_data(ttl=300)
@@ -21,65 +21,49 @@ URL_TRAMITES = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-Q
 df_agendas = cargar_datos(URL_AGENDAS)
 df_tramites = cargar_datos(URL_TRAMITES)
 
-# Historial de Chat
-if 'chat_mensajes' not in st.session_state:
-    st.session_state.chat_mensajes = [
-        {"rol": "Jefe", "texto": "Hola equipo, bienvenidos al nuevo chat interno.", "hora": "09:00"}
+if 'historial_novedades' not in st.session_state:
+    st.session_state.historial_novedades = [
+        {"usuario": "Jefe", "mensaje": "Bienvenidos al portal. Las novedades importantes se verán en este espacio.", "fecha": "21/02 23:00"}
     ]
 
-# 3. CSS: ESTILO WHATSAPP / CHAT INTERNO
+# 3. CSS: DISEÑO LIMPIO
 st.markdown("""
     <style>
     .stApp { background: #0b0e14; color: #e2e8f0; }
     
-    /* Alerta de mensaje nuevo */
-    @keyframes pulse-red {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0.7); }
-        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 82, 82, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 82, 82, 0); }
+    @keyframes pulso {
+        0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); }
+        100% { box-shadow: 0 0 0 10px rgba(255, 75, 75, 0); }
     }
-    .dot { height: 10px; width: 10px; background-color: #ff5252; border-radius: 50%; display: inline-block; animation: pulse-red 2s infinite; margin-right: 8px; }
+    .punto-alerta {
+        width: 10px; height: 10px;
+        background-color: #ff4b4b;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 10px;
+        animation: pulso 1.5s infinite;
+    }
 
-    /* Burbujas de Chat */
-    .chat-container {
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 15px;
-        padding: 20px;
-        height: 400px;
-        overflow-y: auto;
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .bubble {
-        max-width: 80%;
-        padding: 10px 15px;
-        border-radius: 15px;
-        font-size: 14px;
-        position: relative;
-        margin-bottom: 5px;
-    }
-    .bubble-jefe {
-        background: #1e3a8a;
-        color: white;
-        align-self: flex-start;
-        border-bottom-left-radius: 2px;
-    }
-    .meta-chat {
-        font-size: 10px;
-        opacity: 0.7;
-        margin-top: 5px;
-        text-align: right;
-    }
-    
     .header-master { text-align: center; margin-bottom: 20px; }
-    .logo-fijo { width: 80px; margin: 10px auto; display: block; }
+    .capsula { padding: 10px 25px; background: rgba(56, 189, 248, 0.05); border-radius: 30px; border: 1px solid rgba(56, 189, 248, 0.5); display: inline-block; }
+    .logo-fijo { width: 85px; margin: 15px auto; display: block; }
+    
+    .novedad-box {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 5px solid #ff4b4b;
+    }
+    .novedad-texto { font-size: 15px; color: #f1f5f9; }
+    .novedad-fecha { font-size: 10px; color: #64748b; text-align: right; margin-top: 5px; }
+    
+    .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # === CABECERA ===
-st.markdown('<div class="header-master"><h1>OSECAC MDP</h1></div>', unsafe_allow_html=True)
+st.markdown('<div class="header-master"><div class="capsula"><h1 style="font-size:1.5rem; margin:0;">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
 
 try:
     with open("LOGO1.png", "rb") as f:
@@ -89,41 +73,39 @@ except: pass
 
 st.markdown("---")
 
-# === SECCIONES DE BUSQUEDA (Igual que antes) ===
-with st.expander("📂 1. NOMENCLADORES"):
+# === BLOQUES DE BOTONES Y BUSQUEDA ===
+with st.expander("📂 **1. NOMENCLADORES**"):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
 
-with st.expander("📂 4. GESTIONES"):
+with st.expander("📂 **4. GESTIONES / DATOS**"):
     busqueda_t = st.text_input("Buscá trámites...", key="t")
-    # ... Lógica de búsqueda ...
+
+with st.expander("📞 **5. AGENDAS / MAILS**"):
+    busqueda_a = st.text_input("Buscá contactos...", key="a")
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 
-# === SISTEMA DE CHAT (AL FINAL) ===
-st.markdown('### <span class="dot"></span> Chat Interno de Agencia', unsafe_allow_html=True)
+# === SECCIÓN NOVEDADES (AL FINAL) ===
+st.markdown('---')
+st.markdown('### <span class="punto-alerta"></span> NOVEDADES', unsafe_allow_html=True)
 
-# Contenedor de burbujas
-chat_html = '<div class="chat-container">'
-for m in st.session_state.chat_mensajes:
-    chat_html += f'''
-    <div class="bubble bubble-jefe">
-        <b>{m['rol']}</b><br>
-        {m['texto']}
-        <div class="meta-chat">{m['hora']}</div>
+# Lista de Novedades existentes
+for n in st.session_state.historial_novedades:
+    st.markdown(f"""
+    <div class="novedad-box">
+        <div style="color:#ff4b4b; font-size:11px; font-weight:bold; text-transform:uppercase;">Comunicado Oficial</div>
+        <div class="novedad-texto">{n['mensaje']}</div>
+        <div class="novedad-fecha">{n['fecha']}</div>
     </div>
-    '''
-chat_html += '</div>'
-st.markdown(chat_html, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-# Input de mensaje (Solo con clave)
-with st.popover("✍️ Escribir mensaje (Jefe)"):
-    clave = st.text_input("Clave de Jefe:", type="password")
+# Botón desplegable para escribir (No invasivo)
+with st.expander("✍️ Escribir"):
+    clave = st.text_input("Contraseña:", type="password")
     if clave == PASSWORD_JEFE:
-        with st.form("enviar_chat", clear_on_submit=True):
-            nuevo_txt = st.text_input("Escribí tu mensaje aquí...")
-            if st.form_submit_button("Enviar"):
-                hora_actual = datetime.now().strftime("%H:%M")
-                st.session_state.chat_mensajes.append({"rol": "Jefe", "texto": nuevo_txt, "hora": hora_actual})
+        with st.form("form_novedades_final", clear_on_submit=True):
+            mensaje = st.text_area("Nuevo mensaje:")
+            if st.form_submit_button("Publicar"):
+                ahora = datetime.now().strftime("%d/%m %H:%M")
+                st.session_state.historial_novedades.insert(0, {"usuario": "Jefe", "mensaje": mensaje, "fecha": ahora})
                 st.rerun()
-
-st.markdown("<br><br>", unsafe_allow_html=True)
