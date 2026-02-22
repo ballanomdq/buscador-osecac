@@ -1,186 +1,156 @@
 import streamlit as st
 import pandas as pd
+import base64
+from datetime import datetime
 
-# 1. CONFIGURACIÓN DE PÁGINA
-st.set_page_config(page_title="OSECAC MDP - Portal", layout="wide")
+# 1. CONFIGURACIÓN DE "APP" PROFESIONAL
+# Esto es lo que define cómo se ve el ícono y el nombre al instalarlo
+st.set_page_config(
+    page_title="OSECAC MDP", 
+    page_icon="LOGO1.png", # Asegurate de que el archivo se llame así
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+
+# --- CONTRASEÑA PARA QUE SOLO EL JEFE ESCRIBA ---
+PASSWORD_JEFE = "osecac2024"
 
 # 2. CARGA DE DATOS
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def cargar_datos(url):
     try:
         return pd.read_csv(url)
     except:
         return pd.DataFrame()
 
-URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
-URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
+# URLs de tus planillas
+URL_AGENDAS = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
+URL_TRAMITES = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 
-df_agendas = cargar_datos(URL_AGENDAS_CSV)
-df_tramites = cargar_datos(URL_TRAMITES_CSV)
+df_agendas = cargar_datos(URL_AGENDAS)
+df_tramites = cargar_datos(URL_TRAMITES)
 
-# 3. CSS: DISEÑO RESPONSIVO (PC Y MÓVIL)
+# --- LÓGICA DEL CHAT (Temporal en memoria hasta que conectes la 3ra hoja) ---
+if 'chat_historial' not in st.session_state:
+    st.session_state.chat_historial = [
+        {"usuario": "Jefe de Agencia", "mensaje": "Bienvenidos al portal oficial. Instalalo en tu pantalla de inicio.", "fecha": "20/05 09:00"}
+    ]
+
+# 3. CSS: ADAPTACIÓN TOTAL PARA CELULAR
 st.markdown("""
     <style>
-    @keyframes gradientBG {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    
-    @keyframes shine {
-        0% { left: -100%; opacity: 0; }
-        50% { opacity: 0.6; }
-        100% { left: 100%; opacity: 0; }
-    }
-
+    /* Fondo y animaciones */
     .stApp { 
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14);
         background-size: 400% 400%;
-        animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
     }
     
-    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
+    .block-container { padding-top: 1rem !important; }
 
-    /* CABECERA CENTRADA */
-    .header-master {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
+    /* Cartel Adaptativo */
+    .header-master { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .capsula-header-mini {
+        padding: 10px 25px;
+        background: rgba(56, 189, 248, 0.05);
+        border-radius: 30px;
+        border: 1px solid rgba(56, 189, 248, 0.5);
         margin-bottom: 10px;
     }
-
-    .capsula-header-mini {
-        position: relative;
-        padding: 10px 30px;
-        background: rgba(56, 189, 248, 0.05);
-        border-radius: 35px;
-        border: 1px solid rgba(56, 189, 248, 0.5);
-        overflow: hidden;
-        margin-bottom: 12px;
-    }
-
-    .titulo-mini {
-        font-family: 'sans-serif';
-        font-weight: 800;
-        font-size: 1.4rem; /* Un poco más chico para que entre bien en móviles */
-        color: #ffffff;
-        margin: 0;
-        z-index: 2;
-        position: relative;
-    }
-
-    .shimmer-efecto {
-        position: absolute;
-        top: 0;
-        width: 100px;
-        height: 100%;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
-        transform: skewX(-20deg);
-        animation: shine 4s infinite linear;
-        z-index: 1;
-    }
-
-    .subtitulo-lema {
-        color: #94a3b8;
-        font-size: 11px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        margin-bottom: 15px;
-        font-weight: 500;
-    }
-
-    /* CONTENEDOR DEL LOGO FIJO */
-    .logo-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 20px;
-    }
-
-    .logo-fijo {
-        width: 85px !important; /* TAMAÑO FIJO PARA QUE NO SEA GIGANTE */
-        height: auto;
-    }
-
-    /* FICHAS Y BUSCADORES */
-    .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
-    .ficha-tramite { border-left: 6px solid #fbbf24; }
-    .titulo-tramite { color: #fbbf24; font-size: 1.3rem; font-weight: bold; margin-bottom: 10px; }
-    .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .titulo-agenda { color: #38bdf8; font-size: 1.2rem; font-weight: bold; margin-bottom: 8px; }
+    .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff; margin: 0; }
     
-    .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
-    .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
-    .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
+    @media (max-width: 600px) {
+        .titulo-mini { font-size: 1.1rem !important; }
+        .logo-fijo { width: 70px !important; }
+    }
+
+    /* Estilo de los Mensajes del Jefe */
+    .chat-box {
+        background: rgba(56, 189, 248, 0.1);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 8px;
+        border-left: 5px solid #38bdf8;
+    }
+    .msg-texto { font-size: 15px; color: #f1f5f9; margin-top: 4px; }
+    .msg-fecha { font-size: 10px; color: #64748b; text-align: right; }
+
+    /* Logo */
+    .logo-container { display: flex; justify-content: center; margin: 15px 0; }
+    .logo-fijo { width: 85px; height: auto; }
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA CENTRADA ===
+# === CABECERA ===
 st.markdown("""
     <div class="header-master">
         <div class="capsula-header-mini">
-            <div class="shimmer-efecto"></div>
             <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
         </div>
-        <div class="subtitulo-lema">PORTAL DE APOYO PARA COMPAÑEROS</div>
+        <div style="color: #94a3b8; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;">
+            Portal de Apoyo para Compañeros
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-# === LOGO CON TAMAÑO CONTROLADO (NO SE AGRANDA EN CELULAR) ===
-import base64
-
-def get_base64_img(img_path):
-    with open(img_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
-
+# === LOGO ===
 try:
-    img_base64 = get_base64_img("LOGO1.png")
-    st.markdown(f"""
-        <div class="logo-container">
-            <img src="data:image/png;base64,{img_base64}" class="logo-fijo">
-        </div>
-        """, unsafe_allow_html=True)
+    with open("LOGO1.png", "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+    st.markdown(f'<div class="logo-container"><img src="data:image/png;base64,{img_b64}" class="logo-fijo"></div>', unsafe_allow_html=True)
 except:
     st.write("")
 
 st.markdown("---")
 
-# ==========================================
-# SECCIONES: 1, 2 y 3
-# ==========================================
-with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
-    st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-    st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
-    st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
+# === SECCIÓN: NOVEDADES DEL JEFE ===
+with st.expander("📢 **NOVEDADES Y COMUNICADOS**", expanded=True):
+    
+    # Botón oculto para el jefe
+    with st.popover("🔑 Publicar como Jefe"):
+        pw = st.text_input("Contraseña:", type="password")
+        if pw == PASSWORD_JEFE:
+            with st.form("form_chat", clear_on_submit=True):
+                txt = st.text_area("Mensaje para el equipo:")
+                if st.form_submit_button("Enviar Comunicado"):
+                    fecha_msg = datetime.now().strftime("%d/%m %H:%M")
+                    st.session_state.chat_historial.insert(0, {"usuario": "Jefe", "mensaje": txt, "fecha": fecha_msg})
+                    st.success("Mensaje publicado")
+                    st.rerun()
+        elif pw != "":
+            st.error("Acceso denegado")
 
-with st.expander("📝 **2. PEDIDOS**", expanded=False):
-    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    # Mostrar mensajes
+    for m in st.session_state.chat_historial:
+        st.markdown(f"""
+        <div class="chat-box">
+            <div style="color:#38bdf8; font-size:11px; font-weight:bold;">COMUNICADO OFICIAL</div>
+            <div class="msg-texto">{m['mensaje']}</div>
+            <div class="msg-fecha">{m['fecha']}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-# ==========================================
-# SECCIÓN 4: GESTIONES
-# ==========================================
+st.markdown("<br>", unsafe_allow_html=True)
+
+# === BUSCADORES (EL RESTO DEL CÓDIGO) ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
-with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
-    busqueda_t = st.text_input("Buscá trámites...", key="search_tramites")
+with st.expander("📂 **4. GESTIONES / DATOS**"):
+    # ... (Tu lógica de búsqueda de trámites aquí)
+    busqueda_t = st.text_input("Buscá trámites...", key="t")
     if busqueda_t and not df_tramites.empty:
         t = busqueda_t.lower().strip()
         res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(t, na=False)]
         for i, row in res_t.iterrows():
-            st.markdown(f'<div class="ficha ficha-tramite"><div class="titulo-tramite">📋 {row["TRAMITE"]}</div><div>{row["DESCRIPCIÓN Y REQUISITOS"]}</div></div>', unsafe_allow_html=True)
+            st.info(f"📋 {row['TRAMITE']}\n\n{row['DESCRIPCIÓN Y REQUISITOS']}")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# SECCIÓN 5: AGENDAS
-# ==========================================
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
-with st.expander("📞 **5. AGENDAS / MAILS**", expanded=False):
-    busqueda_a = st.text_input("Buscá contactos...", key="search_agendas")
+with st.expander("📞 **5. AGENDAS / MAILS**"):
+    # ... (Tu lógica de búsqueda de agendas aquí)
+    busqueda_a = st.text_input("Buscá contactos...", key="a")
     if busqueda_a and not df_agendas.empty:
         q = busqueda_a.lower().strip()
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(q, case=False).any(), axis=1)]
         for i, row in res_a.iterrows():
-            st.markdown(f'<div class="ficha ficha-agenda"><div class="titulo-agenda">👤 {row.iloc[0]}</div></div>', unsafe_allow_html=True)
+            st.success(f"👤 {row.iloc[0]}")
 st.markdown('</div>', unsafe_allow_html=True)
