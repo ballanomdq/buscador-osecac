@@ -26,13 +26,17 @@ URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
-URL_NOMENCLADOR_UNIFICADO = "https://docs.google.com/spreadsheets/d/1pc0ioT9lWLzGHDiifJLYyrXHv-NFsT3UDIDt951CTGc/edit?usp=sharing"
+
+# NUEVAS URLs PARA LOS BUSCADORES SEPARADOS
+URL_FABA = "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit?usp=sharing"
+URL_OSECAC = "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit?usp=sharing"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
-df_nomenclador = cargar_datos(URL_NOMENCLADOR_UNIFICADO)
+df_faba = cargar_datos(URL_FABA)
+df_osecac_busq = cargar_datos(URL_OSECAC)
 
 # Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
@@ -91,48 +95,42 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    st.write("🔍 **BUSCADOR UNIFICADO**")
-    busqueda_n = st.text_input("Ingresá código o nombre de la práctica...", key="search_n")
     
-    if busqueda_n:
-        if not df_nomenclador.empty:
-            palabras = busqueda_n.lower().split()
-            mask = df_nomenclador.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
-            res_n = df_nomenclador[mask]
-            
-            if not res_n.empty:
-                st.info(f"Resultados encontrados:")
-                for i, row in res_n.iterrows():
-                    # Busqueda dinámica de columnas por si cambian tildes
-                    col_faba = [c for c in df_nomenclador.columns if 'FABA' in c.upper() and 'DESCRIP' in c.upper()]
-                    col_osecac = [c for c in df_nomenclador.columns if 'OSECAC' in c.upper() and 'DESCRIP' in c.upper()]
-                    
-                    desc_faba = row[col_faba[0]] if col_faba else "N/A"
-                    desc_osecac = row[col_osecac[0]] if col_osecac else "N/A"
-                    cod_faba = row.get('CODIGO FABA', 'N/A')
-                    cod_osecac = row.get('CODIGO OSECAC', 'N/A')
-
-                    st.markdown(f"""
-                    <div class="ficha ficha-faba" style="border-left: 8px solid #f97316; line-height: 1.6;">
-                        <div style="white-space: normal; word-wrap: break-word;">
-                            <b style="color:#f97316;">DESCRIPCIÓN FABA:</b> <span style="color:#ffffff; font-size:1.1rem;">{desc_faba}</span>
-                        </div>
-                        <div style="white-space: normal; word-wrap: break-word; margin-top: 8px;">
-                            <b style="color:#38bdf8;">DESCRIPCIÓN OSECAC:</b> <span style="color:#ffffff; font-size:1.1rem;">{desc_osecac}</span>
-                        </div>
-                        <hr style="margin:10px 0; border:0; border-top:1px solid rgba(255,255,255,0.1);">
-                        <div>
-                            <b style="color:#cbd5e1;">CÓDIGO FABA:</b> <code style="color:#f97316; font-size:1rem;">{cod_faba}</code>
-                        </div>
-                        <div>
-                            <b style="color:#cbd5e1;">CÓDIGO OSECAC:</b> <code style="color:#38bdf8; font-size:1rem;">{cod_osecac}</code>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+    # --- BUSCADOR FABA ---
+    st.write("🔍 **BUSCADOR FABA**")
+    busqueda_faba = st.text_input("Ingresá código o nombre en FABA...", key="search_faba")
+    if busqueda_faba:
+        if not df_faba.empty:
+            palabras = busqueda_faba.lower().split()
+            mask = df_faba.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
+            res_f = df_faba[mask]
+            if not res_f.empty:
+                for i, row in res_f.iterrows():
+                    datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val)]
+                    st.markdown(f'<div class="ficha ficha-faba">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
             else:
-                st.warning("No se encontraron coincidencias.")
+                st.warning("No se encontraron coincidencias en FABA.")
         else:
-            st.error("Error al cargar la base de datos.")
+            st.error("Error al cargar la base de datos FABA.")
+
+    st.markdown("---")
+
+    # --- BUSCADOR OSECAC ---
+    st.write("🔍 **BUSCADOR OSECAC**")
+    busqueda_osecac = st.text_input("Ingresá código o nombre en OSECAC...", key="search_osecac")
+    if busqueda_osecac:
+        if not df_osecac_busq.empty:
+            palabras = busqueda_osecac.lower().split()
+            mask = df_osecac_busq.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
+            res_o = df_osecac_busq[mask]
+            if not res_o.empty:
+                for i, row in res_o.iterrows():
+                    datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val)]
+                    st.markdown(f'<div class="ficha ficha-agenda" style="border-left-color: #38bdf8;">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+            else:
+                st.warning("No se encontraron coincidencias en OSECAC.")
+        else:
+            st.error("Error al cargar la base de datos OSECAC.")
 
 # --- SECCIONES SIGUIENTES ---
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
