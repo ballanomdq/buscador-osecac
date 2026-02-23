@@ -21,27 +21,27 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
-# URLs DE TODAS LAS PLANILLAS (RESTABLECIDAS)
+# URLs DE TODAS LAS PLANILLAS
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
 URL_FABA = "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/export?format=csv"
-URL_OSECAC = "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
+URL_OSECAC_BUSQ = "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
 df_faba = cargar_datos(URL_FABA)
-df_osecac_busq = cargar_datos(URL_OSECAC)
+df_osecac_busq = cargar_datos(URL_OSECAC_BUSQ)
 
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO ORIGINAL + RESPALDO PARA WINDOWS 7
+# 3. CSS: DISEÑO ORIGINAL + COMPATIBILIDAD
 st.markdown("""
     <style>
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -49,7 +49,7 @@ st.markdown("""
     @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
 
     .stApp { 
-        background-color: #0b0e14; /* Color base para Win7 */
+        background-color: #0b0e14;
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
@@ -74,9 +74,6 @@ st.markdown("""
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
-    
-    /* Forzar visibilidad en navegadores viejos */
-    b, span, div { color: inherit; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -92,48 +89,42 @@ except: pass
 
 st.markdown("---")
 
-# --- SECCIÓN 1: NOMENCLADORES (CON LOS DOS BUSCADORES SOLICITADOS) ---
+# --- SECCIÓN 1: NOMENCLADORES (BUSCADOR ÚNICO CON PERILLAS) ---
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # BUSCADOR FABA
-    st.write("🔍 **BUSCADOR FABA**")
-    busqueda_faba = st.text_input("Ingresá código o nombre en FABA...", key="search_faba")
-    if busqueda_faba:
-        if not df_faba.empty:
-            palabras = busqueda_faba.lower().split()
-            mask = df_faba.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
-            res_f = df_faba[mask]
-            if not res_f.empty:
-                for i, row in res_f.iterrows():
+    # PERILLAS DE SELECCIÓN (Minimalista)
+    opcion_busqueda = st.radio("Seleccione el origen de datos:", ["FABA", "OSECAC"], horizontal=True, key="switch_busq")
+    
+    # BUSCADOR ÚNICO
+    busqueda_unificada = st.text_input(f"🔍 Buscar en {opcion_busqueda}...", key="main_search")
+    
+    if busqueda_unificada:
+        df_a_usar = df_faba if opcion_busqueda == "FABA" else df_osecac_busq
+        clase_ficha = "ficha-faba" if opcion_busqueda == "FABA" else "ficha-agenda"
+        
+        if not df_a_usar.empty:
+            palabras = busqueda_unificada.lower().split()
+            mask = df_a_usar.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
+            resultados = df_a_usar[mask]
+            
+            if not resultados.empty:
+                for i, row in resultados.iterrows():
                     datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val)]
-                    st.markdown(f'<div class="ficha ficha-faba">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
-            else: st.warning("No se encontraron coincidencias en FABA.")
+                    st.markdown(f'<div class="ficha {clase_ficha}">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+            else:
+                st.warning(f"No se encontraron resultados en {opcion_busqueda}.")
+        else:
+            st.error(f"Error al cargar la base de datos de {opcion_busqueda}.")
 
-    st.markdown("---")
-
-    # BUSCADOR OSECAC
-    st.write("🔍 **BUSCADOR OSECAC**")
-    busqueda_osecac = st.text_input("Ingresá código o nombre en OSECAC...", key="search_osecac")
-    if busqueda_osecac:
-        if not df_osecac_busq.empty:
-            palabras = busqueda_osecac.lower().split()
-            mask = df_osecac_busq.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
-            res_o = df_osecac_busq[mask]
-            if not res_o.empty:
-                for i, row in res_o.iterrows():
-                    datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val)]
-                    st.markdown(f'<div class="ficha ficha-agenda" style="border-left-color: #38bdf8;">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
-            else: st.warning("No se encontraron coincidencias en OSECAC.")
-
-# --- SECCIÓN 2: PEDIDOS (TODOS LOS LINKS ORIGINALES) ---
+# --- SECCIÓN 2: PEDIDOS ---
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# --- SECCIÓN 3: PÁGINAS ÚTILES (TODOS LOS LINKS ORIGINALES RECUPERADOS) ---
+# --- SECCIÓN 3: PÁGINAS ÚTILES ---
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
