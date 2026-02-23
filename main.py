@@ -68,7 +68,6 @@ st.markdown("""
     .ficha-novedad { border-left-color: #ff4b4b; margin-top: 10px; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
-    .buscador-faba { border: 2px solid #f97316 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -89,34 +88,22 @@ except: pass
 st.markdown("---")
 
 # === SECCIONES SUPERIORES ===
+
+# --- SECCIÓN 1: NOMENCLADORES (AHORA INCLUYE EL BUSCADOR) ---
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
-    # Solo queda el botón de IA solicitado
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-
-with st.expander("📝 **2. PEDIDOS**", expanded=False):
-    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
-
-with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
-    st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
-    st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
-    st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
-    st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
-    st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
-    st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
-
-# === SECCIÓN 4: BUSCADOR NOMENCLADOR (UNIFICADO) ===
-st.markdown('<div class="buscador-faba">', unsafe_allow_html=True)
-with st.expander("📙 **4. BUSCADOR NOMENCLADOR**", expanded=True):
+    
+    st.markdown("---")
+    st.write("🔍 **BUSCADOR UNIFICADO**")
     busqueda_n = st.text_input("Ingresá código o nombre de la práctica (OSECAC/FABA)...", key="search_n")
+    
     if busqueda_n:
         if not df_nomenclador.empty:
             palabras = busqueda_n.lower().split()
             mask = df_nomenclador.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
             res_n = df_nomenclador[mask]
             if not res_n.empty:
-                st.info(f"Se encontraron {len(res_n)} resultados:")
+                st.info(f"Resultados para: {busqueda_n}")
                 for i, row in res_n.iterrows():
                     st.markdown(f"""
                     <div class="ficha ficha-faba">
@@ -127,14 +114,28 @@ with st.expander("📙 **4. BUSCADOR NOMENCLADOR**", expanded=True):
                     </div>
                     """, unsafe_allow_html=True)
             else:
-                st.warning("No se encontraron coincidencias en el Nomenclador.")
+                st.warning("No se encontraron coincidencias.")
         else:
-            st.error("Error: No se pudo cargar la base de datos unificada.")
-st.markdown('</div>', unsafe_allow_html=True)
+            st.error("Error al cargar la base de datos.")
 
-# === SECCIÓN 5: GESTIONES ===
+# --- SECCIÓN 2: PEDIDOS ---
+with st.expander("📝 **2. PEDIDOS**", expanded=False):
+    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+
+# --- SECCIÓN 3: PÁGINAS ÚTILES ---
+with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
+    st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
+    st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
+    st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+    st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+    st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
+    st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
+
+# === SECCIÓN 4: GESTIONES ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
-with st.expander("📂 **5. GESTIONES / DATOS**", expanded=False):
+with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
     if busqueda_t and not df_tramites.empty:
         res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(busqueda_t.lower(), na=False)]
@@ -142,9 +143,9 @@ with st.expander("📂 **5. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 6: PRÁCTICAS Y ESPECIALISTAS ===
+# === SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
 st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
-with st.expander("🩺 **6. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
+with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
     if busqueda_p:
         for df_actual, tipo in [(df_practicas, "📑 PRÁCTICA"), (df_especialistas, "👨‍⚕️ ESPECIALISTA")]:
@@ -155,9 +156,9 @@ with st.expander("🩺 **6. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
                     st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">{tipo}:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 7: AGENDAS ===
+# === SECCIÓN 6: AGENDAS ===
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
-with st.expander("📞 **7. AGENDAS / MAILS**", expanded=False):
+with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
     if busqueda_a and not df_agendas.empty:
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
@@ -166,9 +167,9 @@ with st.expander("📞 **7. AGENDAS / MAILS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 8: NOVEDADES ===
+# === SECCIÓN 7: NOVEDADES ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
-with st.expander("📢 **8. NOVEDADES**", expanded=True):
+with st.expander("📢 **7. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad"><span class="novedad-fecha-grande">📅 {n["fecha"]}</span><div class="novedad-texto">{n["mensaje"]}</div></div>', unsafe_allow_html=True)
