@@ -45,49 +45,15 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS REFORZADO: VISIBILIDAD TOTAL Y CONTRASTE DE ESCRITURA
+# 3. CSS REFORZADO - SOLUCIÓN DEFINITIVA AL TEXTO INVISIBLE
 st.markdown("""
     <style>
-    /* OCULTAR PANEL LATERAL */
+    /* OCULTAR ELEMENTOS INNECESARIOS */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* REFUERZO DE COLOR BLANCO PARA TEXTOS DE AFUERA */
-    div[data-testid="stWidgetLabel"] p {
-        color: white !important;
-        font-size: 1.1rem !important;
-        font-weight: bold !important;
-    }
-    
-    div[role="radiogroup"] label p {
-        color: white !important;
-    }
-
-    /* --- ARREGLO DEL CUADRO DE BÚSQUEDA (INPUT) --- */
-    /* Fondo oscuro para que la letra blanca se vea */
-    input[data-testid="stTextInputRootElement"], div[data-baseweb="input"] {
-        background-color: #1a202c !important;
-        border: 1px solid #38bdf8 !important;
-    }
-    
-    /* Forzar letra blanca al escribir */
-    input {
-        color: white !important;
-        -webkit-text-fill-color: white !important;
-        caret-color: white !important;
-    }
-
-    /* Color del texto de ayuda (placeholder) */
-    ::placeholder {
-        color: rgba(255, 255, 255, 0.4) !important;
-    }
-
-    /* DISEÑO ORIGINAL */
-    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-    @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
-    @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
-
+    /* FONDO DE LA APP */
     .stApp { 
         background-color: #0b0e14;
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
@@ -95,6 +61,39 @@ st.markdown("""
         animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
     }
+
+    /* --- SOLUCIÓN PARA LOS BUSCADORES --- */
+    /* Forzamos el fondo del área de escritura a NEGRO para que el texto blanco resalte */
+    div[data-baseweb="input"] {
+        background-color: #000000 !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Forzamos el texto a BLANCO PURO con la máxima prioridad */
+    input {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        font-weight: 500 !important;
+    }
+
+    /* Etiquetas de los campos (Buscar...) */
+    .stWidgetLabel p {
+        color: #ffffff !important;
+        font-weight: bold !important;
+        font-size: 1.1rem !important;
+    }
+
+    /* Arreglo para Radio Buttons */
+    div[role="radiogroup"] label p {
+        color: #ffffff !important;
+    }
+
+    /* EFECTOS VISUALES */
+    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
+    @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
+
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
     .punto-alerta { width: 12px; height: 12px; background-color: #ff4b4b; border-radius: 50%; display: inline-block; margin-right: 12px; animation: pulso 1.5s infinite; vertical-align: middle; }
     .header-master { text-align: center; margin-bottom: 10px; }
