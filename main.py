@@ -34,13 +34,12 @@ df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
 df_nomenclador = cargar_datos(URL_NOMENCLADOR_UNIFICADO)
 
-# Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO PERSONALIZADO
+# 3. CSS: DISEÑO PERSONALIZADO (COLORES Y ANIMACIONES)
 st.markdown("""
     <style>
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -87,23 +86,25 @@ except: pass
 
 st.markdown("---")
 
-# --- SECCIÓN 1: NOMENCLADORES ---
+# --- SECCIÓN 1: NOMENCLADORES (CON BUSCADOR MULTI-PRÁCTICA) ---
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     st.write("🔍 **BUSCADOR UNIFICADO**")
-    busqueda_n = st.text_input("Ingresá código o nombre de la práctica...", key="search_n")
+    st.caption("Tip: Podés poner varias prácticas separadas por comas (ej: Hemograma, Glucemia, Eritro)")
+    busqueda_n = st.text_input("Ingresá códigos o nombres de prácticas...", key="search_n")
     
     if busqueda_n:
         if not df_nomenclador.empty:
-            palabras = busqueda_n.lower().split()
-            mask = df_nomenclador.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
+            # LÓGICA DE BÚSQUEDA MULTIPLE (Separa por comas o espacios)
+            terminos = [t.strip().lower() for t in busqueda_n.replace(',', ' ').split() if t.strip()]
+            mask = df_nomenclador.apply(lambda row: any(t in str(row).lower() for t in terminos), axis=1)
             res_n = df_nomenclador[mask]
             
             if not res_n.empty:
-                st.info(f"Resultados encontrados:")
+                st.success(f"Se encontraron {len(res_n)} resultados para tu búsqueda.")
                 for i, row in res_n.iterrows():
-                    # Busqueda dinámica de columnas por si cambian tildes
+                    # Busqueda dinámica de columnas
                     col_faba = [c for c in df_nomenclador.columns if 'FABA' in c.upper() and 'DESCRIP' in c.upper()]
                     col_osecac = [c for c in df_nomenclador.columns if 'OSECAC' in c.upper() and 'DESCRIP' in c.upper()]
                     
@@ -121,25 +122,24 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
                             <b style="color:#38bdf8;">DESCRIPCIÓN OSECAC:</b> <span style="color:#ffffff; font-size:1.1rem;">{desc_osecac}</span>
                         </div>
                         <hr style="margin:10px 0; border:0; border-top:1px solid rgba(255,255,255,0.1);">
-                        <div>
-                            <b style="color:#cbd5e1;">CÓDIGO FABA:</b> <code style="color:#f97316; font-size:1rem;">{cod_faba}</code>
-                        </div>
-                        <div>
-                            <b style="color:#cbd5e1;">CÓDIGO OSECAC:</b> <code style="color:#38bdf8; font-size:1rem;">{cod_osecac}</code>
+                        <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+                            <div><b style="color:#cbd5e1;">CÓDIGO FABA:</b> <code style="color:#f97316; font-size:1rem;">{cod_faba}</code></div>
+                            <div><b style="color:#cbd5e1;">CÓDIGO OSECAC:</b> <code style="color:#38bdf8; font-size:1rem;">{cod_osecac}</code></div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
-                st.warning("No se encontraron coincidencias.")
+                st.warning("No se encontraron coincidencias para los términos ingresados.")
         else:
-            st.error("Error al cargar la base de datos.")
+            st.error("Error al cargar la base de datos de Nomencladores.")
 
-# --- SECCIONES SIGUIENTES ---
+# --- SECCIÓN 2: PEDIDOS ---
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
+# --- SECCIÓN 3: PÁGINAS ÚTILES ---
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
@@ -148,7 +148,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# --- GESTIONES ---
+# === SECCIÓN 4: GESTIONES ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
@@ -158,7 +158,7 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- PRÁCTICAS ---
+# === SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
 st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
@@ -171,7 +171,7 @@ with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
                     st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">{tipo}:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- AGENDAS ---
+# === SECCIÓN 6: AGENDAS ===
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
@@ -182,7 +182,7 @@ with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- NOVEDADES ---
+# === SECCIÓN 7: NOVEDADES ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
