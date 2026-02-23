@@ -53,8 +53,7 @@ st.markdown("""
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* --- REFUERZO DE COLOR BLANCO PARA TEXTOS --- */
-    /* Texto de Radio Buttons (FABA/OSECAC) */
+    /* REFUERZO DE COLOR BLANCO PARA TEXTOS */
     div[data-testid="stWidgetLabel"] p {
         color: white !important;
         font-size: 1.2rem !important;
@@ -66,24 +65,21 @@ st.markdown("""
         font-weight: 600 !important;
     }
 
-    /* Títulos de los inputs (Buscar en...) */
     .stTextInput label p {
         color: white !important;
         font-weight: bold !important;
     }
 
-    /* Texto que escribes dentro de los buscadores */
     input[data-testid="stTextInputRootElement"] {
         color: white !important;
     }
     
-    /* Color del cursor y texto activo */
     input {
         color: white !important;
         -webkit-text-fill-color: white !important;
     }
 
-    /* --- DISEÑO ORIGINAL --- */
+    /* DISEÑO ORIGINAL */
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
     @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
@@ -135,7 +131,8 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.markdown("---")
     
     opcion_busqueda = st.radio("Seleccione el origen de datos:", ["FABA", "OSECAC"], horizontal=True, key="switch_busq")
-    busqueda_unificada = st.text_input(f"🔍 Buscar en {opcion_busqueda}...", key="main_search")
+    # CAMBIO AQUÍ: Ahora solo dice "🔍 Buscar..."
+    busqueda_unificada = st.text_input("🔍 Buscar...", key="main_search")
     
     if busqueda_unificada:
         df_a_usar = df_faba if opcion_busqueda == "FABA" else df_osecac_busq
