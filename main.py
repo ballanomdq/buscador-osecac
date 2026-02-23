@@ -91,7 +91,7 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    st.write("🔍 **BUSCADOR UNIFICADO (FABA/OSECAC)**")
+    st.write("🔍 **BUSCADOR UNIFICADO**")
     busqueda_n = st.text_input("Ingresá código o nombre de la práctica...", key="search_n")
     
     if busqueda_n:
@@ -103,26 +103,29 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
             if not res_n.empty:
                 st.info(f"Resultados encontrados:")
                 for i, row in res_n.iterrows():
-                    # --- MEJORA: BUSQUEDA DINÁMICA DE COLUMNAS ---
-                    # Buscamos cualquier columna que contenga "FABA" y "DESCRIP"
+                    # Busqueda dinámica de columnas por si cambian tildes
                     col_faba = [c for c in df_nomenclador.columns if 'FABA' in c.upper() and 'DESCRIP' in c.upper()]
-                    # Buscamos cualquier columna que contenga "OSECAC" y "DESCRIP"
                     col_osecac = [c for c in df_nomenclador.columns if 'OSECAC' in c.upper() and 'DESCRIP' in c.upper()]
                     
-                    val_faba = row[col_faba[0]] if col_faba else "Sin descripción"
-                    val_osecac = row[col_osecac[0]] if col_osecac else "Sin descripción"
-                    
+                    desc_faba = row[col_faba[0]] if col_faba else "N/A"
+                    desc_osecac = row[col_osecac[0]] if col_osecac else "N/A"
                     cod_faba = row.get('CODIGO FABA', 'N/A')
                     cod_osecac = row.get('CODIGO OSECAC', 'N/A')
 
                     st.markdown(f"""
-                    <div class="ficha ficha-faba">
-                        <b style="color:#f97316; font-size:1.1rem;">🔬 FABA: {val_faba}</b><br>
-                        <hr style="margin:8px 0; border:0; border-top:1px dashed rgba(255,255,255,0.2);">
-                        <b>COD FABA:</b> {cod_faba} | <b>COD OSECAC:</b> {cod_osecac}<br>
-                        <div style="margin-top:5px; padding:8px; background:rgba(255,255,255,0.05); border-radius:5px;">
-                            <b style="color:#38bdf8;">📝 DESCRIPCIÓN OSECAC:</b><br>
-                            <span style="color:#cbd5e1;">{val_osecac}</span>
+                    <div class="ficha ficha-faba" style="border-left: 8px solid #f97316; line-height: 1.6;">
+                        <div style="white-space: normal; word-wrap: break-word;">
+                            <b style="color:#f97316;">DESCRIPCIÓN FABA:</b> <span style="color:#ffffff; font-size:1.1rem;">{desc_faba}</span>
+                        </div>
+                        <div style="white-space: normal; word-wrap: break-word; margin-top: 8px;">
+                            <b style="color:#38bdf8;">DESCRIPCIÓN OSECAC:</b> <span style="color:#ffffff; font-size:1.1rem;">{desc_osecac}</span>
+                        </div>
+                        <hr style="margin:10px 0; border:0; border-top:1px solid rgba(255,255,255,0.1);">
+                        <div>
+                            <b style="color:#cbd5e1;">CÓDIGO FABA:</b> <code style="color:#f97316; font-size:1rem;">{cod_faba}</code>
+                        </div>
+                        <div>
+                            <b style="color:#cbd5e1;">CÓDIGO OSECAC:</b> <code style="color:#38bdf8; font-size:1rem;">{cod_osecac}</code>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -131,13 +134,12 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
         else:
             st.error("Error al cargar la base de datos.")
 
-# --- SECCIÓN 2: PEDIDOS ---
+# --- SECCIONES SIGUIENTES ---
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# --- SECCIÓN 3: PÁGINAS ÚTILES ---
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("🏥 SSSALUD (Consultas)", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
@@ -146,7 +148,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# === SECCIÓN 4: GESTIONES ===
+# --- GESTIONES ---
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
@@ -156,7 +158,7 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
+# --- PRÁCTICAS ---
 st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
@@ -169,7 +171,7 @@ with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
                     st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">{tipo}:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 6: AGENDAS ===
+# --- AGENDAS ---
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
@@ -180,7 +182,7 @@ with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 7: NOVEDADES ===
+# --- NOVEDADES ---
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
