@@ -3,7 +3,7 @@ import pandas as pd
 import base64
 from datetime import datetime
 
-# 1. CONFIGURACIÓN DE PÁGINA (Aseguramos que el panel inicie cerrado)
+# 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
     page_title="OSECAC MDP - Portal", 
     layout="wide",
@@ -45,15 +45,24 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO ORIGINAL + ELIMINACIÓN DE PANEL LATERAL
+# 3. CSS: DISEÑO ORIGINAL + ELIMINACIÓN DE PANEL LATERAL + MEJORA DE TEXTO
 st.markdown("""
     <style>
-    /* --- NUEVO: OCULTAR PANEL LATERAL --- */
+    /* OCULTAR PANEL LATERAL */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* --- TU DISEÑO ORIGINAL --- */
+    /* MEJORA DE VISIBILIDAD DE TEXTOS (RADIOS Y LABELS) */
+    .stWidgetLabel p, .stRadio label, div[data-baseweb="radio"] div {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        font-size: 1.1rem !important;
+    }
+    input { color: #ffffff !important; }
+    ::placeholder { color: rgba(255, 255, 255, 0.6) !important; }
+
+    /* TU DISEÑO ORIGINAL */
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
     @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
