@@ -20,14 +20,16 @@ def cargar_datos(url):
 # URLs de las planillas
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
-# Nueva planilla con dos solapas (gid=0 es la primera, gid=... la segunda)
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
+# REFORMA: URL para los datos de FABA (Reemplaza con tu link de CSV real si es distinto)
+URL_FABA_CSV = "https://docs.google.com/spreadsheets/d/1894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
+df_faba = cargar_datos(URL_FABA_CSV) # Carga de datos FABA
 
 # Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
@@ -89,7 +91,8 @@ st.markdown("""
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .ficha-practica { border-left: 6px solid #10b981; } /* Verde para prácticas */
+    .ficha-practica { border-left: 6px solid #10b981; } 
+    .ficha-faba { border-left: 6px solid #f97316; } /* Color naranja para FABA */
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
     
     .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
@@ -98,6 +101,7 @@ st.markdown("""
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
+    .buscador-faba { border: 2px solid #f97316 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-agenda { border: 2px solid #38bdf8 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-novedades { border: 2px solid #ff4b4b !important; border-radius: 12px; margin-bottom: 10px; }
     </style>
@@ -122,10 +126,11 @@ except: pass
 
 st.markdown("---")
 
-# === SECCIONES 1, 2 Y 3 (NOMENCLADORES, PEDIDOS, PÁGINAS) ===
+# === SECCIONES 1, 2 Y 3 ===
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-    st.link_button("📙 NOMENCLADOR FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
+    # El botón de FABA ahora es un buscador abajo, pero mantengo el link aquí por si acaso
+    st.link_button("📙 LINK DIRECTO LOOKER FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
     st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
@@ -141,9 +146,25 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# === SECCIÓN 4: GESTIONES ===
+# === REFORMA: SECCIÓN 4 - BUSCADOR FABA (NUEVO) ===
+st.markdown('<div class="buscador-faba">', unsafe_allow_html=True)
+with st.expander("📙 **4. BUSCADOR NOMENCLADOR FABA**", expanded=False):
+    busqueda_f = st.text_input("Ingresá código o nombre del análisis (FABA)...", key="search_f")
+    if busqueda_f and not df_faba.empty:
+        # Búsqueda por aproximación en todas las columnas
+        res_f = df_faba[df_faba.astype(str).apply(lambda row: row.str.contains(busqueda_f.lower(), case=False).any(), axis=1)]
+        
+        if not res_f.empty:
+            for i, row in res_f.iterrows():
+                datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+                st.markdown(f'<div class="ficha ficha-faba">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+        else:
+            st.warning("No se encontraron coincidencias para esa búsqueda.")
+st.markdown('</div>', unsafe_allow_html=True)
+
+# === SECCIÓN 5: GESTIONES ===
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
-with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
+with st.expander("📂 **5. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
     if busqueda_t and not df_tramites.empty:
         res_t = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(busqueda_t.lower(), na=False)]
@@ -151,19 +172,17 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === NUEVA SECCIÓN 5: PRÁCTICAS Y ESPECIALISTAS ===
+# === SECCIÓN 6: PRÁCTICAS Y ESPECIALISTAS ===
 st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
-with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
+with st.expander("🩺 **6. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
     if busqueda_p:
-        # Buscar en Prácticas
         if not df_practicas.empty:
             res_p = df_practicas[df_practicas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
             for i, row in res_p.iterrows():
                 datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
                 st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">📑 PRÁCTICA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # Buscar en Especialistas
         if not df_especialistas.empty:
             res_e = df_especialistas[df_especialistas.astype(str).apply(lambda row: row.str.contains(busqueda_p.lower(), case=False).any(), axis=1)]
             for i, row in res_e.iterrows():
@@ -171,9 +190,9 @@ with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
                 st.markdown(f'<div class="ficha ficha-practica"><span style="color:#10b981; font-weight:bold;">👨‍⚕️ ESPECIALISTA:</span><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 6: AGENDAS ===
+# === SECCIÓN 7: AGENDAS ===
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
-with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
+with st.expander("📞 **7. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
     if busqueda_a and not df_agendas.empty:
         res_a = df_agendas[df_agendas.astype(str).apply(lambda row: row.str.contains(busqueda_a.lower(), case=False).any(), axis=1)]
@@ -182,9 +201,9 @@ with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos_completos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# === SECCIÓN 7: NOVEDADES ===
+# === SECCIÓN 8: NOVEDADES ===
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
-with st.expander("📢 **7. NOVEDADES**", expanded=True):
+with st.expander("📢 **8. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
     for n in st.session_state.historial_novedades:
         st.markdown(f"""
