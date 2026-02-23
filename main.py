@@ -89,34 +89,45 @@ st.markdown("---")
 
 # === SECCIONES SUPERIORES ===
 
-# --- SECCIÓN 1: NOMENCLADORES (AHORA INCLUYE EL BUSCADOR) ---
+# --- SECCIÓN 1: NOMENCLADORES ---
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
+    # Opción 1: Botón IA
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     
     st.markdown("---")
-    st.write("🔍 **BUSCADOR UNIFICADO**")
-    busqueda_n = st.text_input("Ingresá código o nombre de la práctica (OSECAC/FABA)...", key="search_n")
+    # Opción 2: Buscador Integrado
+    st.write("🔍 **BUSCADOR UNIFICADO (FABA/OSECAC)**")
+    busqueda_n = st.text_input("Ingresá código o nombre de la práctica...", key="search_n")
     
     if busqueda_n:
         if not df_nomenclador.empty:
             palabras = busqueda_n.lower().split()
             mask = df_nomenclador.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
             res_n = df_nomenclador[mask]
+            
             if not res_n.empty:
-                st.info(f"Resultados para: {busqueda_n}")
+                st.info(f"Resultados encontrados:")
                 for i, row in res_n.iterrows():
+                    # Lógica robusta para capturar columnas con o sin tildes
+                    desc_faba = row.get('DESCRIPCIÓN FABA', row.get('DESCRIPCION FABA', 'Sin Descripción'))
+                    desc_osecac = row.get('DESCRIPCIÓN OSECAC', row.get('DESCRIPCION OSECAC', 'Sin Descripción'))
+                    cod_faba = row.get('CODIGO FABA', 'N/A')
+                    cod_osecac = row.get('CODIGO OSECAC', 'N/A')
+
                     st.markdown(f"""
                     <div class="ficha ficha-faba">
-                        <b style="color:#f97316; font-size:1.1rem;">🔬 {row.get('DESCRIPCION FABA', 'Sin Descripción')}</b><br>
+                        <b style="color:#f97316; font-size:1.1rem;">🔬 {desc_faba}</b><br>
                         <hr style="margin:8px 0; border:0; border-top:1px dashed rgba(255,255,255,0.2);">
-                        <b>COD FABA:</b> {row.get('CODIGO FABA', 'N/A')} | <b>COD OSECAC:</b> {row.get('CODIGO OSECAC', 'N/A')}<br>
-                        <small style="color:#cbd5e1;"><b>Detalle OSECAC:</b> {row.get('DESCRIPCION OSECAC', 'N/A')}</small>
+                        <b>COD FABA:</b> {cod_faba} | <b>COD OSECAC:</b> {cod_osecac}<br>
+                        <div style="margin-top:5px; padding:8px; background:rgba(255,255,255,0.05); border-radius:5px;">
+                            <small style="color:#cbd5e1;"><b>📝 Detalle OSECAC:</b> {desc_osecac}</small>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
-                st.warning("No se encontraron coincidencias.")
+                st.warning("No se encontraron coincidencias en la base de datos.")
         else:
-            st.error("Error al cargar la base de datos.")
+            st.error("Error: No se pudo cargar el archivo de Nomencladores.")
 
 # --- SECCIÓN 2: PEDIDOS ---
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
