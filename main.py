@@ -14,9 +14,12 @@ PASSWORD_JEFE = "2026"
 def cargar_datos(url):
     try:
         # Transformamos la URL de edición en una URL de exportación CSV
-        csv_url = url.replace('/edit?usp=sharing', '/export?format=csv')
+        if '/edit' in url:
+            csv_url = url.split('/edit')[0] + '/export?format=csv'
+        else:
+            csv_url = url
         return pd.read_csv(csv_url, dtype=str)
-    except:
+    except Exception as e:
         return pd.DataFrame()
 
 # URLs de las planillas
@@ -25,14 +28,14 @@ URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqi
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
 
-# REFORMA: Nueva URL directa de FABA proporcionada
-URL_FABA_BASE = "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit?usp=sharing"
+# --- LA NUEVA BASE UNIFICADA ---
+URL_NOMENCLADOR_UNIFICADO = "https://docs.google.com/spreadsheets/d/1pc0ioT9lWLzGHDiifJLYyrXHv-NFsT3UDIDt951CTGc/edit?usp=sharing"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
-df_faba = cargar_datos(URL_FABA_BASE)
+df_nomenclador = cargar_datos(URL_NOMENCLADOR_UNIFICADO)
 
 # Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
@@ -60,12 +63,12 @@ st.markdown("""
     .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff; margin: 0; z-index: 2; position: relative; }
     .shimmer-efecto { position: absolute; top: 0; width: 100px; height: 100%; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent); transform: skewX(-20deg); animation: shine 4s infinite linear; z-index: 1; }
     
-    .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
-    .ficha-tramite { border-left: 6px solid #fbbf24; }
-    .ficha-agenda { border-left: 6px solid #38bdf8; }
-    .ficha-practica { border-left: 6px solid #10b981; } 
-    .ficha-faba { border-left: 6px solid #f97316; }
-    .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
+    .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-left: 6px solid #ccc; }
+    .ficha-tramite { border-left-color: #fbbf24; }
+    .ficha-agenda { border-left-color: #38bdf8; }
+    .ficha-practica { border-left-color: #10b981; } 
+    .ficha-faba { border-left-color: #f97316; }
+    .ficha-novedad { border-left-color: #ff4b4b; margin-top: 10px; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-faba { border: 2px solid #f97316 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -98,24 +101,32 @@ with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
 
-# === SECCIÓN 4: BUSCADOR FABA (REFORMADO) ===
+# === SECCIÓN 4: BUSCADOR NOMENCLADOR (EL UNIFICADO) ===
 st.markdown('<div class="buscador-faba">', unsafe_allow_html=True)
-with st.expander("📙 **4. BUSCADOR NOMENCLADOR FABA**", expanded=True):
-    busqueda_f = st.text_input("Ingresá código o nombre del análisis (FABA)...", key="search_f")
-    if busqueda_f:
-        if not df_faba.empty:
-            # Búsqueda por aproximación en todas las columnas
-            mask = df_faba.apply(lambda row: row.astype(str).str.contains(busqueda_f, case=False, na=False).any(), axis=1)
-            res_f = df_faba[mask]
+with st.expander("📙 **4. BUSCADOR NOMENCLADOR**", expanded=True):
+    busqueda_n = st.text_input("Ingresá código o nombre de la práctica (OSECAC/FABA)...", key="search_n")
+    if busqueda_n:
+        if not df_nomenclador.empty:
+            # Filtro inteligente: busca palabras clave en todas las columnas
+            palabras = busqueda_n.lower().split()
+            mask = df_nomenclador.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
+            res_n = df_nomenclador[mask]
             
-            if not res_f.empty:
-                for i, row in res_f.iterrows():
-                    datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
-                    st.markdown(f'<div class="ficha ficha-faba">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+            if not res_n.empty:
+                st.info(f"Se encontraron {len(res_n)} resultados:")
+                for i, row in res_n.iterrows():
+                    st.markdown(f"""
+                    <div class="ficha ficha-faba">
+                        <b style="color:#f97316; font-size:1.1rem;">🔬 {row.get('DESCRIPCION FABA', 'Sin Descripción')}</b><br>
+                        <hr style="margin:8px 0; border:0; border-top:1px dashed rgba(255,255,255,0.2);">
+                        <b>COD FABA:</b> {row.get('CODIGO FABA', 'N/A')} | <b>COD OSECAC:</b> {row.get('CODIGO OSECAC', 'N/A')}<br>
+                        <small style="color:#cbd5e1;"><b>Detalle OSECAC:</b> {row.get('DESCRIPCION OSECAC', 'N/A')}</small>
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
-                st.warning("No se encontraron coincidencias para esa búsqueda.")
+                st.warning("No se encontraron coincidencias en el Nomenclador.")
         else:
-            st.error("Error: No se pudo cargar la base de datos de FABA. Verifica que el Sheets tenga acceso para cualquiera con el enlace.")
+            st.error("Error: No se pudo cargar la base de datos unificada.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # === SECCIÓN 5: GESTIONES ===
