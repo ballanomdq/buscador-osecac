@@ -45,7 +45,7 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO ORIGINAL + ELIMINACIÓN DE PANEL LATERAL + MEJORA DE TEXTO
+# 3. CSS REFORZADO: VISIBILIDAD TOTAL
 st.markdown("""
     <style>
     /* OCULTAR PANEL LATERAL */
@@ -53,16 +53,37 @@ st.markdown("""
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* MEJORA DE VISIBILIDAD DE TEXTOS (RADIOS Y LABELS) */
-    .stWidgetLabel p, .stRadio label, div[data-baseweb="radio"] div {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-        font-size: 1.1rem !important;
+    /* --- REFUERZO DE COLOR BLANCO PARA TEXTOS --- */
+    /* Texto de Radio Buttons (FABA/OSECAC) */
+    div[data-testid="stWidgetLabel"] p {
+        color: white !important;
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
     }
-    input { color: #ffffff !important; }
-    ::placeholder { color: rgba(255, 255, 255, 0.6) !important; }
+    
+    div[role="radiogroup"] label p {
+        color: white !important;
+        font-weight: 600 !important;
+    }
 
-    /* TU DISEÑO ORIGINAL */
+    /* Títulos de los inputs (Buscar en...) */
+    .stTextInput label p {
+        color: white !important;
+        font-weight: bold !important;
+    }
+
+    /* Texto que escribes dentro de los buscadores */
+    input[data-testid="stTextInputRootElement"] {
+        color: white !important;
+    }
+    
+    /* Color del cursor y texto activo */
+    input {
+        color: white !important;
+        -webkit-text-fill-color: white !important;
+    }
+
+    /* --- DISEÑO ORIGINAL --- */
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
     @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
