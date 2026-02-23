@@ -1,5 +1,5 @@
 import streamlit as st
-import pd as pd
+import pandas as pd
 import base64
 from datetime import datetime
 
@@ -60,31 +60,40 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=True):
     with tab_lab:
         bus_l = st.text_input("Buscá análisis o código FABA...", key="l_search")
         if bus_l and not df_nomenclador.empty:
-            # Filtro: Filas con datos en Columna A
+            # Filtro: Filas con datos en Columna A (Código FABA)
             df_l = df_nomenclador[df_nomenclador.iloc[:, 0] != ""]
             terminos = bus_l.lower().split()
             mask = df_l.apply(lambda r: any(t in str(r).lower() for t in terminos), axis=1)
             res = df_l[mask].drop_duplicates()
-            for i, r in res.iterrows():
-                st.markdown(f"""<div class="ficha">
-                    <b style="color:#f97316;">FABA:</b> {r.iloc[1]}<br>
-                    <b style="color:#38bdf8;">OSECAC:</b> {r.iloc[3]}<br>
-                    <small><b>COD FABA:</b> {r.iloc[0]} | <b>COD OSECAC:</b> {r.iloc[2]}</small>
-                </div>""", unsafe_allow_html=True)
+            if not res.empty:
+                for i, r in res.iterrows():
+                    st.markdown(f"""<div class="ficha">
+                        <b style="color:#f97316;">FABA:</b> {r.iloc[1]}<br>
+                        <b style="color:#38bdf8;">OSECAC:</b> {r.iloc[3]}<br>
+                        <hr style="margin:10px 0; border:0; border-top:1px solid rgba(255,255,255,0.1);">
+                        <small><b>COD FABA:</b> {r.iloc[0]} | <b>COD OSECAC:</b> {r.iloc[2]}</small>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.warning("No se encontraron resultados en Laboratorio.")
 
     with tab_prac:
         bus_p = st.text_input("Buscá práctica o código OSECAC...", key="p_search")
         if bus_p and not df_nomenclador.empty:
-            # Filtro: Filas con datos en Columna C
+            # Filtro: Filas con datos en Columna C (Código OSECAC)
             df_p = df_nomenclador[df_nomenclador.iloc[:, 2] != ""]
             terminos = bus_p.lower().split()
             mask = df_p.apply(lambda r: any(t in str(r).lower() for t in terminos), axis=1)
             res = df_p[mask].drop_duplicates()
-            for i, r in res.iterrows():
-                st.markdown(f"""<div class="ficha ficha-osecac">
-                    <b style="color:#38bdf8;">PRÁCTICA:</b> {r.iloc[3]}<br>
-                    <b>CÓDIGO OSECAC:</b> <code>{r.iloc[2]}</code>
-                </div>""", unsafe_allow_html=True)
+            if not res.empty:
+                for i, r in res.iterrows():
+                    st.markdown(f"""<div class="ficha ficha-osecac">
+                        <b style="color:#38bdf8;">PRÁCTICA:</b> {r.iloc[3]}<br>
+                        <div style="margin-top:8px;">
+                            <b>CÓDIGO OSECAC:</b> <code style="background:#1e293b; padding:2px 5px; color:white;">{r.iloc[2]}</code>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.warning("No se encontraron resultados en Prácticas.")
 
 # --- SECCIÓN 2: PEDIDOS ---
 with st.expander("📝 **2. PEDIDOS**"):
@@ -95,6 +104,7 @@ with st.expander("📝 **2. PEDIDOS**"):
 with st.expander("🌐 **3. PÁGINAS ÚTILES**"):
     st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
     st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+    st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
 
 # --- SECCIÓN 4: GESTIONES ---
 with st.expander("📂 **4. GESTIONES / DATOS**"):
@@ -108,11 +118,11 @@ with st.expander("📂 **4. GESTIONES / DATOS**"):
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**"):
     bus_pe = st.text_input("Buscá cartilla...", key="pe_search")
     if bus_pe:
-        for df, t, c in [(df_practicas, "📑 PRÁCTICA", "#10b981"), (df_especialistas, "👨‍⚕️ ESPECIALISTA", "#10b981")]:
+        for df, tipo, color in [(df_practicas, "📑 PRÁCTICA", "#10b981"), (df_especialistas, "👨‍⚕️ ESPECIALISTA", "#10b981")]:
             if not df.empty:
                 res = df[df.astype(str).apply(lambda row: row.str.contains(bus_pe.lower(), case=False).any(), axis=1)]
                 for i, row in res.iterrows():
-                    st.markdown(f'<div class="ficha" style="border-left-color:{c};"><b>{t}:</b> {", ".join(row.values)}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="ficha" style="border-left-color:{color};"><b>{tipo}:</b> {", ".join(row.values)}</div>', unsafe_allow_html=True)
 
 # --- SECCIÓN 6: AGENDAS ---
 with st.expander("📞 **6. AGENDAS / MAILS**"):
@@ -126,9 +136,11 @@ with st.expander("📞 **6. AGENDAS / MAILS**"):
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha" style="border-left-color:#ff4b4b;"><small>{n["fecha"]}</small><br>{n["mensaje"]}</div>', unsafe_allow_html=True)
-    with st.popover("✍️ PANEL"):
+    
+    with st.popover("✍️ PANEL DE CONTROL"):
         if st.text_input("Clave:", type="password") == PASSWORD_JEFE:
-            msg = st.text_area("Nuevo comunicado:")
-            if st.form_submit_button("📢 PUBLICAR"):
-                st.session_state.historial_novedades.insert(0, {"id": str(datetime.now().timestamp()), "mensaje": msg, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
-                st.rerun()
+            with st.form("form_nov", clear_on_submit=True):
+                msg = st.text_area("Nuevo comunicado:")
+                if st.form_submit_button("📢 PUBLICAR"):
+                    st.session_state.historial_novedades.insert(0, {"id": str(datetime.now().timestamp()), "mensaje": msg, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
+                    st.rerun()
