@@ -45,7 +45,7 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS REFORZADO: VISIBILIDAD TOTAL
+# 3. CSS REFORZADO: VISIBILIDAD TOTAL Y CONTRASTE DE ESCRITURA
 st.markdown("""
     <style>
     /* OCULTAR PANEL LATERAL */
@@ -53,30 +53,34 @@ st.markdown("""
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* REFUERZO DE COLOR BLANCO PARA TEXTOS */
+    /* REFUERZO DE COLOR BLANCO PARA TEXTOS DE AFUERA */
     div[data-testid="stWidgetLabel"] p {
         color: white !important;
-        font-size: 1.2rem !important;
+        font-size: 1.1rem !important;
         font-weight: bold !important;
     }
     
     div[role="radiogroup"] label p {
         color: white !important;
-        font-weight: 600 !important;
     }
 
-    .stTextInput label p {
-        color: white !important;
-        font-weight: bold !important;
-    }
-
-    input[data-testid="stTextInputRootElement"] {
-        color: white !important;
+    /* --- ARREGLO DEL CUADRO DE BÚSQUEDA (INPUT) --- */
+    /* Fondo oscuro para que la letra blanca se vea */
+    input[data-testid="stTextInputRootElement"], div[data-baseweb="input"] {
+        background-color: #1a202c !important;
+        border: 1px solid #38bdf8 !important;
     }
     
+    /* Forzar letra blanca al escribir */
     input {
         color: white !important;
         -webkit-text-fill-color: white !important;
+        caret-color: white !important;
+    }
+
+    /* Color del texto de ayuda (placeholder) */
+    ::placeholder {
+        color: rgba(255, 255, 255, 0.4) !important;
     }
 
     /* DISEÑO ORIGINAL */
@@ -131,7 +135,6 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.markdown("---")
     
     opcion_busqueda = st.radio("Seleccione el origen de datos:", ["FABA", "OSECAC"], horizontal=True, key="switch_busq")
-    # CAMBIO AQUÍ: Ahora solo dice "🔍 Buscar..."
     busqueda_unificada = st.text_input("🔍 Buscar...", key="main_search")
     
     if busqueda_unificada:
