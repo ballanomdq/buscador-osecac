@@ -13,7 +13,9 @@ PASSWORD_JEFE = "2026"
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
-        return pd.read_csv(url)
+        # Forzamos la lectura como string para evitar errores de formato y facilitar la búsqueda
+        df = pd.read_csv(url, dtype=str)
+        return df
     except:
         return pd.DataFrame()
 
@@ -22,14 +24,15 @@ URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
-# REFORMA: URL para los datos de FABA (Reemplaza con tu link de CSV real si es distinto)
+
+# IMPORTANTE: Aquí debes poner el link de "Exportar a CSV" de la PLANILLA DE EXCEL de FABA, no el link de Looker Studio.
 URL_FABA_CSV = "https://docs.google.com/spreadsheets/d/1894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
 df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
-df_faba = cargar_datos(URL_FABA_CSV) # Carga de datos FABA
+df_faba = cargar_datos(URL_FABA_CSV)
 
 # Inicializar historial de novedades si no existe
 if 'historial_novedades' not in st.session_state:
@@ -92,11 +95,8 @@ st.markdown("""
     .ficha-tramite { border-left: 6px solid #fbbf24; }
     .ficha-agenda { border-left: 6px solid #38bdf8; }
     .ficha-practica { border-left: 6px solid #10b981; } 
-    .ficha-faba { border-left: 6px solid #f97316; } /* Color naranja para FABA */
+    .ficha-faba { border-left: 6px solid #f97316; }
     .ficha-novedad { border-left: 6px solid #ff4b4b; margin-top: 10px; }
-    
-    .novedad-fecha-grande { font-size: 16px; color: #ff4b4b; font-weight: bold; display: block; margin-bottom: 5px; }
-    .novedad-texto { font-size: 18px; line-height: 1.4; color: #ffffff; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -129,8 +129,7 @@ st.markdown("---")
 # === SECCIONES 1, 2 Y 3 ===
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-    # El botón de FABA ahora es un buscador abajo, pero mantengo el link aquí por si acaso
-    st.link_button("📙 LINK DIRECTO LOOKER FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
+    st.link_button("📙 LINK DIRECTO FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
     st.link_button("📗 NOMENCLADOR OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
 
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
@@ -146,20 +145,24 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# === REFORMA: SECCIÓN 4 - BUSCADOR FABA (NUEVO) ===
+# === SECCIÓN 4 - BUSCADOR FABA ===
 st.markdown('<div class="buscador-faba">', unsafe_allow_html=True)
 with st.expander("📙 **4. BUSCADOR NOMENCLADOR FABA**", expanded=False):
     busqueda_f = st.text_input("Ingresá código o nombre del análisis (FABA)...", key="search_f")
-    if busqueda_f and not df_faba.empty:
-        # Búsqueda por aproximación en todas las columnas
-        res_f = df_faba[df_faba.astype(str).apply(lambda row: row.str.contains(busqueda_f.lower(), case=False).any(), axis=1)]
-        
-        if not res_f.empty:
-            for i, row in res_f.iterrows():
-                datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
-                st.markdown(f'<div class="ficha ficha-faba">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+    if busqueda_f:
+        if not df_faba.empty:
+            # Búsqueda por aproximación: verifica si el texto está en cualquier columna de la fila
+            mask = df_faba.apply(lambda row: row.astype(str).str.contains(busqueda_f, case=False, na=False).any(), axis=1)
+            res_f = df_faba[mask]
+            
+            if not res_f.empty:
+                for i, row in res_f.iterrows():
+                    datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val) and str(val).strip() != ""]
+                    st.markdown(f'<div class="ficha ficha-faba">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+            else:
+                st.warning("No se encontraron coincidencias en FABA.")
         else:
-            st.warning("No se encontraron coincidencias para esa búsqueda.")
+            st.error("Error: No se pudo cargar la base de datos de FABA. Verifica el link del CSV.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # === SECCIÓN 5: GESTIONES ===
