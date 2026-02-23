@@ -3,8 +3,20 @@ import pandas as pd
 import base64
 from datetime import datetime
 
-# 1. CONFIGURACIÓN DE PÁGINA
+# 1. CONFIGURACIÓN DE PÁGINA (Debe ser lo primero)
 st.set_page_config(page_title="OSECAC MDP - Portal", layout="wide")
+
+# --- BLOQUE PARA OCULTAR MENÚS DE STREAMLIT (NUEVO) ---
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .block-container {
+        padding-top: 1rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- CLAVE DE ACCESO PERSONALIZADA ---
 PASSWORD_JEFE = "2026"
@@ -26,7 +38,7 @@ URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
 URL_ESPECIALISTAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576"
-URL_NOMENCLADOR_UNIFICADO = "https://docs.google.com/spreadsheets/d/1pc0ioT9lWLzGHDiifJLYyrXHv-NFsT3UDIDt951CTGc/edit?usp=sharing"
+URL_NOMENCLADOR_UNIFICADO = "https://docs.google.com/spreadsheets/d/1pc0ioT9lWLzGHDiifJLYyrXHv-NFsT3UDIDt951CTGc/export?format=csv"
 
 df_agendas = cargar_datos(URL_AGENDAS_CSV)
 df_tramites = cargar_datos(URL_TRAMITES_CSV)
@@ -34,7 +46,7 @@ df_practicas = cargar_datos(URL_PRACTICAS_CSV)
 df_especialistas = cargar_datos(URL_ESPECIALISTAS_CSV)
 df_nomenclador = cargar_datos(URL_NOMENCLADOR_UNIFICADO)
 
-# Inicializar historial de novedades si no existe
+# Inicializar historial de novedades
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
@@ -53,7 +65,6 @@ st.markdown("""
         animation: gradientBG 15s ease infinite;
         color: #e2e8f0; 
     }
-    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
     .punto-alerta { width: 12px; height: 12px; background-color: #ff4b4b; border-radius: 50%; display: inline-block; margin-right: 12px; animation: pulso 1.5s infinite; vertical-align: middle; }
     .header-master { text-align: center; margin-bottom: 10px; }
     .capsula-header-mini { position: relative; padding: 10px 30px; background: rgba(56, 189, 248, 0.05); border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5); overflow: hidden; margin-bottom: 12px; display: inline-block; }
@@ -103,7 +114,6 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
             if not res_n.empty:
                 st.info(f"Resultados encontrados:")
                 for i, row in res_n.iterrows():
-                    # Busqueda dinámica de columnas por si cambian tildes
                     col_faba = [c for c in df_nomenclador.columns if 'FABA' in c.upper() and 'DESCRIP' in c.upper()]
                     col_osecac = [c for c in df_nomenclador.columns if 'OSECAC' in c.upper() and 'DESCRIP' in c.upper()]
                     
