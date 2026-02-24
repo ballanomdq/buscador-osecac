@@ -3,7 +3,6 @@ import pandas as pd
 import base64
 import time
 from datetime import datetime
-import random
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -81,128 +80,49 @@ st.markdown("""
     .ficha-novedad { border-left-color: #ff4b4b; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-    
-    /* ANIMACIÓN HOLOGRAMA */
-    @keyframes pixelGlitch {
-        0% { transform: translate(0, 0) scale(1); filter: brightness(1); }
-        10% { transform: translate(-2px, 1px) scale(1.01); filter: brightness(1.2); }
-        20% { transform: translate(2px, -1px) scale(0.99); filter: brightness(0.8); }
-        30% { transform: translate(-1px, 2px) scale(1.02); filter: hue-rotate(10deg); }
-        40% { transform: translate(1px, -2px) scale(0.98); filter: brightness(1.3); }
-        50% { transform: translate(0, 0) scale(1); filter: brightness(1); }
-        100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
-    }
-    
-    @keyframes particleReveal {
-        0% { background: radial-gradient(circle at 30% 30%, #38bdf8 0%, transparent 70%); opacity: 0; }
-        20% { background: radial-gradient(circle at 70% 60%, #38bdf8 0%, transparent 70%); opacity: 0.3; }
-        40% { background: radial-gradient(circle at 40% 80%, #38bdf8 0%, transparent 70%); opacity: 0.6; }
-        60% { background: radial-gradient(circle at 80% 20%, #38bdf8 0%, transparent 70%); opacity: 0.8; }
-        80% { background: radial-gradient(circle at 50% 50%, #38bdf8 0%, transparent 70%); opacity: 1; }
-        100% { background: radial-gradient(circle at 50% 50%, #38bdf8 0%, transparent 70%); opacity: 0; }
-    }
-    
-    @keyframes hologramGlow {
-        0% { filter: drop-shadow(0 0 5px #38bdf8); opacity: 0.8; }
-        50% { filter: drop-shadow(0 0 20px #38bdf8) drop-shadow(0 0 40px #8b5cf6); opacity: 1; }
-        100% { filter: drop-shadow(0 0 5px #38bdf8); opacity: 0.8; }
-    }
-    
-    .holograma-container {
-        position: relative;
-        width: 200px;
-        height: 200px;
-        margin: 0 auto;
-        animation: hologramGlow 2s infinite;
-    }
-    
-    .holograma-particulas {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-image: radial-gradient(circle, #38bdf8 1px, transparent 1px);
-        background-size: 15px 15px;
-        animation: pixelGlitch 3s infinite;
-    }
-    
-    .holograma-reveal {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        animation: particleReveal 3s forwards;
-    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- PASO 1: ANIMACIÓN HOLOGRAMA (ENTRADA AUTOMÁTICA) ---
+# --- PASO 1: ANIMACIÓN DE CARGA AUTOMÁTICA (sin login) ---
 if not st.session_state.autenticado:
-    # Mostrar animación holograma
     anim_placeholder = st.empty()
     
     with anim_placeholder.container():
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
         
+        # Logo o título
         try:
             with open("LOGO1.png", "rb") as f:
                 img_b64 = base64.b64encode(f.read()).decode()
-            
-            # Frame 1: Logo pixelado
-            st.markdown(f'''
-            <div style="text-align: center; filter: blur(2px) brightness(0.8); image-rendering: pixelated; transform: scale(1.1);">
-                <img src="data:image/png;base64,{img_b64}" style="width: 150px; opacity: 0.7;">
-            </div>
-            <p style="text-align: center; color: #38bdf8; font-family: monospace; letter-spacing: 5px;">▒ ░ ▓ █ ░ ▒ ▓ █</p>
-            ''', unsafe_allow_html=True)
-            time.sleep(1)
-            
-            # Frame 2: Glitch/vibración
-            for i in range(5):
-                offset_x = random.randint(-5, 5)
-                offset_y = random.randint(-5, 5)
-                st.markdown(f'''
-                <div style="text-align: center; transform: translate({offset_x}px, {offset_y}px); filter: hue-rotate({random.randint(0, 360)}deg);">
-                    <img src="data:image/png;base64,{img_b64}" style="width: 150px;">
-                </div>
-                ''', unsafe_allow_html=True)
-                time.sleep(0.1)
-            
-            # Frame 3: Partículas
-            st.markdown(f'''
-            <div class="holograma-container">
-                <div class="holograma-particulas"></div>
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
-                    <img src="data:image/png;base64,{img_b64}" style="width: 130px; opacity: 0.3; filter: blur(1px);">
-                </div>
-            </div>
-            ''', unsafe_allow_html=True)
-            time.sleep(1.5)
-            
-            # Frame 4: Logo nítido
-            st.markdown(f'''
-            <div style="text-align: center; animation: hologramGlow 2s;">
-                <img src="data:image/png;base64,{img_b64}" style="width: 150px; filter: drop-shadow(0 0 20px #38bdf8);">
-            </div>
-            <p style="text-align: center; color: #38bdf8;">✨ SISTEMA LISTO ✨</p>
-            ''', unsafe_allow_html=True)
-            time.sleep(1)
-            
+            st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:120px; margin-bottom:30px;"></center>', unsafe_allow_html=True)
         except:
-            # Si no hay logo, mostrar animación de texto
-            st.markdown("""
-            <div style="text-align: center;">
-                <h1 style="color: #38bdf8; font-family: monospace; font-size: 3rem; letter-spacing: 10px;">▒ ░ ▓</h1>
-                <div style="width: 200px; height: 200px; margin: 0 auto; background: repeating-linear-gradient(45deg, #38bdf8 0px, #38bdf8 5px, transparent 5px, transparent 10px); animation: pixelGlitch 2s infinite;"></div>
-                <p style="color: #ffffff; margin-top: 20px;">CARGANDO...</p>
-            </div>
-            """, unsafe_allow_html=True)
-            time.sleep(3)
+            st.markdown("<h1 style='text-align:center; color:#38bdf8;'>OSECAC MDP</h1>", unsafe_allow_html=True)
+        
+        st.markdown("<h3 style='text-align:center; color:#ffffff; margin-bottom:30px;'>INICIANDO SISTEMA</h3>", unsafe_allow_html=True)
+        
+        # Barra de progreso
+        bar = st.progress(0)
+        status_text = st.empty()
+        
+        for i in range(101):
+            time.sleep(0.03)  # 3 segundos total
+            bar.progress(i)
+            if i < 30:
+                status_text.text("⚡ CARGANDO MÓDULOS...")
+            elif i < 60:
+                status_text.text("🔗 CONECTANDO BASES DE DATOS...")
+            elif i < 90:
+                status_text.text("🚀 PREPARANDO INTERFAZ...")
+            else:
+                status_text.text("✨ LISTO!")
+        
+        time.sleep(0.5)
     
-    # Marcar como autenticado y limpiar animación
     st.session_state.autenticado = True
     anim_placeholder.empty()
     st.rerun()
 
-# --- PASO 2: ANIMACIÓN DE CARGA ORIGINAL (solo si ya autenticado pero no animado) ---
+# --- PASO 2: ANIMACIÓN DE CARGA ORIGINAL ---
 if st.session_state.autenticado and not st.session_state.animado:
     ph = st.empty()
     with ph.container():
