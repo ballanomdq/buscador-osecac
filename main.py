@@ -83,7 +83,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- PASO 1: ANIMACIÓN DE CARGA AUTOMÁTICA (sin login) ---
+# --- PASO 1: ANIMACIÓN DE CARGA AUTOMÁTICA (solo barra rápida) ---
 if not st.session_state.autenticado:
     anim_placeholder = st.empty()
     
@@ -98,43 +98,21 @@ if not st.session_state.autenticado:
         except:
             st.markdown("<h1 style='text-align:center; color:#38bdf8;'>OSECAC MDP</h1>", unsafe_allow_html=True)
         
-        st.markdown("<h3 style='text-align:center; color:#ffffff; margin-bottom:30px;'>INICIANDO SISTEMA</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='text-align:center; color:#ffffff; margin-bottom:30px;'>INICIANDO</h3>", unsafe_allow_html=True)
         
-        # Barra de progreso
+        # Barra de progreso rápida
         bar = st.progress(0)
-        status_text = st.empty()
-        
         for i in range(101):
-            time.sleep(0.03)  # 3 segundos total
+            time.sleep(0.01)  # 1 segundo total
             bar.progress(i)
-            if i < 30:
-                status_text.text("⚡ CARGANDO MÓDULOS...")
-            elif i < 60:
-                status_text.text("🔗 CONECTANDO BASES DE DATOS...")
-            elif i < 90:
-                status_text.text("🚀 PREPARANDO INTERFAZ...")
-            else:
-                status_text.text("✨ LISTO!")
         
-        time.sleep(0.5)
+        time.sleep(0.2)
     
     st.session_state.autenticado = True
     anim_placeholder.empty()
     st.rerun()
 
-# --- PASO 2: ANIMACIÓN DE CARGA ORIGINAL ---
-if st.session_state.autenticado and not st.session_state.animado:
-    ph = st.empty()
-    with ph.container():
-        st.markdown("<br><br><h2 style='text-align:center; color:#38bdf8;'>🚀 INICIANDO PROTOCOLO MDP...</h2>", unsafe_allow_html=True)
-        bar = st.progress(0)
-        for i in range(100):
-            time.sleep(0.01)
-            bar.progress(i + 1)
-    st.session_state.animado = True
-    ph.empty()
-
-# --- PASO 3: CARGA DE DATOS ---
+# --- PASO 2: CARGA DE DATOS ---
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
