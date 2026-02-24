@@ -3,6 +3,7 @@ import pandas as pd
 import base64
 import time
 from datetime import datetime
+import random
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -16,12 +17,8 @@ if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 if 'animado' not in st.session_state:
     st.session_state.animado = False
-if 'toques' not in st.session_state:
-    st.session_state.toques = []
-if 'ultimo_toque' not in st.session_state:
-    st.session_state.ultimo_toque = time.time()
 
-# 2. CSS COMPLETO (Tu estética original + arreglos + texto blanco en títulos y labels)
+# 2. CSS COMPLETO (Tu estética original + arreglos + texto blanco)
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { display: none !important; }
@@ -38,37 +35,31 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    /* --- NUEVAS REGLAS PARA TEXTOS BLANCOS (ETIQUETAS Y TÍTULOS) --- */
-    /* Esta regla hace que todas las etiquetas (labels) y textos de ayuda sean blancos */
+    /* --- TEXTOS BLANCOS --- */
     label, .stRadio label, .stRadio div[data-testid="stMarkdown"] p, .stTextInput label, .st-emotion-cache-15ruxrl, .st-emotion-cache-1v0mbdj p {
         color: #ffffff !important;
         font-weight: 500 !important;
     }
     
-    /* Si el texto del placeholder "🔍 Buscar en nomencladores..." no se vuelve blanco con la regla anterior, forzamos el color del placeholder */
     input::placeholder {
-        color: #d1d5db !important;  /* Un gris muy claro, casi blanco */
+        color: #d1d5db !important;
         opacity: 1 !important;
     }
     
-    /* Para asegurar que el texto de los radios "FABA" y "OSECAC" sea blanco */
     .stRadio div[role="radiogroup"] label p {
         color: #ffffff !important;
     }
     
-    /* Para el título "Origen:" específicamente, si no hereda el blanco */
     .stRadio label {
         color: #ffffff !important;
     }
-    /* -------------------------------------------------------------- */
 
-    /* BUSCADOR BLANCO/NEGRO - Esto solo afecta al INPUT, no a las labels */
+    /* BUSCADOR BLANCO/NEGRO */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
     }
-    /* Este es el color del TEXTO DENTRO del input. Se queda en negro. */
     input { 
         color: #000000 !important; 
         -webkit-text-fill-color: #000000 !important; 
@@ -91,148 +82,128 @@ st.markdown("""
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
     
-    /* ESTILOS PARA TAP SEQUENCE */
-    .logo-tap-container {
-        cursor: pointer;
-        transition: all 0.1s;
-        animation: breathe 3s infinite;
-        text-align: center;
-        margin: 30px 0;
+    /* ANIMACIÓN HOLOGRAMA */
+    @keyframes pixelGlitch {
+        0% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+        10% { transform: translate(-2px, 1px) scale(1.01); filter: brightness(1.2); }
+        20% { transform: translate(2px, -1px) scale(0.99); filter: brightness(0.8); }
+        30% { transform: translate(-1px, 2px) scale(1.02); filter: hue-rotate(10deg); }
+        40% { transform: translate(1px, -2px) scale(0.98); filter: brightness(1.3); }
+        50% { transform: translate(0, 0) scale(1); filter: brightness(1); }
+        100% { transform: translate(0, 0) scale(1); filter: brightness(1); }
     }
-    .logo-tap-container:active {
-        transform: scale(0.95);
+    
+    @keyframes particleReveal {
+        0% { background: radial-gradient(circle at 30% 30%, #38bdf8 0%, transparent 70%); opacity: 0; }
+        20% { background: radial-gradient(circle at 70% 60%, #38bdf8 0%, transparent 70%); opacity: 0.3; }
+        40% { background: radial-gradient(circle at 40% 80%, #38bdf8 0%, transparent 70%); opacity: 0.6; }
+        60% { background: radial-gradient(circle at 80% 20%, #38bdf8 0%, transparent 70%); opacity: 0.8; }
+        80% { background: radial-gradient(circle at 50% 50%, #38bdf8 0%, transparent 70%); opacity: 1; }
+        100% { background: radial-gradient(circle at 50% 50%, #38bdf8 0%, transparent 70%); opacity: 0; }
     }
-    @keyframes breathe {
-        0% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.05); opacity: 0.9; }
-        100% { transform: scale(1); opacity: 1; }
+    
+    @keyframes hologramGlow {
+        0% { filter: drop-shadow(0 0 5px #38bdf8); opacity: 0.8; }
+        50% { filter: drop-shadow(0 0 20px #38bdf8) drop-shadow(0 0 40px #8b5cf6); opacity: 1; }
+        100% { filter: drop-shadow(0 0 5px #38bdf8); opacity: 0.8; }
     }
-    .tap-indicator {
-        display: flex;
-        gap: 15px;
-        justify-content: center;
-        margin: 30px 0;
+    
+    .holograma-container {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        animation: hologramGlow 2s infinite;
     }
-    .tap-dot {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #334155;
-        transition: all 0.3s ease;
-        border: 2px solid #38bdf8;
+    
+    .holograma-particulas {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-image: radial-gradient(circle, #38bdf8 1px, transparent 1px);
+        background-size: 15px 15px;
+        animation: pixelGlitch 3s infinite;
     }
-    .tap-dot.active {
-        background: #38bdf8;
-        box-shadow: 0 0 20px #38bdf8;
-        transform: scale(1.2);
-    }
-    .mensaje-secreto {
-        color: #94a3b8;
-        text-align: center;
-        font-size: 0.9rem;
-        margin-top: 20px;
-        font-style: italic;
+    
+    .holograma-reveal {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        animation: particleReveal 3s forwards;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- PASO 1: LOGIN CON TAP SEQUENCE ---
+# --- PASO 1: ANIMACIÓN HOLOGRAMA (ENTRADA AUTOMÁTICA) ---
 if not st.session_state.autenticado:
-    _, col2, _ = st.columns([1,2,1])
-    with col2:
-        st.markdown('<br><br>', unsafe_allow_html=True)
-        
-        # Secuencia secreta: 3 toques + pausa + 2 toques
-        SECUENCIA = [3, 2]  # Puedes cambiar la secuencia aquí
+    # Mostrar animación holograma
+    anim_placeholder = st.empty()
+    
+    with anim_placeholder.container():
+        st.markdown("<br><br>", unsafe_allow_html=True)
         
         try:
             with open("LOGO1.png", "rb") as f:
                 img_b64 = base64.b64encode(f.read()).decode()
             
-            st.markdown("<h3 style='text-align:center; color:#ffffff; margin-bottom:30px;'>🔐 ACCESO TÁCTIL</h3>", unsafe_allow_html=True)
-            
-            # Logo clickeable
-            logo_clicked = st.button("", key="logo_tap", help="TOCÁ EL LOGO EN SECUENCIA")
-            
+            # Frame 1: Logo pixelado
             st.markdown(f'''
-            <div class="logo-tap-container">
-                <img src="data:image/png;base64,{img_b64}" style="width:150px;">
+            <div style="text-align: center; filter: blur(2px) brightness(0.8); image-rendering: pixelated; transform: scale(1.1);">
+                <img src="data:image/png;base64,{img_b64}" style="width: 150px; opacity: 0.7;">
+            </div>
+            <p style="text-align: center; color: #38bdf8; font-family: monospace; letter-spacing: 5px;">▒ ░ ▓ █ ░ ▒ ▓ █</p>
+            ''', unsafe_allow_html=True)
+            time.sleep(1)
+            
+            # Frame 2: Glitch/vibración
+            for i in range(5):
+                offset_x = random.randint(-5, 5)
+                offset_y = random.randint(-5, 5)
+                st.markdown(f'''
+                <div style="text-align: center; transform: translate({offset_x}px, {offset_y}px); filter: hue-rotate({random.randint(0, 360)}deg);">
+                    <img src="data:image/png;base64,{img_b64}" style="width: 150px;">
+                </div>
+                ''', unsafe_allow_html=True)
+                time.sleep(0.1)
+            
+            # Frame 3: Partículas
+            st.markdown(f'''
+            <div class="holograma-container">
+                <div class="holograma-particulas"></div>
+                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                    <img src="data:image/png;base64,{img_b64}" style="width: 130px; opacity: 0.3; filter: blur(1px);">
+                </div>
             </div>
             ''', unsafe_allow_html=True)
+            time.sleep(1.5)
             
-            if logo_clicked:
-                ahora = time.time()
-                
-                # Si pasó más de 2 segundos, reiniciar secuencia
-                if ahora - st.session_state.ultimo_toque > 2:
-                    st.session_state.toques = []
-                
-                st.session_state.toques.append(ahora)
-                st.session_state.ultimo_toque = ahora
+            # Frame 4: Logo nítido
+            st.markdown(f'''
+            <div style="text-align: center; animation: hologramGlow 2s;">
+                <img src="data:image/png;base64,{img_b64}" style="width: 150px; filter: drop-shadow(0 0 20px #38bdf8);">
+            </div>
+            <p style="text-align: center; color: #38bdf8;">✨ SISTEMA LISTO ✨</p>
+            ''', unsafe_allow_html=True)
+            time.sleep(1)
             
-            # Mostrar indicadores visuales según la secuencia
-            total_dots = sum(SECUENCIA)
-            dots_html = []
-            
-            for i in range(total_dots):
-                if i < len(st.session_state.toques):
-                    dots_html.append('<span class="tap-dot active"></span>')
-                else:
-                    dots_html.append('<span class="tap-dot"></span>')
-            
-            st.markdown(f'<div class="tap-indicator">{"".join(dots_html)}</div>', unsafe_allow_html=True)
-            
-            # Mostrar mensaje según estado
-            if len(st.session_state.toques) == 0:
-                st.markdown('<p class="mensaje-secreto">👆 TOCÁ EL LOGO 3 VECES</p>', unsafe_allow_html=True)
-            elif len(st.session_state.toques) < SECUENCIA[0]:
-                restantes = SECUENCIA[0] - len(st.session_state.toques)
-                st.markdown(f'<p class="mensaje-secreto">👉 {restantes} toques más...</p>', unsafe_allow_html=True)
-            elif len(st.session_state.toques) == SECUENCIA[0]:
-                st.markdown('<p class="mensaje-secreto" style="color:#fbbf24;">⏸️ PAUSA UN MOMENTO...</p>', unsafe_allow_html=True)
-            elif len(st.session_state.toques) > SECUENCIA[0]:
-                segundo_grupo = len(st.session_state.toques) - SECUENCIA[0]
-                if segundo_grupo < SECUENCIA[1]:
-                    restantes = SECUENCIA[1] - segundo_grupo
-                    st.markdown(f'<p class="mensaje-secreto" style="color:#38bdf8;">👉 {restantes} toques finales...</p>', unsafe_allow_html=True)
-            
-            # Verificar secuencia completa
-            if len(st.session_state.toques) == total_dots:
-                # Verificar que los primeros 3 toques fueron rápidos
-                primer_grupo = st.session_state.toques[:SECUENCIA[0]]
-                segundo_grupo = st.session_state.toques[SECUENCIA[0]:]
-                
-                # Verificar pausa (al menos 0.5 seg entre grupos)
-                pausa = segundo_grupo[0] - primer_grupo[-1]
-                
-                if pausa > 0.5 and pausa < 3:  # Pausa razonable
-                    st.session_state.autenticado = True
-                    st.rerun()
-                else:
-                    st.error("❌ Secuencia incorrecta")
-                    st.session_state.toques = []
-                    time.sleep(1)
-                    st.rerun()
-            
-            # Botón para reiniciar manualmente
-            if st.button("🔄 REINICIAR", use_container_width=True):
-                st.session_state.toques = []
-                st.rerun()
-                
-        except Exception as e:
-            st.error("⚠️ Esperando archivo LOGO1.png...")
-            st.markdown("<p style='text-align:center;'>Para probar, toca donde iría el logo</p>", unsafe_allow_html=True)
-            
-            # Versión sin logo para prueba
-            if st.button("👆 TOCÁ AQUÍ PARA SIMULAR", use_container_width=True, type="primary"):
-                # Simulación simple para prueba
-                st.session_state.autenticado = True
-                st.rerun()
+        except:
+            # Si no hay logo, mostrar animación de texto
+            st.markdown("""
+            <div style="text-align: center;">
+                <h1 style="color: #38bdf8; font-family: monospace; font-size: 3rem; letter-spacing: 10px;">▒ ░ ▓</h1>
+                <div style="width: 200px; height: 200px; margin: 0 auto; background: repeating-linear-gradient(45deg, #38bdf8 0px, #38bdf8 5px, transparent 5px, transparent 10px); animation: pixelGlitch 2s infinite;"></div>
+                <p style="color: #ffffff; margin-top: 20px;">CARGANDO...</p>
+            </div>
+            """, unsafe_allow_html=True)
+            time.sleep(3)
     
-    st.stop()
+    # Marcar como autenticado y limpiar animación
+    st.session_state.autenticado = True
+    anim_placeholder.empty()
+    st.rerun()
 
-# --- PASO 2: ANIMACIÓN DE CARGA ---
-if not st.session_state.animado:
+# --- PASO 2: ANIMACIÓN DE CARGA ORIGINAL (solo si ya autenticado pero no animado) ---
+if st.session_state.autenticado and not st.session_state.animado:
     ph = st.empty()
     with ph.container():
         st.markdown("<br><br><h2 style='text-align:center; color:#38bdf8;'>🚀 INICIANDO PROTOCOLO MDP...</h2>", unsafe_allow_html=True)
