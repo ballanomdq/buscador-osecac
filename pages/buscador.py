@@ -5,7 +5,7 @@ from datetime import datetime
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
-    page_title="OSECAC MDP - Portal", 
+    page_title="OSECAC MDP - Portal",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -45,37 +45,51 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: DISEÑO ORIGINAL + CONTRASTE AZUL OSECAC
+# 3. CSS: DISEÑO ORIGINAL + CONTRASTE AZUL OSECAC + FIX INPUTS
 st.markdown("""
     <style>
     /* OCULTAR PANEL LATERAL */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
-    
+   
     /* FONDO DE LA APP */
-    .stApp { 
+    .stApp {
         background-color: #0b0e14;
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
-        color: #e2e8f0; 
+        color: #e2e8f0;
     }
 
-    /* --- CAMPO DE BÚSQUEDA AZUL OSECAC --- */
-    /* Forzamos el fondo de los casilleros a un azul oscuro profundo */
+    /* ── FIX CAMPOS DE TEXTO (INPUTS) ── */
     div[data-baseweb="input"] {
-        background-color: #003366 !important; 
-        border: 2px solid #38bdf8 !important;
+        background-color: #0a1f44 !important;
+        border: 2px solid #60a5fa !important;
         border-radius: 10px !important;
     }
 
-    /* Forzamos el texto a ser siempre BLANCO al escribir */
-    input {
+    div[data-baseweb="input"] input {
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
-        caret-color: #ffffff !important;
-        font-weight: bold !important;
+        background-color: transparent !important;
+        caret-color: #bfdbfe !important;
+    }
+
+    /* Placeholder */
+    div[data-baseweb="input"] input::placeholder {
+        color: rgba(191, 219, 254, 0.7) !important;
+        opacity: 1 !important;
+    }
+
+    /* Autofill / algunos navegadores */
+    div[data-baseweb="input"] input:-webkit-autofill,
+    div[data-baseweb="input"] input:-webkit-autofill:hover,
+    div[data-baseweb="input"] input:-webkit-autofill:focus {
+        -webkit-text-fill-color: #ffffff !important;
+        -webkit-box-shadow: 0 0 0 30px #0a1f44 inset !important;
+        box-shadow: 0 0 0 30px #0a1f44 inset !important;
+        background-color: #0a1f44 !important;
     }
 
     /* Color de las etiquetas de texto de los buscadores */
@@ -84,30 +98,23 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Placeholder (el texto tenue antes de escribir) */
-    ::placeholder {
-        color: rgba(255, 255, 255, 0.6) !important;
-    }
-
     /* DISEÑO ORIGINAL DE FICHAS Y EFECTOS */
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
     @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
-
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
     .punto-alerta { width: 12px; height: 12px; background-color: #ff4b4b; border-radius: 50%; display: inline-block; margin-right: 12px; animation: pulso 1.5s infinite; vertical-align: middle; }
     .header-master { text-align: center; margin-bottom: 10px; }
     .capsula-header-mini { position: relative; padding: 10px 30px; background: rgba(56, 189, 248, 0.05); border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5); overflow: hidden; margin-bottom: 12px; display: inline-block; }
     .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff !important; margin: 0; z-index: 2; position: relative; }
     .shimmer-efecto { position: absolute; top: 0; width: 100px; height: 100%; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent); transform: skewX(-20deg); animation: shine 4s infinite linear; z-index: 1; }
-    
+   
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); border-left: 6px solid #ccc; color: #ffffff !important; }
     .ficha-tramite { border-left-color: #fbbf24; }
     .ficha-agenda { border-left-color: #38bdf8; }
-    .ficha-practica { border-left-color: #10b981; } 
+    .ficha-practica { border-left-color: #10b981; }
     .ficha-faba { border-left-color: #f97316; }
     .ficha-novedad { border-left-color: #ff4b4b; margin-top: 10px; }
-
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
     .buscador-gestion { border: 2px solid #fbbf24 !important; border-radius: 12px; margin-bottom: 10px; }
     .buscador-practica { border: 2px solid #10b981 !important; border-radius: 12px; margin-bottom: 10px; }
@@ -132,19 +139,19 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    
+   
     opcion_busqueda = st.radio("Seleccione el origen de datos:", ["FABA", "OSECAC"], horizontal=True, key="switch_busq")
     busqueda_unificada = st.text_input("🔍 Buscar...", key="main_search")
-    
+   
     if busqueda_unificada:
         df_a_usar = df_faba if opcion_busqueda == "FABA" else df_osecac_busq
         clase_ficha = "ficha-faba" if opcion_busqueda == "FABA" else "ficha-agenda"
-        
+       
         if not df_a_usar.empty:
             palabras = busqueda_unificada.lower().split()
             mask = df_a_usar.apply(lambda row: all(p in str(row).lower() for p in palabras), axis=1)
             resultados = df_a_usar[mask]
-            
+           
             if not resultados.empty:
                 for i, row in resultados.iterrows():
                     datos = [f"<b>{col}:</b> {val}" for col, val in row.items() if pd.notna(val)]
@@ -207,7 +214,7 @@ with st.expander("📢 **7. NOVEDADES**", expanded=True):
     st.markdown("<div><span class='punto-alerta'></span><b>ÚLTIMOS COMUNICADOS</b></div>", unsafe_allow_html=True)
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad"><span class="novedad-fecha-grande">📅 {n["fecha"]}</span><div class="novedad-texto">{n["mensaje"]}</div></div>', unsafe_allow_html=True)
-    
+   
     with st.popover("✍️ PANEL DE CONTROL"):
         clave_n = st.text_input("Clave de edición:", type="password")
         if clave_n == PASSWORD_JEFE:
