@@ -3,16 +3,7 @@ import pandas as pd
 import base64
 from datetime import datetime
 
-# =========================================================
-# 0. CONTROL DE ACCESO (PROTECCIÓN)
-# =========================================================
-if 'autenticado' not in st.session_state or not st.session_state.autenticado:
-    st.warning("⚠️ Acceso denegado. Por favor, iniciá sesión en la página principal.")
-    st.stop()
-
-# =========================================================
 # 1. CONFIGURACIÓN DE PÁGINA
-# =========================================================
 st.set_page_config(
     page_title="OSECAC MDP - Portal", 
     layout="wide",
@@ -34,7 +25,7 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
-# URLs DE TODAS LAS PLANILLAS
+# URLs DE TODAS LAS PLANILLAS (Tu base de datos original)
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
@@ -75,18 +66,19 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    /* EL ARREGLO DEL BUSCADOR (FONDO BLANCO, LETRA NEGRA) */
+    /* --- EL ARREGLO DEL BUSCADOR (FONDO BLANCO, LETRA NEGRA) --- */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
     }
     input {
-        color: #000000 !important;
+        color: #000000 !important; /* Letra Negra */
         -webkit-text-fill-color: #000000 !important;
         font-weight: bold !important;
     }
 
+    /* TU ESTÉTICA ORIGINAL DE FICHAS Y CABECERA */
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
     .header-master { text-align: center; margin-bottom: 10px; }
     .capsula-header-mini { position: relative; padding: 10px 30px; background: rgba(56, 189, 248, 0.05); border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5); overflow: hidden; margin-bottom: 12px; display: inline-block; }
@@ -200,8 +192,3 @@ with st.expander("📢 **7. NOVEDADES**", expanded=True):
                     st.session_state.historial_novedades.insert(0, {"id": str(datetime.now().timestamp()), "mensaje": msg, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
                     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
-
-# BOTÓN PARA SALIR (Opcional, pero útil)
-if st.button("Cerrar Sesión"):
-    st.session_state.autenticado = False
-    st.switch_page("buscador.py")
