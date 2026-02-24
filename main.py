@@ -17,7 +17,7 @@ if 'autenticado' not in st.session_state:
 if 'animado' not in st.session_state:
     st.session_state.animado = False
 
-# 2. CSS COMPLETO (Tu estética original + arreglos)
+# 2. CSS COMPLETO (Tu estética original + arreglos + texto blanco en títulos y labels)
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { display: none !important; }
@@ -34,13 +34,42 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    /* BUSCADOR BLANCO/NEGRO */
+    /* --- NUEVAS REGLAS PARA TEXTOS BLANCOS (ETIQUETAS Y TÍTULOS) --- */
+    /* Esta regla hace que todas las etiquetas (labels) y textos de ayuda sean blancos */
+    label, .stRadio label, .stRadio div[data-testid="stMarkdown"] p, .stTextInput label, .st-emotion-cache-15ruxrl, .st-emotion-cache-1v0mbdj p {
+        color: #ffffff !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Si el texto del placeholder "🔍 Buscar en nomencladores..." no se vuelve blanco con la regla anterior, forzamos el color del placeholder */
+    input::placeholder {
+        color: #d1d5db !important;  /* Un gris muy claro, casi blanco */
+        opacity: 1 !important;
+    }
+    
+    /* Para asegurar que el texto de los radios "FABA" y "OSECAC" sea blanco */
+    .stRadio div[role="radiogroup"] label p {
+        color: #ffffff !important;
+    }
+    
+    /* Para el título "Origen:" específicamente, si no hereda el blanco */
+    .stRadio label {
+        color: #ffffff !important;
+    }
+    /* -------------------------------------------------------------- */
+
+    /* BUSCADOR BLANCO/NEGRO - Esto solo afecta al INPUT, no a las labels */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
     }
-    input { color: #000000 !important; -webkit-text-fill-color: #000000 !important; font-weight: bold !important; }
+    /* Este es el color del TEXTO DENTRO del input. Se queda en negro. */
+    input { 
+        color: #000000 !important; 
+        -webkit-text-fill-color: #000000 !important; 
+        font-weight: bold !important; 
+    }
 
     /* ESTÉTICA DE FICHAS */
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
