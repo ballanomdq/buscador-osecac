@@ -10,58 +10,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- SISTEMA DE LOGIN ---
-if 'autenticado' not in st.session_state:
-    st.session_state.autenticado = False
-
-def login():
-    st.markdown("""
-        <style>
-        .login-box {
-            background-color: rgba(23, 32, 48, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            border: 2px solid #38bdf8;
-            text-align: center;
-            margin-top: 50px;
-        }
-        .stButton>button {
-            width: 100%;
-            background-color: #38bdf8;
-            color: white;
-            font-weight: bold;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        # Intento de cargar logo en login
-        try:
-            with open("LOGO1.png", "rb") as f:
-                img_b64 = base64.b64encode(f.read()).decode()
-            st.markdown(f'<img src="data:image/png;base64,{img_b64}" style="width:100px; margin-bottom:20px;">', unsafe_allow_html=True)
-        except: pass
-        
-        st.subheader("🔐 Acceso al Portal")
-        usuario = st.text_input("Usuario", placeholder="Ingrese usuario")
-        clave = st.text_input("Contraseña", type="password", placeholder="Ingrese clave")
-        
-        if st.button("INGRESAR"):
-            if usuario.lower() == "osecac" and clave == "2026":
-                st.session_state.autenticado = True
-                st.rerun()
-            else:
-                st.error("Credenciales incorrectas")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# Si no está autenticado, frenar ejecución aquí
-if not st.session_state.autenticado:
-    login()
-    st.stop()
-
-# --- CLAVE DE ACCESO NOVEDADES ---
+# --- CLAVE DE ACCESO PERSONALIZADA ---
 PASSWORD_JEFE = "2026"
 
 # 2. CARGA DE DATOS (CSV DESDE GOOGLE SHEETS)
@@ -76,7 +25,7 @@ def cargar_datos(url):
     except:
         return pd.DataFrame()
 
-# URLs DE TUS PLANILLAS ORIGINALES
+# URLs DE TODAS LAS PLANILLAS (Tu base de datos original)
 URL_AGENDAS_CSV = "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv"
 URL_TRAMITES_CSV = "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv"
 URL_PRACTICAS_CSV = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0"
@@ -96,15 +45,18 @@ if 'historial_novedades' not in st.session_state:
         {"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}
     ]
 
-# 3. CSS: TU DISEÑO ORIGINAL + EL BUSCADOR BLANCO/NEGRO
+# 3. CSS: TU DISEÑO ORIGINAL + EL BUSCADOR BLANCO/NEGRO QUE FUNCIONA
 st.markdown("""
     <style>
+    /* OCULTAR PANEL LATERAL */
     [data-testid="stSidebar"] { display: none !important; }
     [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
+    /* TU FONDO ANIMADO ORIGINAL */
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
+    @keyframes pulso { 0% { box-shadow: 0 0 0 0px rgba(255, 75, 75, 0.7); } 100% { box-shadow: 0 0 0 12px rgba(255, 75, 75, 0); } }
 
     .stApp { 
         background-color: #0b0e14;
@@ -114,18 +66,19 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    /* BUSCADOR: FONDO BLANCO, LETRA NEGRA */
+    /* --- EL ARREGLO DEL BUSCADOR (FONDO BLANCO, LETRA NEGRA) --- */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
     }
     input {
-        color: #000000 !important;
+        color: #000000 !important; /* Letra Negra */
         -webkit-text-fill-color: #000000 !important;
         font-weight: bold !important;
     }
 
+    /* TU ESTÉTICA ORIGINAL DE FICHAS Y CABECERA */
     .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
     .header-master { text-align: center; margin-bottom: 10px; }
     .capsula-header-mini { position: relative; padding: 10px 30px; background: rgba(56, 189, 248, 0.05); border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5); overflow: hidden; margin-bottom: 12px; display: inline-block; }
@@ -147,7 +100,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# === CABECERA PORTAL ===
+# === CABECERA ===
 st.markdown('<div class="header-master"><div class="capsula-header-mini"><div class="shimmer-efecto"></div><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
 
 # === LOGO ===
@@ -192,7 +145,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
     st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# --- SECCIÓN 4: GESTIONES ---
+# --- GESTIONES ---
 st.markdown('<div class="buscador-gestion">', unsafe_allow_html=True)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     busqueda_t = st.text_input("Buscá trámites...", key="search_t")
@@ -202,7 +155,7 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite"><b style="color:#fbbf24;">📋 {row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SECCIÓN 5: PRÁCTICAS ---
+# --- PRÁCTICAS ---
 st.markdown('<div class="buscador-practica">', unsafe_allow_html=True)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     busqueda_p = st.text_input("Buscá prácticas o especialistas...", key="search_p")
@@ -215,7 +168,7 @@ with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
                     st.markdown(f'<div class="ficha ficha-practica"><b>{tipo}:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SECCIÓN 6: AGENDAS ---
+# --- AGENDAS ---
 st.markdown('<div class="buscador-agenda">', unsafe_allow_html=True)
 with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     busqueda_a = st.text_input("Buscá contactos...", key="search_a")
@@ -226,7 +179,7 @@ with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SECCIÓN 7: NOVEDADES ---
+# --- NOVEDADES ---
 st.markdown('<div class="buscador-novedades">', unsafe_allow_html=True)
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
     for n in st.session_state.historial_novedades:
