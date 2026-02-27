@@ -33,7 +33,7 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS COMPLETO (Estética Oscura + Texto Blanco + Inputs Claros)
+# 2. CSS CORREGIDO (Sin blanco sobre blanco)
 st.markdown("""
     <style>
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
@@ -50,8 +50,22 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    label, p, .stMarkdown { color: #ffffff !important; font-weight: 500 !important; }
-    
+    /* Títulos de secciones en blanco */
+    .stMarkdown p, label { color: #ffffff !important; }
+
+    /* --- CORRECCIÓN DE BOTONES (LINKS) --- */
+    .stLinkButton a {
+        background-color: rgba(23, 32, 48, 0.9) !important;
+        color: white !important;
+        border: 1px solid #38bdf8 !important;
+        border-radius: 8px !important;
+    }
+    .stLinkButton a:hover {
+        background-color: #38bdf8 !important;
+        color: #000000 !important;
+    }
+
+    /* --- INPUTS (BUSCADORES) --- */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
@@ -77,9 +91,6 @@ st.markdown("""
     .ficha-novedad { border-left-color: #ff4b4b; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-    
-    /* Ajuste para que los botones de radio y check se vean blancos */
-    .stCheckbox label p { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -107,7 +118,7 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-# --- INTERFAZ ---
+# --- HEADER ---
 st.markdown('<div class="header-master"><div class="capsula-header-mini"><div class="shimmer-efecto"></div><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
 
 try:
@@ -123,7 +134,7 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # FILA DISCRETA: Lápiz - Check - Palabra
+    # FILA: Lápiz - Check - Palabra
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
