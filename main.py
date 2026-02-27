@@ -33,93 +33,143 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS REFORZADO (Corrección "Blanco sobre Blanco")
+# ===== CSS CORREGIDO Y OPTIMIZADO =====
 st.markdown("""
     <style>
-    /* Ocultar elementos nativos */
+    /* ===== OCULTAR ELEMENTOS POR DEFECTO ===== */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
-    
-    /* Fondo Animado */
+
+    /* ===== ANIMACIONES ===== */
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
 
-    .stApp { 
+    /* ===== FONDO PRINCIPAL ===== */
+    .stApp {
         background-color: #0b0e14;
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
+        color: #e2e8f0;
     }
 
-    /* FORZAR COLOR DE TEXTO EN TODO EL SITIO */
-    /* Esto evita que Streamlit use gris oscuro en fondos negros */
-    .stMarkdown, p, span, label, li, [data-testid="stExpander"] p {
+    /* ===== TÍTULOS Y TEXTOS GENERALES ===== */
+    h1, h2, h3, h4, h5, h6, .stMarkdown p, label {
         color: #ffffff !important;
     }
 
-    /* Títulos de Expanders */
-    .stHeader p {
-        color: #38bdf8 !important;
-        font-weight: bold !important;
-        font-size: 1.1rem !important;
+    /* ===== BOTONES DE LINK (st.link_button) - CORREGIDO ===== */
+    .stLinkButton a {
+        background-color: #1e2a3a !important;
+        color: white !important;
+        border: 1px solid #38bdf8 !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        text-decoration: none !important;
+        padding: 0.5rem 1rem !important;
+        display: inline-block;
+        width: 100%;
+        text-align: left;
+        margin: 2px 0;
     }
 
-    /* --- INPUTS (BUSCADORES) --- */
-    /* Fondo blanco y texto negro para máxima legibilidad al escribir */
+    .stLinkButton a:hover {
+        background-color: #38bdf8 !important;
+        color: #000000 !important;
+        border-color: #38bdf8 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
+    }
+
+    /* ===== EXPANDERS (MENÚS DESPLEGABLES) ===== */
+    .stExpander {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border-radius: 12px !important;
+        margin-bottom: 8px !important;
+        border: 1px solid rgba(56, 189, 248, 0.2) !important;
+    }
+
+    .stExpander .st-emotion-cache-1jicfl2 {
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+
+    .stExpander .st-emotion-cache-1wivap2 {
+        background-color: rgba(23, 32, 48, 0.7) !important;
+    }
+
+    /* ===== INPUTS (BUSCADORES) ===== */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
         border-radius: 8px !important;
     }
-    input { 
-        color: #000000 !important; 
-        -webkit-text-fill-color: #000000 !important; 
-        font-weight: bold !important; 
-    }
-
-    /* --- CORRECCIÓN DE BOTONES (LINKS) --- */
-    .stLinkButton a {
-        background-color: rgba(23, 32, 48, 0.9) !important;
-        color: white !important;
-        border: 1px solid #38bdf8 !important;
-        border-radius: 8px !important;
-        text-decoration: none !important;
-    }
-    .stLinkButton a:hover {
-        background-color: #38bdf8 !important;
+    input {
         color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+        font-weight: bold !important;
     }
 
-    /* --- FICHAS DE RESULTADOS --- */
-    .ficha { 
-        background-color: rgba(23, 32, 48, 0.95); 
-        padding: 20px; 
-        border-radius: 12px; 
-        margin-bottom: 10px; 
-        border-left: 6px solid #ccc; 
-        color: #ffffff !important; 
+    /* ===== LAYOUT GENERAL ===== */
+    .block-container {
+        max-width: 1000px !important;
+        padding-top: 1.5rem !important;
     }
-    .ficha b { color: #38bdf8 !important; } /* Resaltar etiquetas de datos */
+    .header-master {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .capsula-header-mini {
+        position: relative;
+        padding: 10px 30px;
+        background: rgba(56, 189, 248, 0.05);
+        border-radius: 35px;
+        border: 1px solid rgba(56, 189, 248, 0.5);
+        display: inline-block;
+    }
+    .titulo-mini {
+        font-weight: 800;
+        font-size: 1.4rem;
+        color: #ffffff !important;
+        margin: 0;
+    }
+    .shimmer-efecto {
+        position: absolute;
+        top: 0;
+        width: 100px;
+        height: 100%;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
+        transform: skewX(-20deg);
+        animation: shine 4s infinite linear;
+    }
 
+    /* ===== FICHAS DE RESULTADOS ===== */
+    .ficha {
+        background-color: rgba(23, 32, 48, 0.95) !important;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        border-left: 6px solid #ccc;
+        color: #ffffff !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
     .ficha-tramite { border-left-color: #fbbf24; }
     .ficha-agenda { border-left-color: #38bdf8; }
-    .ficha-practica { border-left-color: #10b981; } 
+    .ficha-practica { border-left-color: #10b981; }
     .ficha-especialista { border-left-color: #8b5cf6; }
     .ficha-novedad { border-left-color: #ff4b4b; }
-
-    /* Estilo de los contenedores Expanders */
-    .stExpander { 
-        background-color: rgba(30, 41, 59, 0.4) !important; 
-        border-radius: 12px !important; 
-        margin-bottom: 8px !important; 
-        border: 1px solid rgba(56, 189, 248, 0.2) !important; 
+    
+    /* ===== POPOVERS ===== */
+    .stPopover {
+        background-color: #1e2a3a !important;
+        border: 1px solid #38bdf8 !important;
     }
-
-    .block-container { max-width: 1000px !important; padding-top: 1.5rem !important; }
-    .header-master { text-align: center; margin-bottom: 10px; }
-    .capsula-header-mini { position: relative; padding: 10px 30px; background: rgba(56, 189, 248, 0.05); border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5); display: inline-block; }
-    .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff !important; margin: 0; }
-    .shimmer-efecto { position: absolute; top: 0; width: 100px; height: 100%; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent); transform: skewX(-20deg); animation: shine 4s infinite linear; }
+    .stPopover button {
+        background-color: #1e2a3a !important;
+        color: white !important;
+        border: 1px solid #38bdf8 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -129,7 +179,8 @@ def cargar_datos(url):
     try:
         csv_url = url.split('/edit')[0] + '/export?format=csv' if '/edit' in url else url
         return pd.read_csv(csv_url, dtype=str)
-    except: return pd.DataFrame()
+    except: 
+        return pd.DataFrame()
 
 URLs = {
     "agendas": "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/edit",
@@ -154,7 +205,8 @@ try:
     with open("LOGO1.png", "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
     st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:85px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
-except: pass
+except: 
+    pass
 
 st.markdown("---")
 
@@ -163,6 +215,7 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
+    # FILA: Lápiz - Check - Palabra
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
@@ -177,6 +230,7 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     with c4:
         sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
+    # Lógica de selección
     opcion = "OSECAC" if sel_osecac else "FABA"
     cl_actual = cl_o if sel_osecac else cl_f
     df_u = df_osecac_busq if sel_osecac else df_faba
