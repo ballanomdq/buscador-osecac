@@ -33,7 +33,7 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# ===== CSS CORREGIDO Y OPTIMIZADO =====
+# ===== CSS CORREGIDO =====
 st.markdown("""
     <style>
     /* ===== OCULTAR ELEMENTOS POR DEFECTO ===== */
@@ -50,68 +50,97 @@ st.markdown("""
         background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
         background-size: 400% 400%;
         animation: gradientBG 15s ease infinite;
-        color: #e2e8f0;
     }
 
-    /* ===== TÍTULOS Y TEXTOS GENERALES ===== */
+    /* ===== TÍTULOS ===== */
     h1, h2, h3, h4, h5, h6, .stMarkdown p, label {
         color: #ffffff !important;
     }
 
-    /* ===== BOTONES DE LINK (st.link_button) - CORREGIDO ===== */
+    /* ===== BOTONES DE LINK - CORREGIDOS ===== */
     .stLinkButton a {
-        background-color: #1e2a3a !important;
-        color: white !important;
-        border: 1px solid #38bdf8 !important;
+        background-color: #2d3748 !important;  /* Gris oscuro uniforme */
+        color: #ffffff !important;              /* Texto blanco */
+        border: 1px solid #4299e1 !important;   /* Borde azul */
         border-radius: 8px !important;
         font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-        text-decoration: none !important;
         padding: 0.5rem 1rem !important;
-        display: inline-block;
+        text-decoration: none !important;
+        display: block;
         width: 100%;
-        text-align: left;
-        margin: 2px 0;
+        transition: all 0.3s ease;
     }
 
     .stLinkButton a:hover {
-        background-color: #38bdf8 !important;
-        color: #000000 !important;
-        border-color: #38bdf8 !important;
+        background-color: #4299e1 !important;   /* Azul en hover */
+        color: #ffffff !important;               /* Texto SIGUE siendo blanco (no negro) */
+        border-color: #4299e1 !important;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
+        box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
     }
 
-    /* ===== EXPANDERS (MENÚS DESPLEGABLES) ===== */
+    /* ===== CHECKBOXES ===== */
+    .stCheckbox {
+        color: #ffffff !important;
+    }
+    
+    /* ===== LETRAS DEL NOMENCLADOR ===== */
+    .letras-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 10px 0;
+        padding: 10px;
+        background: rgba(45, 55, 72, 0.5);
+        border-radius: 10px;
+        justify-content: center;
+    }
+    
+    .letra-btn {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #2d3748;
+        color: white;
+        border: 1px solid #4299e1;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .letra-btn:hover {
+        background: #4299e1;
+        transform: scale(1.1);
+    }
+    
+    .letra-btn-seleccionada {
+        background: #4299e1;
+        border-color: white;
+    }
+
+    /* ===== EXPANDERS ===== */
     .stExpander {
         background-color: rgba(30, 41, 59, 0.8) !important;
         border-radius: 12px !important;
         margin-bottom: 8px !important;
-        border: 1px solid rgba(56, 189, 248, 0.2) !important;
+        border: 1px solid rgba(66, 153, 225, 0.2) !important;
     }
 
-    .stExpander .st-emotion-cache-1jicfl2 {
-        color: #ffffff !important;
-        font-weight: 600;
-    }
-
-    .stExpander .st-emotion-cache-1wivap2 {
-        background-color: rgba(23, 32, 48, 0.7) !important;
-    }
-
-    /* ===== INPUTS (BUSCADORES) ===== */
+    /* ===== INPUTS ===== */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
-        border: 2px solid #38bdf8 !important;
+        border: 2px solid #4299e1 !important;
         border-radius: 8px !important;
     }
     input {
         color: #000000 !important;
-        -webkit-text-fill-color: #000000 !important;
         font-weight: bold !important;
     }
 
-    /* ===== LAYOUT GENERAL ===== */
+    /* ===== LAYOUT ===== */
     .block-container {
         max-width: 1000px !important;
         padding-top: 1.5rem !important;
@@ -144,7 +173,7 @@ st.markdown("""
         animation: shine 4s infinite linear;
     }
 
-    /* ===== FICHAS DE RESULTADOS ===== */
+    /* ===== FICHAS ===== */
     .ficha {
         background-color: rgba(23, 32, 48, 0.95) !important;
         padding: 20px;
@@ -155,21 +184,10 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     .ficha-tramite { border-left-color: #fbbf24; }
-    .ficha-agenda { border-left-color: #38bdf8; }
+    .ficha-agenda { border-left-color: #4299e1; }
     .ficha-practica { border-left-color: #10b981; }
     .ficha-especialista { border-left-color: #8b5cf6; }
     .ficha-novedad { border-left-color: #ff4b4b; }
-    
-    /* ===== POPOVERS ===== */
-    .stPopover {
-        background-color: #1e2a3a !important;
-        border: 1px solid #38bdf8 !important;
-    }
-    .stPopover button {
-        background-color: #1e2a3a !important;
-        color: white !important;
-        border: 1px solid #38bdf8 !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -212,46 +230,48 @@ st.markdown("---")
 
 # 1. NOMENCLADORES
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
-    st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
+    
+    # NOMENCLADOR IA con letras
+    st.markdown("**NOMENCLADOR IA**")
+    
+    # Crear letras A-Z
+    letras = [chr(i) for i in range(ord('A'), ord('Z')+1)]
+    
+    # Dividir en filas de 13 letras cada una
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("##### FABA")
+        # Checkboxes para FABA (A-M)
+        for letra in letras[:13]:
+            st.checkbox(f"□ {letra}", key=f"faba_{letra}")
+    
+    with col2:
+        st.markdown("##### OSECAC")
+        # Checkboxes para OSECAC (N-Z)
+        for letra in letras[13:]:
+            st.checkbox(f"□ {letra}", key=f"osecac_{letra}")
+    
     st.markdown("---")
     
-    # FILA: Lápiz - Check - Palabra
-    c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
+    # Buscadores
+    col_b1, col_b2 = st.columns(2)
     
-    with c1:
-        pop_f = st.popover("✏️")
-        cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
-    with c2:
-        sel_faba = st.checkbox("FABA", value=True, key="chk_f")
-        
-    with c3:
-        pop_o = st.popover("✏️")
-        cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
-    with c4:
-        sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
-
-    # Lógica de selección
-    opcion = "OSECAC" if sel_osecac else "FABA"
-    cl_actual = cl_o if sel_osecac else cl_f
-    df_u = df_osecac_busq if sel_osecac else df_faba
-    url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
-
-    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
+    with col_b1:
+        st.text_input("🔍 Buscar en FABA...", key="bus_faba")
+        if st.session_state.get("bus_faba"):
+            # Mostrar resultados de FABA
+            mask = df_faba.apply(lambda row: all(p in str(row).lower() for p in st.session_state.bus_faba.lower().split()), axis=1)
+            for i, row in df_faba[mask].iterrows():
+                st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
     
-    if bus_nom:
-        mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
-        for i, row in df_u[mask].iterrows():
-            st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-            
-            if cl_actual == "*":
-                with st.expander(f"📝 Editar fila {i}"):
-                    c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
-                    v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
-                    if st.button("Guardar Cambios", key=f"btn_{i}"):
-                        if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                            st.success("¡Sincronizado!")
-                            st.cache_data.clear()
-                            st.rerun()
+    with col_b2:
+        st.text_input("🔍 Buscar en OSECAC...", key="bus_osecac")
+        if st.session_state.get("bus_osecac"):
+            # Mostrar resultados de OSECAC
+            mask = df_osecac_busq.apply(lambda row: all(p in str(row).lower() for p in st.session_state.bus_osecac.lower().split()), axis=1)
+            for i, row in df_osecac_busq[mask].iterrows():
+                st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
 # 2. PEDIDOS
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
