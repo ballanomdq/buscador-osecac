@@ -33,7 +33,7 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS - SOLO MODIFICADO EL COLOR DE FONDO DEL BOTÓN
+# 2. CSS - OPCIÓN A: Fondo fijo, solo borde cambia a rojo
 st.markdown("""
     <style>
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
@@ -53,16 +53,24 @@ st.markdown("""
     /* Títulos de secciones en blanco */
     .stMarkdown p, label { color: #ffffff !important; }
 
-    /* --- ÚNICO CAMBIO: Color de fondo del botón más oscuro y SIN TRANSPARENCIA --- */
+    /* --- BOTONES CON FONDO FIJO - NUNCA CAMBIAN --- */
     .stLinkButton a {
-        background-color: #1a2634 !important;  /* Color sólido oscuro (sin transparencia) */
+        background-color: #1a2634 !important;  /* Fijo - NUNCA cambia */
         color: white !important;
-        border: 1px solid #38bdf8 !important;
+        border: 2px solid #38bdf8 !important;   /* Borde azul */
         border-radius: 8px !important;
+        transition: all 0.3s ease !important;
+        text-decoration: none !important;
+        font-weight: 500 !important;
     }
+    
+    /* HOVER: SOLO el borde cambia a rojo, el fondo sigue igual */
     .stLinkButton a:hover {
-        background-color: #38bdf8 !important;
-        color: #000000 !important;
+        background-color: #1a2634 !important;  /* MISMO fondo oscuro */
+        color: white !important;                 /* MISMO texto blanco */
+        border-color: #ff4444 !important;        /* Borde ROJO */
+        transform: scale(1.02);                   /* Se agranda un poquito */
+        box-shadow: 0 0 15px rgba(255, 68, 68, 0.3); /* Sombra roja */
     }
 
     /* --- INPUTS (BUSCADORES) --- */
@@ -134,7 +142,7 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # FILA: Lápiz - Check - Palabra - ESTO YA EXISTÍA EN TU CÓDIGO ORIGINAL
+    # FILA: Lápiz - Check - Palabra
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
