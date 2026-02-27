@@ -3,8 +3,6 @@ import pandas as pd
 import base64
 import time
 from datetime import datetime
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -12,6 +10,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# --- INICIALIZACIÓN DE SESIÓN (Solo para novedades) ---
+if 'historial_novedades' not in st.session_state:
+    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
 # 2. CSS COMPLETO
 st.markdown("""
@@ -30,24 +32,15 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
+    /* --- TEXTOS BLANCOS --- */
     label, .stRadio label, .stRadio div[data-testid="stMarkdown"] p, .stTextInput label, .st-emotion-cache-15ruxrl, .st-emotion-cache-1v0mbdj p {
         color: #ffffff !important;
         font-weight: 500 !important;
     }
     
-    input::placeholder {
-        color: #d1d5db !important;
-        opacity: 1 !important;
-    }
+    input::placeholder { color: #d1d5db !important; opacity: 1 !important; }
     
-    .stRadio div[role="radiogroup"] label p {
-        color: #ffffff !important;
-    }
-    
-    .stRadio label {
-        color: #ffffff !important;
-    }
-
+    /* BUSCADOR BLANCO/NEGRO */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
@@ -73,40 +66,8 @@ st.markdown("""
     .ficha-novedad { border-left-color: #ff4b4b; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-    
-    .edit-icon {
-        display: inline-block;
-        margin-left: 8px;
-        cursor: pointer;
-        opacity: 0.5;
-        transition: opacity 0.2s;
-        font-size: 1.2rem;
-    }
-    .edit-icon:hover {
-        opacity: 1;
-    }
     </style>
     """, unsafe_allow_html=True)
-
-# --- FUNCIÓN PARA ESCRIBIR EN SHEETS ---
-@st.cache_resource
-def get_sheets_service():
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp"],
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-    return build("sheets", "v4", credentials=credentials)
-
-def escribir_en_sheet(spreadsheet_id, range_name, valores):
-    service = get_sheets_service()
-    body = {"values": valores}
-    result = service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        range=range_name,
-        valueInputOption="USER_ENTERED",
-        body=body
-    ).execute()
-    return result
 
 # --- CARGA DE DATOS ---
 @st.cache_data(ttl=300)
@@ -125,12 +86,6 @@ URLs = {
     "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
 }
 
-# IDs de sheets para escritura
-SHEETS_IDS = {
-    "faba": "1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0",
-    "osecac": "1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0"
-}
-
 df_agendas = cargar_datos(URLs["agendas"])
 df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
@@ -138,15 +93,9 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-if 'historial_novedades' not in st.session_state:
-    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
-if 'mostrar_editor_faba' not in st.session_state:
-    st.session_state.mostrar_editor_faba = False
-if 'mostrar_editor_osecac' not in st.session_state:
-    st.session_state.mostrar_editor_osecac = False
-
-# --- INTERFAZ DEL PORTAL ---
+# --- INTERFAZ DEL PORTAL (DIRECTO AL MENÚ) ---
 st.markdown('<div class="header-master"><div class="capsula-header-mini"><div class="shimmer-efecto"></div><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
+
 try:
     with open("LOGO1.png", "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
@@ -159,113 +108,7 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    
-    # Título con íconos de edición
-    col1, col2, col3 = st.columns([1, 1, 5])
-    with col1:
-        st.markdown("**FABA**")
-        if st.button("✏️", key="edit_faba", help="Editar nomenclador FABA"):
-            st.session_state.mostrar_editor_faba = True
-    with col2:
-        st.markdown("**OSECAC**")
-        if st.button("✏️", key="edit_osecac", help="Editar nomenclador OSECAC"):
-            st.session_state.mostrar_editor_osecac = True
-    
     opcion = st.radio("Origen:", ["FABA", "OSECAC"], horizontal=True, key="rad_nom")
-    
-    # Editor FABA
-    if st.session_state.mostrar_editor_faba:
-        with st.form("editor_faba"):
-            st.markdown("---")
-            st.subheader("✏️ EDITOR NOMENCLADOR FABA")
-            clave = st.text_input("Clave de edición:", type="password")
-            
-            if clave == "*":
-                st.success("✓ Clave correcta - Podés agregar registros")
-                col1_f, col2_f = st.columns(2)
-                with col1_f:
-                    codigo = st.text_input("Código:")
-                    descripcion = st.text_input("Descripción:")
-                with col2_f:
-                    observaciones = st.text_input("Observaciones:")
-                
-                col_guardar, col_cancelar = st.columns(2)
-                with col_guardar:
-                    guardado = st.form_submit_button("💾 GUARDAR")
-                with col_cancelar:
-                    cancelar = st.form_submit_button("❌ CANCELAR")
-                
-                if guardado:
-                    if codigo and descripcion:
-                        try:
-                            valores = [[codigo, descripcion, observaciones, datetime.now().strftime("%d/%m/%Y %H:%M")]]
-                            escribir_en_sheet(SHEETS_IDS["faba"], "A:D", valores)
-                            st.success("✅ Registro guardado en FABA")
-                            st.session_state.mostrar_editor_faba = False
-                            st.cache_data.clear()
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                    else:
-                        st.warning("⚠️ Código y Descripción son obligatorios")
-                if cancelar:
-                    st.session_state.mostrar_editor_faba = False
-                    st.rerun()
-            else:
-                if clave:
-                    st.error("❌ Clave incorrecta")
-                if st.form_submit_button("CANCELAR"):
-                    st.session_state.mostrar_editor_faba = False
-                    st.rerun()
-    
-    # Editor OSECAC
-    if st.session_state.mostrar_editor_osecac:
-        with st.form("editor_osecac"):
-            st.markdown("---")
-            st.subheader("✏️ EDITOR NOMENCLADOR OSECAC")
-            clave = st.text_input("Clave de edición:", type="password")
-            
-            if clave == "*":
-                st.success("✓ Clave correcta - Podés agregar registros")
-                col1_o, col2_o = st.columns(2)
-                with col1_o:
-                    codigo = st.text_input("Código:")
-                    descripcion = st.text_input("Descripción:")
-                with col2_o:
-                    observaciones = st.text_input("Observaciones:")
-                
-                col_guardar, col_cancelar = st.columns(2)
-                with col_guardar:
-                    guardado = st.form_submit_button("💾 GUARDAR")
-                with col_cancelar:
-                    cancelar = st.form_submit_button("❌ CANCELAR")
-                
-                if guardado:
-                    if codigo and descripcion:
-                        try:
-                            valores = [[codigo, descripcion, observaciones, datetime.now().strftime("%d/%m/%Y %H:%M")]]
-                            escribir_en_sheet(SHEETS_IDS["osecac"], "A:D", valores)
-                            st.success("✅ Registro guardado en OSECAC")
-                            st.session_state.mostrar_editor_osecac = False
-                            st.cache_data.clear()
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                    else:
-                        st.warning("⚠️ Código y Descripción son obligatorios")
-                if cancelar:
-                    st.session_state.mostrar_editor_osecac = False
-                    st.rerun()
-            else:
-                if clave:
-                    st.error("❌ Clave incorrecta")
-                if st.form_submit_button("CANCELAR"):
-                    st.session_state.mostrar_editor_osecac = False
-                    st.rerun()
-    
-    # Buscador
     bus_nom = st.text_input("🔍 Buscar en nomencladores...", key="bus_n")
     if bus_nom:
         df_u = df_faba if opcion == "FABA" else df_osecac_busq
