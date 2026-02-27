@@ -33,7 +33,7 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS - OPCIÓN A: Fondo fijo, solo borde cambia a rojo
+# 2. CSS CORREGIDO (Mantiene fondo oscuro, texto blanco y resalta bordes en rojo)
 st.markdown("""
     <style>
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
@@ -53,24 +53,21 @@ st.markdown("""
     /* Títulos de secciones en blanco */
     .stMarkdown p, label { color: #ffffff !important; }
 
-    /* --- BOTONES CON FONDO FIJO - NUNCA CAMBIAN --- */
+    /* --- CORRECCIÓN DE BOTONES (FONDO FIJO Y BORDE ROJO AL HOVER) --- */
     .stLinkButton a {
-        background-color: #1a2634 !important;  /* Fijo - NUNCA cambia */
-        color: white !important;
-        border: 2px solid #38bdf8 !important;   /* Borde azul */
+        background-color: rgba(23, 32, 48, 1) !important; /* Fondo oscuro sólido */
+        color: #ffffff !important; /* Letras siempre blancas */
+        border: 2px solid #38bdf8 !important; /* Borde inicial celeste */
         border-radius: 8px !important;
-        transition: all 0.3s ease !important;
+        transition: all 0.3s ease-in-out;
         text-decoration: none !important;
-        font-weight: 500 !important;
     }
     
-    /* HOVER: SOLO el borde cambia a rojo, el fondo sigue igual */
     .stLinkButton a:hover {
-        background-color: #1a2634 !important;  /* MISMO fondo oscuro */
-        color: white !important;                 /* MISMO texto blanco */
-        border-color: #ff4444 !important;        /* Borde ROJO */
-        transform: scale(1.02);                   /* Se agranda un poquito */
-        box-shadow: 0 0 15px rgba(255, 68, 68, 0.3); /* Sombra roja */
+        background-color: rgba(23, 32, 48, 1) !important; /* Mantiene fondo oscuro */
+        color: #ffffff !important; /* Mantiene letras blancas */
+        border: 2px solid #ff4b4b !important; /* Cambia borde a ROJO */
+        box-shadow: 0px 0px 12px rgba(255, 75, 75, 0.4); /* Resplandor rojo sutil */
     }
 
     /* --- INPUTS (BUSCADORES) --- */
