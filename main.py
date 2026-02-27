@@ -16,20 +16,13 @@ st.set_page_config(
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
     try:
-        # Autenticación con Secrets
         scope = ["https://www.googleapis.com/auth/spreadsheets"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         client = gspread.authorize(creds)
-        
-        # Abrir el sheet
         sh = client.open_by_url(sheet_url)
-        worksheet = sh.get_worksheet(0) # Asumimos la primera pestaña
-        
-        # Encontrar el índice de la columna
+        worksheet = sh.get_worksheet(0)
         headers = worksheet.row_values(1)
         col_idx = headers.index(columna_nombre) + 1
-        
-        # Actualizar (fila + 2 porque el índice de pandas empieza en 0 y hay encabezado)
         worksheet.update_cell(fila_idx + 2, col_idx, str(nuevo_valor))
         return True
     except Exception as e:
@@ -40,10 +33,10 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS COMPLETO
+# 2. CSS COMPLETO (Estética Oscura + Texto Blanco + Inputs Claros)
 st.markdown("""
     <style>
-    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
     @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
@@ -57,15 +50,8 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    /* --- TEXTOS BLANCOS --- */
-    label, .stRadio label, .stRadio div[data-testid="stMarkdown"] p, .stTextInput label, .st-emotion-cache-15ruxrl, .st-emotion-cache-1v0mbdj p {
-        color: #ffffff !important;
-        font-weight: 500 !important;
-    }
+    label, p, .stMarkdown { color: #ffffff !important; font-weight: 500 !important; }
     
-    input::placeholder { color: #d1d5db !important; opacity: 1 !important; }
-    
-    /* BUSCADOR BLANCO/NEGRO */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
@@ -92,8 +78,8 @@ st.markdown("""
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
     
-    /* Estilo para el botón lápiz */
-    .btn-lapiz { border:none; background:none; cursor:pointer; font-size:1.2rem; }
+    /* Ajuste para que los botones de radio y check se vean blancos */
+    .stCheckbox label p { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -137,50 +123,51 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # Lápices de edición
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        opcion = st.radio("Origen:", ["FABA", "OSECAC"], horizontal=True, key="rad_nom")
-    with col2:
-        btn_faba = st.popover("✏️ FABA")
-        clave_f = btn_faba.text_input("Clave FABA:", type="password")
-    with col3:
-        btn_osecac = st.popover("✏️ OSECAC")
-        clave_o = btn_osecac.text_input("Clave OSECAC:", type="password")
+    # FILA DISCRETA: Lápiz - Check - Palabra
+    c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
+    
+    with c1:
+        pop_f = st.popover("✏️")
+        cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
+    with c2:
+        sel_faba = st.checkbox("FABA", value=True, key="chk_f")
+        
+    with c3:
+        pop_o = st.popover("✏️")
+        cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
+    with c4:
+        sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
-    bus_nom = st.text_input("🔍 Buscar en nomencladores...", key="bus_n")
+    # Lógica de selección
+    opcion = "OSECAC" if sel_osecac else "FABA"
+    cl_actual = cl_o if sel_osecac else cl_f
+    df_u = df_osecac_busq if sel_osecac else df_faba
+    url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
+
+    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
     
     if bus_nom:
-        df_u = df_faba if opcion == "FABA" else df_osecac_busq
-        url_actual = URLs["faba"] if opcion == "FABA" else URLs["osecac"]
-        clave_actual = clave_f if opcion == "FABA" else clave_o
-        
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
-        resultados = df_u[mask]
+        for i, row in df_u[mask].iterrows():
+            st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+            
+            if cl_actual == "*":
+                with st.expander(f"📝 Editar fila {i}"):
+                    c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
+                    v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
+                    if st.button("Guardar Cambios", key=f"btn_{i}"):
+                        if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
+                            st.success("¡Sincronizado!")
+                            st.cache_data.clear()
+                            st.rerun()
 
-        for i, row in resultados.iterrows():
-            with st.container():
-                datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
-                st.markdown(f'<div class="ficha">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
-                
-                # Si puso la clave correcta (*), mostramos opción de editar esa fila específica
-                if clave_actual == "*":
-                    with st.expander(f"Modificar fila {i}"):
-                        col_edit = st.selectbox("Columna a editar:", row.index, key=f"sel_{opcion}_{i}")
-                        nuevo_val = st.text_input("Nuevo valor:", value=row[col_edit], key=f"inp_{opcion}_{i}")
-                        if st.button("Guardar Cambios", key=f"btn_{opcion}_{i}"):
-                            if editar_celda_google_sheets(url_actual, i, col_edit, nuevo_val):
-                                st.success("¡Guardado! Recarga en un momento.")
-                                st.cache_data.clear()
-                                st.rerun()
-
-# 2. PEDIDOS (Igual)
+# 2. PEDIDOS
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# 3. PÁGINAS ÚTILES (Igual)
+# 3. PÁGINAS ÚTILES
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     cols = st.columns(2)
     with cols[0]:
@@ -192,7 +179,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# 4. GESTIONES (Igual)
+# 4. GESTIONES
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
@@ -200,7 +187,7 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS (Igual)
+# 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
@@ -211,7 +198,7 @@ with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
-# 6. AGENDAS (Igual)
+# 6. AGENDAS
 with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
@@ -220,7 +207,7 @@ with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES (Igual)
+# 7. NOVEDADES
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
