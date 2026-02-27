@@ -53,9 +53,9 @@ st.markdown("""
     /* Títulos de secciones en blanco */
     .stMarkdown p, label { color: #ffffff !important; }
 
-    /* --- ÚNICO CAMBIO: Color de fondo del botón más oscuro --- */
+    /* --- ÚNICO CAMBIO: Color de fondo del botón más oscuro y SIN TRANSPARENCIA --- */
     .stLinkButton a {
-        background-color: #1a2634 !important;  /* Cambiado de rgba(23,32,48,0.9) a un color sólido más oscuro */
+        background-color: #1a2634 !important;  /* Color sólido oscuro (sin transparencia) */
         color: white !important;
         border: 1px solid #38bdf8 !important;
         border-radius: 8px !important;
@@ -134,7 +134,7 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # FILA: Lápiz - Check - Palabra
+    # FILA: Lápiz - Check - Palabra - ESTO YA EXISTÍA EN TU CÓDIGO ORIGINAL
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
