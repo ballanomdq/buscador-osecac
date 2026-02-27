@@ -3,6 +3,8 @@ import pandas as pd
 import base64
 import time
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -11,7 +13,30 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- INICIALIZACIÓN DE SESIÓN (Solo para novedades) ---
+# --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
+def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
+    try:
+        # Autenticación con Secrets
+        scope = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
+        client = gspread.authorize(creds)
+        
+        # Abrir el sheet
+        sh = client.open_by_url(sheet_url)
+        worksheet = sh.get_worksheet(0) # Asumimos la primera pestaña
+        
+        # Encontrar el índice de la columna
+        headers = worksheet.row_values(1)
+        col_idx = headers.index(columna_nombre) + 1
+        
+        # Actualizar (fila + 2 porque el índice de pandas empieza en 0 y hay encabezado)
+        worksheet.update_cell(fila_idx + 2, col_idx, str(nuevo_valor))
+        return True
+    except Exception as e:
+        st.error(f"Error al guardar: {e}")
+        return False
+
+# --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
@@ -66,6 +91,9 @@ st.markdown("""
     .ficha-novedad { border-left-color: #ff4b4b; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+    
+    /* Estilo para el botón lápiz */
+    .btn-lapiz { border:none; background:none; cursor:pointer; font-size:1.2rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -78,12 +106,12 @@ def cargar_datos(url):
     except: return pd.DataFrame()
 
 URLs = {
-    "agendas": "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/export?format=csv",
-    "tramites": "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/export?format=csv",
-    "practicas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=0",
-    "especialistas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/export?format=csv&gid=1119565576",
-    "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/export?format=csv",
-    "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
+    "agendas": "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/edit",
+    "tramites": "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/edit",
+    "practicas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=0",
+    "especialistas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=1119565576",
+    "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit",
+    "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit"
 }
 
 df_agendas = cargar_datos(URLs["agendas"])
@@ -93,7 +121,7 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-# --- INTERFAZ DEL PORTAL (DIRECTO AL MENÚ) ---
+# --- INTERFAZ ---
 st.markdown('<div class="header-master"><div class="capsula-header-mini"><div class="shimmer-efecto"></div><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
 
 try:
@@ -108,22 +136,51 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    opcion = st.radio("Origen:", ["FABA", "OSECAC"], horizontal=True, key="rad_nom")
+    
+    # Lápices de edición
+    col1, col2, col3 = st.columns([2, 1, 1])
+    with col1:
+        opcion = st.radio("Origen:", ["FABA", "OSECAC"], horizontal=True, key="rad_nom")
+    with col2:
+        btn_faba = st.popover("✏️ FABA")
+        clave_f = btn_faba.text_input("Clave FABA:", type="password")
+    with col3:
+        btn_osecac = st.popover("✏️ OSECAC")
+        clave_o = btn_osecac.text_input("Clave OSECAC:", type="password")
+
     bus_nom = st.text_input("🔍 Buscar en nomencladores...", key="bus_n")
+    
     if bus_nom:
         df_u = df_faba if opcion == "FABA" else df_osecac_busq
+        url_actual = URLs["faba"] if opcion == "FABA" else URLs["osecac"]
+        clave_actual = clave_f if opcion == "FABA" else clave_o
+        
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
-        for i, row in df_u[mask].iterrows():
-            datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
-            st.markdown(f'<div class="ficha">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+        resultados = df_u[mask]
 
-# 2. PEDIDOS
+        for i, row in resultados.iterrows():
+            with st.container():
+                datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
+                st.markdown(f'<div class="ficha">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                
+                # Si puso la clave correcta (*), mostramos opción de editar esa fila específica
+                if clave_actual == "*":
+                    with st.expander(f"Modificar fila {i}"):
+                        col_edit = st.selectbox("Columna a editar:", row.index, key=f"sel_{opcion}_{i}")
+                        nuevo_val = st.text_input("Nuevo valor:", value=row[col_edit], key=f"inp_{opcion}_{i}")
+                        if st.button("Guardar Cambios", key=f"btn_{opcion}_{i}"):
+                            if editar_celda_google_sheets(url_actual, i, col_edit, nuevo_val):
+                                st.success("¡Guardado! Recarga en un momento.")
+                                st.cache_data.clear()
+                                st.rerun()
+
+# 2. PEDIDOS (Igual)
 with st.expander("📝 **2. PEDIDOS**", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# 3. PÁGINAS ÚTILES
+# 3. PÁGINAS ÚTILES (Igual)
 with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     cols = st.columns(2)
     with cols[0]:
@@ -135,7 +192,7 @@ with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# 4. GESTIONES
+# 4. GESTIONES (Igual)
 with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
@@ -143,7 +200,7 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS
+# 5. PRÁCTICAS Y ESPECIALISTAS (Igual)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
@@ -154,7 +211,7 @@ with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
-# 6. AGENDAS
+# 6. AGENDAS (Igual)
 with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
@@ -163,7 +220,7 @@ with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES
+# 7. NOVEDADES (Igual)
 with st.expander("📢 **7. NOVEDADES**", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
