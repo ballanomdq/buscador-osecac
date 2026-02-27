@@ -3,8 +3,6 @@ import pandas as pd
 import base64
 import time
 from datetime import datetime
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -18,12 +16,8 @@ if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 if 'animado' not in st.session_state:
     st.session_state.animado = False
-if 'mostrar_form_faba' not in st.session_state:
-    st.session_state.mostrar_form_faba = False
-if 'mostrar_form_osecac' not in st.session_state:
-    st.session_state.mostrar_form_osecac = False
 
-# 2. CSS COMPLETO (Tu estética original + arreglos + texto blanco + lápices)
+# 2. CSS COMPLETO (Tu estética original + arreglos + texto blanco)
 st.markdown("""
     <style>
     [data-testid="stSidebar"] { display: none !important; }
@@ -86,41 +80,8 @@ st.markdown("""
     .ficha-novedad { border-left-color: #ff4b4b; }
 
     .stExpander { background-color: rgba(30, 41, 59, 0.6) !important; border-radius: 12px !important; margin-bottom: 8px !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-    
-    /* Estilo para los lápices */
-    .lapiz-container {
-        display: inline-block;
-        margin-left: 8px;
-        cursor: pointer;
-        opacity: 0.6;
-        transition: opacity 0.2s;
-        font-size: 1.2rem;
-    }
-    .lapiz-container:hover {
-        opacity: 1;
-    }
     </style>
     """, unsafe_allow_html=True)
-
-# --- FUNCIÓN PARA ESCRIBIR EN SHEETS ---
-@st.cache_resource
-def get_sheets_service():
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["gcp"],
-        scopes=["https://www.googleapis.com/auth/spreadsheets"]
-    )
-    return build("sheets", "v4", credentials=credentials)
-
-def escribir_en_sheet(spreadsheet_id, range_name, valores):
-    service = get_sheets_service()
-    body = {"values": valores}
-    result = service.spreadsheets().values().append(
-        spreadsheetId=spreadsheet_id,
-        range=range_name,
-        valueInputOption="USER_ENTERED",
-        body=body
-    ).execute()
-    return result
 
 # --- PASO 1: ANIMACIÓN DE CARGA AUTOMÁTICA (solo barra rápida) ---
 if not st.session_state.autenticado:
@@ -168,12 +129,6 @@ URLs = {
     "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/export?format=csv"
 }
 
-# IDs de sheets para escritura
-SHEETS_IDS = {
-    "faba": "1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0",
-    "osecac": "1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0"
-}
-
 df_agendas = cargar_datos(URLs["agendas"])
 df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
@@ -198,94 +153,7 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    
-    # Radio buttons con lápices
-    col1, col2, col3 = st.columns([1, 1, 5])
-    with col1:
-        st.markdown("FABA")
-        if st.button("✏️", key="lapiz_faba", help="Agregar nuevo registro"):
-            st.session_state.mostrar_form_faba = True
-    with col2:
-        st.markdown("OSECAC")
-        if st.button("✏️", key="lapiz_osecac", help="Agregar nuevo registro"):
-            st.session_state.mostrar_form_osecac = True
-    
-    # Selector de origen
     opcion = st.radio("Origen:", ["FABA", "OSECAC"], horizontal=True, key="rad_nom")
-    
-    # Formulario para FABA
-    if st.session_state.mostrar_form_faba:
-        with st.form("form_faba"):
-            st.write("➕ Agregar nuevo registro a FABA")
-            clave = st.text_input("Clave:", type="password")
-            
-            if clave:
-                if clave == "*":
-                    col1_f, col2_f = st.columns(2)
-                    with col1_f:
-                        nuevo_codigo = st.text_input("Código:")
-                        nuevo_desc = st.text_input("Descripción:")
-                    with col2_f:
-                        nuevo_obs = st.text_input("Observaciones:")
-                    
-                    if st.form_submit_button("Guardar"):
-                        try:
-                            valores = [[nuevo_codigo, nuevo_desc, nuevo_obs, datetime.now().strftime("%d/%m/%Y %H:%M")]]
-                            escribir_en_sheet(SHEETS_IDS["faba"], "A:D", valores)
-                            st.success("✅ Registro agregado correctamente")
-                            st.session_state.mostrar_form_faba = False
-                            st.cache_data.clear()
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                else:
-                    st.error("❌ Clave incorrecta")
-                    if st.form_submit_button("Cancelar"):
-                        st.session_state.mostrar_form_faba = False
-                        st.rerun()
-            else:
-                if st.form_submit_button("Cancelar"):
-                    st.session_state.mostrar_form_faba = False
-                    st.rerun()
-    
-    # Formulario para OSECAC
-    if st.session_state.mostrar_form_osecac:
-        with st.form("form_osecac"):
-            st.write("➕ Agregar nuevo registro a OSECAC")
-            clave = st.text_input("Clave:", type="password")
-            
-            if clave:
-                if clave == "*":
-                    col1_o, col2_o = st.columns(2)
-                    with col1_o:
-                        nuevo_codigo = st.text_input("Código:")
-                        nuevo_desc = st.text_input("Descripción:")
-                    with col2_o:
-                        nuevo_obs = st.text_input("Observaciones:")
-                    
-                    if st.form_submit_button("Guardar"):
-                        try:
-                            valores = [[nuevo_codigo, nuevo_desc, nuevo_obs, datetime.now().strftime("%d/%m/%Y %H:%M")]]
-                            escribir_en_sheet(SHEETS_IDS["osecac"], "A:D", valores)
-                            st.success("✅ Registro agregado correctamente")
-                            st.session_state.mostrar_form_osecac = False
-                            st.cache_data.clear()
-                            time.sleep(1)
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                else:
-                    st.error("❌ Clave incorrecta")
-                    if st.form_submit_button("Cancelar"):
-                        st.session_state.mostrar_form_osecac = False
-                        st.rerun()
-            else:
-                if st.form_submit_button("Cancelar"):
-                    st.session_state.mostrar_form_osecac = False
-                    st.rerun()
-    
-    # Buscador
     bus_nom = st.text_input("🔍 Buscar en nomencladores...", key="bus_n")
     if bus_nom:
         df_u = df_faba if opcion == "FABA" else df_osecac_busq
@@ -320,13 +188,15 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS
+# 5. PRÁCTICAS Y ESPECIALISTAS (Doble Búsqueda)
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
+        # Prácticas
         rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in rp.iterrows():
             st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+        # Especialistas
         re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
