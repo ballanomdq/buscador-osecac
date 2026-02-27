@@ -22,8 +22,6 @@ if 'mostrar_form_faba' not in st.session_state:
     st.session_state.mostrar_form_faba = False
 if 'mostrar_form_osecac' not in st.session_state:
     st.session_state.mostrar_form_osecac = False
-if 'clave_ok' not in st.session_state:
-    st.session_state.clave_ok = False
 
 # 2. CSS COMPLETO (Tu estética original + arreglos + texto blanco + lápices)
 st.markdown("""
@@ -212,7 +210,7 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
         if st.button("✏️", key="lapiz_osecac", help="Agregar nuevo registro"):
             st.session_state.mostrar_form_osecac = True
     
-    # Selector de origen (ahora debajo de los lápices)
+    # Selector de origen
     opcion = st.radio("Origen:", ["FABA", "OSECAC"], horizontal=True, key="rad_nom")
     
     # Formulario para FABA
@@ -220,29 +218,33 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
         with st.form("form_faba"):
             st.write("➕ Agregar nuevo registro a FABA")
             clave = st.text_input("Clave:", type="password")
-            if clave == "*":
-                st.session_state.clave_ok = True
-                col1_f, col2_f = st.columns(2)
-                with col1_f:
-                    nuevo_codigo = st.text_input("Código:")
-                    nuevo_desc = st.text_input("Descripción:")
-                with col2_f:
-                    nuevo_obs = st.text_input("Observaciones:")
-                
-                if st.form_submit_button("Guardar"):
-                    try:
-                        valores = [[nuevo_codigo, nuevo_desc, nuevo_obs, datetime.now().strftime("%d/%m/%Y %H:%M")]]
-                        escribir_en_sheet(SHEETS_IDS["faba"], "A:D", valores)
-                        st.success("✅ Registro agregado correctamente")
-                        st.session_state.mostrar_form_faba = False
-                        st.cache_data.clear()
-                        time.sleep(1)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-            else:
-                if clave:
+            
+            if clave:
+                if clave == "*":
+                    col1_f, col2_f = st.columns(2)
+                    with col1_f:
+                        nuevo_codigo = st.text_input("Código:")
+                        nuevo_desc = st.text_input("Descripción:")
+                    with col2_f:
+                        nuevo_obs = st.text_input("Observaciones:")
+                    
+                    if st.form_submit_button("Guardar"):
+                        try:
+                            valores = [[nuevo_codigo, nuevo_desc, nuevo_obs, datetime.now().strftime("%d/%m/%Y %H:%M")]]
+                            escribir_en_sheet(SHEETS_IDS["faba"], "A:D", valores)
+                            st.success("✅ Registro agregado correctamente")
+                            st.session_state.mostrar_form_faba = False
+                            st.cache_data.clear()
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                else:
                     st.error("❌ Clave incorrecta")
+                    if st.form_submit_button("Cancelar"):
+                        st.session_state.mostrar_form_faba = False
+                        st.rerun()
+            else:
                 if st.form_submit_button("Cancelar"):
                     st.session_state.mostrar_form_faba = False
                     st.rerun()
@@ -252,29 +254,33 @@ with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
         with st.form("form_osecac"):
             st.write("➕ Agregar nuevo registro a OSECAC")
             clave = st.text_input("Clave:", type="password")
-            if clave == "*":
-                st.session_state.clave_ok = True
-                col1_o, col2_o = st.columns(2)
-                with col1_o:
-                    nuevo_codigo = st.text_input("Código:")
-                    nuevo_desc = st.text_input("Descripción:")
-                with col2_o:
-                    nuevo_obs = st.text_input("Observaciones:")
-                
-                if st.form_submit_button("Guardar"):
-                    try:
-                        valores = [[nuevo_codigo, nuevo_desc, nuevo_obs, datetime.now().strftime("%d/%m/%Y %H:%M")]]
-                        escribir_en_sheet(SHEETS_IDS["osecac"], "A:D", valores)
-                        st.success("✅ Registro agregado correctamente")
-                        st.session_state.mostrar_form_osecac = False
-                        st.cache_data.clear()
-                        time.sleep(1)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-            else:
-                if clave:
+            
+            if clave:
+                if clave == "*":
+                    col1_o, col2_o = st.columns(2)
+                    with col1_o:
+                        nuevo_codigo = st.text_input("Código:")
+                        nuevo_desc = st.text_input("Descripción:")
+                    with col2_o:
+                        nuevo_obs = st.text_input("Observaciones:")
+                    
+                    if st.form_submit_button("Guardar"):
+                        try:
+                            valores = [[nuevo_codigo, nuevo_desc, nuevo_obs, datetime.now().strftime("%d/%m/%Y %H:%M")]]
+                            escribir_en_sheet(SHEETS_IDS["osecac"], "A:D", valores)
+                            st.success("✅ Registro agregado correctamente")
+                            st.session_state.mostrar_form_osecac = False
+                            st.cache_data.clear()
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                else:
                     st.error("❌ Clave incorrecta")
+                    if st.form_submit_button("Cancelar"):
+                        st.session_state.mostrar_form_osecac = False
+                        st.rerun()
+            else:
                 if st.form_submit_button("Cancelar"):
                     st.session_state.mostrar_form_osecac = False
                     st.rerun()
@@ -314,15 +320,13 @@ with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS (Doble Búsqueda)
+# 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
-        # Prácticas
         rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in rp.iterrows():
             st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-        # Especialistas
         re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
