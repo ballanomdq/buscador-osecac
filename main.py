@@ -39,8 +39,11 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (MODIFICADA PARA DIAGNÓSTICO DETALLADO) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE (CON DIAGNÓSTICO Y LOGS PERSISTENTES) ---
 def subir_a_drive(file_path, file_name):
+    if 'upload_log' not in st.session_state:
+        st.session_state.upload_log = "Logs de subidas a Drive (últimos intentos)\n" + "-"*60 + "\n"
+
     try:
         scope = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
@@ -53,8 +56,11 @@ def subir_a_drive(file_path, file_name):
        
         media = MediaFileUpload(file_path, resumable=True)
        
-        st.info(f"Intentando subir archivo: {file_name} a carpeta ID {FOLDER_ID}")
-        st.info(f"Usando cuenta de servicio: {st.secrets['gcp']['client_email']}")
+        # Registro del intento
+        log_entry = f"[{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}] Intentando subir: {file_name}\n"
+        log_entry += f"   Cuenta: {st.secrets['gcp']['client_email']}\n"
+        log_entry += f"   Carpeta ID: {FOLDER_ID}\n"
+        st.session_state.upload_log += log_entry
        
         file = service.files().create(
             body=file_metadata,
@@ -62,42 +68,45 @@ def subir_a_drive(file_path, file_name):
             fields='id, webViewLink'
         ).execute()
        
-        # Hacer el archivo público
+        # Hacer público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
                 body={'type': 'anyone', 'role': 'reader'}
             ).execute()
-            st.success("Archivo hecho público correctamente")
+            st.session_state.upload_log += "   → Archivo hecho público OK\n"
         except Exception as perm_err:
-            st.warning(f"No se pudo hacer público (no crítico): {perm_err}")
+            st.session_state.upload_log += f"   → Permiso público falló (no crítico): {str(perm_err)}\n"
        
-        st.success(f"Archivo subido! ID: {file.get('id')}")
+        success_log = f"   → ÉXITO! ID: {file.get('id')} | Link: {file.get('webViewLink')}\n"
+        st.session_state.upload_log += success_log + "-"*60 + "\n"
+        st.success("Archivo subido correctamente")
         return file.get('webViewLink')
        
     except HttpError as e:
         error_details = str(e)
-        st.error(f"HTTP Error detallado: {error_details}")
+        error_log = f"   → ERROR HTTP: {error_details}\n"
         if "403" in error_details:
-            st.error("❌ 403 Forbidden → La cuenta de servicio NO tiene permiso para escribir en esta carpeta")
-            st.info("Pasos para solucionar:")
-            st.info("1. Ve a la carpeta en Drive → Compartir")
-            st.info(f"2. Agrega EXACTAMENTE: {st.secrets['gcp']['client_email']}")
-            st.info("3. Dale rol EDITOR (no Lector ni Comentador)")
-            st.info("4. Marca 'Notificar a las personas' y envía el mail")
-            st.info("5. Espera 1-2 minutos y vuelve a probar")
+            error_log += "   → 403 Forbidden: La cuenta NO tiene permiso de escritura en la carpeta\n"
+            error_log += f"      Verificar que {st.secrets['gcp']['client_email']} tenga rol EDITOR\n"
+            error_log += "      (Compartir carpeta → agregar cuenta → Editor → Notificar personas)\n"
         elif "400" in error_details:
-            st.error("400 Bad Request → El FOLDER_ID puede estar mal o la carpeta no existe")
-            st.info(f"Verifica que FOLDER_ID sea: {FOLDER_ID}")
-        elif "401" in error_details:
-            st.error("401 Unauthorized → Problema con las credenciales en st.secrets['gcp']")
-        else:
-            st.error("Otro error HTTP - revisa el mensaje arriba")
+            error_log += "   → 400 Bad Request: Posible FOLDER_ID inválido o metadata mal formado\n"
+        st.session_state.upload_log += error_log + "-"*60 + "\n"
+        st.error(f"Error al subir: {error_details}")
         return None
     except Exception as e:
-        st.error(f"Error general al subir: {str(e)}")
-        st.info(f"Tipo de excepción: {type(e).__name__}")
+        general_error = f"   → ERROR GENERAL: {str(e)} ({type(e).__name__})\n"
+        st.session_state.upload_log += general_error + "-"*60 + "\n"
+        st.error(f"Error inesperado: {str(e)}")
         return None
+
+# Logs visibles (ponelo donde quieras, por ejemplo al final o después del header)
+with st.expander("🔍 Logs de subida a Drive (diagnóstico)", expanded=False):
+    st.code(st.session_state.upload_log, language="text")
+    if st.button("Limpiar logs"):
+        st.session_state.upload_log = "Logs limpiados\n" + "-"*60 + "\n"
+        st.rerun()
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
@@ -278,7 +287,7 @@ st.markdown("""
 # Título arriba
 st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Logo debajo del título, más chico
+# Logo debajo del título
 st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
