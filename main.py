@@ -13,6 +13,10 @@ import os
 from PIL import Image
 import io
 
+# Inicializamos el log de subida ANTES de cualquier widget
+if 'upload_log' not in st.session_state:
+    st.session_state.upload_log = "Logs de subidas a Drive (inicial)\n" + "-"*60 + "\n"
+
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
     page_title="OSECAC MDP - Portal",
@@ -39,11 +43,8 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (CON DIAGNÓSTICO Y LOGS PERSISTENTES) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE (CON LOGS) ---
 def subir_a_drive(file_path, file_name):
-    if 'upload_log' not in st.session_state:
-        st.session_state.upload_log = "Logs de subidas a Drive (últimos intentos)\n" + "-"*60 + "\n"
-
     try:
         scope = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
@@ -56,7 +57,6 @@ def subir_a_drive(file_path, file_name):
        
         media = MediaFileUpload(file_path, resumable=True)
        
-        # Registro del intento
         log_entry = f"[{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}] Intentando subir: {file_name}\n"
         log_entry += f"   Cuenta: {st.secrets['gcp']['client_email']}\n"
         log_entry += f"   Carpeta ID: {FOLDER_ID}\n"
@@ -68,7 +68,6 @@ def subir_a_drive(file_path, file_name):
             fields='id, webViewLink'
         ).execute()
        
-        # Hacer público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
@@ -87,11 +86,11 @@ def subir_a_drive(file_path, file_name):
         error_details = str(e)
         error_log = f"   → ERROR HTTP: {error_details}\n"
         if "403" in error_details:
-            error_log += "   → 403 Forbidden: La cuenta NO tiene permiso de escritura en la carpeta\n"
+            error_log += "   → 403 Forbidden: La cuenta NO tiene permiso de escritura\n"
             error_log += f"      Verificar que {st.secrets['gcp']['client_email']} tenga rol EDITOR\n"
             error_log += "      (Compartir carpeta → agregar cuenta → Editor → Notificar personas)\n"
         elif "400" in error_details:
-            error_log += "   → 400 Bad Request: Posible FOLDER_ID inválido o metadata mal formado\n"
+            error_log += "   → 400 Bad Request: Posible FOLDER_ID inválido\n"
         st.session_state.upload_log += error_log + "-"*60 + "\n"
         st.error(f"Error al subir: {error_details}")
         return None
@@ -101,7 +100,7 @@ def subir_a_drive(file_path, file_name):
         st.error(f"Error inesperado: {str(e)}")
         return None
 
-# Logs visibles (ponelo donde quieras, por ejemplo al final o después del header)
+# Mostrar logs (ahora es seguro porque ya existe)
 with st.expander("🔍 Logs de subida a Drive (diagnóstico)", expanded=False):
     st.code(st.session_state.upload_log, language="text")
     if st.button("Limpiar logs"):
