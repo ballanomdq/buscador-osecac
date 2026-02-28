@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
-# --- IMPORTACIONES NUEVAS PARA DRIVE ---
+# --- IMPORTACIONES PARA DRIVE ---
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import os
@@ -36,7 +36,7 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (MODIFICACIÓN SOLICITADA) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE ---
 def subir_a_drive(file_path, file_name):
     try:
         scope = ["https://www.googleapis.com/auth/drive"]
@@ -64,123 +64,41 @@ def subir_a_drive(file_path, file_name):
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
 
-# --- INICIALIZAR ESTADOS DE SESIÓN PARA CLAVES DE EDICIÓN ---
+# --- INICIALIZAR ESTADOS DE SESIÓN PARA CLAVES Y CHECKBOXES ---
 if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
 if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
+# Para exclusividad de checkboxes
+if 'faba_check' not in st.session_state: st.session_state.faba_check = True
+if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
+# Para almacenar el texto de búsqueda antes de confirmar
+if 'busqueda_input' not in st.session_state: st.session_state.busqueda_input = ""
+
+# --- FUNCIONES CALLBACK PARA CHECKBOXES ---
+def toggle_faba():
+    if st.session_state.faba_check:
+        st.session_state.osecac_check = False
+
+def toggle_osecac():
+    if st.session_state.osecac_check:
+        st.session_state.faba_check = False
 
 # ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
-
-/* Ocultar menú y elementos de streamlit */
-[data-testid="stSidebar"], 
-[data-testid="stSidebarNav"],
-#MainMenu, footer, header {
-    display: none !important;
-}
-
-/* Fondo moderno profesional */
-.stApp {
-    background-color: #0f172a !important;
-    color: #e2e8f0 !important;
-}
-
-/* Texto general y labels */
-.stMarkdown p, label {
-    color: #ffffff !important;
-}
-
-/* ========== EXPANDERS ========== */
-div[data-testid="stExpander"] details summary {
-    background-color: rgba(30, 41, 59, 0.9) !important;
-    color: #ffffff !important;
-    border-radius: 14px !important;
-    border: 2px solid rgba(56, 189, 248, 0.4) !important;
-    padding: 14px 18px !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-}
-
-/* Hover azul */
-div[data-testid="stExpander"] details summary:hover {
-    background-color: rgba(56, 189, 248, 0.25) !important;
-    border-color: #38bdf8 !important;
-}
-
-/* Cuando está abierto → BORDE ROJO DESTACADO */
-div[data-testid="stExpander"] details[open] summary {
-    background-color: rgba(56, 189, 248, 0.35) !important;
-    border: 2px solid #ff4b4b !important;
-    box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important;
-}
-
-/* Eliminar fondo blanco interno */
-div[data-testid="stExpander"] {
-    background: transparent !important;
-    border: none !important;
-}
-
-/* Tarjetas (Fichas) */
-.ficha {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 12px;
-    color: #ffffff !important;
-}
-
-.ficha-tramite { border-left: 6px solid #fbbf24; }
-.ficha-agenda { border-left: 6px solid #38bdf8; }
-.ficha-practica { border-left: 6px solid #10b981; }
-.ficha-especialista { border-left: 6px solid #8b5cf6; }
+[data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
+.stApp { background-color: #0f172a !important; color: #e2e8f0 !important; }
+.stMarkdown p, label { color: #ffffff !important; }
+div[data-testid="stExpander"] details summary { background-color: rgba(30, 41, 59, 0.9) !important; color: #ffffff !important; border-radius: 14px !important; border: 2px solid rgba(56, 189, 248, 0.4) !important; padding: 14px 18px !important; font-weight: 600 !important; }
+div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b !important; box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important; }
+.ficha { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important; }
 .ficha-novedad { border-left: 6px solid #ff4b4b; }
-
-/* Botones (Links) */
-.stLinkButton a {
-    background-color: rgba(30, 41, 59, 0.8) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(56,189,248,0.5) !important;
-    border-radius: 10px !important;
-    transition: all 0.2s ease !important;
-}
-
-.stLinkButton a:hover {
-    background-color: #38bdf8 !important;
-    color: #000000 !important;
-}
-
-/* Inputs de búsqueda */
-div[data-baseweb="input"] {
-    background-color: #ffffff !important;
-    border: 2px solid #38bdf8 !important;
-    border-radius: 10px !important;
-}
-
-input {
-    color: #000000 !important;
-    font-weight: bold !important;
-}
-
-/* Contenedor principal */
-.block-container {
-    max-width: 1100px !important;
-    padding-top: 2rem !important;
-}
-
-.header-master {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.titulo-mini {
-    font-weight: 800;
-    font-size: 1.6rem;
-    color: #ffffff !important;
-}
-
+.stLinkButton a { background-color: rgba(30, 41, 59, 0.8) !important; color: #ffffff !important; border: 1px solid rgba(56,189,248,0.5) !important; border-radius: 10px !important; }
+.stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
+div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
+input { color: #000000 !important; font-weight: bold !important; }
+.block-container { max-width: 1100px !important; padding-top: 2rem !important; }
+.header-master { text-align: center; margin-bottom: 20px; }
+.titulo-mini { font-weight: 800; font-size: 1.6rem; color: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -193,20 +111,20 @@ def cargar_datos(url):
     except: return pd.DataFrame()
 
 URLs = {
+    "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit",
+    "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit",
     "agendas": "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/edit",
     "tramites": "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/edit",
     "practicas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=0",
     "especialistas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=1119565576",
-    "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit",
-    "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit"
 }
 
+df_faba = cargar_datos(URLs["faba"])
+df_osecac_busq = cargar_datos(URLs["osecac"])
 df_agendas = cargar_datos(URLs["agendas"])
 df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
-df_faba = cargar_datos(URLs["faba"])
-df_osecac_busq = cargar_datos(URLs["osecac"])
 
 # ================= HEADER =================
 st.markdown("""
@@ -214,19 +132,6 @@ st.markdown("""
     <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
 </div>
 """, unsafe_allow_html=True)
-
-try:
-    with open("LOGO1.png", "rb") as f:
-        img_b64 = base64.b64encode(f.read()).decode()
-    st.markdown(f"""
-        <center>
-            <img src="data:image/png;base64,{img_b64}" 
-            style="width:90px; margin-bottom:25px;">
-        </center>
-    """, unsafe_allow_html=True)
-except:
-    pass
-
 st.markdown("---")
 
 # ================== APLICACIÓN ==================
@@ -236,7 +141,6 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # --- FILA: Lápiz - Check - Palabra ---
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
@@ -246,17 +150,15 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             with pop_f.form("form_faba"):
                 cl_f_in = st.text_input("Ingrese Clave:", type="password")
                 if st.form_submit_button("OK"):
-                    # --- LA CLAVE AHORA ES * ---
                     if cl_f_in == "*":
                         st.session_state.pass_f_valida = True
                         st.rerun()
-                    else:
-                        st.error("Clave incorrecta")
-        else:
-            pop_f.success("✅ FABA Habilitado")
+                    else: st.error("Clave incorrecta")
+        else: pop_f.success("✅ FABA Habilitado")
 
     with c2:
-        sel_faba = st.checkbox("FABA", value=True, key="chk_f")
+        # Se añade callback para exclusividad
+        st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
         
     with c3:
         pop_o = st.popover("✏️")
@@ -265,28 +167,28 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             with pop_o.form("form_osecac"):
                 cl_o_in = st.text_input("Ingrese Clave:", type="password")
                 if st.form_submit_button("OK"):
-                    # --- LA CLAVE AHORA ES * ---
                     if cl_o_in == "*":
                         st.session_state.pass_o_valida = True
                         st.rerun()
-                    else:
-                        st.error("Clave incorrecta")
-        else:
-            pop_o.success("✅ OSECAC Habilitado")
+                    else: st.error("Clave incorrecta")
+        else: pop_o.success("✅ OSECAC Habilitado")
             
     with c4:
-        sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
+        # Se añade callback para exclusividad
+        st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
 
-    # --- Lógica de selección y edición ---
+    # Lógica de selección
+    sel_faba = st.session_state.faba_check
+    sel_osecac = st.session_state.osecac_check
+    
     opcion = "OSECAC" if sel_osecac else "FABA"
     
-    # Determinar si la edición está habilitada según la opción seleccionada y su clave
     edicion_habilitada = False
     if sel_osecac and st.session_state.pass_o_valida:
         edicion_habilitada = True
         df_u = df_osecac_busq
         url_u = URLs["osecac"]
-    elif not sel_osecac and st.session_state.pass_f_valida:
+    elif sel_faba and st.session_state.pass_f_valida:
         edicion_habilitada = True
         df_u = df_faba
         url_u = URLs["faba"]
@@ -294,33 +196,39 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         df_u = df_osecac_busq if sel_osecac else df_faba
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
-    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
+    # --- CAMBIO: BÚSQUEDA CON BOTÓN ---
+    st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
     
-    if bus_nom:
-        mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
-        for i, row in df_u[mask].iterrows():
-            st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+    if st.button("Buscar"):
+        if st.session_state.busqueda_input:
+            mask = df_u.apply(lambda row: all(p in str(row).lower() for p in st.session_state.busqueda_input.lower().split()), axis=1)
+            results = df_u[mask]
             
-            # --- SECCIÓN DE EDICIÓN ---
-            if edicion_habilitada: 
-                with st.expander(f"📝 Editar fila {i}"):
-                    c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
-                    v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
-                    if st.button("Guardar Cambios", key=f"btn_{i}"):
-                        if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                            st.success("¡Sincronizado!")
-                            st.cache_data.clear()
-                            st.rerun()
+            if results.empty:
+                st.warning("No se encontraron resultados.")
             else:
-                st.warning("⚠️ Ingrese la clave correcta (*) en el lápiz para habilitar edición.")
+                for i, row in results.iterrows():
+                    st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+                    
+                    # --- SECCIÓN DE EDICIÓN ---
+                    if edicion_habilitada: 
+                        with st.expander(f"📝 Editar fila {i}"):
+                            c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
+                            v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
+                            if st.button("Guardar Cambios", key=f"btn_{i}"):
+                                if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
+                                    st.success("¡Sincronizado!"); st.cache_data.clear(); st.rerun()
+                    else:
+                        st.warning("⚠️ Ingrese la clave correcta (*) en el lápiz para habilitar edición.")
+        else:
+            st.info("Escriba algo en el buscador.")
 
-# 2. PEDIDOS
+# ... (El resto de expanders quedan igual)
 with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
     cols = st.columns(2)
     with cols[0]:
@@ -332,7 +240,6 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# 4. GESTIONES
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
@@ -340,21 +247,16 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
-        # Búsqueda en Prácticas
         rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in rp.iterrows():
             st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-        
-        # Búsqueda en Especialistas
         re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
-# 6. AGENDAS
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
@@ -363,7 +265,7 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES (MODIFICADO CON DRIVE)
+# 7. NOVEDADES
 with st.expander("📢 7. NOVEDADES", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
@@ -380,22 +282,13 @@ with st.expander("📢 7. NOVEDADES", expanded=True):
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
                     if uploaded_file is not None:
-                        # Guardar temporalmente
                         temp_path = f"temp_{uploaded_file.name}"
-                        with open(temp_path, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        
-                        # Subir a Drive
+                        with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
                         drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                        
-                        # Borrar temporal
                         os.remove(temp_path)
                     
                     st.session_state.historial_novedades.insert(0, {
-                        "id": str(time.time()), 
-                        "mensaje": m, 
-                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "archivo_link": drive_link
                     })
-                    st.success("¡Publicado exitosamente!")
-                    st.rerun()
+                    st.success("¡Publicado exitosamente!"); st.rerun()
