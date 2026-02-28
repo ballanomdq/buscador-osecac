@@ -205,8 +205,8 @@ if hay_novedades_nuevas:
     if st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header"):
         st.session_state.expandir_novedades = True
 
-# Columna para lápiz de administración de novedades (INDEPENDIENTE)
-popover_novedades = st.popover("✏️", key="lapiz_novedades")
+# Columna para lápiz de administración de novedades (INDEPENDIENTE) - CORREGIDO: sin key en popover
+popover_novedades = st.popover("✏️")
 
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
