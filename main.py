@@ -57,6 +57,7 @@ def subir_a_drive(file_path, file_name):
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
 if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
+if 'pass_jefe_valida' not in st.session_state: st.session_state.pass_jefe_valida = False
 
 # ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
@@ -240,15 +241,33 @@ with col3:
             <span style="color: white; font-weight: bold;">NUEVA NOVEDAD</span>
         </div>
     """, unsafe_allow_html=True)
+    
     c_btn1, c_btn2 = st.columns([0.6, 0.4])
+    
     with c_btn1:
         if st.button("Ver Novedades", key="ver_nov"): st.session_state.show_dialog = True
+    
     with c_btn2:
-        pop_admin = st.popover("✍️ ADMINISTRADOR")
-        if pop_admin.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
-            with pop_admin.form("n_form", clear_on_submit=True):
-                m = st.text_area("Nuevo comunicado:")
-                uploaded_file = st.file_uploader("Subir archivo:", type=["pdf", "png", "jpg", "jpeg"])
+        # Lápiz discreto
+        pop_admin = st.popover("✏️")                
+        
+        # Lógica de Clave
+        if not st.session_state.pass_jefe_valida:
+            with pop_admin.form("form_clave_jefe"):
+                cl_input = st.text_input("Clave:", type="password")
+                if st.form_submit_button("OK"):
+                    if cl_input == "*":
+                        st.session_state.pass_jefe_valida = True
+                        st.rerun()
+                    else:
+                        st.error("Clave incorrecta")
+        else:
+            # Una vez validad, se muestra el formulario de carga
+            with pop_admin.form("form_carga_novedad", clear_on_submit=True):
+                st.markdown("### Publicar Novedad")
+                m = st.text_area("Comunicado:")
+                uploaded_file = st.file_uploader("Archivo:", type=["pdf", "png", "jpg", "jpeg"])
+                
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
                     if uploaded_file is not None:
@@ -263,7 +282,7 @@ with col3:
                         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "archivo_link": drive_link
                     })
-                    st.success("Publicado"); time.sleep(1); st.rerun()
+                    st.success("Publicado en Drive"); time.sleep(1); st.rerun()
 
 st.markdown("---")
 
@@ -286,7 +305,7 @@ if st.session_state.get('show_dialog', False):
     
     mostrar_novedades()
 
-# ================== APLICACIÓN ==================
+# ================== APLICACIÓN (Resto igual) ==================
 
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
