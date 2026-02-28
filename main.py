@@ -33,135 +33,143 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# ==========================================
-# --- CSS MODERNO (Dark Mode Glassmorphic) ---
-# ==========================================
+# ===== CSS CORREGIDO Y OPTIMIZADO =====
 st.markdown("""
     <style>
-    /* Estilos Generales y Fondo */
+    /* ===== OCULTAR ELEMENTOS POR DEFECTO ===== */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
-    
-    .stApp { 
-        background-color: #0F172A;
-        color: #F1F5F9;
-        font-family: 'Inter', sans-serif;
+
+    /* ===== ANIMACIONES ===== */
+    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes shine { 0% { left: -100%; opacity: 0; } 50% { opacity: 0.6; } 100% { left: 100%; opacity: 0; } }
+
+    /* ===== FONDO PRINCIPAL ===== */
+    .stApp {
+        background-color: #0b0e14;
+        background: linear-gradient(-45deg, #0b0e14, #111827, #0b0e14, #1e1b2e);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        color: #e2e8f0;
     }
 
-    /* Contenedor Principal */
-    .block-container { 
-        max-width: 1000px !important; 
-        padding-top: 2rem !important; 
-        padding-bottom: 2rem !important;
+    /* ===== TÍTULOS Y TEXTOS GENERALES ===== */
+    h1, h2, h3, h4, h5, h6, .stMarkdown p, label {
+        color: #ffffff !important;
     }
 
-    /* Estilo de Expander Moderno (Glassmorphism) */
-    .stExpander { 
-        background-color: rgba(30, 41, 59, 0.5) !important; 
-        border-radius: 16px !important; 
-        margin-bottom: 15px !important; 
-        border: 1px solid rgba(56, 189, 248, 0.2) !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
-    }
-    
-    .stExpander:hover {
-        border: 1px solid rgba(56, 189, 248, 0.5) !important;
-        box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.1);
-    }
-
-    /* Títulos dentro de los expanders */
-    .stExpander [data-testid="stMarkdownContainer"] p {
-        font-weight: 600 !important;
-        color: #F1F5F9 !important;
-        font-size: 1.1rem !important;
-    }
-
-    /* Inputs y Text Areas Modernos */
-    div[data-baseweb="input"] > div {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        border: 1px solid #334155 !important;
-        border-radius: 10px !important;
-        color: #F1F5F9 !important;
-        transition: all 0.3s ease;
-    }
-    
-    div[data-baseweb="input"] > div:focus-within {
-        border: 1px solid #38bdf8 !important;
-        box-shadow: 0 0 0 1px #38bdf8;
-    }
-
-    input, textarea { 
-        color: #F1F5F9 !important; 
-        -webkit-text-fill-color: #F1F5F9 !important; 
-    }
-
-    /* Botones Modernos */
-    .stLinkButton a, .stButton button {
-        background: linear-gradient(135deg, #334155 0%, #1E293B 100%) !important;
+    /* ===== BOTONES DE LINK (st.link_button) - CORREGIDO ===== */
+    .stLinkButton a {
+        background-color: #1e2a3a !important;
         color: white !important;
-        border: 1px solid #475569 !important;
-        border-radius: 10px !important;
+        border: 1px solid #38bdf8 !important;
+        border-radius: 8px !important;
         font-weight: 500 !important;
         transition: all 0.3s ease !important;
+        text-decoration: none !important;
+        padding: 0.5rem 1rem !important;
+        display: inline-block;
         width: 100%;
+        text-align: left;
+        margin: 2px 0;
     }
-    
-    .stLinkButton a:hover, .stButton button:hover {
-        background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%) !important;
-        border: 1px solid #0ea5e9 !important;
+
+    .stLinkButton a:hover {
+        background-color: #38bdf8 !important;
+        color: #000000 !important;
+        border-color: #38bdf8 !important;
         transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
     }
 
-    /* Checkbox Moderno */
-    div[data-testid="stCheckbox"] label {
-        color: #94a3b8 !important;
+    /* ===== EXPANDERS (MENÚS DESPLEGABLES) ===== */
+    .stExpander {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        border-radius: 12px !important;
+        margin-bottom: 8px !important;
+        border: 1px solid rgba(56, 189, 248, 0.2) !important;
     }
 
-    /* Fichas de Contenido */
-    .ficha { 
-        background-color: rgba(15, 23, 42, 0.6); 
-        padding: 20px; 
-        border-radius: 12px; 
-        margin-bottom: 12px; 
-        border-left: 4px solid #ccc; 
-        color: #E2E8F0 !important; 
-        font-size: 0.95rem;
-        line-height: 1.5;
-        border-right: 1px solid rgba(255,255,255,0.05);
-        border-top: 1px solid rgba(255,255,255,0.05);
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+    .stExpander .st-emotion-cache-1jicfl2 {
+        color: #ffffff !important;
+        font-weight: 600;
     }
-    .ficha b { color: #38bdf8; }
 
-    /* Colores de Borde Fichas */
+    .stExpander .st-emotion-cache-1wivap2 {
+        background-color: rgba(23, 32, 48, 0.7) !important;
+    }
+
+    /* ===== INPUTS (BUSCADORES) ===== */
+    div[data-baseweb="input"] {
+        background-color: #ffffff !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 8px !important;
+    }
+    input {
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+        font-weight: bold !important;
+    }
+
+    /* ===== LAYOUT GENERAL ===== */
+    .block-container {
+        max-width: 1000px !important;
+        padding-top: 1.5rem !important;
+    }
+    .header-master {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    .capsula-header-mini {
+        position: relative;
+        padding: 10px 30px;
+        background: rgba(56, 189, 248, 0.05);
+        border-radius: 35px;
+        border: 1px solid rgba(56, 189, 248, 0.5);
+        display: inline-block;
+    }
+    .titulo-mini {
+        font-weight: 800;
+        font-size: 1.4rem;
+        color: #ffffff !important;
+        margin: 0;
+    }
+    .shimmer-efecto {
+        position: absolute;
+        top: 0;
+        width: 100px;
+        height: 100%;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent);
+        transform: skewX(-20deg);
+        animation: shine 4s infinite linear;
+    }
+
+    /* ===== FICHAS DE RESULTADOS ===== */
+    .ficha {
+        background-color: rgba(23, 32, 48, 0.95) !important;
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        border-left: 6px solid #ccc;
+        color: #ffffff !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
     .ficha-tramite { border-left-color: #fbbf24; }
     .ficha-agenda { border-left-color: #38bdf8; }
-    .ficha-practica { border-left-color: #10b981; } 
+    .ficha-practica { border-left-color: #10b981; }
     .ficha-especialista { border-left-color: #8b5cf6; }
-    .ficha-novedad { border-left-color: #f472b6; }
-
-    /* Header Styling */
-    .header-master { text-align: center; margin-bottom: 20px; }
-    .titulo-principal { 
-        font-weight: 800; 
-        font-size: 2.2rem; 
-        background: linear-gradient(to right, #ffffff, #38bdf8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 5px;
-    }
-    .subtitulo-principal {
-        color: #94a3b8;
-        font-size: 1rem;
-        font-weight: 300;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-    }
+    .ficha-novedad { border-left-color: #ff4b4b; }
     
-    /* Divider */
-    hr { border-color: rgba(56, 189, 248, 0.1) !important; }
-
+    /* ===== POPOVERS ===== */
+    .stPopover {
+        background-color: #1e2a3a !important;
+        border: 1px solid #38bdf8 !important;
+    }
+    .stPopover button {
+        background-color: #1e2a3a !important;
+        color: white !important;
+        border: 1px solid #38bdf8 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -171,7 +179,8 @@ def cargar_datos(url):
     try:
         csv_url = url.split('/edit')[0] + '/export?format=csv' if '/edit' in url else url
         return pd.read_csv(csv_url, dtype=str)
-    except: return pd.DataFrame()
+    except: 
+        return pd.DataFrame()
 
 URLs = {
     "agendas": "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/edit",
@@ -190,23 +199,24 @@ df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
 # --- HEADER ---
+st.markdown('<div class="header-master"><div class="capsula-header-mini"><div class="shimmer-efecto"></div><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
+
 try:
     with open("LOGO1.png", "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
-    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:70px; margin-bottom:10px;"></center>', unsafe_allow_html=True)
-except: pass
-
-st.markdown('<div class="header-master"><h1 class="titulo-principal">OSECAC MDP</h1><p class="subtitulo-principal">Portal de Agencias</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:85px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
+except: 
+    pass
 
 st.markdown("---")
 
 # 1. NOMENCLADORES
-with st.expander("📂 1. NOMENCLADORES", expanded=False):
+with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
     # FILA: Lápiz - Check - Palabra
-    c1, c2, c3, c4 = st.columns([0.5, 2, 0.5, 2])
+    c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
         pop_f = st.popover("✏️")
@@ -233,7 +243,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
             
-            if cl_actual == "OSECAC2026": # CAMBIA ESTO POR LA CLAVE REAL
+            if cl_actual == "*":
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                     v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
@@ -244,14 +254,13 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             st.rerun()
 
 # 2. PEDIDOS
-with st.expander("📝 2. PEDIDOS", expanded=False):
-    col1, col2, col3 = st.columns(3)
-    with col1: st.link_button("🍼 LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-    with col2: st.link_button("📦 SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-    with col3: st.link_button("📊 ESTADO", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+with st.expander("📝 **2. PEDIDOS**", expanded=False):
+    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
 # 3. PÁGINAS ÚTILES
-with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
+with st.expander("🌐 **3. PÁGINAS ÚTILES**", expanded=False):
     cols = st.columns(2)
     with cols[0]:
         st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
@@ -263,7 +272,7 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
 # 4. GESTIONES
-with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
+with st.expander("📂 **4. GESTIONES / DATOS**", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
         res = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(bus_t.lower(), na=False)]
@@ -271,7 +280,7 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
 # 5. PRÁCTICAS Y ESPECIALISTAS
-with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
+with st.expander("🩺 **5. PRÁCTICAS Y ESPECIALISTAS**", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
         rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
@@ -282,7 +291,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
 # 6. AGENDAS
-with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
+with st.expander("📞 **6. AGENDAS / MAILS**", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
         res = df_agendas[df_agendas.astype(str).apply(lambda r: r.str.contains(bus_a, case=False, na=False).any(), axis=1)]
@@ -291,7 +300,7 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
 # 7. NOVEDADES
-with st.expander("📢 7. NOVEDADES", expanded=True):
+with st.expander("📢 **7. NOVEDADES**", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
     with st.popover("✍️ PANEL"):
