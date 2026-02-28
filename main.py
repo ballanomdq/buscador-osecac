@@ -4,7 +4,6 @@ import base64
 import time
 from datetime import datetime
 import gspread
-from google.oauth2.service_account import Credentials
 from google.oauth2.credentials import Credentials as OAuthCredentials
 from google.auth.transport.requests import Request
 # --- IMPORTACIONES PARA DRIVE ---
@@ -15,10 +14,6 @@ import os
 from PIL import Image
 import io
 
-# Inicializamos el log de subida ANTES de cualquier widget
-if 'upload_log' not in st.session_state:
-    st.session_state.upload_log = "Logs de subidas a Drive (inicial)\n" + "-"*60 + "\n"
-
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
     page_title="OSECAC MDP - Portal",
@@ -27,7 +22,7 @@ st.set_page_config(
 )
 
 # --- CONFIGURACIÓN DRIVE ---
-FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"  # Cambialo si usás otra carpeta
+FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
@@ -45,25 +40,23 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE USANDO TUS TOKENS PERSONALES (OAuth) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE USANDO OAUTH (TU CUENTA PERSONAL) ---
 def subir_a_drive(file_path, file_name):
     try:
-        # Tus tokens reales del OAuth Playground
+        # Tus tokens (pueden estar en secrets o hardcoded temporalmente)
         REFRESH_TOKEN = "1//04wm475WZT5NrCgYIARAAGAQSNwF-L9IrV1Wnk6hUFxlYb0yoyKnATPFKvPc_2QCZ4bkqmuWnBVreI6v5DFKr-u8q6lCJfZFLwOg"
         ACCESS_TOKEN = "ya29.a0ATkoCc5F9aJgCfAbzdQvZYGc_wCBLgiWOyTwOjWDj1vsMAPc8stwgbHXOhxPdcghSqKXJx8mtmp_WA6kZAO_2aENwpQE-3CzcHvTiYkUTKdDfxxE5BddS7QrB0SESbasc9vshiLDAdq6wErDbgIAiU835mB7hGX-LDCSVKD4L68cpFhHco6eeRdHVRnC2kJ4D7fkuS8aCgYKARgSARQSFQHGX2MiLUw0IpD5eh_zyfX7QeL-og0206"
 
-        # Credenciales OAuth con tu cuenta personal
         creds = OAuthCredentials(
             token=ACCESS_TOKEN,
             refresh_token=REFRESH_TOKEN,
             token_uri="https://oauth2.googleapis.com/token",
             client_id="407408718192.apps.googleusercontent.com",
-            client_secret="",  # No necesario con refresh token
+            client_secret="",
             scopes=["https://www.googleapis.com/auth/drive"]
         )
 
-        # Refrescar automáticamente si expiró
-        if creds and creds.expired and creds.refresh_token:
+        if creds.expired and creds.refresh_token:
             creds.refresh(Request())
 
         service = build('drive', 'v3', credentials=creds)
@@ -75,38 +68,25 @@ def subir_a_drive(file_path, file_name):
 
         media = MediaFileUpload(file_path, resumable=True)
 
-        st.info(f"Subiendo {file_name} con tu cuenta personal...")
-
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id, webViewLink'
         ).execute()
 
-        # Hacer público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
                 body={'type': 'anyone', 'role': 'reader'}
             ).execute()
         except:
-            pass
+            pass  # No crítico
 
-        st.session_state.upload_log += f"[{datetime.now().strftime('%H:%M:%S')}] ÉXITO subiendo {file_name} - Link: {file.get('webViewLink')}\n"
         return file.get('webViewLink')
 
     except Exception as e:
-        error_msg = f"Error al subir con OAuth: {str(e)}"
-        st.session_state.upload_log += f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}\n"
-        st.error(error_msg)
+        st.error(f"Error al subir archivo: {str(e)}")
         return None
-
-# Logs visibles
-with st.expander("🔍 Logs de subida a Drive (diagnóstico)", expanded=False):
-    st.code(st.session_state.upload_log, language="text")
-    if st.button("Limpiar logs"):
-        st.session_state.upload_log = "Logs limpiados\n" + "-"*60 + "\n"
-        st.rerun()
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
@@ -181,7 +161,7 @@ input { color: #000000 !important; font-weight: bold !important; }
     justify-content: center;
     margin-bottom: 10px;
 }
-/* ESTILOS UNIFICADOS PARA TODOS LOS BOTONES Y POPOVERS */
+/* ESTILOS UNIFICADOS PARA BOTONES */
 .stButton > button, div[data-testid="baseButton-secondary"] {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -200,24 +180,17 @@ input { color: #000000 !important; font-weight: bold !important; }
     transform: scale(1.05) !important;
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
 }
-/* Estilo especial para el botón de novedad (rojo) */
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
     box-shadow: 0 0 15px rgba(255, 75, 75, 0.5) !important;
     animation: parpadeo 1.2s infinite;
 }
-.stButton > button:has(span:contains("🔴")):hover {
-    background: #ff0000 !important;
-    color: white !important;
-    transform: scale(1.05) !important;
-}
 @keyframes parpadeo {
     0% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
     50% { opacity: 0.9; box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); transform: scale(1.02); }
     100% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
 }
-/* Estilo para popovers (lápices) */
 div[data-testid="stPopover"] > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -233,7 +206,6 @@ div[data-testid="stPopover"] > button:hover {
     color: black !important;
     transform: scale(1.05) !important;
 }
-/* ESTILOS PARA NOVEDADES EXPANDIDAS */
 div[data-testid="stExpander"][aria-expanded="true"] {
     background: linear-gradient(145deg, #1e293b, #0f172a);
     border-radius: 20px;
