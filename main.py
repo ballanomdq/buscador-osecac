@@ -36,20 +36,27 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (CORREGIDA) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE (MODIFICADA CON PARENTS) ---
 def subir_a_drive(file_path, file_name):
     try:
         scope = ["https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         service = build('drive', 'v3', credentials=creds)
         
-        # Se especifica el 'parents' para subir a la carpeta correcta
+        # Metadatos del archivo especificando la carpeta padre
         file_metadata = {
             'name': file_name,
-            'parents': [FOLDER_ID] 
+            'parents': [FOLDER_ID] # ID de la carpeta compartida
         }
         media = MediaFileUpload(file_path, resumable=True)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+        
+        # Crear archivo en Drive dentro de la carpeta especificada
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id, webViewLink'
+        ).execute()
+        
         return file.get('webViewLink')
     except Exception as e:
         st.error(f"Error al subir a Drive: {e}")
