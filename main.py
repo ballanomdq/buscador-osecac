@@ -130,7 +130,7 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 .stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
-.block-container { max-width: 1100px !important; padding-top: 2rem !important; }
+.block-container { max-width: 1100px !important; padding-top: 1rem !important; }
 
 /* ESTILOS PARA HEADER CENTRADO */
 .header-container {
@@ -138,8 +138,8 @@ input { color: #000000 !important; font-weight: bold !important; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
     text-align: center;
+    margin-bottom: 10px;
 }
 .titulo-principal {
     font-weight: 800;
@@ -147,16 +147,19 @@ input { color: #000000 !important; font-weight: bold !important; }
     color: #ffffff;
     margin: 0;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 10px;
 }
 .logo-container {
-    margin-top: 10px;
-    margin-bottom: 15px;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
 }
 .botones-container {
     display: flex;
     gap: 12px;
     align-items: center;
     justify-content: center;
+    margin-bottom: 10px;
 }
 
 /* ESTILOS UNIFICADOS PARA TODOS LOS BOTONES Y POPOVERS */
