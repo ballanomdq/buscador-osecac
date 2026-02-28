@@ -206,31 +206,49 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     
     with c1:
         pop_f = st.popover("✏️")
-        cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
+        with pop_f.form("form_cl_faba"):
+            cl_f = st.text_input("Clave FABA:", type="password", key="p_f")
+            st.form_submit_button("OK")
+            
     with c2:
-        sel_faba = st.checkbox("FABA", value=True, key="chk_f")
+        # Usamos key temporales para evitar el error de sesión
+        sel_faba = st.checkbox("FABA", value=st.session_state.get('chk_f', True), key="chk_f_temp")
         
     with c3:
         pop_o = st.popover("✏️")
-        cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
+        with pop_o.form("form_cl_osecac"):
+            cl_o = st.text_input("Clave OSECAC:", type="password", key="p_o")
+            st.form_submit_button("OK")
+            
     with c4:
-        sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
+        sel_osecac = st.checkbox("OSECAC", value=st.session_state.get('chk_o', False), key="chk_o_temp")
 
-    # Lógica de selección
+    # CORRECCIÓN LÓGICA DE CHECKBOXES (SIN ERROR DE SESIÓN)
+    if sel_faba:
+        sel_osecac = False
+        st.session_state['chk_o'] = False
+        st.session_state['chk_f'] = True
+    elif sel_osecac:
+        sel_faba = False
+        st.session_state['chk_f'] = False
+        st.session_state['chk_o'] = True
+
+    # Selección activa
     opcion = "OSECAC" if sel_osecac else "FABA"
     cl_actual = cl_o if sel_osecac else cl_f
     df_u = df_osecac_busq if sel_osecac else df_faba
     url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
-    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
+    # CORRECCIÓN: Buscador con key único para evitar estado estático
+    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key=f"bus_{opcion}")
     
     if bus_nom:
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
             
-            # Ajustar aquí la contraseña real para editar
-            if cl_actual == "TU_CONTRASENA_AQUI": 
+            # --- SECCIÓN DE EDICIÓN ---
+            if cl_actual == "*": # CAMBIAR POR CLAVE REAL
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                     v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
