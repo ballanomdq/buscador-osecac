@@ -33,65 +33,67 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS - DISEÑO "NEÓN BLUE" (Efecto de elevación sin cambio de color)
+# 2. CSS - DISEÑO "NEÓN BLUE" CON BOTONES COMPACTOS
 st.markdown("""
     <style>
-    /* Ocultar elementos innecesarios */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    /* Fondo principal */
     .stApp { 
         background: radial-gradient(circle, #091220 0%, #050914 100%) !important;
         color: #ffffff !important;
     }
 
-    /* Forzar texto blanco en etiquetas y párrafos */
     .stMarkdown p, label { color: #ffffff !important; font-weight: 700 !important; }
 
-    /* --- BOTONES CON EFECTO NEÓN (SIN CAMBIO DE COLOR) --- */
+    /* --- BOTONES COMPACTOS Y ESTÉTICOS --- */
     div.stLinkButton > a {
-        background-color: #0b1e3b !important; /* Azul cobalto fijo */
-        color: #ffffff !important;           /* Texto blanco fijo */
-        border: 2px solid #2563eb !important; /* Borde azul fijo */
-        border-radius: 12px !important;
-        padding: 0.8rem 1.5rem !important;
-        display: block !important;
-        text-align: center !important;
-        text-decoration: none !important;
-        font-weight: 700 !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important; /* Solo escala y sombra */
-    }
-
-    /* EFECTO HOVER: Solo agranda y brilla, no cambia colores */
-    div.stLinkButton > a:hover {
-        transform: scale(1.02) !important; /* Se agranda un 2% */
-        box-shadow: 0 0 20px rgba(37, 99, 235, 0.6) !important; /* Brillo azul */
-        border-color: #38bdf8 !important; /* Apenas un toque más claro el borde */
-        color: #ffffff !important;
-    }
-
-    /* Bloqueo total del color blanco al salir el cursor */
-    div.stLinkButton > a:focus, div.stLinkButton > a:active {
         background-color: #0b1e3b !important;
         color: #ffffff !important;
-        box-shadow: none !important;
+        border: 2px solid #2563eb !important;
+        border-radius: 12px !important;
+        padding: 0.6rem 1.2rem !important;
+        
+        /* AQUÍ ESTÁ EL CAMBIO: No más botones alargados */
+        width: auto !important;
+        min-width: 200px !important;
+        max-width: 300px !important;
+        margin: 10px auto !important; /* Centrado */
+        
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-decoration: none !important;
+        font-weight: 700 !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s !important;
     }
 
-    /* --- EXPANDERS (ARREGLO DE VISIBILIDAD) --- */
+    div.stLinkButton > a:hover {
+        transform: scale(1.05) !important; 
+        box-shadow: 0 0 20px rgba(37, 99, 235, 0.6) !important;
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
+    }
+
+    /* Asegurar que el texto dentro del botón sea blanco */
+    div.stLinkButton > a p { color: #ffffff !important; margin: 0 !important; }
+
+    /* --- EXPANDERS MEJORADOS --- */
     .stExpander { 
-        background-color: #ffffff !important; /* Barra blanca para que se vea el icono */
+        background-color: #ffffff !important; 
         border-radius: 12px !important; 
         margin-bottom: 10px !important;
-        border: none !important;
+        border: 1px solid #2563eb !important;
     }
     .stExpander details summary p {
-        color: #091220 !important; /* Texto oscuro en la barra blanca */
+        color: #091220 !important;
         font-weight: 800 !important;
+        font-size: 1rem !important;
     }
     .stExpander details div[data-testid="stExpanderDetails"] {
-        background-color: #091220 !important; /* Interior oscuro */
+        background-color: #091220 !important;
         color: #ffffff !important;
+        padding: 20px !important;
         border-radius: 0 0 12px 12px !important;
     }
 
@@ -111,15 +113,12 @@ st.markdown("""
     }
     .ficha-tramite { border-left-color: #fbbf24 !important; }
     .ficha-agenda { border-left-color: #38bdf8 !important; }
-    .ficha-practica { border-left-color: #10b981 !important; }
-    .ficha-especialista { border-left-color: #8b5cf6 !important; }
-    .ficha-novedad { border-left-color: #ff4b4b !important; }
 
     .header-master { text-align: center; margin-bottom: 20px; }
     .capsula-header-mini { 
-        padding: 15px 40px; 
+        padding: 12px 30px; 
         background: rgba(37, 99, 235, 0.2); 
-        border-radius: 40px; 
+        border-radius: 30px; 
         border: 2px solid #38bdf8; 
         display: inline-block; 
     }
@@ -150,19 +149,19 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-# --- CONTENIDO PRINCIPAL ---
-st.markdown('<div class="header-master"><div class="capsula-header-mini"><h1 style="color:white; margin:0; font-size:1.5rem;">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
+# --- CONTENIDO ---
+st.markdown('<div class="header-master"><div class="capsula-header-mini"><h2 style="color:white; margin:0; font-size:1.3rem;">OSECAC MDP / AGENCIAS</h2></div></div>', unsafe_allow_html=True)
 
 try:
     with open("LOGO1.png", "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
-    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:100px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
+    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:90px; margin-bottom:15px;"></center>', unsafe_allow_html=True)
 except: pass
 
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-    st.write("")
+    st.write("---")
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     with c1:
         pop_f = st.popover("✏️")
@@ -205,11 +204,9 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
     with cols[0]:
         st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
         st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
-        st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
     with cols[1]:
         st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
-        st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
 # 4. GESTIONES
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
