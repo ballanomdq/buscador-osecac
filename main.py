@@ -33,91 +33,89 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS - DISEÑO "NEÓN BLUE" CON BOTONES COMPACTOS
+# 2. CSS - DISEÑO "PASTILLA" COMPACTA Y PROFESIONAL
 st.markdown("""
     <style>
+    /* Ocultar basura de Streamlit */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
+    /* Fondo Azul Noche */
     .stApp { 
         background: radial-gradient(circle, #091220 0%, #050914 100%) !important;
-        color: #ffffff !important;
     }
 
-    .stMarkdown p, label { color: #ffffff !important; font-weight: 700 !important; }
-
-    /* --- BOTONES COMPACTOS Y ESTÉTICOS --- */
-    div.stLinkButton > a {
-        background-color: #0b1e3b !important;
-        color: #ffffff !important;
-        border: 2px solid #2563eb !important;
-        border-radius: 12px !important;
-        padding: 0.6rem 1.2rem !important;
-        
-        /* AQUÍ ESTÁ EL CAMBIO: No más botones alargados */
+    /* --- BOTONES ESTILO PASTILLA (PEQUEÑOS Y NO INVASIVOS) --- */
+    /* Este es el truco para que no sean gigantes */
+    div.stLinkButton {
+        display: inline-block !important; 
         width: auto !important;
-        min-width: 200px !important;
-        max-width: 300px !important;
-        margin: 10px auto !important; /* Centrado */
-        
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        text-decoration: none !important;
-        font-weight: 700 !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s !important;
+        margin-right: 15px !important;
+        margin-top: 10px !important;
     }
 
-    div.stLinkButton > a:hover {
-        transform: scale(1.05) !important; 
-        box-shadow: 0 0 20px rgba(37, 99, 235, 0.6) !important;
-        border-color: #38bdf8 !important;
+    div.stLinkButton > a {
+        background-color: #002855 !important; /* Azul OSECAC Profundo */
         color: #ffffff !important;
+        border: 1px solid #38bdf8 !important; /* Borde celeste fino */
+        border-radius: 20px !important;       /* Forma redondeada */
+        padding: 6px 20px !important;         /* Tamaño compacto */
+        font-size: 14px !important;
+        text-decoration: none !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.5) !important;
     }
 
-    /* Asegurar que el texto dentro del botón sea blanco */
+    /* Efecto al pasar el mouse: Brillo sin cambiar color */
+    div.stLinkButton > a:hover {
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.7) !important;
+        transform: translateY(-2px) !important;
+        border-color: #ffffff !important;
+    }
+
+    /* Forzar que el texto no cambie nunca a negro/gris */
     div.stLinkButton > a p { color: #ffffff !important; margin: 0 !important; }
 
-    /* --- EXPANDERS MEJORADOS --- */
+    /* --- EXPANDERS CON CABECERA BLANCA --- */
     .stExpander { 
         background-color: #ffffff !important; 
         border-radius: 12px !important; 
         margin-bottom: 10px !important;
-        border: 1px solid #2563eb !important;
     }
     .stExpander details summary p {
-        color: #091220 !important;
+        color: #002855 !important;
         font-weight: 800 !important;
-        font-size: 1rem !important;
+        font-size: 1.1rem !important;
     }
     .stExpander details div[data-testid="stExpanderDetails"] {
-        background-color: #091220 !important;
-        color: #ffffff !important;
-        padding: 20px !important;
+        background-color: #091220 !important; /* Interior oscuro para contraste */
         border-radius: 0 0 12px 12px !important;
+        padding: 20px !important;
     }
 
     /* --- INPUTS --- */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
-        border: 2px solid #2563eb !important;
-        border-radius: 10px !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 8px !important;
     }
     input { color: #000000 !important; font-weight: bold !important; }
 
-    /* --- FICHAS --- */
+    /* --- FICHAS DE RESULTADOS --- */
     .ficha { 
-        background-color: #111827 !important;
-        padding: 20px; border-radius: 12px; margin-bottom: 10px; 
-        border-left: 8px solid #ccc; color: #ffffff !important;
+        background-color: #16213e !important;
+        padding: 15px; border-radius: 10px; margin-bottom: 8px; 
+        border-left: 6px solid #38bdf8; color: #ffffff !important;
     }
     .ficha-tramite { border-left-color: #fbbf24 !important; }
     .ficha-agenda { border-left-color: #38bdf8 !important; }
 
+    /* Header y Título */
     .header-master { text-align: center; margin-bottom: 20px; }
-    .capsula-header-mini { 
-        padding: 12px 30px; 
-        background: rgba(37, 99, 235, 0.2); 
+    .capsula-header { 
+        padding: 10px 30px; 
+        background: rgba(0, 40, 85, 0.5); 
         border-radius: 30px; 
         border: 2px solid #38bdf8; 
         display: inline-block; 
@@ -149,14 +147,16 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-# --- CONTENIDO ---
-st.markdown('<div class="header-master"><div class="capsula-header-mini"><h2 style="color:white; margin:0; font-size:1.3rem;">OSECAC MDP / AGENCIAS</h2></div></div>', unsafe_allow_html=True)
+# --- HEADER ---
+st.markdown('<div class="header-master"><div class="capsula-header"><h2 style="color:white; margin:0; font-size:1.5rem;">OSECAC MDP / AGENCIAS</h2></div></div>', unsafe_allow_html=True)
 
 try:
     with open("LOGO1.png", "rb") as f:
         img_b64 = base64.b64encode(f.read()).decode()
-    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:90px; margin-bottom:15px;"></center>', unsafe_allow_html=True)
+    st.markdown(f'<center><img src="data:image/png;base64,{img_b64}" style="width:80px; margin-bottom:20px;"></center>', unsafe_allow_html=True)
 except: pass
+
+# --- CONTENIDO ---
 
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
@@ -182,31 +182,19 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-            if cl_actual == "*":
-                with st.expander(f"📝 Editar fila {i}"):
-                    c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
-                    v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
-                    if st.button("Guardar Cambios", key=f"btn_{i}"):
-                        if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                            st.success("¡Sincronizado!")
-                            st.cache_data.clear()
-                            st.rerun()
 
 # 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
-    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
-    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
-    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+    st.link_button("🍼 LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
 # 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
-    cols = st.columns(2)
-    with cols[0]:
-        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
-        st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
-    with cols[1]:
-        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
-        st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
+    st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
+    st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
+    st.link_button("🆔 CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+    st.link_button("💻 OSECAC", "https://www.osecac.org.ar/")
 
 # 4. GESTIONES
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
@@ -218,14 +206,11 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
 
 # 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
-    bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
+    bus_p = st.text_input("Buscá prácticas...", key="bus_p")
     if bus_p:
         rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in rp.iterrows():
-            st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-        re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
-        for i, row in re.iterrows():
-            st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha"><b>PRÁCTICA:</b> {row["PRÁCTICA"]}</div>', unsafe_allow_html=True)
 
 # 6. AGENDAS
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
@@ -233,17 +218,9 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     if bus_a and not df_agendas.empty:
         res = df_agendas[df_agendas.astype(str).apply(lambda r: r.str.contains(bus_a, case=False, na=False).any(), axis=1)]
         for i, row in res.iterrows():
-            datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
-            st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha ficha-agenda">{row["NOMBRE"]} - {row.get("MAIL", "")}</div>', unsafe_allow_html=True)
 
 # 7. NOVEDADES
 with st.expander("📢 7. NOVEDADES", expanded=True):
     for n in st.session_state.historial_novedades:
-        st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
-    with st.popover("✍️ PANEL"):
-        if st.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
-            with st.form("n_form", clear_on_submit=True):
-                m = st.text_area("Nuevo comunicado:")
-                if st.form_submit_button("PUBLICAR"):
-                    st.session_state.historial_novedades.insert(0, {"id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
-                    st.rerun()
+        st.markdown(f'<div class="ficha" style="border-left-color: #ff4b4b;">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
