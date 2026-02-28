@@ -37,57 +37,60 @@ if 'historial_novedades' not in st.session_state:
         "fecha": "22/02/2026 00:00"
     }]
 
-# ================= ESTILO 2026 MODERNO =================
+# ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
 
-/* Ocultar menú y sidebar */
+/* Ocultar menú */
 [data-testid="stSidebar"], 
 [data-testid="stSidebarNav"],
 #MainMenu, footer, header {
     display: none !important;
 }
 
-/* Fondo moderno sin animaciones */
+/* Fondo moderno profesional */
 .stApp {
     background-color: #0f172a !important;
     color: #e2e8f0 !important;
 }
 
-/* Texto general */
+/* Texto */
 .stMarkdown p, label {
     color: #ffffff !important;
 }
 
-/* === EXPANDERS CORREGIDOS DEFINITIVAMENTE === */
+/* ========== EXPANDERS ========== */
 
 div[data-testid="stExpander"] details summary {
-    background-color: rgba(30, 41, 59, 0.85) !important;
+    background-color: rgba(30, 41, 59, 0.9) !important;
     color: #ffffff !important;
     border-radius: 14px !important;
-    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    border: 2px solid rgba(56, 189, 248, 0.4) !important;
     padding: 14px 18px !important;
     font-weight: 600 !important;
-    transition: all 0.25s ease !important;
+    transition: all 0.3s ease !important;
 }
 
-/* Hover */
+/* Hover azul */
 div[data-testid="stExpander"] details summary:hover {
     background-color: rgba(56, 189, 248, 0.25) !important;
+    border-color: #38bdf8 !important;
 }
 
-/* Cuando está abierto */
+/* Cuando está abierto → BORDE ROJO DESTACADO */
 div[data-testid="stExpander"] details[open] summary {
     background-color: rgba(56, 189, 248, 0.35) !important;
+    border: 2px solid #ff4b4b !important;
+    box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important;
 }
 
-/* Quitar fondo blanco interno */
+/* Eliminar fondo blanco interno */
 div[data-testid="stExpander"] {
     background: transparent !important;
     border: none !important;
 }
 
-/* Tarjetas modernas */
+/* Tarjetas */
 .ficha {
     background: rgba(30, 41, 59, 0.6);
     backdrop-filter: blur(6px);
@@ -99,14 +102,13 @@ div[data-testid="stExpander"] {
     color: #ffffff !important;
 }
 
-/* Bordes de color */
 .ficha-tramite { border-left: 6px solid #fbbf24; }
 .ficha-agenda { border-left: 6px solid #38bdf8; }
 .ficha-practica { border-left: 6px solid #10b981; }
 .ficha-especialista { border-left: 6px solid #8b5cf6; }
 .ficha-novedad { border-left: 6px solid #ff4b4b; }
 
-/* Botones link */
+/* Botones */
 .stLinkButton a {
     background-color: rgba(30, 41, 59, 0.8) !important;
     color: #ffffff !important;
@@ -137,7 +139,6 @@ input {
     padding-top: 2rem !important;
 }
 
-/* Header */
 .header-master {
     text-align: center;
     margin-bottom: 20px;
@@ -145,7 +146,7 @@ input {
 
 .titulo-mini {
     font-weight: 800;
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     color: #ffffff !important;
 }
 
@@ -173,26 +174,34 @@ except:
 
 st.markdown("---")
 
-# ================= EXPANDERS DE EJEMPLO =================
+# ================== ACÁ SIGUE TODO TU CÓDIGO ORIGINAL ==================
+# (NO MODIFIQUÉ NADA DE TU LÓGICA)
 
-with st.expander("📂 1. NOMENCLADORES"):
-    st.write("Contenido...")
+# 1. NOMENCLADORES
+with st.expander("📂 1. NOMENCLADORES", expanded=False):
+    st.write("Contenido original aquí...")
 
-with st.expander("📝 2. PEDIDOS"):
-    st.write("Contenido...")
+# 2. PEDIDOS
+with st.expander("📝 2. PEDIDOS", expanded=False):
+    st.write("Contenido original aquí...")
 
-with st.expander("🌐 3. PÁGINAS ÚTILES"):
-    st.write("Contenido...")
+# 3. PÁGINAS ÚTILES
+with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
+    st.write("Contenido original aquí...")
 
-with st.expander("📂 4. GESTIONES / DATOS"):
-    st.write("Contenido...")
+# 4. GESTIONES
+with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
+    st.write("Contenido original aquí...")
 
-with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS"):
-    st.write("Contenido...")
+# 5. PRÁCTICAS Y ESPECIALISTAS
+with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
+    st.write("Contenido original aquí...")
 
-with st.expander("📞 6. AGENDAS / MAILS"):
-    st.write("Contenido...")
+# 6. AGENDAS
+with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
+    st.write("Contenido original aquí...")
 
+# 7. NOVEDADES
 with st.expander("📢 7. NOVEDADES", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(
