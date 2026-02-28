@@ -270,7 +270,7 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES (MODIFICADO ESTÉTICA)
+# 7. NOVEDADES (FUNCIONALIDAD ESTRUCTURADA DRIVE + UI ARRIBA DERECHA)
 with st.expander("📢 7. NOVEDADES", expanded=True):
     # --- COLUMNAS PARA ALINEAR A LA DERECHA ---
     c_head, c_btn = st.columns([0.8, 0.2])
@@ -292,18 +292,27 @@ with st.expander("📢 7. NOVEDADES", expanded=True):
         if st.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
             with st.form("n_form", clear_on_submit=True):
                 m = st.text_area("Nuevo comunicado:")
-                uploaded_file = st.file_uploader("Adjuntar archivo:", type=["pdf", "png", "jpg", "jpeg"])
+                uploaded_file = st.file_uploader("Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
                 
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
                     if uploaded_file is not None:
+                        # Guardar temporalmente
                         temp_path = f"temp_{uploaded_file.name}"
-                        with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
+                        with open(temp_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        # Subir a Drive
                         drive_link = subir_a_drive(temp_path, uploaded_file.name)
+                        
+                        # Borrar temporal
                         os.remove(temp_path)
                     
                     st.session_state.historial_novedades.insert(0, {
-                        "id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "id": str(time.time()), 
+                        "mensaje": m, 
+                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "archivo_link": drive_link
                     })
-                    st.success("¡Publicado!"); st.rerun()
+                    st.success("¡Publicado exitosamente!")
+                    st.rerun()
