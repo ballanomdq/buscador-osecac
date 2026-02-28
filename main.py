@@ -59,6 +59,7 @@ if 'historial_novedades' not in st.session_state:
 if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
 if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
 if 'pass_jefe_valida' not in st.session_state: st.session_state.pass_jefe_valida = False
+if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
 
 # ================== CSS MODERNO + ANIMACIONES ==================
 st.markdown("""
@@ -96,6 +97,8 @@ st.markdown("""
     border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important;
 }
 .ficha-novedad { border-left: 6px solid #ff4b4b; }
+.ficha-seleccionada { border: 2px solid #ff4b4b !important; }
+
 div[data-testid="stExpander"] details summary {
     background-color: rgba(30, 41, 59, 0.9) !important;
     color: #ffffff !important;
@@ -107,7 +110,7 @@ div[data-testid="stExpander"] details summary {
 </style>
 """, unsafe_allow_html=True)
 
-# --- CARGA DE DATOS (IGUAL) ---
+# --- CARGA DE DATOS ---
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
@@ -138,7 +141,6 @@ with col_h1:
     st.markdown("## 🏥 OSECAC MDP / AGENCIAS")
 
 with col_h2:
-    # --- ÁREA DE NOTIFICACIONES Y ADMIN JEFE ---
     st.markdown("""
         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
             <span class="luz-roja"></span> 
@@ -148,12 +150,10 @@ with col_h2:
     
     c_btn1, c_btn2 = st.columns([1, 0.2])
     
-    # Botón para ver notificaciones
     with c_btn1:
         if st.button("Ver Novedades", key="ver_nov"):
             st.session_state.show_dialog = True
             
-    # Botón Lápiz Admin (Popover)
     with c_btn2:
         pop_j = st.popover("✏️")
         pop_j.markdown("### Administrador")
@@ -161,11 +161,10 @@ with col_h2:
             with pop_j.form("form_jefe"):
                 cl_j = st.text_input("Clave:", type="password")
                 if st.form_submit_button("OK"):
-                    if cl_j == "*": # <--- CLAVE *
+                    if cl_j == "*":
                         st.session_state.pass_jefe_valida = True
                         st.rerun()
-                    else:
-                        st.error("Clave incorrecta")
+                    else: st.error("Clave incorrecta")
         else:
             pop_j.success("Admin Activo")
             with pop_j.form("publicar_form"):
@@ -175,14 +174,9 @@ with col_h2:
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
                     if uploaded_file is not None:
-                        # Guardar temporalmente para subirlo
                         temp_path = f"temp_{uploaded_file.name}"
                         with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
-                        
-                        # Subir a Drive
                         drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                        
-                        # Borrar temporal
                         os.remove(temp_path)
                     
                     st.session_state.historial_novedades.insert(0, {
@@ -253,8 +247,10 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             
     with c4: sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
-    # Lógica selección
+    # Lógica selección y estilos
     opcion = "OSECAC" if sel_osecac else "FABA"
+    
+    # Determinar si la edición está habilitada
     edicion_habilitada = False
     if sel_osecac and st.session_state.pass_o_valida:
         edicion_habilitada = True
@@ -268,12 +264,15 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         df_u = df_osecac_busq if sel_osecac else df_faba
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
+    # Aplicar clase CSS si está seleccionado
+    clase_marcada = "ficha-seleccionada" if (sel_osecac or sel_faba) else ""
+
     bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
     
     if bus_nom:
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
         for i, row in df_u[mask].iterrows():
-            st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha {clase_marcada}">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
             if edicion_habilitada: 
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
@@ -283,13 +282,12 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             st.success("¡Sincronizado!"); st.cache_data.clear(); st.rerun()
             else: st.warning("⚠️ Ingrese clave (*) para editar.")
 
-# 2. PEDIDOS
+# ... (Resto de los expanders igual) ...
 with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
     cols = st.columns(2)
     with cols[0]:
@@ -299,9 +297,8 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
     with cols[1]:
         st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
-        st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/ssisa/")
+        st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# 4. GESTIONES
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
@@ -309,7 +306,6 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
@@ -320,7 +316,6 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
-# 6. AGENDAS
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
