@@ -33,64 +33,63 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS - DISEÑO RADICAL "AZUL PROFUNDO" (Profundo, limpio, legible)
+# 2. CSS - DISEÑO "AZUL PROFUNDO" CON FIX DE BOTONES
 st.markdown("""
     <style>
-    /* Ocultar elementos por defecto */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
     #MainMenu, footer, header { visibility: hidden; }
     
-    @keyframes gradientBG { 
-        0% { background-position: 0% 50%; } 
-        50% { background-position: 100% 50%; } 
-        100% { background-position: 0% 50%; } 
-    }
-
-    /* --- FONDO PRINCIPAL: AZUL NOCHE --- */
     .stApp { 
         background: radial-gradient(circle, #091220 0%, #050914 100%) !important;
-        color: #f1f5f9 !important; /* Texto principal blanquecino */
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+        color: #f1f5f9 !important;
     }
 
-    /* Títulos de secciones: Blanco puro y en negrita */
     .stMarkdown p, label { color: #ffffff !important; font-weight: 600 !important; }
 
-    /* --- BOTONES (LINKS): DISEÑO DE TARJETA --- */
-    /* El selector div[data-testid="stMarkdownContainer"] div.stLinkButton > a es más profundo */
+    /* --- FIX DEFINITIVO PARA BOTONES --- */
+    /* 1. Estado Normal: Azul cobalto oscuro */
     div.stLinkButton > a {
-        background-color: #0b1e3b !important; /* Azul cobalto oscuro */
-        color: #ffffff !important;           /* Texto siempre blanco */
-        border: 2px solid #2563eb !important; /* Borde azul eléctrico */
-        border-radius: 12px !important;      /* Bordes más redondeados */
-        padding: 0.75rem 1.5rem !important; /* Más padding para que parezca tarjeta */
-        display: block !important;           /* Que ocupen todo el ancho si es posible */
+        background-color: #0b1e3b !important;
+        color: #ffffff !important;
+        border: 2px solid #2563eb !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1.5rem !important;
+        display: block !important;
         text-align: center !important;
         text-decoration: none !important;
         transition: all 0.3s ease-in-out !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
         font-weight: 700 !important;
-        margin-bottom: 5px !important;
     }
 
-    /* ESTADO AL PASAR EL MOUSE (HOVER): BRILLO AZUL */
+    /* 2. Al pasar el mouse (Hover): Resplandor Celeste */
     div.stLinkButton > a:hover {
-        background-color: #0b1e3b !important;   /* Mismo fondo */
-        color: #ffffff !important;             /* Mismo texto */
-        border-color: #38bdf8 !important;      /* Borde cambia a celeste brillante */
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.5) !important; /* Resplandor celeste */
-        transform: translateY(-2px) !important; /* Efecto de flotación */
+        background-color: #0b1e3b !important; /* Mantiene el azul oscuro */
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 15px rgba(56, 189, 248, 0.5) !important;
+        transform: translateY(-2px) !important;
     }
 
-    /* Forzar el color de texto en los botones, sin importar qué */
+    /* 3. ¡EL FIX! Cuando el cursor sale (Focus) o haces click (Active) */
+    /* Forzamos a que vuelva al azul oscuro y no al blanco de Streamlit */
+    div.stLinkButton > a:focus, 
+    div.stLinkButton > a:active,
+    div.stLinkButton > a:visited {
+        background-color: #0b1e3b !important; 
+        color: #ffffff !important;
+        border-color: #2563eb !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    /* Forzar color de texto dentro del párrafo del botón */
     div.stLinkButton > a p { color: #ffffff !important; }
 
-    /* --- INPUTS: BLANCO CON BORDE AZUL --- */
+    /* --- INPUTS --- */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #2563eb !important;
         border-radius: 10px !important;
-        color: #000000 !important;
     }
     input { 
         color: #000000 !important; 
@@ -98,45 +97,40 @@ st.markdown("""
         font-weight: bold !important; 
     }
 
-    /* --- EXPANDERS: TARJETAS SEMI-TRANSPARENTES --- */
+    /* --- EXPANDERS --- */
     .stExpander { 
-        background-color: rgba(11, 30, 59, 0.6) !important; /* Azul cobalto transparente */
+        background-color: rgba(11, 30, 59, 0.6) !important;
         border-radius: 15px !important; 
         margin-bottom: 15px !important; 
-        border: 1px solid rgba(37, 99, 235, 0.2) !important; /* Borde azul sutil */
-        backdrop-filter: blur(5px) !important; /* Efecto de desenfoque */
+        border: 1px solid rgba(37, 99, 235, 0.2) !important;
+        backdrop-filter: blur(5px) !important;
     }
-    .stExpander p { font-size: 1.1rem !important; }
 
-    /* --- FICHAS DE RESULTADOS --- */
+    /* --- FICHAS --- */
     .ficha { 
-        background-color: #0b1321 !important; /* Azul casi negro */
+        background-color: #0b1321 !important;
         padding: 25px !important; 
         border-radius: 15px !important; 
         margin-bottom: 12px !important; 
-        border-left: 8px solid #ccc !important; /* Borde izquierdo más grueso */
-        color: #e2e8f0 !important; /* Texto claro */
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+        border-left: 8px solid #ccc !important;
+        color: #e2e8f0 !important;
     }
-    .ficha-tramite { border-left-color: #fbbf24 !important; } /* Amarillo */
-    .ficha-agenda { border-left-color: #38bdf8 !important; }  /* Celeste */
-    .ficha-practica { border-left-color: #10b981 !important; } /* Verde */
-    .ficha-especialista { border-left-color: #8b5cf6 !important; } /* Violeta */
-    .ficha-novedad { border-left-color: #ff4b4b !important; } /* Rojo */
+    .ficha-tramite { border-left-color: #fbbf24 !important; }
+    .ficha-agenda { border-left-color: #38bdf8 !important; }
+    .ficha-practica { border-left-color: #10b981 !important; }
+    .ficha-especialista { border-left-color: #8b5cf6 !important; }
+    .ficha-novedad { border-left-color: #ff4b4b !important; }
 
     .block-container { max-width: 1100px !important; padding-top: 2rem !important; }
     .header-master { text-align: center; margin-bottom: 15px; }
-    
-    /* Cápsula del header con azul más profundo */
     .capsula-header-mini { 
-        position: relative; 
         padding: 15px 40px; 
         background: rgba(37, 99, 235, 0.1); 
         border-radius: 40px; 
         border: 2px solid rgba(56, 189, 248, 0.6); 
         display: inline-block; 
     }
-    .titulo-mini { font-weight: 900; font-size: 1.6rem; color: #ffffff !important; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+    .titulo-mini { font-weight: 900; font-size: 1.6rem; color: #ffffff !important; margin: 0; text-transform: uppercase; }
     
     </style>
     """, unsafe_allow_html=True)
@@ -180,35 +174,28 @@ st.markdown("<hr style='border:1px solid rgba(255,255,255,0.1)'>", unsafe_allow_
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    
-    # FILA: Lápiz - Check - Palabra
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
-    
     with c1:
         pop_f = st.popover("✏️")
         cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
     with c2:
         sel_faba = st.checkbox("FABA", value=True, key="chk_f")
-        
     with c3:
         pop_o = st.popover("✏️")
         cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
     with c4:
         sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
-    # Lógica de selección
     opcion = "OSECAC" if sel_osecac else "FABA"
     cl_actual = cl_o if sel_osecac else cl_f
     df_u = df_osecac_busq if sel_osecac else df_faba
     url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
     bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
-    
     if bus_nom:
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-            
             if cl_actual == "*":
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
