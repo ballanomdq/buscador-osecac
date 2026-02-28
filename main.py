@@ -111,99 +111,51 @@ def toggle_osecac():
 def abrir_novedades():
     st.session_state.novedades_expandido = True
 
-# ================== CSS MODERNO (actualizado con mejor centrado) ==================
+# ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
 .stApp { background-color: #0f172a !important; color: #e2e8f0 !important; }
 .stMarkdown p, label { color: #ffffff !important; }
-
-div[data-testid="stExpander"] details summary { 
-    background-color: rgba(30, 41, 59, 0.9) !important; 
-    color: #ffffff !important; 
-    border-radius: 14px !important; 
-    border: 2px solid rgba(56, 189, 248, 0.4) !important; 
-    padding: 14px 18px !important; 
-    font-weight: 600 !important; 
-}
-div[data-testid="stExpander"] details[open] summary { 
-    border: 2px solid #ff4b4b !important; 
-    box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important; 
-}
-
-.ficha { 
-    background: rgba(30, 41, 59, 0.6); 
-    backdrop-filter: blur(6px); 
-    border: 1px solid rgba(255,255,255,0.08); 
-    border-radius: 16px; 
-    padding: 20px; 
-    margin-bottom: 12px; 
-    color: #ffffff !important; 
-}
+div[data-testid="stExpander"] details summary { background-color: rgba(30, 41, 59, 0.9) !important; color: #ffffff !important; border-radius: 14px !important; border: 2px solid rgba(56, 189, 248, 0.4) !important; padding: 14px 18px !important; font-weight: 600 !important; }
+div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b !important; box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important; }
+.ficha { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important; }
 .ficha-novedad { border-left: 6px solid #ff4b4b; }
-
-.stLinkButton a { 
-    background-color: rgba(30, 41, 59, 0.8) !important; 
-    color: #ffffff !important; 
-    border: 1px solid rgba(56,189,248,0.5) !important; 
-    border-radius: 10px !important; 
-}
-.stLinkButton a:hover { 
-    background-color: #38bdf8 !important; 
-    color: #000000 !important; 
-}
-
-div[data-baseweb="input"] { 
-    background-color: #ffffff !important; 
-    border: 2px solid #38bdf8 !important; 
-    border-radius: 10px !important; 
-}
+.stLinkButton a { background-color: rgba(30, 41, 59, 0.8) !important; color: #ffffff !important; border: 1px solid rgba(56,189,248,0.5) !important; border-radius: 10px !important; }
+.stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
+div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
-
 .block-container { max-width: 1100px !important; padding-top: 1rem !important; }
-
-/* === HEADER MEJOR CENTRADO === */
-.header-super-container {
-    width: 100%;
+/* ESTILOS PARA HEADER CENTRADO */
+.header-container {
     display: flex;
-    justify-content: center;
-    margin: 1.5rem 0 1rem 0;
-}
-
-.header-inner {
-    text-align: center;
-    max-width: 800px;
-    width: 100%;
-}
-
-.logo-wrapper {
-    margin-bottom: 1rem;
-}
-
-.logo-wrapper img {
-    margin: 0 auto !important;
-    display: block !important;
-}
-
-.titulo-principal {
-    font-weight: 800;
-    font-size: 2.8rem;
-    color: #ffffff;
-    margin: 0.3rem 0 1.2rem 0;
-    text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
-    line-height: 1.1;
-}
-
-.botones-container {
-    display: flex;
-    gap: 16px;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex-wrap: wrap;
-    margin: 0.8rem 0 1.5rem 0;
+    text-align: center;
+    margin-bottom: 10px;
 }
-
-/* ESTILOS UNIFICADOS PARA BOTONES */
+.titulo-principal {
+    font-weight: 800;
+    font-size: 2.5rem;
+    color: #ffffff;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 10px;
+}
+.logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+.botones-container {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+/* ESTILOS UNIFICADOS PARA TODOS LOS BOTONES Y POPOVERS */
 .stButton > button, div[data-testid="baseButton-secondary"] {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -222,8 +174,7 @@ input { color: #000000 !important; font-weight: bold !important; }
     transform: scale(1.05) !important;
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
 }
-
-/* Botón de novedad (rojo) */
+/* Estilo especial para el botón de novedad (rojo) */
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
@@ -239,6 +190,31 @@ input { color: #000000 !important; font-weight: bold !important; }
     0% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
     50% { opacity: 0.9; box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); transform: scale(1.02); }
     100% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
+}
+/* Estilo para popovers (lápices) */
+div[data-testid="stPopover"] > button {
+    background: linear-gradient(145deg, #1e293b, #0f172a) !important;
+    color: white !important;
+    border: 2px solid #38bdf8 !important;
+    border-radius: 10px !important;
+    padding: 8px 20px !important;
+    font-size: 1.2rem !important;
+    font-weight: bold !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
+}
+div[data-testid="stPopover"] > button:hover {
+    background: #38bdf8 !important;
+    color: black !important;
+    transform: scale(1.05) !important;
+}
+/* ESTILOS PARA NOVEDADES EXPANDIDAS */
+div[data-testid="stExpander"][aria-expanded="true"] {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 2px solid #ff4b4b;
+    box-shadow: 0 0 30px rgba(255, 75, 75, 0.3);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -267,35 +243,37 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER MEJOR CENTRADO =================
-st.markdown('<div class="header-super-container">', unsafe_allow_html=True)
-st.markdown('<div class="header-inner">', unsafe_allow_html=True)
+# ================= HEADER CENTRADO FORZADO =================
+st.markdown("""
+<div style="
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 1.5rem 0;
+">
+    <div style="text-align: center; max-width: 700px; width: 100%;">
+""", unsafe_allow_html=True)
 
 # Logo
-st.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
+st.markdown('<div style="margin-bottom: 1rem;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
-        st.image('logo original.jpg', width=200)
+        st.image('logo original.jpg', width=220)
     else:
-        st.markdown("""
-            <div style="
-                width: 200px;
-                height: 100px;
-                background: rgba(30, 41, 59, 0.6);
-                border-radius: 16px;
-                border: 2px solid #38bdf8;
-                margin: 0 auto;
-            "></div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div style="width:220px; height:110px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Título
-st.markdown('<h1 class="titulo-principal">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
 # Botones
-st.markdown('<div class="botones-container">', unsafe_allow_html=True)
+st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
@@ -305,9 +283,12 @@ if hay_novedades_nuevas:
 
 popover_novedades = st.popover("✏️")
 
-st.markdown('</div>', unsafe_allow_html=True)  # fin botones-container
-st.markdown('</div>', unsafe_allow_html=True)  # fin header-inner
-st.markdown('</div>', unsafe_allow_html=True)  # fin header-super-container
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -399,8 +380,6 @@ with popover_novedades:
                     st.rerun()
 
 # ================== APLICACIÓN ==================
-# (el resto del código sigue igual...)
-
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
