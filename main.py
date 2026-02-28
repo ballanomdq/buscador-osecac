@@ -5,6 +5,10 @@ import time
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+# --- IMPORTACIONES NUEVAS PARA DRIVE ---
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+import os
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -12,6 +16,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# --- CONFIGURACIÓN DRIVE ---
+FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w" 
 
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
@@ -29,9 +36,33 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
+# --- FUNCIÓN PARA SUBIR A DRIVE (MODIFICACIÓN SOLICITADA) ---
+def subir_a_drive(file_path, file_name):
+    try:
+        scope = ["https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
+        service = build('drive', 'v3', credentials=creds)
+        
+        file_metadata = {
+            'name': file_name,
+            'parents': [FOLDER_ID]
+        }
+        media = MediaFileUpload(file_path, resumable=True)
+        
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id, webViewLink'
+        ).execute()
+        
+        return file.get('webViewLink')
+    except Exception as e:
+        st.error(f"Error al subir a Drive: {e}")
+        return None
+
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
-    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
+    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
 
 # --- INICIALIZAR ESTADOS DE SESIÓN PARA CLAVES DE EDICIÓN ---
 if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
@@ -332,15 +363,39 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES
+# 7. NOVEDADES (MODIFICADO CON DRIVE)
 with st.expander("📢 7. NOVEDADES", expanded=True):
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
+        if n.get("archivo_link"):
+            st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="color: #38bdf8; font-weight: bold; text-decoration: none;">📂 Ver archivo en Drive</a>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
     
     with st.popover("✍️ PANEL DE ADMINISTRADOR"):
         if st.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
             with st.form("n_form", clear_on_submit=True):
                 m = st.text_area("Nuevo comunicado:")
+                uploaded_file = st.file_uploader("Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
+                
                 if st.form_submit_button("PUBLICAR"):
-                    st.session_state.historial_novedades.insert(0, {"id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
+                    drive_link = ""
+                    if uploaded_file is not None:
+                        # Guardar temporalmente
+                        temp_path = f"temp_{uploaded_file.name}"
+                        with open(temp_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        # Subir a Drive
+                        drive_link = subir_a_drive(temp_path, uploaded_file.name)
+                        
+                        # Borrar temporal
+                        os.remove(temp_path)
+                    
+                    st.session_state.historial_novedades.insert(0, {
+                        "id": str(time.time()), 
+                        "mensaje": m, 
+                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "archivo_link": drive_link
+                    })
+                    st.success("¡Publicado exitosamente!")
                     st.rerun()
