@@ -9,6 +9,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import os
+from PIL import Image
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -79,6 +80,10 @@ if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = Fal
 if 'faba_check' not in st.session_state: st.session_state.faba_check = True
 if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
 
+# Estado para controlar la expansión de novedades (sin recarga)
+if 'novedades_expandido' not in st.session_state:
+    st.session_state.novedades_expandido = False
+
 # --- CALLBACKS PARA CHECKBOXES EXCLUSIVOS ---
 def toggle_faba():
     if st.session_state.faba_check:
@@ -91,6 +96,10 @@ def toggle_osecac():
         st.session_state.faba_check = False
     else:
         st.session_state.faba_check = True
+
+# --- FUNCIÓN PARA ABRIR NOVEDADES SIN RECARGAR ---
+def abrir_novedades():
+    st.session_state.novedades_expandido = True
 
 # ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
@@ -108,24 +117,32 @@ div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px so
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 2rem !important; }
 
-/* NUEVOS ESTILOS PARA HEADER CON NOVEDADES */
+/* NUEVOS ESTILOS PARA HEADER CON LOGO Y NOVEDADES */
 .header-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    padding: 10px 0;
 }
 .header-left {
-    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 .header-right {
     display: flex;
     gap: 10px;
     align-items: center;
 }
+.logo-img {
+    height: 60px;
+    width: auto;
+    border-radius: 10px;
+}
 .titulo-mini { 
     font-weight: 800; 
-    font-size: 1.6rem; 
+    font-size: 1.8rem; 
     color: #ffffff !important; 
     margin: 0;
 }
@@ -141,25 +158,33 @@ input { color: #000000 !important; font-weight: bold !important; }
     box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.3);
     font-size: 14px;
+    transition: all 0.3s;
+}
+.boton-novedad:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(255, 75, 75, 0.8);
 }
 @keyframes parpadeo {
     0% { opacity: 1; background-color: #ff4b4b; }
-    50% { opacity: 0.7; background-color: #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+    50% { opacity: 0.8; background-color: #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
     100% { opacity: 1; background-color: #ff4b4b; }
 }
 .boton-lapiz {
-    background-color: rgba(30, 41, 59, 0.9);
+    background: linear-gradient(135deg, #1e293b, #0f172a);
     color: white;
     border: 2px solid #38bdf8;
     border-radius: 10px;
     padding: 5px 15px;
     cursor: pointer;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
     transition: all 0.3s;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
 }
 .boton-lapiz:hover {
     background-color: #38bdf8;
     color: black;
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -188,28 +213,40 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER PERSONALIZADO CON NOVEDADES =================
+# ================= HEADER CON LOGO Y NOVEDADES =================
 # Verificar si hay novedades no vistas
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
 
-# Crear el header personalizado
-st.markdown('<div class="header-container">', unsafe_allow_html=True)
-st.markdown('<div class="header-left">', unsafe_allow_html=True)
-st.markdown('<h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-right">', unsafe_allow_html=True)
+# Crear el header personalizado con LOGO
+col1, col2 = st.columns([0.85, 0.15])
 
-# Columna para botón de novedad (solo si hay novedades nuevas)
-if hay_novedades_nuevas:
-    if st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header"):
-        st.session_state.expandir_novedades = True
+with col1:
+    # Logo y título juntos
+    try:
+        # Intentar cargar el logo
+        logo = Image.open('logo.jpg')
+        st.image(logo, width=80)
+    except:
+        # Si no hay logo, mostrar solo el título
+        st.markdown('<h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+    
+    # Título al lado del logo
+    st.markdown('<h1 class="titulo-mini" style="display: inline-block; margin-left: 10px;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Columna para lápiz de administración de novedades (INDEPENDIENTE) - CORREGIDO: sin key en popover
-popover_novedades = st.popover("✏️")
+with col2:
+    # Botones a la derecha
+    botones_cols = st.columns([1, 1])
+    
+    with botones_cols[0]:
+        # Botón de novedad (solo si hay novedades nuevas) - SIN RECARGAR
+        if hay_novedades_nuevas:
+            st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
+    
+    with botones_cols[1]:
+        # Lápiz de administración
+        popover_novedades = st.popover("✏️")
 
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
@@ -246,18 +283,19 @@ with popover_novedades:
                         drive_link = subir_a_drive(temp_path, uploaded_file.name)
                         os.remove(temp_path)
                     
-                    st.session_state.historial_novedades.insert(0, {
+                    nueva_novedad = {
                         "id": str(time.time()), 
                         "mensaje": m, 
                         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "archivo_link": drive_link
-                    })
+                    }
+                    st.session_state.historial_novedades.insert(0, nueva_novedad)
+                    st.session_state.novedades_vistas = set()  # Resetear vistas para que todos vean la nueva
                     st.success("¡Publicado!")
                     st.rerun()
         
         elif accion == "✏️ Editar existente":
             if st.session_state.historial_novedades:
-                # Selector de novedad a editar
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_editar = st.selectbox("Seleccionar novedad:", range(len(opciones)), format_func=lambda x: opciones[x])
                 
@@ -416,8 +454,8 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES (MODIFICADO: SIN BOTÓN ADMIN)
-with st.expander("📢 7. NOVEDADES", expanded=st.session_state.get('expandir_novedades', False)):
+# 7. NOVEDADES (SIN BOTÓN ADMIN)
+with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.write("### Últimos comunicados")
     
     # Mostrar novedades y marcarlas como vistas
@@ -430,7 +468,3 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.get('expandir_no
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
         if n.get("archivo_link"):
             st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="color: #38bdf8; font-weight: bold; text-decoration: none;">📂 Ver archivo en Drive</a>', unsafe_allow_html=True)
-    
-    # Resetear el flag de expandir
-    if st.session_state.get('expandir_novedades', False):
-        st.session_state.expandir_novedades = False
