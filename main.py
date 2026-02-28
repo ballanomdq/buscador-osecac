@@ -258,22 +258,22 @@ st.markdown("""
     <div style="text-align: center; max-width: 700px; width: 100%;">
 """, unsafe_allow_html=True)
 
-# Título PRIMERO (arriba)
-st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+# Título arriba
+st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.4rem 0 0.8rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Logo DEBAJO del título, más chico
-st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
+# Logo debajo del título, más chico y centrado
+st.markdown('<div style="margin: 0.5rem 0 1.2rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
-        st.image('logo original.jpg', width=160)
+        st.image('logo original.jpg', width=140)
     else:
-        st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="width:140px; height:70px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Botones
-st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
+st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:0.5rem 0 1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
