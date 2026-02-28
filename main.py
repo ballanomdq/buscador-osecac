@@ -132,30 +132,31 @@ div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px so
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 2rem !important; }
 
-/* ESTILOS PARA HEADER CON LOGO */
+/* ESTILOS PARA HEADER CENTRADO */
 .header-container {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     margin-bottom: 20px;
-    padding: 10px 0;
-}
-.logo-titulo-container {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+    text-align: center;
 }
 .titulo-principal {
     font-weight: 800;
-    font-size: 2rem;
+    font-size: 2.5rem;
     color: #ffffff;
     margin: 0;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+.logo-container {
+    margin-top: 10px;
+    margin-bottom: 15px;
 }
 .botones-container {
     display: flex;
     gap: 12px;
     align-items: center;
+    justify-content: center;
 }
 
 /* ESTILOS UNIFICADOS PARA TODOS LOS BOTONES Y POPOVERS */
@@ -253,35 +254,36 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CON LOGO =================
+# ================= HEADER CENTRADO CON LOGO =================
 st.markdown('<div class="header-container">', unsafe_allow_html=True)
-st.markdown('<div class="logo-titulo-container">', unsafe_allow_html=True)
 
-# Mostrar logo
+# Título centrado
+st.markdown('<h1 class="titulo-principal">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+
+# Logo centrado y más grande
+st.markdown('<div class="logo-container">', unsafe_allow_html=True)
 try:
-    if os.path.exists('logo original.jpg'): # <-- MODIFICADO AQUÍ
-        logo = Image.open('logo original.jpg') # <-- MODIFICADO AQUÍ
-        st.image(logo, width=70)
+    if os.path.exists('logo original.jpg'):
+        logo = Image.open('logo original.jpg')
+        st.image(logo, width=150) # <-- Logo más grande
     else:
-        st.markdown('<div style="width:70px; height:70px; background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:12px; border:2px solid #38bdf8;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="width:150px; height:70px; background: rgba(30, 41, 59, 0.5); border-radius:12px; border:2px solid #38bdf8; margin: auto;"></div>', unsafe_allow_html=True)
 except:
     pass
-
-st.markdown('<h1 class="titulo-principal">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones a la derecha
+# Botones centrados
 st.markdown('<div class="botones-container">', unsafe_allow_html=True)
 
 # Verificar si hay novedades no vistas
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
 
-# Botón de novedad (solo si hay novedades nuevas) - CON EL MISMO ESTILO
+# Botón de novedad
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# Lápiz de administración - CON EL MISMO ESTILO
+# Lápiz de administración
 popover_novedades = st.popover("✏️")
 
 st.markdown('</div>', unsafe_allow_html=True)
