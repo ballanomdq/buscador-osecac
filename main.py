@@ -33,7 +33,7 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
-# 2. CSS CORREGIDO (Mantiene fondo oscuro, texto blanco y resalta bordes en rojo)
+# 2. CSS ACTUALIZADO (FORZADO)
 st.markdown("""
     <style>
     [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display: none !important; }
@@ -50,27 +50,39 @@ st.markdown("""
         color: #e2e8f0; 
     }
 
-    /* Títulos de secciones en blanco */
     .stMarkdown p, label { color: #ffffff !important; }
 
-    /* --- CORRECCIÓN DE BOTONES (FONDO FIJO Y BORDE ROJO AL HOVER) --- */
-    .stLinkButton a {
-        background-color: rgba(23, 32, 48, 1) !important; /* Fondo oscuro sólido */
-        color: #ffffff !important; /* Letras siempre blancas */
-        border: 2px solid #38bdf8 !important; /* Borde inicial celeste */
-        border-radius: 8px !important;
-        transition: all 0.3s ease-in-out;
+    /* --- ESTILO FORZADO PARA BOTONES --- */
+    /* Apuntamos directamente al div y al enlace interno para que Streamlit no lo sobreescriba */
+    div.stLinkButton > a {
+        background-color: #172030 !important;
+        color: #ffffff !important;
+        border: 2px solid #38bdf8 !important;
+        border-radius: 10px !important;
+        padding: 0.5rem 1rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         text-decoration: none !important;
-    }
-    
-    .stLinkButton a:hover {
-        background-color: rgba(23, 32, 48, 1) !important; /* Mantiene fondo oscuro */
-        color: #ffffff !important; /* Mantiene letras blancas */
-        border: 2px solid #ff4b4b !important; /* Cambia borde a ROJO */
-        box-shadow: 0px 0px 12px rgba(255, 75, 75, 0.4); /* Resplandor rojo sutil */
+        transition: border 0.3s ease, box-shadow 0.3s ease !important;
     }
 
-    /* --- INPUTS (BUSCADORES) --- */
+    /* ESTADO AL PASAR EL MOUSE (HOVER) */
+    div.stLinkButton > a:hover {
+        background-color: #172030 !important; /* MANTENER EL FONDO OSCURO */
+        color: #ffffff !important;           /* MANTENER LETRA BLANCA */
+        border-color: #ff4b4b !important;    /* BORDE ROJO */
+        box-shadow: 0px 0px 15px rgba(255, 75, 75, 0.6) !important; /* BRILLO ROJO */
+    }
+
+    /* ELIMINAR EL EFECTO BLANCO QUE PONE STREAMLIT POR DEFECTO */
+    div.stLinkButton > a:focus, div.stLinkButton > a:active {
+        background-color: #172030 !important;
+        color: #ffffff !important;
+        border-color: #ff4b4b !important;
+    }
+
+    /* --- INPUTS --- */
     div[data-baseweb="input"] {
         background-color: #ffffff !important;
         border: 2px solid #38bdf8 !important;
@@ -86,7 +98,6 @@ st.markdown("""
     .header-master { text-align: center; margin-bottom: 10px; }
     .capsula-header-mini { position: relative; padding: 10px 30px; background: rgba(56, 189, 248, 0.05); border-radius: 35px; border: 1px solid rgba(56, 189, 248, 0.5); display: inline-block; }
     .titulo-mini { font-weight: 800; font-size: 1.4rem; color: #ffffff !important; margin: 0; }
-    .shimmer-efecto { position: absolute; top: 0; width: 100px; height: 100%; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.25), transparent); transform: skewX(-20deg); animation: shine 4s infinite linear; }
     
     .ficha { background-color: rgba(23, 32, 48, 0.9); padding: 20px; border-radius: 12px; margin-bottom: 10px; border-left: 6px solid #ccc; color: #ffffff !important; }
     .ficha-tramite { border-left-color: #fbbf24; }
@@ -124,7 +135,7 @@ df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
 # --- HEADER ---
-st.markdown('<div class="header-master"><div class="capsula-header-mini"><div class="shimmer-efecto"></div><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
+st.markdown('<div class="header-master"><div class="capsula-header-mini"><h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1></div></div>', unsafe_allow_html=True)
 
 try:
     with open("LOGO1.png", "rb") as f:
@@ -138,35 +149,28 @@ st.markdown("---")
 with st.expander("📂 **1. NOMENCLADORES**", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    
-    # FILA: Lápiz - Check - Palabra
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
-    
     with c1:
         pop_f = st.popover("✏️")
         cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
     with c2:
         sel_faba = st.checkbox("FABA", value=True, key="chk_f")
-        
     with c3:
         pop_o = st.popover("✏️")
         cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
     with c4:
         sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
-    # Lógica de selección
     opcion = "OSECAC" if sel_osecac else "FABA"
     cl_actual = cl_o if sel_osecac else cl_f
     df_u = df_osecac_busq if sel_osecac else df_faba
     url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
     bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
-    
     if bus_nom:
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-            
             if cl_actual == "*":
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
