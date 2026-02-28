@@ -259,8 +259,8 @@ st.markdown('<div class="logo-titulo-container">', unsafe_allow_html=True)
 
 # Mostrar logo
 try:
-    if os.path.exists('logo.jpg'):
-        logo = Image.open('logo.jpg')
+    if os.path.exists('logo original.jpg'): # <-- MODIFICADO AQUÍ
+        logo = Image.open('logo original.jpg') # <-- MODIFICADO AQUÍ
         st.image(logo, width=70)
     else:
         st.markdown('<div style="width:70px; height:70px; background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:12px; border:2px solid #38bdf8;"></div>', unsafe_allow_html=True)
