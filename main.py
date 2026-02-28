@@ -64,18 +64,20 @@ def subir_a_drive(file_path, file_name):
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
 
+# --- NUEVO: Estado para novedades vistas y clave de administración ---
+if 'novedades_vistas' not in st.session_state:
+    st.session_state.novedades_vistas = {st.session_state.historial_novedades[0]["id"]}  # La primera ya se considera vista
+
+if 'pass_novedades_valida' not in st.session_state:
+    st.session_state.pass_novedades_valida = False
+
 # --- INICIALIZAR ESTADOS DE SESIÓN PARA CLAVES Y CHECKBOXES ---
 if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
 if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
-if 'pass_novedades_valida' not in st.session_state: st.session_state.pass_novedades_valida = False
 
 # Estados exclusivos para checkboxes
 if 'faba_check' not in st.session_state: st.session_state.faba_check = True
 if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
-
-# Estado para novedades vistas
-if 'novedades_vistas' not in st.session_state:
-    st.session_state.novedades_vistas = set()
 
 # --- CALLBACKS PARA CHECKBOXES EXCLUSIVOS ---
 def toggle_faba():
@@ -105,10 +107,8 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 2rem !important; }
-.header-master { text-align: center; margin-bottom: 20px; }
-.titulo-mini { font-weight: 800; font-size: 1.6rem; color: #ffffff !important; }
 
-/* Estilos para el header con notificaciones */
+/* NUEVOS ESTILOS PARA HEADER CON NOVEDADES */
 .header-container {
     display: flex;
     justify-content: space-between;
@@ -123,7 +123,13 @@ input { color: #000000 !important; font-weight: bold !important; }
     gap: 10px;
     align-items: center;
 }
-.notificacion-btn {
+.titulo-mini { 
+    font-weight: 800; 
+    font-size: 1.6rem; 
+    color: #ffffff !important; 
+    margin: 0;
+}
+.boton-novedad {
     background-color: #ff4b4b;
     color: white;
     border: none;
@@ -134,14 +140,15 @@ input { color: #000000 !important; font-weight: bold !important; }
     animation: parpadeo 1.5s infinite;
     box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: 14px;
 }
 @keyframes parpadeo {
     0% { opacity: 1; background-color: #ff4b4b; }
     50% { opacity: 0.7; background-color: #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
     100% { opacity: 1; background-color: #ff4b4b; }
 }
-.lapiz-btn {
-    background-color: rgba(30, 41, 59, 0.8);
+.boton-lapiz {
+    background-color: rgba(30, 41, 59, 0.9);
     color: white;
     border: 2px solid #38bdf8;
     border-radius: 10px;
@@ -150,15 +157,9 @@ input { color: #000000 !important; font-weight: bold !important; }
     font-size: 1.2rem;
     transition: all 0.3s;
 }
-.lapiz-btn:hover {
+.boton-lapiz:hover {
     background-color: #38bdf8;
     color: black;
-}
-.popover-clave {
-    background-color: #1e293b;
-    border: 2px solid #38bdf8;
-    border-radius: 10px;
-    padding: 15px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -187,49 +188,96 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CON NOVEDADES Y LÁPIZ =================
+# ================= HEADER PERSONALIZADO CON NOVEDADES =================
 # Verificar si hay novedades no vistas
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
-hay_novedad_no_vista = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
+hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
 
-# Header personalizado con botón de novedades y lápiz
-st.markdown("""
-<div class="header-container">
-    <div class="header-left">
-        <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
-    </div>
-    <div class="header-right">
-""", unsafe_allow_html=True)
+# Crear el header personalizado
+st.markdown('<div class="header-container">', unsafe_allow_html=True)
+st.markdown('<div class="header-left">', unsafe_allow_html=True)
+st.markdown('<h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('<div class="header-right">', unsafe_allow_html=True)
 
-# Columna para el botón de novedades (solo si hay novedad no vista)
-if hay_novedad_no_vista:
-    if st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header", help="¡Hay una nueva novedad disponible!"):
-        st.session_state.mostrar_novedades = True
-else:
-    st.markdown('<div style="width: 0;"></div>', unsafe_allow_html=True)
+# Columna para botón de novedad (solo si hay novedades nuevas)
+if hay_novedades_nuevas:
+    if st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header"):
+        st.session_state.expandir_novedades = True
 
-# Columna para el lápiz de administración
-col_lapiz = st.columns([0.1])[0]
-with col_lapiz:
-    pop_admin = st.popover("✏️")
-    with pop_admin:
-        st.markdown('<div class="popover-clave">', unsafe_allow_html=True)
-        st.markdown("### Clave Administrador")
-        if not st.session_state.pass_novedades_valida:
-            with st.form("form_novedades"):
-                cl_admin_in = st.text_input("Ingrese Clave:", type="password")
-                if st.form_submit_button("OK"):
-                    if cl_admin_in == "*":
-                        st.session_state.pass_novedades_valida = True
-                        st.rerun()
-                    else:
-                        st.error("Clave incorrecta")
-        else:
-            st.success("✅ Administrador Habilitado")
-        st.markdown('</div>', unsafe_allow_html=True)
+# Columna para lápiz de administración de novedades (INDEPENDIENTE)
+popover_novedades = st.popover("✏️", key="lapiz_novedades")
 
-st.markdown('</div></div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("---")
+
+# ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
+with popover_novedades:
+    st.markdown("### Clave Administración")
+    if not st.session_state.pass_novedades_valida:
+        with st.form("form_novedades_admin"):
+            cl_admin = st.text_input("Ingrese Clave:", type="password")
+            if st.form_submit_button("OK"):
+                if cl_admin == "*":
+                    st.session_state.pass_novedades_valida = True
+                    st.rerun()
+                else:
+                    st.error("Clave incorrecta")
+    else:
+        st.success("✅ Acceso concedido")
+        st.markdown("---")
+        st.write("### Administrar Novedades")
+        
+        # Opciones de administración
+        accion = st.radio("Acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
+        
+        if accion == "➕ Agregar nueva":
+            with st.form("nueva_novedad_form"):
+                m = st.text_area("Nuevo comunicado:")
+                uploaded_file = st.file_uploader("Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
+                
+                if st.form_submit_button("PUBLICAR"):
+                    drive_link = ""
+                    if uploaded_file is not None:
+                        temp_path = f"temp_{uploaded_file.name}"
+                        with open(temp_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        drive_link = subir_a_drive(temp_path, uploaded_file.name)
+                        os.remove(temp_path)
+                    
+                    st.session_state.historial_novedades.insert(0, {
+                        "id": str(time.time()), 
+                        "mensaje": m, 
+                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "archivo_link": drive_link
+                    })
+                    st.success("¡Publicado!")
+                    st.rerun()
+        
+        elif accion == "✏️ Editar existente":
+            if st.session_state.historial_novedades:
+                # Selector de novedad a editar
+                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
+                idx_editar = st.selectbox("Seleccionar novedad:", range(len(opciones)), format_func=lambda x: opciones[x])
+                
+                novedad = st.session_state.historial_novedades[idx_editar]
+                with st.form("editar_novedad_form"):
+                    nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
+                    if st.form_submit_button("GUARDAR CAMBIOS"):
+                        st.session_state.historial_novedades[idx_editar]['mensaje'] = nuevo_mensaje
+                        st.success("¡Actualizado!")
+                        st.rerun()
+        
+        elif accion == "🗑️ Eliminar":
+            if st.session_state.historial_novedades:
+                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
+                idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
+                
+                if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
+                    st.session_state.historial_novedades.pop(idx_eliminar)
+                    st.success("¡Eliminado!")
+                    st.rerun()
 
 # ================== APLICACIÓN ==================
 
@@ -368,50 +416,21 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES
-with st.expander("📢 7. NOVEDADES", expanded=True):
+# 7. NOVEDADES (MODIFICADO: SIN BOTÓN ADMIN)
+with st.expander("📢 7. NOVEDADES", expanded=st.session_state.get('expandir_novedades', False)):
     st.write("### Últimos comunicados")
     
-    # Mostrar novedades
+    # Mostrar novedades y marcarlas como vistas
     for n in st.session_state.historial_novedades:
-        # Marcar como vista si el usuario ve esta novedad
+        # Marcar como vista
         if n["id"] not in st.session_state.novedades_vistas:
             st.session_state.novedades_vistas.add(n["id"])
-            
+        
+        # Mostrar la novedad
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
         if n.get("archivo_link"):
             st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="color: #38bdf8; font-weight: bold; text-decoration: none;">📂 Ver archivo en Drive</a>', unsafe_allow_html=True)
     
-    # --- PANEL ADMINISTRADOR (solo visible si la clave es válida) ---
-    if st.session_state.pass_novedades_valida:
-        st.markdown("---")
-        st.write("### ✍️ Publicar Nueva Novedad")
-        with st.form("n_form", clear_on_submit=True):
-            m = st.text_area("Nuevo comunicado:")
-            uploaded_file = st.file_uploader("Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
-            
-            if st.form_submit_button("PUBLICAR"):
-                drive_link = ""
-                if uploaded_file is not None:
-                    # Guardar temporalmente
-                    temp_path = f"temp_{uploaded_file.name}"
-                    with open(temp_path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    
-                    # Subir a Drive
-                    drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                    
-                    # Borrar temporal
-                    os.remove(temp_path)
-                
-                nueva_novedad = {
-                    "id": str(time.time()), 
-                    "mensaje": m, 
-                    "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                    "archivo_link": drive_link
-                }
-                st.session_state.historial_novedades.insert(0, nueva_novedad)
-                # Resetear el estado de clave para que pida de nuevo la próxima vez (opcional)
-                # st.session_state.pass_novedades_valida = False
-                st.success("¡Publicado exitosamente!")
-                st.rerun()
+    # Resetear el flag de expandir
+    if st.session_state.get('expandir_novedades', False):
+        st.session_state.expandir_novedades = False
