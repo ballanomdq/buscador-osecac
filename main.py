@@ -5,6 +5,8 @@ import time
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials as OAuthCredentials
+from google.auth.transport.requests import Request
 # --- IMPORTACIONES PARA DRIVE ---
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -25,7 +27,7 @@ st.set_page_config(
 )
 
 # --- CONFIGURACIÓN DRIVE ---
-FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
+FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"  # Cambialo si usás otra carpeta
 
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
@@ -43,64 +45,63 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (CON LOGS) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE USANDO TUS TOKENS PERSONALES (OAuth) ---
 def subir_a_drive(file_path, file_name):
     try:
-        scope = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
-        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
+        # Tus tokens reales del OAuth Playground
+        REFRESH_TOKEN = "1//04wm475WZT5NrCgYIARAAGAQSNwF-L9IrV1Wnk6hUFxlYb0yoyKnATPFKvPc_2QCZ4bkqmuWnBVreI6v5DFKr-u8q6lCJfZFLwOg"
+        ACCESS_TOKEN = "ya29.a0ATkoCc5F9aJgCfAbzdQvZYGc_wCBLgiWOyTwOjWDj1vsMAPc8stwgbHXOhxPdcghSqKXJx8mtmp_WA6kZAO_2aENwpQE-3CzcHvTiYkUTKdDfxxE5BddS7QrB0SESbasc9vshiLDAdq6wErDbgIAiU835mB7hGX-LDCSVKD4L68cpFhHco6eeRdHVRnC2kJ4D7fkuS8aCgYKARgSARQSFQHGX2MiLUw0IpD5eh_zyfX7QeL-og0206"
+
+        # Credenciales OAuth con tu cuenta personal
+        creds = OAuthCredentials(
+            token=ACCESS_TOKEN,
+            refresh_token=REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id="407408718192.apps.googleusercontent.com",
+            client_secret="",  # No necesario con refresh token
+            scopes=["https://www.googleapis.com/auth/drive"]
+        )
+
+        # Refrescar automáticamente si expiró
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+
         service = build('drive', 'v3', credentials=creds)
-       
+
         file_metadata = {
             'name': file_name,
             'parents': [FOLDER_ID]
         }
-       
+
         media = MediaFileUpload(file_path, resumable=True)
-       
-        log_entry = f"[{datetime.now().strftime('%d/%m/%Y %H:%M:%S')}] Intentando subir: {file_name}\n"
-        log_entry += f"   Cuenta: {st.secrets['gcp']['client_email']}\n"
-        log_entry += f"   Carpeta ID: {FOLDER_ID}\n"
-        st.session_state.upload_log += log_entry
-       
+
+        st.info(f"Subiendo {file_name} con tu cuenta personal...")
+
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id, webViewLink'
         ).execute()
-       
+
+        # Hacer público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
                 body={'type': 'anyone', 'role': 'reader'}
             ).execute()
-            st.session_state.upload_log += "   → Archivo hecho público OK\n"
-        except Exception as perm_err:
-            st.session_state.upload_log += f"   → Permiso público falló (no crítico): {str(perm_err)}\n"
-       
-        success_log = f"   → ÉXITO! ID: {file.get('id')} | Link: {file.get('webViewLink')}\n"
-        st.session_state.upload_log += success_log + "-"*60 + "\n"
-        st.success("Archivo subido correctamente")
+        except:
+            pass
+
+        st.session_state.upload_log += f"[{datetime.now().strftime('%H:%M:%S')}] ÉXITO subiendo {file_name} - Link: {file.get('webViewLink')}\n"
         return file.get('webViewLink')
-       
-    except HttpError as e:
-        error_details = str(e)
-        error_log = f"   → ERROR HTTP: {error_details}\n"
-        if "403" in error_details:
-            error_log += "   → 403 Forbidden: La cuenta NO tiene permiso de escritura\n"
-            error_log += f"      Verificar que {st.secrets['gcp']['client_email']} tenga rol EDITOR\n"
-            error_log += "      (Compartir carpeta → agregar cuenta → Editor → Notificar personas)\n"
-        elif "400" in error_details:
-            error_log += "   → 400 Bad Request: Posible FOLDER_ID inválido\n"
-        st.session_state.upload_log += error_log + "-"*60 + "\n"
-        st.error(f"Error al subir: {error_details}")
-        return None
+
     except Exception as e:
-        general_error = f"   → ERROR GENERAL: {str(e)} ({type(e).__name__})\n"
-        st.session_state.upload_log += general_error + "-"*60 + "\n"
-        st.error(f"Error inesperado: {str(e)}")
+        error_msg = f"Error al subir con OAuth: {str(e)}"
+        st.session_state.upload_log += f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}\n"
+        st.error(error_msg)
         return None
 
-# Mostrar logs (ahora es seguro porque ya existe)
+# Logs visibles
 with st.expander("🔍 Logs de subida a Drive (diagnóstico)", expanded=False):
     st.code(st.session_state.upload_log, language="text")
     if st.button("Limpiar logs"):
@@ -283,10 +284,8 @@ st.markdown("""
     <div style="text-align: center; max-width: 700px; width: 100%;">
 """, unsafe_allow_html=True)
 
-# Título arriba
 st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Logo debajo del título
 st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
@@ -297,7 +296,6 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones
 st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
