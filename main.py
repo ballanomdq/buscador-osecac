@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
+# --- IMPORTACIONES PARA DRIVE ---
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
@@ -58,6 +59,7 @@ def subir_a_drive(file_path, file_name):
             fields='id, webViewLink'
         ).execute()
        
+        # Hacer el archivo público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
@@ -109,7 +111,7 @@ def toggle_osecac():
 def abrir_novedades():
     st.session_state.novedades_expandido = True
 
-# ================== CSS ==================
+# ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
@@ -124,7 +126,36 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 1rem !important; }
-/* Botones y popovers */
+/* ESTILOS PARA HEADER CENTRADO */
+.header-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 10px;
+}
+.titulo-principal {
+    font-weight: 800;
+    font-size: 2.5rem;
+    color: #ffffff;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    margin-bottom: 10px;
+}
+.logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+.botones-container {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+/* ESTILOS UNIFICADOS PARA TODOS LOS BOTONES Y POPOVERS */
 .stButton > button, div[data-testid="baseButton-secondary"] {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -143,17 +174,24 @@ input { color: #000000 !important; font-weight: bold !important; }
     transform: scale(1.05) !important;
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
 }
+/* Estilo especial para el botón de novedad (rojo) */
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
     box-shadow: 0 0 15px rgba(255, 75, 75, 0.5) !important;
     animation: parpadeo 1.2s infinite;
 }
+.stButton > button:has(span:contains("🔴")):hover {
+    background: #ff0000 !important;
+    color: white !important;
+    transform: scale(1.05) !important;
+}
 @keyframes parpadeo {
     0% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
     50% { opacity: 0.9; box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); transform: scale(1.02); }
     100% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
 }
+/* Estilo para popovers (lápices) */
 div[data-testid="stPopover"] > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -169,6 +207,7 @@ div[data-testid="stPopover"] > button:hover {
     color: black !important;
     transform: scale(1.05) !important;
 }
+/* ESTILOS PARA NOVEDADES EXPANDIDAS */
 div[data-testid="stExpander"][aria-expanded="true"] {
     background: linear-gradient(145deg, #1e293b, #0f172a);
     border-radius: 20px;
@@ -204,7 +243,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER FINAL - CENTRADO Y AJUSTADO =================
+# ================= HEADER CENTRADO FORZADO =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -214,60 +253,27 @@ st.markdown("""
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    padding: 1.8rem 0 1.2rem 0;
-    box-sizing: border-box;
+    padding: 1.5rem 0;
 ">
-    <div style="
-        text-align: center;
-        max-width: 680px;
-        width: 100%;
-    ">
+    <div style="text-align: center; max-width: 700px; width: 100%;">
 """, unsafe_allow_html=True)
 
-# Título (ligeramente más pequeño para mejor proporción)
-st.markdown("""
-<h1 style="
-    font-weight: 800;
-    font-size: 2.6rem;
-    color: #ffffff;
-    margin: 0.3rem 0 0.9rem 0;
-    text-shadow: 2px 2px 8px rgba(0,0,0,0.6);
-    line-height: 1.1;
-    text-align: center;
-">OSECAC MDP / AGENCIAS</h1>
-""", unsafe_allow_html=True)
+# Título PRIMERO (arriba)
+st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Logo debajo, achicado a 130 px
-st.markdown('<div style="margin: 0.4rem 0 1.4rem 0;">', unsafe_allow_html=True)
+# Logo DEBAJO del título, más chico
+st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
-        st.image('logo original.jpg', width=130)
+        st.image('logo original.jpg', width=160)
     else:
-        st.markdown("""
-            <div style="
-                width: 130px;
-                height: 65px;
-                background: rgba(30, 41, 59, 0.5);
-                border-radius: 14px;
-                border: 2px solid #38bdf8;
-                margin: 0 auto;
-            "></div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Botones
-st.markdown("""
-<div style="
-    display: flex;
-    gap: 18px;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin: 0.6rem 0 1.2rem 0;
-">
-""", unsafe_allow_html=True)
+st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
@@ -284,9 +290,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("<hr style='border-color: rgba(56,189,248,0.3); margin: 0.8rem 0;'>", unsafe_allow_html=True)
+st.markdown("---")
 
-# ================= POPOVER DE ADMINISTRACIÓN =================
+# ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
 with popover_novedades:
     st.markdown("### 🔐 Clave Administración")
    
@@ -373,7 +379,7 @@ with popover_novedades:
                     time.sleep(1)
                     st.rerun()
 
-# Resto del código (expanders) sin cambios
+# ================== APLICACIÓN ==================
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
@@ -454,6 +460,76 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
-# (el resto de los expanders siguen iguales, no los copio aquí para no alargar más el mensaje)
+# 2. PEDIDOS
+with st.expander("📝 2. PEDIDOS", expanded=False):
+    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
-# Si necesitas que pegue los expanders restantes también, avísame y te los agrego.
+# 3. PÁGINAS ÚTILES
+with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
+    cols = st.columns(2)
+    with cols[0]:
+        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
+        st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
+        st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+    with cols[1]:
+        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+        st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
+        st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
+
+# 4. GESTIONES / DATOS
+with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
+    bus_t = st.text_input("Buscá trámites...", key="bus_t")
+    if bus_t and not df_tramites.empty:
+        res = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(bus_t.lower(), na=False)]
+        for i, row in res.iterrows():
+            st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
+
+# 5. PRÁCTICAS Y ESPECIALISTAS
+with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
+    bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
+    if bus_p:
+        rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
+        for i, row in rp.iterrows():
+            st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+        re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
+        for i, row in re.iterrows():
+            st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+
+# 6. AGENDAS / MAILS
+with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
+    bus_a = st.text_input("Buscá contactos...", key="bus_a")
+    if bus_a and not df_agendas.empty:
+        res = df_agendas[df_agendas.astype(str).apply(lambda r: r.str.contains(bus_a, case=False, na=False).any(), axis=1)]
+        for i, row in res.iterrows():
+            datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
+            st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+
+# 7. NOVEDADES
+with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
+    st.markdown("## 📢 Últimos Comunicados")
+    st.markdown("---")
+   
+    for n in st.session_state.historial_novedades:
+        if n["id"] not in st.session_state.novedades_vistas:
+            st.session_state.novedades_vistas.add(n["id"])
+       
+        st.markdown(f"""
+        <div style="background: linear-gradient(145deg, #1e293b, #0f172a);
+                    border-left: 8px solid #ff4b4b;
+                    border-radius: 16px;
+                    padding: 25px;
+                    margin: 20px 0;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 10px;">📅 {n["fecha"]}</div>
+            <div style="color: white; font-size: 1.2rem; line-height: 1.6; white-space: pre-wrap;">{n["mensaje"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+       
+        if n.get("archivo_link"):
+            st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
+   
+    if st.button("❌ Cerrar Novedades"):
+        st.session_state.novedades_expandido = False
+        st.rerun()
