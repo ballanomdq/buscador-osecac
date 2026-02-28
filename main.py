@@ -19,12 +19,11 @@ st.set_page_config(
 )
 
 # --- CONFIGURACIÓN DRIVE ---
-FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"  # Tu carpeta
+FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (con tu cuenta personal vía OAuth) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE (OAuth - tu cuenta personal) ---
 def subir_a_drive(file_path, file_name):
     try:
-        # Tus tokens OAuth (cuenta personal)
         REFRESH_TOKEN = "1//04wm475WZT5NrCgYIARAAGAQSNwF-L9IrV1Wnk6hUFxlYb0yoyKnATPFKvPc_2QCZ4bkqmuWnBVreI6v5DFKr-u8q6lCJfZFLwOg"
         ACCESS_TOKEN = "ya29.a0ATkoCc5F9aJgCfAbzdQvZYGc_wCBLgiWOyTwOjWDj1vsMAPc8stwgbHXOhxPdcghSqKXJx8mtmp_WA6kZAO_2aENwpQE-3CzcHvTiYkUTKdDfxxE5BddS7QrB0SESbasc9vshiLDAdq6wErDbgIAiU835mB7hGX-LDCSVKD4L68cpFhHco6eeRdHVRnC2kJ4D7fkuS8aCgYKARgSARQSFQHGX2MiLUw0IpD5eh_zyfX7QeL-og0206"
 
@@ -102,7 +101,6 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 1rem !important; }
-/* Botones */
 .stButton > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -111,14 +109,12 @@ input { color: #000000 !important; font-weight: bold !important; }
     padding: 8px 20px !important;
     font-size: 1rem !important;
     font-weight: bold !important;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
 }
 .stButton > button:hover {
     background: #38bdf8 !important;
     color: black !important;
     transform: scale(1.05) !important;
 }
-/* Botón novedad rojo */
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
@@ -195,7 +191,10 @@ popover_novedades = st.popover("✏️ Cargar Novedades")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('</div></div>', unsafe_allow_html=True)
+st.markdown("""
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -367,7 +366,51 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
-# (el resto de expanders sigue igual: 2 PEDIDOS, 3 PÁGINAS ÚTILES, 4 GESTIONES, 5 PRÁCTICAS, 6 AGENDAS, 7 NOVEDADES)
+# 2. PEDIDOS
+with st.expander("📝 2. PEDIDOS", expanded=False):
+    st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
+    st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
+    st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+
+# 3. PÁGINAS ÚTILES
+with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
+    cols = st.columns(2)
+    with cols[0]:
+        st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
+        st.link_button("🩺 GMS WEB", "https://www.gmssa.com/sistema-de-administracion-de-empresas-de-salud-s-a-e-s/")
+        st.link_button("🆔 ANSES - CODEM", "https://servicioswww.anses.gob.ar/ooss2/")
+    with cols[1]:
+        st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
+        st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
+        st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
+
+# 4. GESTIONES / DATOS
+with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
+    bus_t = st.text_input("Buscá trámites...", key="bus_t")
+    if bus_t and not df_tramites.empty:
+        res = df_tramites[df_tramites['TRAMITE'].str.lower().str.contains(bus_t.lower(), na=False)]
+        for i, row in res.iterrows():
+            st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
+
+# 5. PRÁCTICAS Y ESPECIALISTAS
+with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
+    bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
+    if bus_p:
+        rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
+        for i, row in rp.iterrows():
+            st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+        re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
+        for i, row in re.iterrows():
+            st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+
+# 6. AGENDAS / MAILS
+with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
+    bus_a = st.text_input("Buscá contactos...", key="bus_a")
+    if bus_a and not df_agendas.empty:
+        res = df_agendas[df_agendas.astype(str).apply(lambda r: r.str.contains(bus_a, case=False, na=False).any(), axis=1)]
+        for i, row in res.iterrows():
+            datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
+            st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
 # 7. NOVEDADES
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
