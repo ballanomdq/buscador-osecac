@@ -8,8 +8,10 @@ from google.oauth2.service_account import Credentials
 # --- IMPORTACIONES PARA DRIVE ---
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from googleapiclient.errors import HttpError
 import os
 from PIL import Image
+import io
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -24,7 +26,7 @@ FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
     try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets"]
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         client = gspread.authorize(creds)
         sh = client.open_by_url(sheet_url)
@@ -37,29 +39,78 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE ---
+# --- FUNCIÓN PARA SUBIR A DRIVE CORREGIDA ---
 def subir_a_drive(file_path, file_name):
     try:
-        scope = ["https://www.googleapis.com/auth/drive"]
+        # Configurar correctamente los scopes
+        scope = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         service = build('drive', 'v3', credentials=creds)
         
+        # Verificar que la carpeta existe y tenemos acceso
+        try:
+            folder_check = service.files().get(fileId=FOLDER_ID, fields='id, name').execute()
+            print(f"Carpeta encontrada: {folder_check.get('name')}")
+        except Exception as e:
+            st.error(f"Error al acceder a la carpeta: {e}")
+            return None
+        
+        # Configurar metadata del archivo
         file_metadata = {
             'name': file_name,
             'parents': [FOLDER_ID]
         }
-        media = MediaFileUpload(file_path, resumable=True)
         
+        # Crear el media upload
+        media = MediaFileUpload(file_path, resumable=True, chunksize=1024*1024)
+        
+        # Subir el archivo
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id, webViewLink'
         ).execute()
         
+        # Hacer el archivo público (opcional)
+        try:
+            service.permissions().create(
+                fileId=file.get('id'),
+                body={'type': 'anyone', 'role': 'reader'}
+            ).execute()
+        except:
+            pass  # Si no se puede hacer público, igual funciona con el link
+        
         return file.get('webViewLink')
-    except Exception as e:
-        st.error(f"Error al subir a Drive: {e}")
+        
+    except HttpError as e:
+        error_details = str(e)
+        if "403" in error_details:
+            st.error("❌ Error de permisos: Asegúrate de haber compartido la carpeta con el correo de la cuenta de servicio")
+            st.info("📧 Comparte la carpeta en Drive con: " + st.secrets["gcp"]["client_email"])
+        else:
+            st.error(f"Error al subir a Drive: {error_details}")
         return None
+    except Exception as e:
+        st.error(f"Error inesperado: {str(e)}")
+        return None
+
+# --- FUNCIÓN PARA VERIFICAR CONFIGURACIÓN DE DRIVE ---
+def verificar_drive_config():
+    try:
+        scope = ["https://www.googleapis.com/auth/drive"]
+        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
+        service = build('drive', 'v3', credentials=creds)
+        
+        # Intentar listar archivos en la carpeta
+        results = service.files().list(
+            q=f"'{FOLDER_ID}' in parents",
+            pageSize=1,
+            fields="files(id, name)"
+        ).execute()
+        
+        return True, "✅ Conexión a Drive OK"
+    except Exception as e:
+        return False, f"❌ Error: {str(e)}"
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
@@ -231,21 +282,23 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CON LOGO (SIN DUPLICAR) =================
+# ================= HEADER CON LOGO =================
 st.markdown('<div class="header-container">', unsafe_allow_html=True)
 st.markdown('<div class="logo-titulo-container">', unsafe_allow_html=True)
 
 # Mostrar logo
 try:
-    logo = Image.open('logo.jpg')
-    st.image(logo, width=70)
+    if os.path.exists('logo.jpg'):
+        logo = Image.open('logo.jpg')
+        st.image(logo, width=70)
+    else:
+        st.markdown('<div style="width:70px; height:70px; background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:12px; border:2px solid #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 24px;">📋</div>', unsafe_allow_html=True)
 except:
-    # Si no hay logo, mostrar un placeholder
-    st.markdown('<div style="width:70px; height:70px; background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:12px; border:2px solid #38bdf8;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="width:70px; height:70px; background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:12px; border:2px solid #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 24px;">📋</div>', unsafe_allow_html=True)
 
-# Título (UNA SOLA VEZ)
+# Título
 st.markdown('<h1 class="titulo-principal">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)  # Cierra logo-titulo-container
+st.markdown('</div>', unsafe_allow_html=True)
 
 # Botones a la derecha
 st.markdown('<div class="botones-container">', unsafe_allow_html=True)
@@ -256,19 +309,25 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 
 # Botón de novedad (solo si hay novedades nuevas)
 if hay_novedades_nuevas:
-    if st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header", on_click=abrir_novedades):
-        pass
+    st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header", on_click=abrir_novedades)
 
 # Lápiz de administración
 popover_novedades = st.popover("✏️ ADMIN")
 
-st.markdown('</div>', unsafe_allow_html=True)  # Cierra botones-container
-st.markdown('</div>', unsafe_allow_html=True)  # Cierra header-container
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
 with popover_novedades:
     st.markdown("### 🔐 Clave Administración")
+    
+    # Verificar configuración de Drive (solo para debug)
+    drive_ok, drive_msg = verificar_drive_config()
+    if not drive_ok:
+        st.warning("⚠️ " + drive_msg)
+        st.info("📧 Comparte la carpeta con: " + st.secrets["gcp"]["client_email"])
+    
     if not st.session_state.pass_novedades_valida:
         with st.form("form_novedades_admin"):
             cl_admin = st.text_input("Ingrese Clave:", type="password")
@@ -298,25 +357,38 @@ with popover_novedades:
                     cancel = st.form_submit_button("❌ CANCELAR")
                 
                 if submit:
-                    drive_link = ""
-                    if uploaded_file is not None:
-                        temp_path = f"temp_{uploaded_file.name}"
-                        with open(temp_path, "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                        os.remove(temp_path)
-                    
-                    nueva_novedad = {
-                        "id": str(time.time()), 
-                        "mensaje": m, 
-                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "archivo_link": drive_link
-                    }
-                    st.session_state.historial_novedades.insert(0, nueva_novedad)
-                    st.session_state.novedades_vistas = set()  # Resetear vistas
-                    st.success("✅ ¡Publicado exitosamente!")
-                    time.sleep(1)
-                    st.rerun()
+                    if not m.strip():
+                        st.error("❌ El mensaje no puede estar vacío")
+                    else:
+                        drive_link = ""
+                        if uploaded_file is not None:
+                            with st.spinner("Subiendo archivo a Drive..."):
+                                # Guardar temporalmente
+                                temp_path = f"temp_{uploaded_file.name}"
+                                with open(temp_path, "wb") as f:
+                                    f.write(uploaded_file.getbuffer())
+                                
+                                # Subir a Drive
+                                drive_link = subir_a_drive(temp_path, uploaded_file.name)
+                                
+                                # Borrar temporal
+                                if os.path.exists(temp_path):
+                                    os.remove(temp_path)
+                            
+                            if not drive_link:
+                                st.warning("⚠️ No se pudo subir el archivo, pero la novedad se publicará sin él")
+                        
+                        nueva_novedad = {
+                            "id": str(time.time()), 
+                            "mensaje": m, 
+                            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "archivo_link": drive_link
+                        }
+                        st.session_state.historial_novedades.insert(0, nueva_novedad)
+                        st.session_state.novedades_vistas = set()  # Resetear vistas
+                        st.success("✅ ¡Publicado exitosamente!")
+                        time.sleep(1)
+                        st.rerun()
         
         elif accion == "✏️ Editar existente":
             if st.session_state.historial_novedades:
