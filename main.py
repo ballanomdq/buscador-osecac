@@ -55,13 +55,10 @@ def subir_a_drive(file_path, file_name):
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
-    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
-if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
-if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
-if 'pass_jefe_valida' not in st.session_state: st.session_state.pass_jefe_valida = False
+    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
 if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
 
-# ================== CSS MODERNO + ANIMACIONES ==================
+# ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
 /* Animación Luz Parpadeante */
@@ -79,26 +76,26 @@ st.markdown("""
     animation: parpadeo 1s infinite;
     margin-right: 10px;
 }
-/* Ocultar elementos de streamlit */
-[data-testid="stSidebar"], [data-testid="stSidebarNav"],
-#MainMenu, footer, header { display: none !important; }
 
-/* Fondo y estilos generales */
-.stApp { background-color: #0f172a !important; color: #e2e8f0 !important; }
-.stMarkdown p, label { color: #ffffff !important; }
-.block-container { max-width: 1100px !important; padding-top: 1rem !important; }
-
-/* Tarjetas (Fichas) */
-.ficha {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-    border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important;
+/* Ocultar menú y elementos de streamlit */
+[data-testid="stSidebar"], 
+[data-testid="stSidebarNav"],
+#MainMenu, footer, header {
+    display: none !important;
 }
-.ficha-novedad { border-left: 6px solid #ff4b4b; }
-.ficha-seleccionada { border: 2px solid #ff4b4b !important; }
 
+/* Fondo moderno profesional */
+.stApp {
+    background-color: #0f172a !important;
+    color: #e2e8f0 !important;
+}
+
+/* Texto general y labels */
+.stMarkdown p, label {
+    color: #ffffff !important;
+}
+
+/* ========== EXPANDERS ========== */
 div[data-testid="stExpander"] details summary {
     background-color: rgba(30, 41, 59, 0.9) !important;
     color: #ffffff !important;
@@ -106,6 +103,87 @@ div[data-testid="stExpander"] details summary {
     border: 2px solid rgba(56, 189, 248, 0.4) !important;
     padding: 14px 18px !important;
     font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Hover azul */
+div[data-testid="stExpander"] details summary:hover {
+    background-color: rgba(56, 189, 248, 0.25) !important;
+    border-color: #38bdf8 !important;
+}
+
+/* Cuando está abierto → BORDE ROJO DESTACADO */
+div[data-testid="stExpander"] details[open] summary {
+    background-color: rgba(56, 189, 248, 0.35) !important;
+    border: 2px solid #ff4b4b !important;
+    box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important;
+}
+
+/* Eliminar fondo blanco interno */
+div[data-testid="stExpander"] {
+    background: transparent !important;
+    border: none !important;
+}
+
+/* Tarjetas (Fichas) */
+.ficha {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 12px;
+    color: #ffffff !important;
+}
+
+.ficha-tramite { border-left: 6px solid #fbbf24; }
+.ficha-agenda { border-left: 6px solid #38bdf8; }
+.ficha-practica { border-left: 6px solid #10b981; }
+.ficha-especialista { border-left: 6px solid #8b5cf6; }
+.ficha-novedad { border-left: 6px solid #ff4b4b; }
+
+/* Botones (Links) */
+.stLinkButton a {
+    background-color: rgba(30, 41, 59, 0.8) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(56,189,248,0.5) !important;
+    border-radius: 10px !important;
+    transition: all 0.2s ease !important;
+}
+
+.stLinkButton a:hover {
+    background-color: #38bdf8 !important;
+    color: #000000 !important;
+}
+
+/* Inputs de búsqueda */
+div[data-baseweb="input"] {
+    background-color: #ffffff !important;
+    border: 2px solid #38bdf8 !important;
+    border-radius: 10px !important;
+}
+
+input {
+    color: #000000 !important;
+    font-weight: bold !important;
+}
+
+/* Contenedor principal */
+.block-container {
+    max-width: 1100px !important;
+    padding-top: 1rem !important;
+}
+
+.header-master {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.titulo-mini {
+    font-weight: 800;
+    font-size: 1.6rem;
+    color: #ffffff !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -134,43 +212,43 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-# ================= HEADER COMPLETO CON LUZ ROJA =================
-col_h1, col_h2 = st.columns([1, 1])
+# ================= HEADER COMPLETO =================
+col1, col2, col3 = st.columns([1, 1, 1])
 
-with col_h1:
-    st.markdown("## 🏥 OSECAC MDP / AGENCIAS")
-
-with col_h2:
+with col1: st.write("")
+with col2:
+    st.markdown("""
+    <div class="header-master">
+        <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
+    </div>
+    """, unsafe_allow_html=True)
+    try:
+        with open("LOGO1.png", "rb") as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        st.markdown(f"""
+            <center>
+                <img src="data:image/png;base64,{img_b64}" 
+                style="width:90px; margin-bottom:10px;">
+            </center>
+        """, unsafe_allow_html=True)
+    except: pass
+with col3:
+    # --- ÁREA DE NOTIFICACIONES Y ADMIN ---
     st.markdown("""
         <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
             <span class="luz-roja"></span> 
             <span style="color: white; font-weight: bold;">NUEVA NOVEDAD</span>
         </div>
     """, unsafe_allow_html=True)
-    
-    c_btn1, c_btn2 = st.columns([1, 0.2])
-    
+    c_btn1, c_btn2 = st.columns([0.6, 0.4])
     with c_btn1:
-        if st.button("Ver Novedades", key="ver_nov"):
-            st.session_state.show_dialog = True
-            
+        if st.button("Ver Novedades", key="ver_nov"): st.session_state.show_dialog = True
     with c_btn2:
-        pop_j = st.popover("✏️")
-        pop_j.markdown("### Administrador")
-        if not st.session_state.pass_jefe_valida:
-            with pop_j.form("form_jefe"):
-                cl_j = st.text_input("Clave:", type="password")
-                if st.form_submit_button("OK"):
-                    if cl_j == "*":
-                        st.session_state.pass_jefe_valida = True
-                        st.rerun()
-                    else: st.error("Clave incorrecta")
-        else:
-            pop_j.success("Admin Activo")
-            with pop_j.form("publicar_form"):
-                n_msg = st.text_area("Comunicado:")
-                uploaded_file = st.file_uploader("Subir PDF o Imagen", type=["pdf", "png", "jpg", "jpeg"])
-                
+        pop_admin = st.popover("✍️ ADMINISTRADOR")
+        if pop_admin.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
+            with pop_admin.form("n_form", clear_on_submit=True):
+                m = st.text_area("Nuevo comunicado:")
+                uploaded_file = st.file_uploader("Subir archivo:", type=["pdf", "png", "jpg", "jpeg"])
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
                     if uploaded_file is not None:
@@ -181,13 +259,11 @@ with col_h2:
                     
                     st.session_state.historial_novedades.insert(0, {
                         "id": str(time.time()), 
-                        "mensaje": n_msg, 
+                        "mensaje": m, 
                         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "archivo_link": drive_link
                     })
-                    st.success("Publicado en Drive")
-                    time.sleep(1)
-                    st.rerun()
+                    st.success("Publicado"); time.sleep(1); st.rerun()
 
 st.markdown("---")
 
@@ -210,84 +286,59 @@ if st.session_state.get('show_dialog', False):
     
     mostrar_novedades()
 
-# ================== APLICACIÓN (Resto del código) ==================
+# ================== APLICACIÓN ==================
+
+# 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
+    # FILA: Lápiz - Check - Palabra
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
         pop_f = st.popover("✏️")
-        pop_f.markdown("### Clave FABA")
-        if not st.session_state.pass_f_valida:
-            with pop_f.form("form_faba"):
-                cl_f_in = st.text_input("Ingrese Clave:", type="password")
-                if st.form_submit_button("OK"):
-                    if cl_f_in == "*":
-                        st.session_state.pass_f_valida = True
-                        st.rerun()
-                    else: st.error("Clave incorrecta")
-        else: pop_f.success("✅ FABA Habilitado")
-
-    with c2: sel_faba = st.checkbox("FABA", value=True, key="chk_f")
+        cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
+    with c2:
+        sel_faba = st.checkbox("FABA", value=True, key="chk_f")
         
     with c3:
         pop_o = st.popover("✏️")
-        pop_o.markdown("### Clave OSECAC")
-        if not st.session_state.pass_o_valida:
-            with pop_o.form("form_osecac"):
-                cl_o_in = st.text_input("Ingrese Clave:", type="password")
-                if st.form_submit_button("OK"):
-                    if cl_o_in == "*":
-                        st.session_state.pass_o_valida = True
-                        st.rerun()
-                    else: st.error("Clave incorrecta")
-        else: pop_o.success("✅ OSECAC Habilitado")
-            
-    with c4: sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
+        cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
+    with c4:
+        sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
-    # Lógica selección y estilos
+    # Lógica de selección
     opcion = "OSECAC" if sel_osecac else "FABA"
-    
-    # Determinar si la edición está habilitada
-    edicion_habilitada = False
-    if sel_osecac and st.session_state.pass_o_valida:
-        edicion_habilitada = True
-        df_u = df_osecac_busq
-        url_u = URLs["osecac"]
-    elif not sel_osecac and st.session_state.pass_f_valida:
-        edicion_habilitada = True
-        df_u = df_faba
-        url_u = URLs["faba"]
-    else:
-        df_u = df_osecac_busq if sel_osecac else df_faba
-        url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
-
-    # Aplicar clase CSS si está seleccionado
-    clase_marcada = "ficha-seleccionada" if (sel_osecac or sel_faba) else ""
+    cl_actual = cl_o if sel_osecac else cl_f
+    df_u = df_osecac_busq if sel_osecac else df_faba
+    url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
     bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
     
     if bus_nom:
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
         for i, row in df_u[mask].iterrows():
-            st.markdown(f'<div class="ficha {clase_marcada}">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-            if edicion_habilitada: 
+            st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+            
+            # --- SECCIÓN DE EDICIÓN (CLAVE FABA/OSECAC) ---
+            if cl_actual == "TU_CONTRASENA_AQUI": 
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                     v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                     if st.button("Guardar Cambios", key=f"btn_{i}"):
                         if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                            st.success("¡Sincronizado!"); st.cache_data.clear(); st.rerun()
-            else: st.warning("⚠️ Ingrese clave (*) para editar.")
+                            st.success("¡Sincronizado!")
+                            st.cache_data.clear()
+                            st.rerun()
 
-# ... (Resto de los expanders igual) ...
+# 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
 
+# 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
     cols = st.columns(2)
     with cols[0]:
@@ -299,6 +350,7 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
+# 4. GESTIONES
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
@@ -306,16 +358,21 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
+# 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
+        # Búsqueda en Prácticas
         rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in rp.iterrows():
             st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+        
+        # Búsqueda en Especialistas
         re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
+# 6. AGENDAS
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
