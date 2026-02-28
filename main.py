@@ -17,6 +17,7 @@ st.set_page_config(
 )
 
 # --- CONFIGURACIÓN DRIVE ---
+# ID de la carpeta compartida donde se subirán los archivos
 FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w" 
 
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
@@ -35,16 +36,17 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE ---
+# --- FUNCIÓN PARA SUBIR A DRIVE (CORREGIDA) ---
 def subir_a_drive(file_path, file_name):
     try:
         scope = ["https://www.googleapis.com/auth/drive"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         service = build('drive', 'v3', credentials=creds)
         
+        # Se especifica el 'parents' para subir a la carpeta correcta
         file_metadata = {
             'name': file_name,
-            'parents': [FOLDER_ID]
+            'parents': [FOLDER_ID] 
         }
         media = MediaFileUpload(file_path, resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
@@ -262,7 +264,7 @@ with col3:
                     else:
                         st.error("Clave incorrecta")
         else:
-            # Una vez validad, se muestra el formulario de carga
+            # Una vez validada, se muestra el formulario de carga
             with pop_admin.form("form_carga_novedad", clear_on_submit=True):
                 st.markdown("### Publicar Novedad")
                 m = st.text_area("Comunicado:")
@@ -271,9 +273,14 @@ with col3:
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
                     if uploaded_file is not None:
+                        # Guardar temporalmente para subir
                         temp_path = f"temp_{uploaded_file.name}"
                         with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
+                        
+                        # Subir usando la función corregida
                         drive_link = subir_a_drive(temp_path, uploaded_file.name)
+                        
+                        # Borrar archivo temporal
                         os.remove(temp_path)
                     
                     st.session_state.historial_novedades.insert(0, {
@@ -305,7 +312,7 @@ if st.session_state.get('show_dialog', False):
     
     mostrar_novedades()
 
-# ================== APLICACIÓN (Resto igual) ==================
+# ================== APLICACIÓN ==================
 
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
