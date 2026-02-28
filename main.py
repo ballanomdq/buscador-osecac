@@ -5,9 +5,6 @@ import time
 from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-import os
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -16,13 +13,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- CONFIGURACIÓN DRIVE ---
-FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w" 
-
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
     try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        scope = ["https://www.googleapis.com/auth/spreadsheets"]
         creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         client = gspread.authorize(creds)
         sh = client.open_by_url(sheet_url)
@@ -35,47 +29,13 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE ---
-def subir_a_drive(file_path, file_name):
-    try:
-        scope = ["https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
-        service = build('drive', 'v3', credentials=creds)
-        
-        file_metadata = {
-            'name': file_name,
-            'parents': [FOLDER_ID]
-        }
-        media = MediaFileUpload(file_path, resumable=True)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-        return file.get('webViewLink')
-    except Exception as e:
-        st.error(f"Error al subir a Drive: {e}")
-        return None
-
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
-    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
-if 'show_dialog' not in st.session_state: st.session_state.show_dialog = False
+    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
 # ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
-/* Animación Luz Parpadeante */
-@keyframes parpadeo {
-    0% { opacity: 1; }
-    50% { opacity: 0.3; }
-    100% { opacity: 1; }
-}
-.luz-roja {
-    height: 15px;
-    width: 15px;
-    background-color: #ff4b4b;
-    border-radius: 50%;
-    display: inline-block;
-    animation: parpadeo 1s infinite;
-    margin-right: 10px;
-}
 
 /* Ocultar menú y elementos de streamlit */
 [data-testid="stSidebar"], 
@@ -172,12 +132,12 @@ input {
 /* Contenedor principal */
 .block-container {
     max-width: 1100px !important;
-    padding-top: 1rem !important;
+    padding-top: 2rem !important;
 }
 
 .header-master {
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
 }
 
 .titulo-mini {
@@ -185,6 +145,7 @@ input {
     font-size: 1.6rem;
     color: #ffffff !important;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -212,79 +173,26 @@ df_especialistas = cargar_datos(URLs["especialistas"])
 df_faba = cargar_datos(URLs["faba"])
 df_osecac_busq = cargar_datos(URLs["osecac"])
 
-# ================= HEADER COMPLETO =================
-col1, col2, col3 = st.columns([1, 1, 1])
+# ================= HEADER =================
+st.markdown("""
+<div class="header-master">
+    <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
+</div>
+""", unsafe_allow_html=True)
 
-with col1: st.write("")
-with col2:
-    st.markdown("""
-    <div class="header-master">
-        <h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>
-    </div>
+try:
+    with open("LOGO1.png", "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode()
+    st.markdown(f"""
+        <center>
+            <img src="data:image/png;base64,{img_b64}" 
+            style="width:90px; margin-bottom:25px;">
+        </center>
     """, unsafe_allow_html=True)
-    try:
-        with open("LOGO1.png", "rb") as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        st.markdown(f"""
-            <center>
-                <img src="data:image/png;base64,{img_b64}" 
-                style="width:90px; margin-bottom:10px;">
-            </center>
-        """, unsafe_allow_html=True)
-    except: pass
-with col3:
-    # --- ÁREA DE NOTIFICACIONES Y ADMIN ---
-    st.markdown("""
-        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
-            <span class="luz-roja"></span> 
-            <span style="color: white; font-weight: bold;">NUEVA NOVEDAD</span>
-        </div>
-    """, unsafe_allow_html=True)
-    c_btn1, c_btn2 = st.columns([0.6, 0.4])
-    with c_btn1:
-        if st.button("Ver Novedades", key="ver_nov"): st.session_state.show_dialog = True
-    with c_btn2:
-        pop_admin = st.popover("✍️ ADMINISTRADOR")
-        if pop_admin.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
-            with pop_admin.form("n_form", clear_on_submit=True):
-                m = st.text_area("Nuevo comunicado:")
-                uploaded_file = st.file_uploader("Subir archivo:", type=["pdf", "png", "jpg", "jpeg"])
-                if st.form_submit_button("PUBLICAR"):
-                    drive_link = ""
-                    if uploaded_file is not None:
-                        temp_path = f"temp_{uploaded_file.name}"
-                        with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
-                        drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                        os.remove(temp_path)
-                    
-                    st.session_state.historial_novedades.insert(0, {
-                        "id": str(time.time()), 
-                        "mensaje": m, 
-                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                        "archivo_link": drive_link
-                    })
-                    st.success("Publicado"); time.sleep(1); st.rerun()
+except:
+    pass
 
 st.markdown("---")
-
-# ================== DIÁLOGO MODAL (NOTIFICACIONES) ==================
-if st.session_state.get('show_dialog', False):
-    @st.dialog("📢 COMUNICADOS OFICIALES", width="large")
-    def mostrar_novedades():
-        if not st.session_state.historial_novedades:
-            st.info("No hay novedades.")
-        else:
-            for n in st.session_state.historial_novedades:
-                st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br><b>{n["mensaje"]}</b>', unsafe_allow_html=True)
-                if n.get("archivo_link"):
-                    st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="color: #38bdf8; font-weight: bold; text-decoration: none;">📂 Ver archivo en Drive</a>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        if st.button("Cerrar"):
-            st.session_state.show_dialog = False
-            st.rerun()
-    
-    mostrar_novedades()
 
 # ================== APLICACIÓN ==================
 
@@ -321,7 +229,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
             
-            # --- SECCIÓN DE EDICIÓN (CLAVE FABA/OSECAC) ---
+            # Ajustar aquí la contraseña real para editar
             if cl_actual == "TU_CONTRASENA_AQUI": 
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
@@ -380,3 +288,16 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
         for i, row in res.iterrows():
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+
+# 7. NOVEDADES
+with st.expander("📢 7. NOVEDADES", expanded=True):
+    for n in st.session_state.historial_novedades:
+        st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
+    
+    with st.popover("✍️ PANEL DE ADMINISTRADOR"):
+        if st.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
+            with st.form("n_form", clear_on_submit=True):
+                m = st.text_area("Nuevo comunicado:")
+                if st.form_submit_button("PUBLICAR"):
+                    st.session_state.historial_novedades.insert(0, {"id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M")})
+                    st.rerun()
