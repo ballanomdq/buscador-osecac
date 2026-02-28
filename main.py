@@ -4,8 +4,7 @@ import base64
 import time
 from datetime import datetime
 import gspread
-from google.oauth2.credentials import Credentials as OAuthCredentials
-from google.auth.transport.requests import Request
+from google.oauth2.service_account import Credentials
 # --- IMPORTACIONES PARA DRIVE ---
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -40,57 +39,52 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
         st.error(f"Error al guardar: {e}")
         return False
 
-# --- FUNCIÓN PARA SUBIR A DRIVE USANDO OAUTH (TU CUENTA PERSONAL) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE ---
 def subir_a_drive(file_path, file_name):
     try:
-        # Tus tokens (pueden estar en secrets o hardcoded temporalmente)
-        REFRESH_TOKEN = "1//04wm475WZT5NrCgYIARAAGAQSNwF-L9IrV1Wnk6hUFxlYb0yoyKnATPFKvPc_2QCZ4bkqmuWnBVreI6v5DFKr-u8q6lCJfZFLwOg"
-        ACCESS_TOKEN = "ya29.a0ATkoCc5F9aJgCfAbzdQvZYGc_wCBLgiWOyTwOjWDj1vsMAPc8stwgbHXOhxPdcghSqKXJx8mtmp_WA6kZAO_2aENwpQE-3CzcHvTiYkUTKdDfxxE5BddS7QrB0SESbasc9vshiLDAdq6wErDbgIAiU835mB7hGX-LDCSVKD4L68cpFhHco6eeRdHVRnC2kJ4D7fkuS8aCgYKARgSARQSFQHGX2MiLUw0IpD5eh_zyfX7QeL-og0206"
-
-        creds = OAuthCredentials(
-            token=ACCESS_TOKEN,
-            refresh_token=REFRESH_TOKEN,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id="407408718192.apps.googleusercontent.com",
-            client_secret="",
-            scopes=["https://www.googleapis.com/auth/drive"]
-        )
-
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-
+        scope = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/drive.file"]
+        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
         service = build('drive', 'v3', credentials=creds)
-
+       
         file_metadata = {
             'name': file_name,
             'parents': [FOLDER_ID]
         }
-
+       
         media = MediaFileUpload(file_path, resumable=True)
-
+       
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id, webViewLink'
         ).execute()
-
+       
+        # Hacer el archivo público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
                 body={'type': 'anyone', 'role': 'reader'}
             ).execute()
         except:
-            pass  # No crítico
-
+            pass
+       
         return file.get('webViewLink')
-
+       
+    except HttpError as e:
+        error_details = str(e)
+        if "403" in error_details:
+            st.error("❌ Error de permisos: Asegúrate de haber compartido la carpeta con el correo de la cuenta de servicio")
+            st.info("📧 Comparte la carpeta en Drive con: " + st.secrets["gcp"]["client_email"])
+        else:
+            st.error(f"Error al subir a Drive: {error_details}")
+        return None
     except Exception as e:
-        st.error(f"Error al subir archivo: {str(e)}")
+        st.error(f"Error inesperado: {str(e)}")
         return None
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
-    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
+    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_links": []}]
 if 'novedades_vistas' not in st.session_state:
     st.session_state.novedades_vistas = {st.session_state.historial_novedades[0]["id"]}
 if 'pass_novedades_valida' not in st.session_state:
@@ -161,7 +155,7 @@ input { color: #000000 !important; font-weight: bold !important; }
     justify-content: center;
     margin-bottom: 10px;
 }
-/* ESTILOS UNIFICADOS PARA BOTONES */
+/* ESTILOS UNIFICADOS PARA TODOS LOS BOTONES Y POPOVERS */
 .stButton > button, div[data-testid="baseButton-secondary"] {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -180,17 +174,24 @@ input { color: #000000 !important; font-weight: bold !important; }
     transform: scale(1.05) !important;
     box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
 }
+/* Estilo especial para el botón de novedad (rojo) */
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
     box-shadow: 0 0 15px rgba(255, 75, 75, 0.5) !important;
     animation: parpadeo 1.2s infinite;
 }
+.stButton > button:has(span:contains("🔴")):hover {
+    background: #ff0000 !important;
+    color: white !important;
+    transform: scale(1.05) !important;
+}
 @keyframes parpadeo {
     0% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
     50% { opacity: 0.9; box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); transform: scale(1.02); }
     100% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
 }
+/* Estilo para popovers (lápices) */
 div[data-testid="stPopover"] > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -206,6 +207,7 @@ div[data-testid="stPopover"] > button:hover {
     color: black !important;
     transform: scale(1.05) !important;
 }
+/* ESTILOS PARA NOVEDADES EXPANDIDAS */
 div[data-testid="stExpander"][aria-expanded="true"] {
     background: linear-gradient(145deg, #1e293b, #0f172a);
     border-radius: 20px;
@@ -242,49 +244,26 @@ df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
 # ================= HEADER CENTRADO =================
-st.markdown("""
-<div style="
-    width: 100vw;
-    margin-left: calc(-50vw + 50%);
-    margin-right: calc(-50vw + 50%);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    padding: 1.5rem 0;
-">
-    <div style="text-align: center; max-width: 700px; width: 100%;">
-""", unsafe_allow_html=True)
-
-st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
-
-st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
+st.markdown('<div class="header-container">', unsafe_allow_html=True)
+st.markdown('<h1 class="titulo-principal">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+st.markdown('<div class="logo-container">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
-        st.image('logo original.jpg', width=160)
+        logo = Image.open('logo original.jpg')
+        st.image(logo, width=150)
     else:
-        st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="width:150px; height:70px; background: rgba(30, 41, 59, 0.5); border-radius:12px; border:2px solid #38bdf8; margin: auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
-
+st.markdown('<div class="botones-container">', unsafe_allow_html=True)
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
-
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
-
-popover_novedades = st.popover("✏️")
-
+popover_novedades = st.popover("✏️ Cargar Novedades")
 st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown("""
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
+st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
@@ -303,14 +282,14 @@ with popover_novedades:
     else:
         st.success("✅ Acceso concedido")
         st.markdown("---")
-        st.write("### 📝 Administrar Novedades")
+        st.write("### Administrar Novedades")
        
         accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
        
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
                 m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
-                uploaded_file = st.file_uploader("📎 Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
+                uploaded_files = st.file_uploader("📎 Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
                
                 col1, col2 = st.columns(2)
                 with col1:
@@ -322,26 +301,26 @@ with popover_novedades:
                     if not m.strip():
                         st.error("❌ El mensaje no puede estar vacío")
                     else:
-                        drive_link = ""
-                        if uploaded_file is not None:
-                            with st.spinner("Subiendo archivo a Drive..."):
-                                temp_path = f"temp_{uploaded_file.name}"
-                                with open(temp_path, "wb") as f:
-                                    f.write(uploaded_file.getbuffer())
-                                drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                                if os.path.exists(temp_path):
-                                    os.remove(temp_path)
-                           
-                            if drive_link:
-                                st.success("✅ Archivo subido correctamente")
-                            else:
-                                st.warning("⚠️ No se pudo subir el archivo, pero la novedad se publicará sin él")
+                        drive_links = []
+                        if uploaded_files:
+                            for uploaded_file in uploaded_files:
+                                with st.spinner(f"Subiendo {uploaded_file.name} a Drive..."):
+                                    temp_path = f"temp_{uploaded_file.name}"
+                                    with open(temp_path, "wb") as f:
+                                        f.write(uploaded_file.getbuffer())
+                                    link = subir_a_drive(temp_path, uploaded_file.name)
+                                    if os.path.exists(temp_path):
+                                        os.remove(temp_path)
+                                    if link:
+                                        drive_links.append(link)
+                                    else:
+                                        st.warning(f"⚠️ No se pudo subir {uploaded_file.name}, pero la novedad se publicará sin él")
                        
                         nueva_novedad = {
                             "id": str(time.time()),
                             "mensaje": m,
                             "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "archivo_link": drive_link
+                            "archivo_links": drive_links
                         }
                         st.session_state.historial_novedades.insert(0, nueva_novedad)
                         st.session_state.novedades_vistas = set()
@@ -370,7 +349,7 @@ with popover_novedades:
                
                 if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
                     st.session_state.historial_novedades.pop(idx_eliminar)
-                    st.success("✅ ¡Eliminado!")
+                    st.success("✅ !Eliminado!")
                     time.sleep(1)
                     st.rerun()
 
@@ -522,8 +501,9 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         </div>
         """, unsafe_allow_html=True)
        
-        if n.get("archivo_link"):
-            st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
+        if n.get("archivo_links"):
+            for link in n["archivo_links"]:
+                st.markdown(f'<a href="{link}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
    
     if st.button("❌ Cerrar Novedades"):
         st.session_state.novedades_expandido = False
