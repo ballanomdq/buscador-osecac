@@ -67,20 +67,23 @@ if 'historial_novedades' not in st.session_state:
 # --- INICIALIZAR ESTADOS DE SESIÓN PARA CLAVES Y CHECKBOXES ---
 if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
 if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
-# Para exclusividad de checkboxes
+
+# Estados exclusivos para checkboxes
 if 'faba_check' not in st.session_state: st.session_state.faba_check = True
 if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
-# Para almacenar el texto de búsqueda antes de confirmar
-if 'busqueda_input' not in st.session_state: st.session_state.busqueda_input = ""
 
-# --- FUNCIONES CALLBACK PARA CHECKBOXES ---
+# --- CALLBACKS PARA CHECKBOXES EXCLUSIVOS ---
 def toggle_faba():
     if st.session_state.faba_check:
         st.session_state.osecac_check = False
+    else:
+        st.session_state.osecac_check = True
 
 def toggle_osecac():
     if st.session_state.osecac_check:
         st.session_state.faba_check = False
+    else:
+        st.session_state.faba_check = True
 
 # ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
@@ -157,7 +160,6 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         else: pop_f.success("✅ FABA Habilitado")
 
     with c2:
-        # Se añade callback para exclusividad
         st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
         
     with c3:
@@ -174,7 +176,6 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         else: pop_o.success("✅ OSECAC Habilitado")
             
     with c4:
-        # Se añade callback para exclusividad
         st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
 
     # Lógica de selección
@@ -183,6 +184,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     
     opcion = "OSECAC" if sel_osecac else "FABA"
     
+    # Determinar si la edición está habilitada
     edicion_habilitada = False
     if sel_osecac and st.session_state.pass_o_valida:
         edicion_habilitada = True
@@ -196,12 +198,13 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         df_u = df_osecac_busq if sel_osecac else df_faba
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
-    # --- CAMBIO: BÚSQUEDA CON BOTÓN ---
-    st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
+    # BÚSQUEDA
+    term = st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
+    btn_buscar = st.button("Buscar")
     
-    if st.button("Buscar"):
-        if st.session_state.busqueda_input:
-            mask = df_u.apply(lambda row: all(p in str(row).lower() for p in st.session_state.busqueda_input.lower().split()), axis=1)
+    if btn_buscar:
+        if term:
+            mask = df_u.apply(lambda row: all(p in str(row).lower() for p in term.lower().split()), axis=1)
             results = df_u[mask]
             
             if results.empty:
@@ -218,12 +221,14 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
                                 if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
                                     st.success("¡Sincronizado!"); st.cache_data.clear(); st.rerun()
-                    else:
-                        st.warning("⚠️ Ingrese la clave correcta (*) en el lápiz para habilitar edición.")
         else:
             st.info("Escriba algo en el buscador.")
 
-# ... (El resto de expanders quedan igual)
+    # --- CAMBIO: ADVERTENCIA SOLO SI NO ESTÁ HABILITADO Y NO SE HA BUSCADO ---
+    if not edicion_habilitada:
+        st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
+
+# ... (Resto de expanders igual)
 with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
