@@ -224,7 +224,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         else:
             st.info("Escriba algo en el buscador.")
 
-    # --- CAMBIO: ADVERTENCIA SOLO SI NO ESTÁ HABILITADO Y NO SE HA BUSCADO ---
+    # --- ADVERTENCIA ---
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
@@ -270,19 +270,29 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES
+# 7. NOVEDADES (MODIFICADO ESTÉTICA)
 with st.expander("📢 7. NOVEDADES", expanded=True):
+    # --- COLUMNAS PARA ALINEAR A LA DERECHA ---
+    c_head, c_btn = st.columns([0.8, 0.2])
+    with c_head:
+        st.write("### Últimos comunicados")
+    with c_btn:
+        # Botón administrador arriba a la derecha
+        pop_admin = st.popover("⚙️ Admin")
+        
     for n in st.session_state.historial_novedades:
         st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
         if n.get("archivo_link"):
             st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="color: #38bdf8; font-weight: bold; text-decoration: none;">📂 Ver archivo en Drive</a>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
-    with st.popover("✍️ PANEL DE ADMINISTRADOR"):
+    # --- PANEL ADMINISTRADOR DENTRO DEL POPOVER ---
+    with pop_admin:
+        st.write("### ✍️ Panel")
         if st.text_input("Clave de edición:", type="password", key="ed_pass") == "2026":
             with st.form("n_form", clear_on_submit=True):
                 m = st.text_area("Nuevo comunicado:")
-                uploaded_file = st.file_uploader("Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
+                uploaded_file = st.file_uploader("Adjuntar archivo:", type=["pdf", "png", "jpg", "jpeg"])
                 
                 if st.form_submit_button("PUBLICAR"):
                     drive_link = ""
@@ -296,4 +306,4 @@ with st.expander("📢 7. NOVEDADES", expanded=True):
                         "id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
                         "archivo_link": drive_link
                     })
-                    st.success("¡Publicado exitosamente!"); st.rerun()
+                    st.success("¡Publicado!"); st.rerun()
