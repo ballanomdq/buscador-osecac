@@ -33,6 +33,10 @@ def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor)
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00"}]
 
+# --- INICIALIZAR ESTADOS DE SESIÓN PARA CLAVES DE EDICIÓN ---
+if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
+if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
+
 # ================== CSS MODERNO DEFINITIVO ==================
 st.markdown("""
 <style>
@@ -201,26 +205,63 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
     
-    # FILA: Lápiz - Check - Palabra
+    # --- FILA: Lápiz - Check - Palabra ---
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
     
     with c1:
         pop_f = st.popover("✏️")
-        cl_f = pop_f.text_input("Clave FABA:", type="password", key="p_f")
+        pop_f.markdown("### Clave FABA")
+        if not st.session_state.pass_f_valida:
+            with pop_f.form("form_faba"):
+                cl_f_in = st.text_input("Ingrese Clave:", type="password")
+                if st.form_submit_button("OK"):
+                    # --- CAMBIA TU CONTRASEÑA REAL AQUÍ ---
+                    if cl_f_in == "TU_CONTRASENA_AQUI":
+                        st.session_state.pass_f_valida = True
+                        st.rerun()
+                    else:
+                        st.error("Clave incorrecta")
+        else:
+            pop_f.success("✅ FABA Habilitado")
+
     with c2:
         sel_faba = st.checkbox("FABA", value=True, key="chk_f")
         
     with c3:
         pop_o = st.popover("✏️")
-        cl_o = pop_o.text_input("Clave OSECAC:", type="password", key="p_o")
+        pop_o.markdown("### Clave OSECAC")
+        if not st.session_state.pass_o_valida:
+            with pop_o.form("form_osecac"):
+                cl_o_in = st.text_input("Ingrese Clave:", type="password")
+                if st.form_submit_button("OK"):
+                    # --- CAMBIA TU CONTRASEÑA REAL AQUÍ ---
+                    if cl_o_in == "TU_CONTRASENA_AQUI":
+                        st.session_state.pass_o_valida = True
+                        st.rerun()
+                    else:
+                        st.error("Clave incorrecta")
+        else:
+            pop_o.success("✅ OSECAC Habilitado")
+            
     with c4:
         sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
 
-    # Lógica de selección
+    # --- Lógica de selección y edición ---
     opcion = "OSECAC" if sel_osecac else "FABA"
-    cl_actual = cl_o if sel_osecac else cl_f
-    df_u = df_osecac_busq if sel_osecac else df_faba
-    url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
+    
+    # Determinar si la edición está habilitada según la opción seleccionada y su clave
+    edicion_habilitada = False
+    if sel_osecac and st.session_state.pass_o_valida:
+        edicion_habilitada = True
+        df_u = df_osecac_busq
+        url_u = URLs["osecac"]
+    elif not sel_osecac and st.session_state.pass_f_valida:
+        edicion_habilitada = True
+        df_u = df_faba
+        url_u = URLs["faba"]
+    else:
+        df_u = df_osecac_busq if sel_osecac else df_faba
+        url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
     bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
     
@@ -229,8 +270,8 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         for i, row in df_u[mask].iterrows():
             st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
             
-            # Ajustar aquí la contraseña real para editar
-            if cl_actual == "TU_CONTRASENA_AQUI": 
+            # --- SECCIÓN DE EDICIÓN ---
+            if edicion_habilitada: 
                 with st.expander(f"📝 Editar fila {i}"):
                     c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                     v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
@@ -239,6 +280,8 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             st.success("¡Sincronizado!")
                             st.cache_data.clear()
                             st.rerun()
+            else:
+                st.warning("⚠️ Ingrese la clave correcta en el lápiz para habilitar edición.")
 
 # 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
