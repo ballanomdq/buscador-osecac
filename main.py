@@ -215,8 +215,8 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             with pop_f.form("form_faba"):
                 cl_f_in = st.text_input("Ingrese Clave:", type="password")
                 if st.form_submit_button("OK"):
-                    # --- CAMBIA TU CONTRASEÑA REAL AQUÍ ---
-                    if cl_f_in == "TU_CONTRASENA_AQUI":
+                    # --- LA CLAVE AHORA ES * ---
+                    if cl_f_in == "*":
                         st.session_state.pass_f_valida = True
                         st.rerun()
                     else:
@@ -234,8 +234,8 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             with pop_o.form("form_osecac"):
                 cl_o_in = st.text_input("Ingrese Clave:", type="password")
                 if st.form_submit_button("OK"):
-                    # --- CAMBIA TU CONTRASEÑA REAL AQUÍ ---
-                    if cl_o_in == "TU_CONTRASENA_AQUI":
+                    # --- LA CLAVE AHORA ES * ---
+                    if cl_o_in == "*":
                         st.session_state.pass_o_valida = True
                         st.rerun()
                     else:
@@ -281,7 +281,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             st.cache_data.clear()
                             st.rerun()
             else:
-                st.warning("⚠️ Ingrese la clave correcta en el lápiz para habilitar edición.")
+                st.warning("⚠️ Ingrese la clave correcta (*) en el lápiz para habilitar edición.")
 
 # 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
