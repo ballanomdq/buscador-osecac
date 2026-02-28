@@ -146,7 +146,7 @@ with col3:
             with pop_admin.form("form_clave_jefe"):
                 cl_input = st.text_input("Clave:", type="password")
                 if st.form_submit_button("OK"):
-                    if cl_input == "*":
+                    if cl_input == "*": # CAMBIAR POR CLAVE REAL
                         st.session_state.pass_jefe_valida = True
                         st.rerun()
                     else: st.error("Clave incorrecta")
@@ -194,39 +194,36 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     
     with c1:
         pop_f = st.popover("✏️")
-        with pop_f.form("form_cl_faba"): # FORMA CORRECTA PARA POPOVER
+        with pop_f.form("form_cl_faba"):
             cl_f = st.text_input("Clave FABA:", type="password", key="p_f")
-            st.form_submit_button("OK")
+            if st.form_submit_button("OK"):
+                st.rerun() # Cerrar popover
     with c2:
-        # Al cambiar esto, se reinicia la búsqueda automáticamente
-        sel_faba = st.checkbox("FABA", value=True, key="chk_f")
+        sel_faba = st.checkbox("FABA", value=st.session_state.get('chk_f', True), key="chk_f_temp")
         
     with c3:
         pop_o = st.popover("✏️")
-        with pop_o.form("form_cl_osecac"): # FORMA CORRECTA PARA POPOVER
+        with pop_o.form("form_cl_osecac"):
             cl_o = st.text_input("Clave OSECAC:", type="password", key="p_o")
-            st.form_submit_button("OK")
+            if st.form_submit_button("OK"):
+                st.rerun() # Cerrar popover
     with c4:
-        sel_osecac = st.checkbox("OSECAC", value=False, key="chk_o")
+        sel_osecac = st.checkbox("OSECAC", value=st.session_state.get('chk_o', False), key="chk_o_temp")
 
-    # Lógica para evitar conflicto de checkboxes
-    if sel_faba and sel_osecac:
-        if st.session_state.get('last_check') == 'FABA': sel_osecac = False
-        else: sel_faba = False
-        st.session_state['chk_f'] = sel_faba
-        st.session_state['chk_o'] = sel_osecac
-
-    st.session_state['last_check'] = 'FABA' if sel_faba else 'OSECAC'
-
+    # CORRECCIÓN LÓGICA DE CHECKBOXES (SIN ERROR DE SESIÓN)
+    if sel_faba:
+        sel_osecac = False
+    elif sel_osecac:
+        sel_faba = False
+        
     # Selección activa
     opcion = "OSECAC" if sel_osecac else "FABA"
     cl_actual = cl_o if sel_osecac else cl_f
     df_u = df_osecac_busq if sel_osecac else df_faba
     url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
 
-    # CORRECCIÓN: Buscador estático
-    # Añadimos key="bus_n" para mantener el estado y limpiarlo si es necesario
-    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key="bus_n")
+    # CORRECCIÓN: Buscador con key único
+    bus_nom = st.text_input(f"🔍 Buscar en {opcion}...", key=f"bus_{opcion}")
     
     if bus_nom:
         mask = df_u.apply(lambda row: all(p in str(row).lower() for p in bus_nom.lower().split()), axis=1)
@@ -237,7 +234,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                 st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
                 
                 # --- SECCIÓN DE EDICIÓN ---
-                if cl_actual == "*": # O tu contraseña real
+                if cl_actual == "*": # CAMBIAR POR CLAVE REAL
                     with st.expander(f"📝 Editar fila {i}"):
                         c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                         v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
