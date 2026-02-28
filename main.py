@@ -67,7 +67,7 @@ if 'historial_novedades' not in st.session_state:
 
 # --- NUEVO: Estado para novedades vistas y clave de administración ---
 if 'novedades_vistas' not in st.session_state:
-    st.session_state.novedades_vistas = {st.session_state.historial_novedades[0]["id"]}  # La primera ya se considera vista
+    st.session_state.novedades_vistas = {st.session_state.historial_novedades[0]["id"]}
 
 if 'pass_novedades_valida' not in st.session_state:
     st.session_state.pass_novedades_valida = False
@@ -80,7 +80,7 @@ if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = Fal
 if 'faba_check' not in st.session_state: st.session_state.faba_check = True
 if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
 
-# Estado para controlar la expansión de novedades (sin recarga)
+# Estado para controlar la expansión de novedades
 if 'novedades_expandido' not in st.session_state:
     st.session_state.novedades_expandido = False
 
@@ -97,7 +97,7 @@ def toggle_osecac():
     else:
         st.session_state.faba_check = True
 
-# --- FUNCIÓN PARA ABRIR NOVEDADES SIN RECARGAR ---
+# --- FUNCIÓN PARA ABRIR NOVEDADES ---
 def abrir_novedades():
     st.session_state.novedades_expandido = True
 
@@ -117,74 +117,92 @@ div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px so
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 2rem !important; }
 
-/* NUEVOS ESTILOS PARA HEADER CON LOGO Y NOVEDADES */
+/* ESTILOS PARA HEADER CON LOGO */
 .header-container {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     margin-bottom: 20px;
     padding: 10px 0;
 }
-.header-left {
+.logo-titulo-container {
     display: flex;
     align-items: center;
     gap: 15px;
 }
-.header-right {
+.logo-img {
+    height: 70px;
+    width: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+.titulo-principal {
+    font-weight: 800;
+    font-size: 2rem;
+    color: #ffffff;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+.botones-container {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
 }
-.logo-img {
-    height: 60px;
-    width: auto;
-    border-radius: 10px;
-}
-.titulo-mini { 
-    font-weight: 800; 
-    font-size: 1.8rem; 
-    color: #ffffff !important; 
-    margin: 0;
-}
 .boton-novedad {
-    background-color: #ff4b4b;
+    background: linear-gradient(145deg, #ff4b4b, #ff0000);
     color: white;
     border: none;
-    border-radius: 50px;
-    padding: 8px 20px;
+    border-radius: 30px;
+    padding: 12px 25px;
     font-weight: bold;
+    font-size: 16px;
     cursor: pointer;
-    animation: parpadeo 1.5s infinite;
-    box-shadow: 0 0 10px rgba(255, 75, 75, 0.5);
+    animation: parpadeo 1.2s infinite;
+    box-shadow: 0 0 20px rgba(255, 75, 75, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.3);
-    font-size: 14px;
     transition: all 0.3s;
+    letter-spacing: 1px;
 }
 .boton-novedad:hover {
     transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(255, 75, 75, 0.8);
+    box-shadow: 0 0 30px rgba(255, 75, 75, 1);
 }
 @keyframes parpadeo {
-    0% { opacity: 1; background-color: #ff4b4b; }
-    50% { opacity: 0.8; background-color: #ff0000; box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
-    100% { opacity: 1; background-color: #ff4b4b; }
+    0% { opacity: 1; background: #ff4b4b; }
+    50% { opacity: 0.9; background: #ff0000; box-shadow: 0 0 30px rgba(255, 0, 0, 1); transform: scale(1.02); }
+    100% { opacity: 1; background: #ff4b4b; }
 }
-.boton-lapiz {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
+.boton-lapiz-admin {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
     color: white;
     border: 2px solid #38bdf8;
-    border-radius: 10px;
-    padding: 5px 15px;
+    border-radius: 30px;
+    padding: 10px 20px;
     cursor: pointer;
     font-size: 1.3rem;
+    font-weight: bold;
     transition: all 0.3s;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
 }
-.boton-lapiz:hover {
-    background-color: #38bdf8;
+.boton-lapiz-admin:hover {
+    background: #38bdf8;
     color: black;
     transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.8);
+}
+
+/* ESTILOS PARA NOVEDADES EXPANDIDAS */
+div[data-testid="stExpander"][aria-expanded="true"] {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px 0;
+    border: 2px solid #ff4b4b;
+    box-shadow: 0 0 30px rgba(255, 75, 75, 0.3);
+}
+div[data-testid="stExpander"] summary {
+    font-size: 1.3rem !important;
+    background: linear-gradient(145deg, #1e293b, #0f172a) !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -213,68 +231,73 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CON LOGO Y NOVEDADES =================
+# ================= HEADER CON LOGO (SIN DUPLICAR) =================
+st.markdown('<div class="header-container">', unsafe_allow_html=True)
+st.markdown('<div class="logo-titulo-container">', unsafe_allow_html=True)
+
+# Mostrar logo
+try:
+    logo = Image.open('logo.jpg')
+    st.image(logo, width=70)
+except:
+    # Si no hay logo, mostrar un placeholder
+    st.markdown('<div style="width:70px; height:70px; background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:12px; border:2px solid #38bdf8;"></div>', unsafe_allow_html=True)
+
+# Título (UNA SOLA VEZ)
+st.markdown('<h1 class="titulo-principal">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)  # Cierra logo-titulo-container
+
+# Botones a la derecha
+st.markdown('<div class="botones-container">', unsafe_allow_html=True)
+
 # Verificar si hay novedades no vistas
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
 
-# Crear el header personalizado con LOGO
-col1, col2 = st.columns([0.85, 0.15])
+# Botón de novedad (solo si hay novedades nuevas)
+if hay_novedades_nuevas:
+    if st.button("🔴 NOVEDAD NUEVA", key="btn_novedad_header", on_click=abrir_novedades):
+        pass
 
-with col1:
-    # Logo y título juntos
-    try:
-        # Intentar cargar el logo
-        logo = Image.open('logo.jpg')
-        st.image(logo, width=80)
-    except:
-        # Si no hay logo, mostrar solo el título
-        st.markdown('<h1 class="titulo-mini">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
-    
-    # Título al lado del logo
-    st.markdown('<h1 class="titulo-mini" style="display: inline-block; margin-left: 10px;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+# Lápiz de administración
+popover_novedades = st.popover("✏️ ADMIN")
 
-with col2:
-    # Botones a la derecha
-    botones_cols = st.columns([1, 1])
-    
-    with botones_cols[0]:
-        # Botón de novedad (solo si hay novedades nuevas) - SIN RECARGAR
-        if hay_novedades_nuevas:
-            st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
-    
-    with botones_cols[1]:
-        # Lápiz de administración
-        popover_novedades = st.popover("✏️")
-
+st.markdown('</div>', unsafe_allow_html=True)  # Cierra botones-container
+st.markdown('</div>', unsafe_allow_html=True)  # Cierra header-container
 st.markdown("---")
 
 # ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
 with popover_novedades:
-    st.markdown("### Clave Administración")
+    st.markdown("### 🔐 Clave Administración")
     if not st.session_state.pass_novedades_valida:
         with st.form("form_novedades_admin"):
             cl_admin = st.text_input("Ingrese Clave:", type="password")
-            if st.form_submit_button("OK"):
+            if st.form_submit_button("✅ OK"):
                 if cl_admin == "*":
                     st.session_state.pass_novedades_valida = True
                     st.rerun()
                 else:
-                    st.error("Clave incorrecta")
+                    st.error("❌ Clave incorrecta")
     else:
         st.success("✅ Acceso concedido")
         st.markdown("---")
-        st.write("### Administrar Novedades")
+        st.write("### 📝 Administrar Novedades")
         
         # Opciones de administración
-        accion = st.radio("Acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
+        accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
         
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
-                m = st.text_area("Nuevo comunicado:")
-                uploaded_file = st.file_uploader("Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
+                m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
+                uploaded_file = st.file_uploader("📎 Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
                 
-                if st.form_submit_button("PUBLICAR"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    submit = st.form_submit_button("📢 PUBLICAR")
+                with col2:
+                    cancel = st.form_submit_button("❌ CANCELAR")
+                
+                if submit:
                     drive_link = ""
                     if uploaded_file is not None:
                         temp_path = f"temp_{uploaded_file.name}"
@@ -290,21 +313,23 @@ with popover_novedades:
                         "archivo_link": drive_link
                     }
                     st.session_state.historial_novedades.insert(0, nueva_novedad)
-                    st.session_state.novedades_vistas = set()  # Resetear vistas para que todos vean la nueva
-                    st.success("¡Publicado!")
+                    st.session_state.novedades_vistas = set()  # Resetear vistas
+                    st.success("✅ ¡Publicado exitosamente!")
+                    time.sleep(1)
                     st.rerun()
         
         elif accion == "✏️ Editar existente":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
-                idx_editar = st.selectbox("Seleccionar novedad:", range(len(opciones)), format_func=lambda x: opciones[x])
+                idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
                 
                 novedad = st.session_state.historial_novedades[idx_editar]
                 with st.form("editar_novedad_form"):
                     nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
-                    if st.form_submit_button("GUARDAR CAMBIOS"):
+                    if st.form_submit_button("💾 GUARDAR CAMBIOS"):
                         st.session_state.historial_novedades[idx_editar]['mensaje'] = nuevo_mensaje
-                        st.success("¡Actualizado!")
+                        st.success("✅ ¡Actualizado!")
+                        time.sleep(1)
                         st.rerun()
         
         elif accion == "🗑️ Eliminar":
@@ -314,7 +339,8 @@ with popover_novedades:
                 
                 if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
                     st.session_state.historial_novedades.pop(idx_eliminar)
-                    st.success("¡Eliminado!")
+                    st.success("✅ ¡Eliminado!")
+                    time.sleep(1)
                     st.rerun()
 
 # ================== APLICACIÓN ==================
@@ -328,15 +354,15 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     
     with c1:
         pop_f = st.popover("✏️")
-        pop_f.markdown("### Clave FABA")
+        pop_f.markdown("### 🔑 Clave FABA")
         if not st.session_state.pass_f_valida:
             with pop_f.form("form_faba"):
                 cl_f_in = st.text_input("Ingrese Clave:", type="password")
-                if st.form_submit_button("OK"):
+                if st.form_submit_button("✅ OK"):
                     if cl_f_in == "*":
                         st.session_state.pass_f_valida = True
                         st.rerun()
-                    else: st.error("Clave incorrecta")
+                    else: st.error("❌ Clave incorrecta")
         else: pop_f.success("✅ FABA Habilitado")
 
     with c2:
@@ -344,15 +370,15 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         
     with c3:
         pop_o = st.popover("✏️")
-        pop_o.markdown("### Clave OSECAC")
+        pop_o.markdown("### 🔑 Clave OSECAC")
         if not st.session_state.pass_o_valida:
             with pop_o.form("form_osecac"):
                 cl_o_in = st.text_input("Ingrese Clave:", type="password")
-                if st.form_submit_button("OK"):
+                if st.form_submit_button("✅ OK"):
                     if cl_o_in == "*":
                         st.session_state.pass_o_valida = True
                         st.rerun()
-                    else: st.error("Clave incorrecta")
+                    else: st.error("❌ Clave incorrecta")
         else: pop_o.success("✅ OSECAC Habilitado")
             
     with c4:
@@ -400,7 +426,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
                                 if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                                    st.success("¡Sincronizado!"); st.cache_data.clear(); st.rerun()
+                                    st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
         else:
             st.info("Escriba algo en el buscador.")
 
@@ -454,17 +480,34 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES (SIN BOTÓN ADMIN)
+# 7. NOVEDADES (EXPANDIDO EN GRANDE)
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
-    st.write("### Últimos comunicados")
+    st.markdown("## 📢 Últimos Comunicados")
+    st.markdown("---")
     
-    # Mostrar novedades y marcarlas como vistas
+    # Mostrar novedades
     for n in st.session_state.historial_novedades:
         # Marcar como vista
         if n["id"] not in st.session_state.novedades_vistas:
             st.session_state.novedades_vistas.add(n["id"])
         
-        # Mostrar la novedad
-        st.markdown(f'<div class="ficha ficha-novedad">📅 {n["fecha"]}<br>{n["mensaje"]}</div>', unsafe_allow_html=True)
+        # Mostrar la novedad en grande
+        st.markdown(f"""
+        <div style="background: linear-gradient(145deg, #1e293b, #0f172a); 
+                    border-left: 8px solid #ff4b4b;
+                    border-radius: 16px;
+                    padding: 25px;
+                    margin: 20px 0;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <div style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 10px;">📅 {n["fecha"]}</div>
+            <div style="color: white; font-size: 1.2rem; line-height: 1.6; white-space: pre-wrap;">{n["mensaje"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
         if n.get("archivo_link"):
-            st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="color: #38bdf8; font-weight: bold; text-decoration: none;">📂 Ver archivo en Drive</a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
+    
+    # Botón para cerrar
+    if st.button("❌ Cerrar Novedades"):
+        st.session_state.novedades_expandido = False
+        st.rerun()
