@@ -1,0 +1,19 @@
+name: Mantener App Despierta
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Se ejecuta cada 6 horas
+  workflow_dispatch: # Permite ejecutarlo manualmente para probar
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit vacío para generar actividad
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git commit --allow-empty -m "Ping para mantener Streamlit despierto"
+          git push
