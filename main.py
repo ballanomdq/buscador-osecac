@@ -125,6 +125,13 @@ input { color: #000000 !important; font-weight: bold !important; }
     50% { opacity: 0.8; }
     100% { opacity: 1; }
 }
+
+/* Estilo específico para etiquetas de checkbox */
+div[data-testid="stCheckbox"] label p {
+    font-weight: bold !important;
+    font-size: 1.1rem !important;
+    color: #38bdf8 !important; /* Color celeste para destacar */
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -294,7 +301,8 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     
     st.markdown("---")
     
-    c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
+    # MODIFICACIÓN SOLICITADA: Nombres claros al lado de los casilleros
+    c1, c2, c3, c4 = st.columns([0.4, 1, 0.4, 1])
     
     with c1:
         pop_f = st.popover("✏️")
@@ -326,6 +334,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             
     with c4:
         st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
+    
     sel_faba = st.session_state.faba_check
     sel_osecac = st.session_state.osecac_check
     
@@ -343,6 +352,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     else:
         df_u = df_osecac_busq if sel_osecac else df_faba
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
+        
     term = st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
     btn_buscar = st.button("Buscar")
     
