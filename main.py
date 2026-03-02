@@ -289,6 +289,9 @@ with popover_novedades:
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
+    st.link_button("📈 NOMENCLADOR EXEL OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
+    st.link_button("📈 NOMENCLADOR EXEL FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
+    
     st.markdown("---")
     
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
@@ -359,7 +362,6 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                             v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
-                                # Nota: Asegúrate de tener la función editar_celda_google_sheets definida en tu entorno
                                 try:
                                     if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
                                         st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
