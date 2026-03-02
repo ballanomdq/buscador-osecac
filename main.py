@@ -22,15 +22,20 @@ st.set_page_config(
 # --- CONFIGURACIÓN DRIVE ---
 FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 
-# --- FUNCIÓN DEFINITIVA Y PERMANENTE ---
+# --- FUNCIÓN DEFINITIVA Y PERMANENTE (ACTUALIZADA) ---
 def subir_a_drive(file_path, file_name):
     try:
-        # NOMBRE DEL ARCHIVO JSON SUBIDO A GITHUB
+        # NOMBRE DEL ARCHIVO JSON QUE SUBISTE
         KEY_FILE = "hallowed-web-447622-q7-ee347f5c394a.json" 
 
-        # Se autentica usando el archivo JSON (No caduca)
-        creds = service_account.Credentials.from_service_account_file(
-            KEY_FILE, scopes=["https://www.googleapis.com/auth/drive"]
+        # Se autentica usando el archivo JSON
+        # Usamos service_account_info para evitar problemas de sincronización de tiempo
+        import json
+        with open(KEY_FILE, 'r') as f:
+            creds_info = json.load(f)
+        
+        creds = service_account.Credentials.from_service_account_info(
+            creds_info, scopes=["https://www.googleapis.com/auth/drive"]
         )
 
         service = build('drive', 'v3', credentials=creds)
@@ -49,6 +54,7 @@ def subir_a_drive(file_path, file_name):
         return file.get('webViewLink')
 
     except Exception as e:
+        # Mostramos el error detallado para saber si es otro problema
         st.error(f"Error técnico permanente: {str(e)}")
         return None
 
@@ -121,11 +127,10 @@ input { color: #000000 !important; font-weight: bold !important; }
     100% { opacity: 1; }
 }
 
-/* Estilo específico para etiquetas de checkbox */
 div[data-testid="stCheckbox"] label p {
     font-weight: bold !important;
     font-size: 1.1rem !important;
-    color: #38bdf8 !important; /* Color celeste para destacar */
+    color: #38bdf8 !important;
 }
 </style>
 """, unsafe_allow_html=True)
