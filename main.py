@@ -1,15 +1,12 @@
 import streamlit as st
 import pandas as pd
-import base64
 import time
 from datetime import datetime
 import gspread
 from google.oauth2.credentials import Credentials as OAuthCredentials
 from google.auth.transport.requests import Request
-# --- IMPORTACIONES PARA DRIVE ---
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from googleapiclient.errors import HttpError
 import os
 from PIL import Image
 import io
@@ -24,26 +21,9 @@ st.set_page_config(
 # --- CONFIGURACIÓN DRIVE ---
 FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 
-# --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
-def editar_celda_google_sheets(sheet_url, fila_idx, columna_nombre, nuevo_valor):
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_info(st.secrets["gcp"], scopes=scope)
-        client = gspread.authorize(creds)
-        sh = client.open_by_url(sheet_url)
-        worksheet = sh.get_worksheet(0)
-        headers = worksheet.row_values(1)
-        col_idx = headers.index(columna_nombre) + 1
-        worksheet.update_cell(fila_idx + 2, col_idx, str(nuevo_valor))
-        return True
-    except Exception as e:
-        st.error(f"Error al guardar: {e}")
-        return False
-
-# --- FUNCIÓN PARA SUBIR A DRIVE USANDO OAUTH (TU CUENTA PERSONAL) ---
+# --- FUNCIÓN PARA SUBIR A DRIVE (OAuth - tu cuenta personal) ---
 def subir_a_drive(file_path, file_name):
     try:
-        # Tus tokens (pueden estar en secrets o hardcoded temporalmente)
         REFRESH_TOKEN = "1//04wm475WZT5NrCgYIARAAGAQSNwF-L9IrV1Wnk6hUFxlYb0yoyKnATPFKvPc_2QCZ4bkqmuWnBVreI6v5DFKr-u8q6lCJfZFLwOg"
         ACCESS_TOKEN = "ya29.a0ATkoCc5F9aJgCfAbzdQvZYGc_wCBLgiWOyTwOjWDj1vsMAPc8stwgbHXOhxPdcghSqKXJx8mtmp_WA6kZAO_2aENwpQE-3CzcHvTiYkUTKdDfxxE5BddS7QrB0SESbasc9vshiLDAdq6wErDbgIAiU835mB7hGX-LDCSVKD4L68cpFhHco6eeRdHVRnC2kJ4D7fkuS8aCgYKARgSARQSFQHGX2MiLUw0IpD5eh_zyfX7QeL-og0206"
 
@@ -61,26 +41,15 @@ def subir_a_drive(file_path, file_name):
 
         service = build('drive', 'v3', credentials=creds)
 
-        file_metadata = {
-            'name': file_name,
-            'parents': [FOLDER_ID]
-        }
-
+        file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
         media = MediaFileUpload(file_path, resumable=True)
 
-        file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id, webViewLink'
-        ).execute()
+        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
 
         try:
-            service.permissions().create(
-                fileId=file.get('id'),
-                body={'type': 'anyone', 'role': 'reader'}
-            ).execute()
+            service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         except:
-            pass  # No crítico
+            pass
 
         return file.get('webViewLink')
 
@@ -90,7 +59,7 @@ def subir_a_drive(file_path, file_name):
 
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
-    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_link": ""}]
+    st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_links": []}]
 if 'novedades_vistas' not in st.session_state:
     st.session_state.novedades_vistas = {st.session_state.historial_novedades[0]["id"]}
 if 'pass_novedades_valida' not in st.session_state:
@@ -117,7 +86,7 @@ def toggle_osecac():
 def abrir_novedades():
     st.session_state.novedades_expandido = True
 
-# ================== CSS MODERNO DEFINITIVO ==================
+# ================== CSS ==================
 st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
@@ -132,37 +101,7 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 1rem !important; }
-/* ESTILOS PARA HEADER CENTRADO */
-.header-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    margin-bottom: 10px;
-}
-.titulo-principal {
-    font-weight: 800;
-    font-size: 2.5rem;
-    color: #ffffff;
-    margin: 0;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    margin-bottom: 10px;
-}
-.logo-container {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-.botones-container {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-/* ESTILOS UNIFICADOS PARA BOTONES */
-.stButton > button, div[data-testid="baseButton-secondary"] {
+.stButton > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
     border: 2px solid #38bdf8 !important;
@@ -170,49 +109,21 @@ input { color: #000000 !important; font-weight: bold !important; }
     padding: 8px 20px !important;
     font-size: 1rem !important;
     font-weight: bold !important;
-    transition: all 0.3s !important;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
-    min-width: 100px !important;
 }
-.stButton > button:hover, div[data-testid="baseButton-secondary"]:hover {
+.stButton > button:hover {
     background: #38bdf8 !important;
     color: black !important;
     transform: scale(1.05) !important;
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.6) !important;
 }
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
-    box-shadow: 0 0 15px rgba(255, 75, 75, 0.5) !important;
     animation: parpadeo 1.2s infinite;
 }
 @keyframes parpadeo {
-    0% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
-    50% { opacity: 0.9; box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); transform: scale(1.02); }
-    100% { opacity: 1; box-shadow: 0 0 15px rgba(255, 75, 75, 0.5); }
-}
-div[data-testid="stPopover"] > button {
-    background: linear-gradient(145deg, #1e293b, #0f172a) !important;
-    color: white !important;
-    border: 2px solid #38bdf8 !important;
-    border-radius: 10px !important;
-    padding: 8px 20px !important;
-    font-size: 1.2rem !important;
-    font-weight: bold !important;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3) !important;
-}
-div[data-testid="stPopover"] > button:hover {
-    background: #38bdf8 !important;
-    color: black !important;
-    transform: scale(1.05) !important;
-}
-div[data-testid="stExpander"][aria-expanded="true"] {
-    background: linear-gradient(145deg, #1e293b, #0f172a);
-    border-radius: 20px;
-    padding: 20px;
-    margin: 20px 0;
-    border: 2px solid #ff4b4b;
-    box-shadow: 0 0 30px rgba(255, 75, 75, 0.3);
+    0% { opacity: 1; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -241,7 +152,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CENTRADO =================
+# ================= HEADER =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -276,7 +187,7 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-popover_novedades = st.popover("✏️")
+popover_novedades = st.popover("✏️ Cargar Novedades")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -287,10 +198,10 @@ st.markdown("""
 
 st.markdown("---")
 
-# ================= POPOVER DE ADMINISTRACIÓN DE NOVEDADES =================
+# ================= POPOVER CARGAR NOVEDADES =================
 with popover_novedades:
     st.markdown("### 🔐 Clave Administración")
-   
+    
     if not st.session_state.pass_novedades_valida:
         with st.form("form_novedades_admin"):
             cl_admin = st.text_input("Ingrese Clave:", type="password")
@@ -303,57 +214,57 @@ with popover_novedades:
     else:
         st.success("✅ Acceso concedido")
         st.markdown("---")
-        st.write("### 📝 Administrar Novedades")
-       
+        st.write("### Administrar Novedades")
+        
         accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
-       
+        
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
                 m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
-                uploaded_file = st.file_uploader("📎 Adjuntar archivo (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"])
-               
+                uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+                
                 col1, col2 = st.columns(2)
                 with col1:
                     submit = st.form_submit_button("📢 PUBLICAR")
                 with col2:
                     cancel = st.form_submit_button("❌ CANCELAR")
-               
+                
                 if submit:
                     if not m.strip():
                         st.error("❌ El mensaje no puede estar vacío")
                     else:
-                        drive_link = ""
-                        if uploaded_file is not None:
-                            with st.spinner("Subiendo archivo a Drive..."):
-                                temp_path = f"temp_{uploaded_file.name}"
-                                with open(temp_path, "wb") as f:
-                                    f.write(uploaded_file.getbuffer())
-                                drive_link = subir_a_drive(temp_path, uploaded_file.name)
-                                if os.path.exists(temp_path):
-                                    os.remove(temp_path)
-                           
-                            if drive_link:
-                                st.success("✅ Archivo subido correctamente")
-                            else:
-                                st.warning("⚠️ No se pudo subir el archivo, pero la novedad se publicará sin él")
-                       
+                        drive_links = []
+                        if uploaded_files:
+                            for uploaded_file in uploaded_files:
+                                with st.spinner(f"Subiendo {uploaded_file.name}..."):
+                                    temp_path = f"temp_{uploaded_file.name}"
+                                    with open(temp_path, "wb") as f:
+                                        f.write(uploaded_file.getbuffer())
+                                    link = subir_a_drive(temp_path, uploaded_file.name)
+                                    if os.path.exists(temp_path):
+                                        os.remove(temp_path)
+                                    if link:
+                                        drive_links.append(link)
+                                    else:
+                                        st.warning(f"No se pudo subir {uploaded_file.name}")
+                        
                         nueva_novedad = {
                             "id": str(time.time()),
                             "mensaje": m,
                             "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "archivo_link": drive_link
+                            "archivo_links": drive_links
                         }
                         st.session_state.historial_novedades.insert(0, nueva_novedad)
                         st.session_state.novedades_vistas = set()
                         st.success("✅ ¡Publicado exitosamente!")
                         time.sleep(1)
                         st.rerun()
-       
+        
         elif accion == "✏️ Editar existente":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
-               
+                
                 novedad = st.session_state.historial_novedades[idx_editar]
                 with st.form("editar_novedad_form"):
                     nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
@@ -362,12 +273,12 @@ with popover_novedades:
                         st.success("✅ ¡Actualizado!")
                         time.sleep(1)
                         st.rerun()
-       
+        
         elif accion == "🗑️ Eliminar":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
-               
+                
                 if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
                     st.session_state.historial_novedades.pop(idx_eliminar)
                     st.success("✅ ¡Eliminado!")
@@ -378,10 +289,13 @@ with popover_novedades:
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
+    st.link_button("📈 NOMENCLADOR EXEL OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
+    st.link_button("📈 NOMENCLADOR EXEL FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
+    
     st.markdown("---")
-   
+    
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
-   
+    
     with c1:
         pop_f = st.popover("✏️")
         pop_f.markdown("### 🔑 Clave FABA")
@@ -396,7 +310,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         else: pop_f.success("✅ FABA Habilitado")
     with c2:
         st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
-       
+        
     with c3:
         pop_o = st.popover("✏️")
         pop_o.markdown("### 🔑 Clave OSECAC")
@@ -409,14 +323,14 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                         st.rerun()
                     else: st.error("❌ Clave incorrecta")
         else: pop_o.success("✅ OSECAC Habilitado")
-           
+            
     with c4:
         st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
     sel_faba = st.session_state.faba_check
     sel_osecac = st.session_state.osecac_check
-   
+    
     opcion = "OSECAC" if sel_osecac else "FABA"
-   
+    
     edicion_habilitada = False
     if sel_osecac and st.session_state.pass_o_valida:
         edicion_habilitada = True
@@ -431,25 +345,28 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
     term = st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
     btn_buscar = st.button("Buscar")
-   
+    
     if btn_buscar:
         if term:
             mask = df_u.apply(lambda row: all(p in str(row).lower() for p in term.lower().split()), axis=1)
             results = df_u[mask]
-           
+            
             if results.empty:
                 st.warning("No se encontraron resultados.")
             else:
                 for i, row in results.iterrows():
                     st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-                   
+                    
                     if edicion_habilitada:
                         with st.expander(f"📝 Editar fila {i}"):
                             c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                             v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
-                                if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                                    st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
+                                try:
+                                    if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
+                                        st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
+                                except NameError:
+                                    st.error("Función de edición no configurada.")
         else:
             st.info("Escriba algo en el buscador.")
     if not edicion_habilitada:
@@ -460,6 +377,20 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+    
+    # --- SECCIÓN ADMINISTRADORES ---
+    st.markdown("---")
+    pop_admin = st.popover("🔑 ADMINISTRADORES")
+    with pop_admin:
+        st.markdown("### 🔐 Acceso Restringido")
+        with st.form("form_admin_directo"):
+            cl_ingresada = st.text_input("Ingrese Clave:", type="password")
+            if st.form_submit_button("✅ ACCEDER"):
+                if cl_ingresada == "2025":
+                    st.success("Acceso Correcto")
+                    st.link_button("👉 IR A PANEL ADMINISTRATIVO", "https://sites.google.com/view/osecacmdpadm?usp=sharing")
+                else:
+                    st.error("❌ Clave incorrecta")
 
 # 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
@@ -505,11 +436,11 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
-   
+    
     for n in st.session_state.historial_novedades:
         if n["id"] not in st.session_state.novedades_vistas:
             st.session_state.novedades_vistas.add(n["id"])
-       
+        
         st.markdown(f"""
         <div style="background: linear-gradient(145deg, #1e293b, #0f172a);
                     border-left: 8px solid #ff4b4b;
@@ -521,10 +452,11 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
             <div style="color: white; font-size: 1.2rem; line-height: 1.6; white-space: pre-wrap;">{n["mensaje"]}</div>
         </div>
         """, unsafe_allow_html=True)
-       
-        if n.get("archivo_link"):
-            st.markdown(f'<a href="{n["archivo_link"]}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
-   
+        
+        if n.get("archivo_links"):
+            for link in n["archivo_links"]:
+                st.markdown(f'<a href="{link}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
+    
     if st.button("❌ Cerrar Novedades"):
         st.session_state.novedades_expandido = False
         st.rerun()
