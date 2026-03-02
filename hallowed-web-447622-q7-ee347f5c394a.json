@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "hallowed-web-447622-q7",
+  "private_key_id": "ee347f5c394a00791fb4487cc12bc5ca8fcffe67",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDaqHSjTxguHqqP\nRbAMMVILWYmlpdRyIdyqOwGBKqewH70zxycSmLTUNmdYME08oPLBWklHyIpgHYWB\nGzv7wBGB5ENBqzwAXtUIT6MMKj01EfYdavt/nltpC353jgIsG1bSLJG+lZOomeIO\nZAH8XvKczKBjdiF/0CSjMqe1/pPA7d488Oc+b88Yp37UsBsCUYy3UcErCzZGRbFx\na21cpFAxIhLDLnvnJdqF32cg5O19YFGO2F1GaGfsTdKFN8TgvCbmpTp8XEbIwefi\n9xLxKW5kwENXdJoO0xXyp/Vd5R3mYH6PXVAWjg6VZqlWhPCtHIKuZAg0m5wasNdt\n+PRGYQ4dAgMBAAECggEABKs/0Oi/6lIxYjjeLnB34R/ONyk+AZpP/+PUlklzataF\nhFYzDpCiZmqiQqS0iO3ZTbb+EvFtm9dv0eJRPS6Hxb46kCKWJZUp8topVJUPmSoJ\n+9qcfPXfknP26dD5omZBeal8waK6XWThN6aE0MPYrwIVajtr+umEDi/nLV5HyFNE\nICD3UcHfcIlqg06d4oF5LEMu91675KhcSXImdL/4IW9aGPzlcc2KECTsnKuU4d7a\ngXBs0quUnf/i1VRHeUM+KXLrNBBFtjTM4plx+1ukfTQkBxlGuMP8ENmz3IDlhf2I\ndjDok7l8o5sxSS2JyGf4/ELC2f2GIdvK/jSYGrlUUQKBgQD2QlyrQ3mjhIuEskcl\ndhNcbbwZwskDvsyi9qUeZgl6sA3Mrcqm/W75VI8rGoGn+3pi130YHlVuSixRrUQf\nqMY8FROw5Z7aKpZsAg1lijuEOyGpXe8TKsecaqSFWDSMfl0+SXBPE7JylYbnQe7k\ntc9aQmT9llYBsuOM5B3KLLRVcQKBgQDjTpocXq3ZIUPACZJ/EvSzTiN3XRNttZks\nC9J1gLWakgljvfXkh9in7RLqvPZREudwMDE0orfQS2zHkWO5N2KgxCJRH50Q579Q\nAVYu2kEsF/Sax71rtDpdCwFyAohZht3KYBVU46smTVOBOh0ernPWDRyVs7Rrrh88\nEuESo6j9bQKBgQDIrR+TOPNA+1wukJFFx8jTQ2FLpN3mPW/JRTEdao1C+4DjUKSa\nHGB4sh3RRFJwL5B2R6BbLSz1KWCgVo/zNLgGci6Psy8WHipibfG400LY6M7vk+ql\nNfFgV88mEtEPxFH71iC9cBG1KoC6p5Ijsrz8kqp1tDL2Q28He0WDYZa7IQKBgQCj\ngZjtq1VWiM0ZSEluyw3mJODyLauaETT7MA3VpB397+p9KtnD58v7D1e6Lu7n5rdA\nRgo/GIUsefTnoTegtaxmhG9C94Cd9nXxcOSzkx+qPhkfdWpWHTCWWSJTBmtaKt9D\ngdYWWCZ2yMy2ej0UIt0ELi5PqRKxGnExX0szgzI+CQKBgAzMBMfbxKrrFPX8Mh+l\nCZRH/Lle74npiJ6jqZw4aPbGR6xe3czV/1feHTW9asNPc/gUfuZveE3da0QD+uDs\nTS9nIrK3BbEB+plrMB47WQvEeX0Y9GYF/GvKItmnESPS0t5udUqxxrFqKw3Cd2Rn\nLLX6UVIBPSuavhkdtN/KCeu5\n-----END PRIVATE KEY-----\n",
+  "client_email": "editador-osecac@hallowed-web-447622-q7.iam.gserviceaccount.com",
+  "client_id": "103805771203745001029",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/editador-osecac%40hallowed-web-447622-q7.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
