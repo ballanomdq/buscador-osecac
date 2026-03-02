@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 import time
 from datetime import datetime
@@ -201,7 +201,7 @@ st.markdown("---")
 # ================= POPOVER CARGAR NOVEDADES =================
 with popover_novedades:
     st.markdown("### 🔐 Clave Administración")
-    
+   
     if not st.session_state.pass_novedades_valida:
         with st.form("form_novedades_admin"):
             cl_admin = st.text_input("Ingrese Clave:", type="password")
@@ -215,20 +215,20 @@ with popover_novedades:
         st.success("✅ Acceso concedido")
         st.markdown("---")
         st.write("### Administrar Novedades")
-        
+       
         accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
-        
+       
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
                 m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
                 uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-                
+               
                 col1, col2 = st.columns(2)
                 with col1:
                     submit = st.form_submit_button("📢 PUBLICAR")
                 with col2:
                     cancel = st.form_submit_button("❌ CANCELAR")
-                
+               
                 if submit:
                     if not m.strip():
                         st.error("❌ El mensaje no puede estar vacío")
@@ -247,7 +247,7 @@ with popover_novedades:
                                         drive_links.append(link)
                                     else:
                                         st.warning(f"No se pudo subir {uploaded_file.name}")
-                        
+                       
                         nueva_novedad = {
                             "id": str(time.time()),
                             "mensaje": m,
@@ -259,12 +259,12 @@ with popover_novedades:
                         st.success("✅ ¡Publicado exitosamente!")
                         time.sleep(1)
                         st.rerun()
-        
+       
         elif accion == "✏️ Editar existente":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                
+               
                 novedad = st.session_state.historial_novedades[idx_editar]
                 with st.form("editar_novedad_form"):
                     nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
@@ -273,12 +273,12 @@ with popover_novedades:
                         st.success("✅ ¡Actualizado!")
                         time.sleep(1)
                         st.rerun()
-        
+       
         elif accion == "🗑️ Eliminar":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                
+               
                 if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
                     st.session_state.historial_novedades.pop(idx_eliminar)
                     st.success("✅ ¡Eliminado!")
@@ -289,13 +289,10 @@ with popover_novedades:
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
-    st.link_button("📈 NOMENCLADOR EXEL OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
-    st.link_button("📈 NOMENCLADOR EXEL FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
-    
     st.markdown("---")
-    
+   
     c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
-    
+   
     with c1:
         pop_f = st.popover("✏️")
         pop_f.markdown("### 🔑 Clave FABA")
@@ -310,7 +307,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         else: pop_f.success("✅ FABA Habilitado")
     with c2:
         st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
-        
+       
     with c3:
         pop_o = st.popover("✏️")
         pop_o.markdown("### 🔑 Clave OSECAC")
@@ -323,14 +320,14 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                         st.rerun()
                     else: st.error("❌ Clave incorrecta")
         else: pop_o.success("✅ OSECAC Habilitado")
-            
+           
     with c4:
         st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
     sel_faba = st.session_state.faba_check
     sel_osecac = st.session_state.osecac_check
-    
+   
     opcion = "OSECAC" if sel_osecac else "FABA"
-    
+   
     edicion_habilitada = False
     if sel_osecac and st.session_state.pass_o_valida:
         edicion_habilitada = True
@@ -345,28 +342,25 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
     term = st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
     btn_buscar = st.button("Buscar")
-    
+   
     if btn_buscar:
         if term:
             mask = df_u.apply(lambda row: all(p in str(row).lower() for p in term.lower().split()), axis=1)
             results = df_u[mask]
-            
+           
             if results.empty:
                 st.warning("No se encontraron resultados.")
             else:
                 for i, row in results.iterrows():
                     st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-                    
+                   
                     if edicion_habilitada:
                         with st.expander(f"📝 Editar fila {i}"):
                             c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                             v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
-                                try:
-                                    if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                                        st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
-                                except NameError:
-                                    st.error("Función de edición no configurada.")
+                                if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
+                                    st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
         else:
             st.info("Escriba algo en el buscador.")
     if not edicion_habilitada:
@@ -377,20 +371,6 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
-    
-    # --- SECCIÓN ADMINISTRADORES ---
-    st.markdown("---")
-    pop_admin = st.popover("🔑 ADMINISTRADORES")
-    with pop_admin:
-        st.markdown("### 🔐 Acceso Restringido")
-        with st.form("form_admin_directo"):
-            cl_ingresada = st.text_input("Ingrese Clave:", type="password")
-            if st.form_submit_button("✅ ACCEDER"):
-                if cl_ingresada == "2025":
-                    st.success("Acceso Correcto")
-                    st.link_button("👉 IR A PANEL ADMINISTRATIVO", "https://sites.google.com/view/osecacmdpadm?usp=sharing")
-                else:
-                    st.error("❌ Clave incorrecta")
 
 # 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
@@ -421,7 +401,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
             st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
         re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
         for i, row in re.iterrows():
-            st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="ficha ficha-especialista">👨⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
 # 6. AGENDAS / MAILS
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
@@ -436,11 +416,11 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
-    
+   
     for n in st.session_state.historial_novedades:
         if n["id"] not in st.session_state.novedades_vistas:
             st.session_state.novedades_vistas.add(n["id"])
-        
+       
         st.markdown(f"""
         <div style="background: linear-gradient(145deg, #1e293b, #0f172a);
                     border-left: 8px solid #ff4b4b;
@@ -452,11 +432,11 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
             <div style="color: white; font-size: 1.2rem; line-height: 1.6; white-space: pre-wrap;">{n["mensaje"]}</div>
         </div>
         """, unsafe_allow_html=True)
-        
+       
         if n.get("archivo_links"):
             for link in n["archivo_links"]:
                 st.markdown(f'<a href="{link}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
-    
+   
     if st.button("❌ Cerrar Novedades"):
         st.session_state.novedades_expandido = False
-        st.rerun()
+        st.rerun() Y QUIERO QUE LUEGO DE DESPLEGAR CON EL BOTON PEDIDOS APARTE DE PEDIDO DE LECHES / PEDIDO DE SUMINISTROS Y ESTADO DE PEDIDOS TENGA UN BOTON MAS QUE DIGA : ADMINISTRADORES Y QUE CUANDO APRETEN EL BOTON EN ADMINISTRADORES LE SALGA EL CARTELITO PARA PONER LA CLAVE (CON EL MISMO FORMATO QUE VENIMOS HACIENDO PARA PONER LA CLAVE ) Y QUE LA CLAVE SEA 2025 Y QUE SI LA PONE BIEN ENTONCES LLEVE A ESTA OTRA PAGINA https://sites.google.com/view/osecacmdpadm?usp=sharing
