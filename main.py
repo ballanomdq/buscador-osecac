@@ -11,6 +11,7 @@ from google.oauth2 import service_account
 import os
 from PIL import Image
 import io
+import json
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -22,18 +23,13 @@ st.set_page_config(
 # --- CONFIGURACIÓN DRIVE ---
 FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 
-# --- FUNCIÓN DEFINITIVA Y PERMANENTE (ACTUALIZADA) ---
+# --- FUNCIÓN DEFINITIVA Y PERMANENTE ---
 def subir_a_drive(file_path, file_name):
     try:
-        # NOMBRE DEL ARCHIVO JSON QUE SUBISTE
-        KEY_FILE = "hallowed-web-447622-q7-ee347f5c394a.json" 
-
-        # Se autentica usando el archivo JSON
-        # Usamos service_account_info para evitar problemas de sincronización de tiempo
-        import json
-        with open(KEY_FILE, 'r') as f:
-            creds_info = json.load(f)
+        # !!! ESTO LEE EL SECRETO DE STREAMLIT WEB !!!
+        creds_info = st.secrets["gcp_service_account"]
         
+        # Se autentica usando la información del secreto
         creds = service_account.Credentials.from_service_account_info(
             creds_info, scopes=["https://www.googleapis.com/auth/drive"]
         )
@@ -45,7 +41,7 @@ def subir_a_drive(file_path, file_name):
 
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
 
-        # Hacer el archivo público para que lo vean en la web
+        # Hacer el archivo público
         try:
             service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         except:
@@ -54,11 +50,10 @@ def subir_a_drive(file_path, file_name):
         return file.get('webViewLink')
 
     except Exception as e:
-        # Mostramos el error detallado para saber si es otro problema
         st.error(f"Error técnico permanente: {str(e)}")
         return None
 
-# --- INICIALIZACIÓN DE SESIÓN ---
+# --- INICIALIZACIÓN DE SESIÓN (SE MANTIENE IGUAL) ---
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_links": []}]
 if 'novedades_vistas' not in st.session_state:
@@ -135,7 +130,7 @@ div[data-testid="stCheckbox"] label p {
 </style>
 """, unsafe_allow_html=True)
 
-# --- CARGA DE DATOS ---
+# --- CARGA DE DATOS (SE MANTIENE IGUAL) ---
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
@@ -159,7 +154,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER =================
+# ================= HEADER (SE MANTIENE IGUAL) =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -292,7 +287,7 @@ with popover_novedades:
                     time.sleep(1)
                     st.rerun()
 
-# ================== APLICACIÓN ==================
+# ================== APLICACIÓN (SE MANTIENE IGUAL) ==================
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
