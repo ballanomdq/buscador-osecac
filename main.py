@@ -359,16 +359,13 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                             v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
-                                # Nota: Asegúrate de tener la función editar_celda_google_sheets definida en tu entorno
                                 try:
                                     if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
                                         st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
-                                except NameError:
-                                    st.error("Función de edición no configurada.")
+                                except:
+                                    st.error("Error en sincronización.")
         else:
             st.info("Escriba algo en el buscador.")
-    if not edicion_habilitada:
-        st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
 # 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
@@ -376,17 +373,18 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
     
-    # --- SECCIÓN ADMINISTRADORES ---
+    # --- ADMINISTRADORES CON REDIRECCIÓN DIRECTA ---
     st.markdown("---")
     pop_admin = st.popover("🔑 ADMINISTRADORES")
     with pop_admin:
-        st.markdown("### 🔐 Acceso Restringido")
+        st.markdown("### 🔐 Acceso Directo")
         with st.form("form_admin_directo"):
             cl_ingresada = st.text_input("Ingrese Clave:", type="password")
             if st.form_submit_button("✅ ACCEDER"):
                 if cl_ingresada == "2025":
-                    st.success("Acceso Correcto")
-                    st.link_button("👉 IR A PANEL ADMINISTRATIVO", "https://sites.google.com/view/osecacmdpadm?usp=sharing")
+                    # Inyectamos JavaScript para abrir la URL en la misma pestaña
+                    js = f"window.location.href = 'https://sites.google.com/view/osecacmdpadm?usp=sharing'"
+                    st.markdown(f'<img src="x" onerror="{js}">', unsafe_allow_html=True)
                 else:
                     st.error("❌ Clave incorrecta")
 
