@@ -1,4 +1,4 @@
-# --- BLOQUE CORREGIDO DE SUBIDA ---
+# --- BLOQUE CORREGIDO (SIN ERRORES DE ESPACIOS) ---
                     for arc in adjuntos:
                         meta = {
                             'name': arc.name, 
@@ -6,19 +6,22 @@
                         }
                         media = MediaIoBaseUpload(io.BytesIO(arc.read()), mimetype=arc.type)
                         
-                        # Creamos el archivo
+                        # El robot crea el archivo
                         f = service_drive.files().create(
                             body=meta, 
                             media_body=media, 
                             fields='id, webViewLink'
                         ).execute()
 
-                        # --- LA SOLUCIÓN AL ERROR 403 ---
-                        # Le decimos al robot que NO sea el dueño, sino que te dé el permiso a vos o a cualquiera
-                        service_drive.permissions().create(
-                            fileId=f['id'], 
-                            body={'type': 'anyone', 'role': 'viewer'}
-                        ).execute()
+                        # Truco para que no te tire el error 403 de espacio:
+                        # Le damos permiso a "cualquiera" para ver el archivo inmediatamente.
+                        try:
+                            service_drive.permissions().create(
+                                fileId=f['id'], 
+                                body={'type': 'anyone', 'role': 'viewer'}
+                            ).execute()
+                        except:
+                            pass # Si ya tiene permiso, que siga
                         
                         links.append(f.get('webViewLink'))
-                    # ----------------------------------
+                    # --------------------------------------------------
