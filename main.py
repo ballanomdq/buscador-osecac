@@ -7,9 +7,11 @@ from google.oauth2.credentials import Credentials as OAuthCredentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google.oauth2 import service_account
 import os
 from PIL import Image
 import io
+import json
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -21,23 +23,16 @@ st.set_page_config(
 # --- CONFIGURACIÓN DRIVE ---
 FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 
-# --- FUNCIÓN PARA SUBIR A DRIVE (OAuth - tu cuenta personal) ---
+# --- FUNCIÓN DEFINITIVA Y PERMANENTE ---
 def subir_a_drive(file_path, file_name):
     try:
-        REFRESH_TOKEN = "1//04wm475WZT5NrCgYIARAAGAQSNwF-L9IrV1Wnk6hUFxlYb0yoyKnATPFKvPc_2QCZ4bkqmuWnBVreI6v5DFKr-u8q6lCJfZFLwOg"
-        ACCESS_TOKEN = "ya29.a0ATkoCc5F9aJgCfAbzdQvZYGc_wCBLgiWOyTwOjWDj1vsMAPc8stwgbHXOhxPdcghSqKXJx8mtmp_WA6kZAO_2aENwpQE-3CzcHvTiYkUTKdDfxxE5BddS7QrB0SESbasc9vshiLDAdq6wErDbgIAiU835mB7hGX-LDCSVKD4L68cpFhHco6eeRdHVRnC2kJ4D7fkuS8aCgYKARgSARQSFQHGX2MiLUw0IpD5eh_zyfX7QeL-og0206"
-
-        creds = OAuthCredentials(
-            token=ACCESS_TOKEN,
-            refresh_token=REFRESH_TOKEN,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id="407408718192.apps.googleusercontent.com",
-            client_secret="",
-            scopes=["https://www.googleapis.com/auth/drive"]
+        # !!! ESTO LEE EL SECRETO DE STREAMLIT WEB !!!
+        creds_info = st.secrets["gcp_service_account"]
+        
+        # Se autentica usando la información del secreto
+        creds = service_account.Credentials.from_service_account_info(
+            creds_info, scopes=["https://www.googleapis.com/auth/drive"]
         )
-
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
 
         service = build('drive', 'v3', credentials=creds)
 
@@ -46,6 +41,7 @@ def subir_a_drive(file_path, file_name):
 
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
 
+        # Hacer el archivo público
         try:
             service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         except:
@@ -54,10 +50,10 @@ def subir_a_drive(file_path, file_name):
         return file.get('webViewLink')
 
     except Exception as e:
-        st.error(f"Error al subir archivo: {str(e)}")
+        st.error(f"Error técnico permanente: {str(e)}")
         return None
 
-# --- INICIALIZACIÓN DE SESIÓN ---
+# --- INICIALIZACIÓN DE SESIÓN (SE MANTIENE IGUAL) ---
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_links": []}]
 if 'novedades_vistas' not in st.session_state:
@@ -125,10 +121,16 @@ input { color: #000000 !important; font-weight: bold !important; }
     50% { opacity: 0.8; }
     100% { opacity: 1; }
 }
+
+div[data-testid="stCheckbox"] label p {
+    font-weight: bold !important;
+    font-size: 1.1rem !important;
+    color: #38bdf8 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# --- CARGA DE DATOS ---
+# --- CARGA DE DATOS (SE MANTIENE IGUAL) ---
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
@@ -152,7 +154,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER =================
+# ================= HEADER (SE MANTIENE IGUAL) =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -285,7 +287,7 @@ with popover_novedades:
                     time.sleep(1)
                     st.rerun()
 
-# ================== APLICACIÓN ==================
+# ================== APLICACIÓN (SE MANTIENE IGUAL) ==================
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
@@ -294,7 +296,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     
     st.markdown("---")
     
-    c1, c2, c3, c4 = st.columns([0.6, 2, 0.6, 2])
+    c1, c2, c3, c4 = st.columns([0.4, 1, 0.4, 1])
     
     with c1:
         pop_f = st.popover("✏️")
@@ -326,6 +328,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             
     with c4:
         st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
+    
     sel_faba = st.session_state.faba_check
     sel_osecac = st.session_state.osecac_check
     
@@ -343,6 +346,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     else:
         df_u = df_osecac_busq if sel_osecac else df_faba
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
+        
     term = st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
     btn_buscar = st.button("Buscar")
     
