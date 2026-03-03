@@ -436,10 +436,10 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# ========== SECCIÓN 7 MODIFICADA: NOVEDADES Y COMUNIDAD ==========
+# ========== SECCIÓN 7 MODIFICADA: CHAT DE TELEGRAM INCRUSTADO ==========
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     
-    # --- Subsección 7.1: Novedades del Jefe (Código Existente) ---
+    # --- Subsección 1: Novedades del Jefe (igual que antes) ---
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
     
@@ -464,47 +464,25 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
                 st.markdown(f'<a href="{link}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
     
     st.markdown("---")
-
-    # --- Subsección 7.2: Invitación a la Comunidad Telegram (NUEVO) ---
-    st.markdown("## 💬 Unite a la Conversación")
-    st.markdown("¿Querés comentar, preguntar o compartir información con otras agencias?")
     
-    enlace_telegram = "https://t.me/+7sSifV5L2MFjNDkx"  # <--- TU ENLACE AQUÍ
-    st.link_button(
-        label="📱 HACÉ CLIC PARA UNIRTE AL GRUPO DE TELEGRAM",
-        url=enlace_telegram,
-        use_container_width=True,
-        type="primary"  # Esto le dará el estilo azul principal
-    )
+    # --- Subsección 2: CHAT DE TELEGRAM INCRUSTADO ---
+    st.markdown("## 💬 Conversación entre agencias")
+    st.markdown("Participá del grupo directamente desde acá:")
     
-    st.caption("Al hacer clic, se abrirá el grupo de Telegram. Si no tenés la app, se abrirá en el navegador.")
+    # Usamos un embed con iframe para grupos privados (solución alternativa)
+    enlace_telegram = "https://t.me/+7sSifV5L2MFjNDkx"
+    
+    st.components.v1.html(f"""
+    <div style="background: white; border-radius: 10px; padding: 10px; text-align: center;">
+        <p style="margin-bottom: 10px; color: #333;">📱 Grupo de Telegram</p>
+        <iframe src="{enlace_telegram}" width="100%" height="400" frameborder="0"></iframe>
+        <p style="margin-top: 10px; color: #666;">Si no ves el chat, <a href="{enlace_telegram}" target="_blank">hacé clic acá para abrirlo</a>.</p>
+    </div>
+    """, height=500)
+    
+    st.caption("💡 Hacé clic en cualquier mensaje para responder desde Telegram.")
+    
     st.markdown("---")
-
-    # --- Subsección 7.3: Vista Previa de la Conversación (NUEVO - OPCIONAL) ---
-    # Esta parte muestra cómo se verían los comentarios. Puedes dejarla como ejemplo visual
-    # o reemplazarla más adelante por comentarios reales desde Telegram.
-    st.markdown("### 👥 Últimos comentarios del grupo")
-    
-    # Ejemplo visual de cómo se verán los comentarios
-    st.markdown("""
-    <div style="background: rgba(30, 41, 59, 0.7); border-radius: 12px; padding: 15px; margin: 10px 0; border-left: 4px solid #0088cc;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-weight: bold; color: #0088cc;">👤 Agencia Centro</span>
-            <span style="color: #94a3b8; font-size: 0.9rem;">hace 5 minutos</span>
-        </div>
-        <div style="margin-top: 8px;">¿Alguien tiene el formulario de leches actualizado? Gracias.</div>
-    </div>
-    
-    <div style="background: rgba(30, 41, 59, 0.7); border-radius: 12px; padding: 15px; margin: 10px 0; border-left: 4px solid #0088cc;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-weight: bold; color: #0088cc;">👤 Farmacia Norte</span>
-            <span style="color: #94a3b8; font-size: 0.9rem;">hace 15 minutos</span>
-        </div>
-        <div style="margin-top: 8px;">Acabo de subir el pedido de suministros al sistema.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.info("💡 **Estos son ejemplos.** Cuando la gente se una al grupo, los comentarios reales aparecerán aquí.")
     
     # Botón para cerrar (el que ya tenías)
     if st.button("❌ Cerrar Novedades"):
