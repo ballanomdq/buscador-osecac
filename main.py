@@ -82,7 +82,7 @@ def toggle_osecac():
 def abrir_novedades():
     st.session_state.novedades_expandido = True
 
-# ================== CSS ==================
+# ================== CSS (CON ESTILO PARA BOTÓN RECLAMOS) ==================
 st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
@@ -111,16 +111,15 @@ input { color: #000000 !important; font-weight: bold !important; }
     color: black !important;
     transform: scale(1.05) !important;
 }
+/* Estilo especial para el botón de RECLAMOS (Naranja) */
+.stButton > button:has(span:contains("📩")) {
+    background: linear-gradient(145deg, #f59e0b, #d97706) !important;
+    border: 2px solid #fbbf24 !important;
+}
 .stButton > button:has(span:contains("🔴")) {
     background: linear-gradient(145deg, #ff4b4b, #ff0000) !important;
     border: 2px solid #ff4b4b !important;
     animation: parpadeo 1.2s infinite;
-}
-/* Estilo para el botón de RECLAMOS */
-.stButton > button:has(span:contains("📩")) {
-    background: linear-gradient(145deg, #f59e0b, #d97706) !important;
-    border: 2px solid #fbbf24 !important;
-    color: black !important;
 }
 @keyframes parpadeo {
     0% { opacity: 1; }
@@ -180,28 +179,37 @@ st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
         st.image('logo original.jpg', width=160)
-    else:
-        st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
+# --- BOTONES SUPERIORES (FILA 1) ---
+c1, c2, c3 = st.columns(3)
+with c1: st.link_button("🛡️ SEGUROS / EMPLEO", "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit")
+with c2: st.link_button("🔗 VÍNCULOS / FLIA", "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit")
+with c3: st.link_button("📌 ESTADOS AFIL.", "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit")
 
-# --- BOTÓN DE RECLAMOS/CONSULTAS (CORREGIDO) ---
-if st.button("📩 RECLAMOS / CONSULTAS"):
-    st.switch_page("pages/reclamos.py")
+st.markdown('<div style="margin: 10px 0;"></div>', unsafe_allow_html=True)
 
-ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
-hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
+# --- BOTONES CENTRALES (FILA 2: RECLAMOS Y NOVEDADES) ---
+c4, c5 = st.columns(2)
+with c4:
+    # EL BOTÓN DE RECLAMOS AGREGADO AQUÍ
+    if st.button("📩 RECLAMOS / CONSULTAS", use_container_width=True):
+        st.switch_page("pages/reclamos.py")
+with c5:
+    ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
+    hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
+    if hay_novedades_nuevas:
+        st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades, use_container_width=True)
+    else:
+        st.button("📢 NOVEDADES", on_click=abrir_novedades, use_container_width=True)
 
-if hay_novedades_nuevas:
-    st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
-
+st.markdown('<div style="display:flex; justify-content:center; margin-top:15px;">', unsafe_allow_html=True)
 popover_novedades = st.popover("✏️ Cargar Novedades")
-
 st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('</div></div>', unsafe_allow_html=True)
+
+st.markdown("</div></div>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ================= POPOVER CARGAR NOVEDADES =================
@@ -229,28 +237,21 @@ with popover_novedades:
                         links = []
                         if uploaded_files:
                             for f in uploaded_files:
-                                with open(f"temp_{f.name}", "wb") as tmp:
-                                    tmp.write(f.getbuffer())
+                                with open(f"temp_{f.name}", "wb") as tmp: tmp.write(f.getbuffer())
                                 link = subir_a_drive(f"temp_{f.name}", f.name)
                                 if link: links.append(link)
                                 if os.path.exists(f"temp_{f.name}"): os.remove(f"temp_{f.name}")
                         st.session_state.historial_novedades.insert(0, {"id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "archivo_links": links})
                         st.session_state.novedades_vistas = set()
                         st.rerun()
-        elif accion == "🗑️ Eliminar":
-            if st.session_state.historial_novedades:
-                idx = st.selectbox("Novedad:", range(len(st.session_state.historial_novedades)), format_func=lambda x: st.session_state.historial_novedades[x]['mensaje'][:50])
-                if st.button("🗑️ ELIMINAR"):
-                    st.session_state.historial_novedades.pop(idx)
-                    st.rerun()
 
-# ================== SECCIONES ==================
+# ================== SECCIONES DE BÚSQUEDA ==================
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.markdown("---")
-    c1, c2, c3, c4 = st.columns([0.4, 1, 0.4, 1])
-    with c2: st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
-    with c4: st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
+    cx1, cx2, cx3, cx4 = st.columns([0.4, 1, 0.4, 1])
+    with cx2: st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
+    with cx4: st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
     df_u = df_osecac_busq if st.session_state.osecac_check else df_faba
     term = st.text_input(f"🔍 Búsqueda...", key="busqueda_input")
     if st.button("Buscar"):
