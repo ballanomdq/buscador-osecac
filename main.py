@@ -192,7 +192,7 @@ st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-con
 
 # --- BOTÓN DE RECLAMOS/CONSULTAS (OPTIMIZADO) ---
 if st.button("📩 RECLAMOS / CONSULTAS"):
-    st.switch_page("pages/reclamos.py")
+st.switch_page("pages/reclamos.py")
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
