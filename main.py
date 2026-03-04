@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import pd as pd
 import time
 from datetime import datetime
 import gspread
@@ -116,6 +116,13 @@ input { color: #000000 !important; font-weight: bold !important; }
     border: 2px solid #ff4b4b !important;
     animation: parpadeo 1.2s infinite;
 }
+/* Estilo para el botón de RECLAMOS */
+.stButton > button:has(span:contains("📩")) {
+    background: linear-gradient(145deg, #f59e0b, #d97706) !important;
+    border: 2px solid #fbbf24 !important;
+    color: black !important;
+}
+
 @keyframes parpadeo {
     0% { opacity: 1; }
     50% { opacity: 0.8; }
@@ -154,7 +161,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER (SE MANTIENE IGUAL) =================
+# ================= HEADER =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -182,6 +189,9 @@ except:
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
+
+# --- BOTÓN DE RECLAMOS/CONSULTAS (NUEVO) ---
+st.link_button("📩 RECLAMOS / CONSULTAS", "https://TU_URL_DE_LA_PAGINA_DE_RECLAMOS_AQUI.streamlit.app")
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
