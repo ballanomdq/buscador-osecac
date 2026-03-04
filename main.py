@@ -94,6 +94,8 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 .ficha-novedad { border-left: 6px solid #ff4b4b; }
 .stLinkButton a { background-color: rgba(30, 41, 59, 0.8) !important; color: #ffffff !important; border: 1px solid rgba(56,189,248,0.5) !important; border-radius: 10px !important; }
 .stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
+/* FORZAR TEXTO BLANCO EN LINK BUTTONS */
+.stLinkButton button { color: white !important; }
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
 .block-container { max-width: 1100px !important; padding-top: 1rem !important; }
@@ -189,10 +191,10 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# ========== BOTÓN PARA IR A RECLAMOS (MODIFICADO) ==========
-# Usamos st.page_link para evitar errores de ruta
-st.page_link("pages/reclamos.py", label="📩 REALIZAR RECLAMO", icon="📋")
-# =========================================================
+# ========== BOTÓN PARA IR A RECLAMOS (AHORA CON TEXTO VISIBLE) ==========
+# Usamos st.link_button que respeta los estilos CSS y forzamos texto blanco
+st.link_button("📩 REALIZAR RECLAMO", "/reclamos")
+# =========================================================================
 
 popover_novedades = st.popover("✏️ Cargar Novedades")
 
