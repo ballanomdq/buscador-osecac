@@ -189,10 +189,9 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# ========== BOTÓN PARA IR A RECLAMOS (AGREGADO) ==========
-# Este botón lleva a la página pages/reclamos.py
-if st.button("📩 REALIZAR RECLAMO", key="btn_reclamos"):
-    st.switch_page("pages/reclamos")
+# ========== BOTÓN PARA IR A RECLAMOS (MODIFICADO) ==========
+# Usamos st.page_link para evitar errores de ruta
+st.page_link("pages/reclamos.py", label="📩 REALIZAR RECLAMO", icon="📋")
 # =========================================================
 
 popover_novedades = st.popover("✏️ Cargar Novedades")
