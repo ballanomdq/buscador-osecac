@@ -192,8 +192,10 @@ if hay_novedades_nuevas:
 
 # BOTÓN DE RECLAMOS AGREGADO
 if st.button("📩 IR A RECLAMOS", key="btn_ir_reclamos"):
-    st.switch_page("pages/reclamos")
-
+    try:
+        st.switch_page("pages/reclamos.py")
+    except:
+        st.switch_page("reclamos") # Si falla la anterior, esta es la forma simplificada
 popover_novedades = st.popover("✏️ Cargar Novedades")
 
 st.markdown('</div>', unsafe_allow_html=True)
