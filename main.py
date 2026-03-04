@@ -191,10 +191,9 @@ if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
 # BOTÓN DE RECLAMOS AGREGADO
-if st.button("📩 IR A RECLAMOS", key="btn_ir_reclamos"):
-    try:
-        # 1. Intento por ruta lógica (la más común en la nube)
-        st.switch_page("pages/reclamos.py")
+st.link_button("📩 IR A RECLAMOS", "https://buscador-osecac.streamlit.app/reclamos")
+
+popover_novedades = st.popover("✏️ Cargar Novedades")
     except:
         try:
             # 2. Intento por nombre directo
