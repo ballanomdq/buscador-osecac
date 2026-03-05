@@ -11,10 +11,11 @@ import gspread
 st.set_page_config(page_title="Sistema de Reclamos - OSECAC", layout="centered")
 
 # --- CONFIGURACIÓN ---
-FOLDER_ID_RECLAMOS = "1UNrTXMi3ytEP4oUcJBJGe29cxInVvRKa"
+# IMPORTANTE: Esta carpeta debe estar en un DRIVE COMPARTIDO (Shared Drive)
+FOLDER_ID_RECLAMOS = "ID_DE_LA_CARPETA_EN_DRIVE_COMPARTIDO"  # <--- CAMBIÁ ESTO
 SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"
 
-# --- FUNCIÓN PARA SUBIR ARCHIVOS A DRIVE ---
+# --- FUNCIÓN PARA SUBIR ARCHIVOS A DRIVE (compatible con Shared Drive) ---
 def subir_a_drive(file_path, file_name):
     try:
         creds_info = st.secrets["gcp_service_account"]
@@ -22,11 +23,24 @@ def subir_a_drive(file_path, file_name):
             creds_info, scopes=["https://www.googleapis.com/auth/drive"]
         )
         service = build('drive', 'v3', credentials=creds)
-        file_metadata = {'name': file_name, 'parents': [FOLDER_ID_RECLAMOS]}
+        file_metadata = {
+            'name': file_name, 
+            'parents': [FOLDER_ID_RECLAMOS]
+        }
         media = MediaFileUpload(file_path, resumable=True)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+        file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id, webViewLink',
+            supportsAllDrives=True  # <--- necesario para Shared Drives
+        ).execute()
+        # Hacer público (opcional)
         try:
-            service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
+            service.permissions().create(
+                fileId=file.get('id'), 
+                body={'type': 'anyone', 'role': 'reader'},
+                supportsAllDrives=True
+            ).execute()
         except:
             pass
         return file.get('webViewLink')
@@ -50,36 +64,19 @@ def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
         st.error(f"Error al guardar en la planilla: {str(e)}")
         return False
 
-# --- CSS CORREGIDO: todo el texto en blanco ---
+# --- CSS MÍNIMO para que se vea bien ---
 st.markdown("""
 <style>
 .stApp { background-color: #0f172a; }
-h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, div:not(.st-eb) { color: white !important; }
+h1, h2, h3, h4, h5, h6, p, label, .stMarkdown { color: white !important; }
 .stButton > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
     border: 2px solid #38bdf8 !important;
-    border-radius: 10px !important;
-    padding: 8px 20px !important;
-    font-size: 1rem !important;
-    font-weight: bold !important;
 }
-.stButton > button:hover {
-    background: #38bdf8 !important;
+.stTextInput>div>div>input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
+    background-color: white !important;
     color: black !important;
-    transform: scale(1.05) !important;
-}
-.stTextInput > div > div > input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #38bdf8 !important;
-    border-radius: 10px !important;
-}
-.stFileUploader {
-    background-color: #1e293b !important;
-    border: 2px dashed #38bdf8 !important;
-    border-radius: 10px !important;
-    padding: 10px !important;
 }
 </style>
 """, unsafe_allow_html=True)
