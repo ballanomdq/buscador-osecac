@@ -11,8 +11,8 @@ import gspread
 st.set_page_config(page_title="Sistema de Reclamos - OSECAC", layout="centered")
 
 # --- CONFIGURACIÓN ---
-# IMPORTANTE: Esta carpeta debe estar en un DRIVE COMPARTIDO (Shared Drive)
-FOLDER_ID_RECLAMOS = "ID_DE_LA_CARPETA_EN_DRIVE_COMPARTIDO"  # <--- CAMBIÁ ESTO
+# ID de la carpeta en DRIVE COMPARTIDO (ya corregido)
+FOLDER_ID_RECLAMOS = "1fmAjFtHWMRutbnbdBEgu9i17cyUdKZyG"
 SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"
 
 # --- FUNCIÓN PARA SUBIR ARCHIVOS A DRIVE (compatible con Shared Drive) ---
@@ -32,7 +32,7 @@ def subir_a_drive(file_path, file_name):
             body=file_metadata, 
             media_body=media, 
             fields='id, webViewLink',
-            supportsAllDrives=True  # <--- necesario para Shared Drives
+            supportsAllDrives=True  # necesario para Shared Drives
         ).execute()
         # Hacer público (opcional)
         try:
