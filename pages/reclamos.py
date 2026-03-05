@@ -10,11 +10,12 @@ import gspread
 
 st.set_page_config(page_title="Sistema de Reclamos - OSECAC", layout="centered")
 
-# --- CONFIGURACIÓN (verificada) ---
-FOLDER_ID_RECLAMOS = "1fmAjFtHWMRutbnbdBEgu9i17cyUdKZyG"  # Tu carpeta en Drive compartido
-SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"  # Tu planilla
+# --- CONFIGURACIÓN CORREGIDA ---
+# ID de la carpeta en DRIVE COMPARTIDO (actualizado)
+FOLDER_ID_RECLAMOS = "1Ej7K9XGapPg802j-ssehKo4DjX_KlGKc"
+SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"
 
-# --- FUNCIÓN PARA SUBIR ARCHIVOS (VERSIÓN SIMPLIFICADA Y CON DEBUG) ---
+# --- FUNCIÓN PARA SUBIR ARCHIVOS A DRIVE (compatible con Shared Drive) ---
 def subir_a_drive(file_path, file_name):
     try:
         creds_info = st.secrets["gcp_service_account"]
@@ -22,35 +23,31 @@ def subir_a_drive(file_path, file_name):
             creds_info, scopes=["https://www.googleapis.com/auth/drive"]
         )
         service = build('drive', 'v3', credentials=creds)
-        
-        # Intentar listar archivos en la carpeta para verificar permisos (solo debug)
+
+        # Verificar que la carpeta es accesible (opcional, pero útil para debug)
         try:
-            results = service.files().list(
-                q=f"'{FOLDER_ID_RECLAMOS}' in parents",
-                pageSize=1,
-                fields="files(id, name)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True
+            service.files().get(
+                fileId=FOLDER_ID_RECLAMOS,
+                fields='id, name, driveId',
+                supportsAllDrives=True
             ).execute()
-            st.success("✅ Conexión con Drive exitosa")
         except Exception as e:
-            st.error(f"❌ No se puede acceder a la carpeta: {str(e)}")
+            st.error("❌ La carpeta no es accesible. Verificá que la cuenta de servicio sea Editor del Drive compartido.")
             return None
-        
-        # Subir archivo
+
         file_metadata = {
             'name': file_name,
             'parents': [FOLDER_ID_RECLAMOS]
         }
         media = MediaFileUpload(file_path, resumable=True)
-        
+
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id, webViewLink',
             supportsAllDrives=True
         ).execute()
-        
+
         # Hacer público (opcional)
         try:
             service.permissions().create(
@@ -60,15 +57,15 @@ def subir_a_drive(file_path, file_name):
             ).execute()
         except:
             pass
-        
+
         return file.get('webViewLink')
-        
+
     except Exception as e:
         st.error(f"Error al subir archivo: {str(e)}")
-        st.code(traceback.format_exc())  # Muestra el detalle completo
+        st.code(traceback.format_exc())
         return None
 
-# --- FUNCIÓN PARA GUARDAR EN SHEETS (similar) ---
+# --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
     try:
         creds_info = st.secrets["gcp_service_account"]
@@ -77,14 +74,15 @@ def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
         )
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID_RECLAMOS).sheet1
-        sheet.append_row([fecha, agencia, sector, mensaje, link_archivo])
+        nueva_fila = [fecha, agencia, sector, mensaje, link_archivo]
+        sheet.append_row(nueva_fila)
         return True
     except Exception as e:
-        st.error(f"Error en Sheets: {str(e)}")
+        st.error(f"Error al guardar en la planilla: {str(e)}")
         st.code(traceback.format_exc())
         return False
 
-# --- CSS (suave) ---
+# --- CSS para que se vea bien ---
 st.markdown("""
 <style>
 .stApp { background-color: #0f172a; }
@@ -121,9 +119,9 @@ with st.form("form_reclamo"):
     sector = st.selectbox("Sector Destino", sectores)
     mensaje = st.text_area("Detalle del Reclamo/Consulta")
     archivo = st.file_uploader("Adjuntar documentación (PDF/Imagen)", type=["pdf", "jpg", "png"])
-    
+
     enviar = st.form_submit_button("ENVIAR RECLAMO")
-    
+
     if enviar:
         if not mensaje:
             st.error("Por favor, escribí un mensaje.")
@@ -141,11 +139,11 @@ with st.form("form_reclamo"):
                         st.success("✅ Archivo subido correctamente")
                     else:
                         st.warning("No se pudo subir el archivo")
-            
+
             with st.spinner("Guardando reclamo en la planilla..."):
                 fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
                 exito = guardar_en_sheets(fecha_actual, agencia, sector, mensaje, link_archivo)
-                
+
             if exito:
                 st.success(f"✅ ¡Reclamo guardado!")
                 if link_archivo:
