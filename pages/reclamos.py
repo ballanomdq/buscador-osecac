@@ -11,8 +11,8 @@ import gspread
 st.set_page_config(page_title="Sistema de Reclamos - OSECAC", layout="centered")
 
 # --- CONFIGURACIÓN ---
-FOLDER_ID_RECLAMOS = "1UNrTXMi3ytEP4oUcJBJGe29cxInVvRKa"  # Tu carpeta de Drive para archivos
-SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"  # Tu planilla de reclamos
+FOLDER_ID_RECLAMOS = "1UNrTXMi3ytEP4oUcJBJGe29cxInVvRKa"
+SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"
 
 # --- FUNCIÓN PARA SUBIR ARCHIVOS A DRIVE ---
 def subir_a_drive(file_path, file_name):
@@ -25,7 +25,6 @@ def subir_a_drive(file_path, file_name):
         file_metadata = {'name': file_name, 'parents': [FOLDER_ID_RECLAMOS]}
         media = MediaFileUpload(file_path, resumable=True)
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-        # Hacer público
         try:
             service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         except:
@@ -38,17 +37,12 @@ def subir_a_drive(file_path, file_name):
 # --- FUNCIÓN PARA GUARDAR EN GOOGLE SHEETS ---
 def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
     try:
-        # Autenticación con la misma cuenta de servicio
         creds_info = st.secrets["gcp_service_account"]
         creds = service_account.Credentials.from_service_account_info(
             creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets"]
         )
         client = gspread.authorize(creds)
-        
-        # Abrir la planilla por su ID
-        sheet = client.open_by_key(SHEET_ID_RECLAMOS).sheet1  # Hoja1 por defecto
-        
-        # Agregar una nueva fila
+        sheet = client.open_by_key(SHEET_ID_RECLAMOS).sheet1
         nueva_fila = [fecha, agencia, sector, mensaje, link_archivo]
         sheet.append_row(nueva_fila)
         return True
@@ -56,11 +50,11 @@ def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
         st.error(f"Error al guardar en la planilla: {str(e)}")
         return False
 
-# --- CSS para mantener estética y texto visible ---
+# --- CSS CORREGIDO: todo el texto en blanco ---
 st.markdown("""
 <style>
-.stApp { background-color: #0f172a; color: white; }
-h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, div { color: white !important; }
+.stApp { background-color: #0f172a; }
+h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, div:not(.st-eb) { color: white !important; }
 .stButton > button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -75,7 +69,7 @@ h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, div { color: white !impo
     color: black !important;
     transform: scale(1.05) !important;
 }
-.stTextInput > div > div > input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+.stTextInput > div > div > input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
     background-color: #ffffff !important;
     color: #000000 !important;
     border: 2px solid #38bdf8 !important;
@@ -93,7 +87,6 @@ h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, .stText, div { color: white !impo
 st.title("📩 Centro de Reclamos y Consultas")
 st.write("Seleccioná tu agencia y el sector para iniciar el trámite.")
 
-# --- LISTAS DE AGENCIAS Y SECTORES (las que me diste) ---
 agencias = [
     "MAIPU", "S TERESITA", "MAR DE AJO", "MIRAMAR", "PINAMAR",
     "S CLEMENTE", "MECHONGUE", "DOLORES", "M CHIQUITA", "GESELL",
@@ -119,7 +112,6 @@ with st.form("form_reclamo"):
             st.error("Por favor, escribí un mensaje.")
         else:
             link_archivo = ""
-            # Subir archivo si existe
             if archivo is not None:
                 with st.spinner("Subiendo archivo a Drive..."):
                     temp_path = f"temp_{archivo.name}"
@@ -131,19 +123,18 @@ with st.form("form_reclamo"):
                     if link_archivo:
                         st.success("✅ Archivo subido correctamente")
                     else:
-                        st.warning("No se pudo subir el archivo, pero el reclamo se guardará igual.")
+                        st.warning("No se pudo subir el archivo")
             
-            # Guardar en Google Sheets
             with st.spinner("Guardando reclamo en la planilla..."):
                 fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
                 exito = guardar_en_sheets(fecha_actual, agencia, sector, mensaje, link_archivo)
                 
             if exito:
-                st.success(f"✅ ¡Reclamo de {agencia} enviado a {sector} y guardado correctamente!")
+                st.success(f"✅ ¡Reclamo guardado!")
                 if link_archivo:
                     st.markdown(f"📎 [Ver archivo adjunto]({link_archivo})")
             else:
-                st.error("No se pudo guardar el reclamo. Revisá los logs.")
+                st.error("No se pudo guardar el reclamo")
 
 if st.button("⬅️ Volver al Buscador"):
     st.switch_page("main.py")
