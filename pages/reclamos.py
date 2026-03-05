@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as as pd
+import pandas as pd
 from datetime import datetime
 import os
 import pickle
@@ -18,35 +18,21 @@ st.set_page_config(page_title="Sistema de Reclamos - OSECAC", layout="centered")
 FOLDER_ID_RECLAMOS = "1Ej7K9XGapPg802j-ssehKo4DjX_KlGKc"  # Tu carpeta
 SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"  # Tu planilla
 
-# --- FUNCIÓN PARA SUBIR ARCHIVOS CON TU CUENTA PERSONAL ---
 def subir_a_drive_personal(file_path, file_name):
     try:
-        # Usar las mismas credenciales de servicio pero para autenticación personal
         creds_info = st.secrets["gcp_service_account"]
-        
-        # Crear credenciales con alcance de Drive
         creds = ServiceAccountCredentials.from_json_keyfile_dict(
             creds_info,
             scopes=['https://www.googleapis.com/auth/drive']
         )
-        
-        # Construir el servicio
         service = build('drive', 'v3', credentials=creds)
-        
-        # Subir archivo
-        file_metadata = {
-            'name': file_name,
-            'parents': [FOLDER_ID_RECLAMOS]
-        }
+        file_metadata = {'name': file_name, 'parents': [FOLDER_ID_RECLAMOS]}
         media = MediaFileUpload(file_path, resumable=True)
-        
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id, webViewLink'
         ).execute()
-        
-        # Hacer público
         try:
             service.permissions().create(
                 fileId=file.get('id'),
@@ -54,14 +40,11 @@ def subir_a_drive_personal(file_path, file_name):
             ).execute()
         except:
             pass
-            
         return file.get('webViewLink')
-        
     except Exception as e:
         st.error(f"Error al subir archivo: {str(e)}")
         return None
 
-# --- FUNCIÓN PARA GUARDAR EN SHEETS (igual que antes) ---
 def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
     try:
         creds_info = st.secrets["gcp_service_account"]
@@ -75,7 +58,6 @@ def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
         st.error(f"Error en Sheets: {str(e)}")
         return False
 
-# --- CSS ---
 st.markdown("""
 <style>
 .stApp { background-color: #0f172a; }
@@ -104,7 +86,6 @@ with st.form("form_reclamo"):
     sector = st.selectbox("Sector Destino", sectores)
     mensaje = st.text_area("Detalle del Reclamo/Consulta")
     archivo = st.file_uploader("Adjuntar documentación (PDF/Imagen)", type=["pdf", "jpg", "png"])
-    
     enviar = st.form_submit_button("ENVIAR RECLAMO")
     
     if enviar:
@@ -130,7 +111,7 @@ with st.form("form_reclamo"):
                 exito = guardar_en_sheets(fecha_actual, agencia, sector, mensaje, link_archivo)
                 
             if exito:
-                st.success(f"✅ ¡Reclamo guardado!")
+                st.success("✅ ¡Reclamo guardado!")
                 if link_archivo:
                     st.markdown(f"📎 [Ver archivo adjunto]({link_archivo})")
             else:
