@@ -2,69 +2,73 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-import traceback
+import base64
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 import gspread
 
 st.set_page_config(page_title="Sistema de Reclamos - OSECAC", layout="centered")
 
 # --- CONFIGURACIÓN ---
-FOLDER_ID_RECLAMOS = "1Ej7K9XGapPg802j-ssehKo4DjX_KlGKc"  # Tu carpeta en Drive
 SHEET_ID_RECLAMOS = "1I6mCu3ko1R1-YOxS_9FHPt0TXnCbuYJXNxihZ0E_UZs"  # Tu planilla
 
-def subir_a_drive(file_path, file_name):
-    try:
-        creds_info = st.secrets["gcp_service_account"]
-        creds = service_account.Credentials.from_service_account_info(
-            creds_info, scopes=["https://www.googleapis.com/auth/drive"]
-        )
-        service = build('drive', 'v3', credentials=creds)
-
-        # Subir archivo
-        file_metadata = {'name': file_name, 'parents': [FOLDER_ID_RECLAMOS]}
-        media = MediaFileUpload(file_path, resumable=True)
-        file = service.files().create(
-            body=file_metadata,
-            media_body=media,
-            fields='id, webViewLink'
-        ).execute()
-
-        # Hacer público (opcional)
-        try:
-            service.permissions().create(
-                fileId=file.get('id'),
-                body={'type': 'anyone', 'role': 'reader'}
-            ).execute()
-        except:
-            pass
-
-        return file.get('webViewLink')
-    except Exception as e:
-        st.error(f"Error al subir archivo: {str(e)}")
-        st.code(traceback.format_exc())
-        return None
-
-def guardar_en_sheets(fecha, agencia, sector, mensaje, link_archivo):
+# --- FUNCIÓN PARA GUARDAR EN SHEETS ---
+def guardar_en_sheets(fecha, agencia, sector, mensaje, nombre_archivo):
     try:
         creds_info = st.secrets["gcp_service_account"]
         gc = gspread.service_account_from_dict(creds_info)
         sheet = gc.open_by_key(SHEET_ID_RECLAMOS).sheet1
-        sheet.append_row([fecha, agencia, sector, mensaje, link_archivo])
+        # Guardamos el nombre del archivo en lugar del link
+        sheet.append_row([fecha, agencia, sector, mensaje, f"Archivo adjunto: {nombre_archivo}" if nombre_archivo else "Sin archivo"])
         return True
     except Exception as e:
         st.error(f"Error al guardar en Sheets: {str(e)}")
-        st.code(traceback.format_exc())
         return False
 
-# --- CSS para que se vea bien ---
+# --- FUNCIÓN PARA CREAR LINK DE DESCARGA ---
+def get_binary_file_downloader_html(bin_file, file_label='File'):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    b64 = base64.b64encode(data).decode()
+    href = f'<a href="data:application/octet-stream;base64,{b64}" download="{file_label}">📥 Descargar archivo adjunto</a>'
+    return href
+
+# ================== CSS ORIGINAL (COMO EN MAIN.PY) ==================
 st.markdown("""
 <style>
-.stApp { background-color: #0f172a; }
-h1, h2, h3, h4, h5, h6, p, label { color: white !important; }
-.stButton>button { background: #1e293b; color: white; border: 2px solid #38bdf8; }
-.stTextInput>div>div>input, .stTextArea textarea, .stSelectbox div { background-color: white; color: black; }
+[data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
+.stApp { background-color: #0f172a !important; color: #e2e8f0 !important; }
+.stMarkdown p, label { color: #ffffff !important; }
+div[data-testid="stExpander"] details summary { background-color: rgba(30, 41, 59, 0.9) !important; color: #ffffff !important; border-radius: 14px !important; border: 2px solid rgba(56, 189, 248, 0.4) !important; padding: 14px 18px !important; font-weight: 600 !important; }
+.ficha { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important; }
+.stButton > button {
+    background: linear-gradient(145deg, #1e293b, #0f172a) !important;
+    color: white !important;
+    border: 2px solid #38bdf8 !important;
+    border-radius: 10px !important;
+    padding: 8px 20px !important;
+    font-size: 1rem !important;
+    font-weight: bold !important;
+}
+.stButton > button:hover {
+    background: #38bdf8 !important;
+    color: black !important;
+    transform: scale(1.05) !important;
+}
+div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
+input { color: #000000 !important; font-weight: bold !important; }
+.block-container { max-width: 1100px !important; padding-top: 1rem !important; }
+.stTextInput>div>div>input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
+    background-color: white !important;
+    color: black !important;
+    border: 2px solid #38bdf8 !important;
+    border-radius: 10px !important;
+}
+.stFileUploader {
+    background-color: #1e293b !important;
+    border: 2px dashed #38bdf8 !important;
+    border-radius: 10px !important;
+    padding: 10px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -95,28 +99,32 @@ with st.form("form_reclamo"):
         if not mensaje:
             st.error("Por favor, escribí un mensaje.")
         else:
-            link_archivo = ""
+            nombre_archivo = ""
+            download_link = ""
+            
             if archivo is not None:
-                with st.spinner("Subiendo archivo a Drive..."):
-                    temp_path = f"temp_{archivo.name}"
-                    with open(temp_path, "wb") as f:
-                        f.write(archivo.getbuffer())
-                    link_archivo = subir_a_drive(temp_path, archivo.name)
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-                    if link_archivo:
-                        st.success("✅ Archivo subido correctamente")
-                    else:
-                        st.warning("No se pudo subir el archivo, pero el reclamo se guardará sin él.")
+                # Guardar temporalmente
+                temp_path = f"temp_{archivo.name}"
+                with open(temp_path, "wb") as f:
+                    f.write(archivo.getbuffer())
+                
+                # Crear link de descarga
+                download_link = get_binary_file_downloader_html(temp_path, archivo.name)
+                nombre_archivo = archivo.name
+                
+                # Limpiar
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
 
-            with st.spinner("Guardando reclamo en la planilla..."):
-                fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
-                exito = guardar_en_sheets(fecha_actual, agencia, sector, mensaje, link_archivo)
+            # Guardar en Sheets
+            fecha_actual = datetime.now().strftime("%d/%m/%Y %H:%M")
+            exito = guardar_en_sheets(fecha_actual, agencia, sector, mensaje, nombre_archivo)
 
             if exito:
                 st.success("✅ ¡Reclamo guardado correctamente!")
-                if link_archivo:
-                    st.markdown(f"📎 [Ver archivo adjunto]({link_archivo})")
+                if download_link:
+                    st.markdown(download_link, unsafe_allow_html=True)
+                    st.info("📌 El archivo no se subió a Drive, pero podés descargarlo desde este enlace.")
             else:
                 st.error("No se pudo guardar el reclamo. Revisá los permisos de la planilla.")
 
