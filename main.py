@@ -191,11 +191,6 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# ========== BOTÓN PARA IR A RECLAMOS (AHORA CON TEXTO VISIBLE) ==========
-# Usamos st.link_button que respeta los estilos CSS y forzamos texto blanco
-st.link_button("📩 REALIZAR RECLAMO", "/reclamos")
-# =========================================================================
-
 popover_novedades = st.popover("✏️ Cargar Novedades")
 
 st.markdown('</div>', unsafe_allow_html=True)
