@@ -129,6 +129,24 @@ div[data-testid="stCheckbox"] label p {
     font-size: 1.1rem !important;
     color: #38bdf8 !important;
 }
+
+/* ===== ESTILO PARA EL POPOVER (BOTÓN CARGAR NOVEDADES) ===== */
+div[data-testid="stPopover"] button {
+    background: linear-gradient(145deg, #1e293b, #0f172a) !important;
+    color: white !important;
+    border: 2px solid #38bdf8 !important;
+    border-radius: 10px !important;
+    padding: 8px 20px !important;
+    font-size: 1rem !important;
+    font-weight: bold !important;
+    transition: all 0.2s ease !important;
+}
+div[data-testid="stPopover"] button:hover {
+    background: #38bdf8 !important;
+    color: black !important;
+    transform: scale(1.05) !important;
+    border-color: #38bdf8 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -156,7 +174,8 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER (SE MANTIENE IGUAL) =================
+# ================= HEADER =================
+# Contenedor principal del header con flexbox para centrar todo
 st.markdown("""
 <div style="
     width: 100vw;
@@ -171,18 +190,22 @@ st.markdown("""
     <div style="text-align: center; max-width: 700px; width: 100%;">
 """, unsafe_allow_html=True)
 
-st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5); text-align:center;">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5);">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-st.markdown('<div style="margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
+# Contenedor del logo con flexbox para centrado perfecto
+st.markdown('<div style="display: flex; justify-content: center; align-items: center; margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
+        # Mostrar imagen centrada como bloque con margen automático
         st.image('logo original.jpg', width=160)
     else:
+        # Placeholder centrado
         st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
+# Botones superiores: NOVEDAD y Cargar Novedades (popover con estilo)
 st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
@@ -191,6 +214,7 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
+# Popover Cargar Novedades (ahora con estilo de botón)
 popover_novedades = st.popover("✏️ Cargar Novedades")
 
 st.markdown('</div>', unsafe_allow_html=True)
@@ -289,7 +313,7 @@ with popover_novedades:
                     time.sleep(1)
                     st.rerun()
 
-# ================== APLICACIÓN (SE MANTIENE IGUAL) ==================
+# ================== APLICACIÓN ==================
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
