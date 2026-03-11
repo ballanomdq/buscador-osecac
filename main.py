@@ -205,7 +205,7 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD y Cargar Novedades (popover con estilo)
+# Botones superiores: NOVEDAD, Cargar Novedades y RECLAMOS/CONSULTAS
 st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
@@ -216,6 +216,9 @@ if hay_novedades_nuevas:
 
 # Popover Cargar Novedades (ahora con estilo de botón)
 popover_novedades = st.popover("✏️ Cargar Novedades")
+
+# Nuevo botón de reclamos/consultas
+st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
