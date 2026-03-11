@@ -131,6 +131,10 @@ div[data-testid="stCheckbox"] label p {
 }
 
 /* ===== ESTILO PARA EL POPOVER (BOTÓN CARGAR NOVEDADES) ===== */
+div[data-testid="stPopover"] {
+    margin: 0 !important;
+    padding: 0 !important;
+}
 div[data-testid="stPopover"] button {
     background: linear-gradient(145deg, #1e293b, #0f172a) !important;
     color: white !important;
@@ -146,6 +150,10 @@ div[data-testid="stPopover"] button:hover {
     color: black !important;
     transform: scale(1.05) !important;
     border-color: #38bdf8 !important;
+}
+.stLinkButton {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -205,8 +213,8 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD, Cargar Novedades y RECLAMOS/CONSULTAS
-st.markdown('<div style="display:flex; gap:16px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
+# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS y Cargar Novedades (más compactos)
+st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
@@ -214,11 +222,11 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# Popover Cargar Novedades (ahora con estilo de botón)
-popover_novedades = st.popover("✏️ Cargar Novedades")
-
-# Nuevo botón de reclamos/consultas
+# Botón de reclamos/consultas (ahora antes del popover para quedar más cerca)
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
+
+# Popover Cargar Novedades
+popover_novedades = st.popover("✏️ Cargar Novedades")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
