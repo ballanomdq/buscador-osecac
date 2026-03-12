@@ -213,7 +213,7 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS y Cargar Novedades (más compactos)
+# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA y Cargar Novedades
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
@@ -222,8 +222,11 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# Botón de reclamos/consultas (ahora antes del popover para quedar más cerca)
+# Botón de reclamos/consultas
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
+
+# --- NUEVO BOTÓN SEC IA ---
+st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
 
 # Popover Cargar Novedades
 popover_novedades = st.popover("✏️ Cargar Novedades")
