@@ -5,8 +5,4 @@ google-auth
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
-selenium
-webdriver-manager
-selenium==4.10.0
-webdriver-manager
-pandas
+selenium==4.11.2
