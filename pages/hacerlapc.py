@@ -9,6 +9,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import ElementClickInterceptedException, TimeoutException
+# Librerías para auto-configurar el driver en la nube
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.os_manager import ChromeType
 
 # --- Configuración de la página ---
 st.set_page_config(page_title="HACER LA PC - PUCO", layout="wide")
@@ -52,7 +55,7 @@ def consultar_puco_con_selenium(dni_list):
     resultados = []
     total = len(dni_list)
     
-    # Configurar opciones de Chrome para estabilidad en servidor (Streamlit Cloud)
+    # 1. Configurar Opciones de Chrome
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
@@ -60,24 +63,25 @@ def consultar_puco_con_selenium(dni_list):
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
     
-    # RUTA CRUCIAL PARA LA NUBE
+    # Ruta del binario de Chromium en Streamlit Cloud
     chrome_options.binary_location = "/usr/bin/chromium"
     
-    # Inicializar el Service con la ruta del driver de Linux
-    service = Service("/usr/bin/chromedriver")
-    
     try:
+        # 2. Instalación automática del Driver compatible con Chromium
+        driver_path = ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install()
+        service = Service(driver_path)
         driver = webdriver.Chrome(service=service, options=chrome_options)
+        
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         # Ir a SISA
         driver.get("https://sisa.msal.gov.ar/sisa/#sisa")
-        status_text.text("Cargando SISA (puede tardar la primera vez)...")
+        status_text.text("Conectando con SISA (esto puede tardar unos segundos)...")
         time.sleep(5)
         
-        # Localizar PUCO
+        # Localizar el botón de PUCO
         try:
-            puco_element = WebDriverWait(driver, 20).until(
+            puco_element = WebDriverWait(driver, 25).until(
                 EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'PUCO') or contains(text(), 'consulta de cobertura')]"))
             )
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", puco_element)
@@ -89,7 +93,7 @@ def consultar_puco_con_selenium(dni_list):
                 driver.execute_script("arguments[0].click();", puco_element)
                 
         except TimeoutException:
-            raise Exception("No se pudo localizar el módulo PUCO en la web de SISA.")
+            raise Exception("No se encontró el acceso a PUCO. SISA podría estar caído o cambió el diseño.")
         
         # Esperar campo DNI
         dni_input_field = WebDriverWait(driver, 15).until(
@@ -104,11 +108,11 @@ def consultar_puco_con_selenium(dni_list):
                 dni_input_field.send_keys(char)
                 time.sleep(random.uniform(0.1, 0.2))
             
-            # Botón Buscar
+            # Hacer clic en buscar
             btn_buscar = driver.find_element(By.XPATH, "//button[contains(text(), 'Buscar') or @type='submit']")
             btn_buscar.click()
             
-            # Resultados
+            # Capturar resultados
             try:
                 tabla = WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//table"))
@@ -121,27 +125,29 @@ def consultar_puco_con_selenium(dni_list):
                 else:
                     cobertura = denominacion = "No encontrado"
             except:
-                cobertura = "Error/No hallado"
+                cobertura = "No hallado/Error"
                 denominacion = "-"
             
             resultados.append({
                 "DNI": dni,
                 "Cobertura Social": cobertura,
                 "Denominación": denominacion,
-                "Estado": "OK" if cobertura != "Error/No hallado" else "Fallido"
+                "Estado": "OK" if cobertura != "No hallado/Error" else "Fallido"
             })
             
+            # Actualizar barra de progreso en UI
             progress_bar.progress((idx + 1) / total)
             
+            # Pausa humana para evitar bloqueos
             if idx < total - 1:
-                pausa = random.uniform(4, 7)
-                status_text.text(f"Pausa de seguridad: {pausa:.1f}s...")
+                pausa = random.uniform(4, 8)
+                status_text.text(f"Pausa de seguridad: {pausa:.1f} segundos...")
                 time.sleep(pausa)
         
-        status_text.text("¡Consulta completada con éxito!")
+        status_text.text("¡Proceso finalizado con éxito!")
         
     except Exception as e:
-        st.error(f"❌ Error crítico: {str(e)[:150]}")
+        st.error(f"❌ Error en el proceso: {str(e)[:150]}")
         return pd.DataFrame(resultados)
     finally:
         if 'driver' in locals():
@@ -149,13 +155,13 @@ def consultar_puco_con_selenium(dni_list):
     
     return pd.DataFrame(resultados)
 
-# --- Lógica principal ---
+# --- Lógica principal del botón Buscar ---
 if buscar_btn:
     if not dni_input.strip():
-        st.warning("Por favor, ingresá al menos un DNI.")
+        st.warning("Por favor, ingresá los DNIs para comenzar.")
     else:
         lista_dni = [d.strip() for d in dni_input.split('\n') if d.strip()]
-        with st.spinner("Conectando con SISA..."):
+        with st.spinner("Iniciando el robot de consulta..."):
             df_final = consultar_puco_con_selenium(lista_dni)
         
         if not df_final.empty:
@@ -163,9 +169,9 @@ if buscar_btn:
                 st.dataframe(df_final, use_container_width=True, hide_index=True)
                 csv = df_final.to_csv(index=False).encode('utf-8')
                 st.download_button(
-                    label="📥 Descargar Reporte CSV",
+                    label="📥 Descargar Resultados (CSV)",
                     data=csv,
-                    file_name=f"puco_osecac_{time.strftime('%H%M%S')}.csv",
+                    file_name=f"puco_resultados_{time.strftime('%d%m%Y_%H%M')}.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
