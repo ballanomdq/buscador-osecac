@@ -1,8 +1,8 @@
 streamlit
 pandas
+selenium==4.11.2
 gspread
 google-auth
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
-selenium==4.11.2
