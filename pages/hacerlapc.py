@@ -1,76 +1,64 @@
 import streamlit as st
 import pandas as pd
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
+import requests
 import time
+import re
 
-st.set_page_config(page_title="PUCO RÁPIDO - SELENIUM", layout="wide")
-st.title("🛡️ Buscador PUCO (Modo Selenium)")
-st.info("Este modo es más lento pero más seguro contra bloqueos.")
+st.set_page_config(page_title="PUCO RÁPIDO - OSECAC", layout="wide")
+st.title("⚡ Buscador PUCO (Versión Camuflada)")
 
-dni_input = st.text_area("Ingresá los DNIs (uno por línea):", height=150)
-buscar_btn = st.button("🚀 Iniciar Búsqueda Segura", type="primary")
+dni_input = st.text_area("Ingresá los DNIs:", height=150)
+buscar_btn = st.button("🚀 Consultar Ahora", type="primary")
 
-def consultar_con_selenium(dni):
-    options = Options()
-    options.add_argument("--headless") # No abre ventana física
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+def consultar_sisa_humano(dni):
+    # Intentamos obtener una sesión limpia en cada tanda
+    session = requests.Session()
     
-    try:
-        # 1. Entrar a la web
-        driver.get("https://sisa.msal.gov.ar/sisa/#pms/pms_poblacion_padrones_consulta_publica")
-        
-        # 2. Esperar al campo de texto del DNI
-        wait = WebDriverWait(driver, 15)
-        campo_dni = wait.until(EC.presence_of_element_status(By.CSS_SELECTOR, "input[type='text']"))
-        
-        # 3. Limpiar e ingresar DNI
-        campo_dni.clear()
-        campo_dni.send_keys(str(dni))
-        
-        # 4. Click en buscar (buscamos por texto o clase)
-        boton = driver.find_element(By.XPATH, "//button[contains(text(), 'Buscar')]")
-        boton.click()
-        
-        # 5. Esperar a que aparezca la tabla de resultados
-        time.sleep(3) # Pausa necesaria para que cargue el GWT
-        
-        # 6. Extraer datos de la tabla
-        filas = driver.find_elements(By.TAG_NAME, "tr")
-        if len(filas) > 1:
-            columnas = filas[1].find_elements(By.TAG_NAME, "td")
-            # Ajustamos índices según lo que ves en pantalla (DNI, Nombre, Obra Social)
-            return {
-                "DNI": dni,
-                "Cobertura": columnas[2].text if len(columnas) > 2 else "Sin Datos",
-                "Beneficiario": columnas[3].text if len(columnas) > 3 else "-",
-                "Estado": "✅ OK"
-            }
-        return {"DNI": dni, "Cobertura": "No hallado", "Beneficiario": "-", "Estado": "❌ Vacío"}
+    # Headers MUY realistas
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Content-Type": "text/x-gwt-rpc; charset=UTF-8",
+        "X-GWT-Module-Base": "https://sisa.msal.gov.ar/sisa/sisa/",
+        "X-GWT-Permutation": "AC8C40F803E54F7569451C561053A1B6",
+        "Origin": "https://sisa.msal.gov.ar",
+        "Referer": "https://sisa.msal.gov.ar/sisa/",
+    }
 
-    except Exception as e:
-        return {"DNI": dni, "Cobertura": "Error de carga", "Beneficiario": str(e)[:30], "Estado": "📡 Error"}
-    finally:
-        driver.quit()
+    # Payload corregido (7|0|14...)
+    payload = f"7|0|14|https://sisa.msal.gov.ar/sisa/sisa/|5CFBDB55F3DE4A47FE42E765E5AA02D3|ar.gob.msal.sisa.client.commons.components.lista.service.ListService|getPage|java.lang.Integer/3438268394|java.util.List|Z|ar.gob.msal.sisa.shared.model.list.ComplexFilter/30068811|java.util.ArrayList/4159755760|ar.gob.msal.sisa.client.commons.components.lista.simple.SearchFilter/1978531670|97390|ar.gob.msal.sisa.client.entitys.list.Filter$OPERATION/3408968308|ar.gob.msal.sisa.client.entitys.list.Filter$OPERATOR/860546718|{dni}|1|2|3|4|10|5|5|5|6|6|5|7|5|6|8|5|790|5|1|-2|9|0|9|1|10|11|12|0|13|0|0|14|0|0|1|5|25|0|0|"
+
+    try:
+        # Primero "tocamos" la puerta
+        session.get("https://sisa.msal.gov.ar/sisa/", timeout=10)
+        
+        # Tiramos el centro
+        res = session.post(
+            "https://sisa.msal.gov.ar/sisa/sisa/service/list", 
+            data=payload, 
+            headers=headers, 
+            timeout=15
+        )
+        
+        # Si SISA responde, buscamos tu DNI en el texto
+        if str(dni) in res.text:
+            # Buscamos patrones de texto entre comillas
+            strings = re.findall(r'"([^"]*)"', res.text)
+            idx = strings.index(str(dni))
+            # OSECAC suele estar 2 o 3 posiciones después del DNI
+            return {"DNI": dni, "Cobertura": strings[idx+2], "Beneficiario": strings[idx+3], "Estado": "✅"}
+        
+        return {"DNI": dni, "Cobertura": "No detectado", "Beneficiario": "-", "Estado": "❓"}
+    except:
+        return {"DNI": dni, "Cobertura": "Error de Red", "Beneficiario": "-", "Estado": "📡"}
 
 if buscar_btn and dni_input:
     dnis = [d.strip() for d in dni_input.split('\n') if d.strip()]
-    res = []
+    resultados = []
     barra = st.progress(0)
-    
     for i, d in enumerate(dnis):
-        st.write(f"🕵️ Buscando DNI: {d}...")
-        res.append(consultar_con_selenium(d))
+        resultados.append(consultar_sisa_humano(d))
         barra.progress((i + 1) / len(dnis))
-    
-    st.dataframe(pd.DataFrame(res), use_container_width=True, hide_index=True)
+        time.sleep(1) # Pausa más larga para que no nos bloqueen
+    st.dataframe(pd.DataFrame(resultados))
