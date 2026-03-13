@@ -66,6 +66,9 @@ if 'faba_check' not in st.session_state: st.session_state.faba_check = True
 if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
 if 'novedades_expandido' not in st.session_state:
     st.session_state.novedades_expandido = False
+# --- NUEVO: estado para el botón HACER LA PC ---
+if 'pass_pc_valida' not in st.session_state:
+    st.session_state.pass_pc_valida = False
 
 def toggle_faba():
     if st.session_state.faba_check:
@@ -130,7 +133,7 @@ div[data-testid="stCheckbox"] label p {
     color: #38bdf8 !important;
 }
 
-/* ===== ESTILO PARA EL POPOVER (BOTÓN CARGAR NOVEDADES) ===== */
+/* ===== ESTILO PARA EL POPOVER (BOTÓN CARGAR NOVEDADES Y HACER LA PC) ===== */
 div[data-testid="stPopover"] {
     margin: 0 !important;
     padding: 0 !important;
@@ -213,7 +216,7 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA y Cargar Novedades
+# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA, HACER LA PC, Cargar Novedades
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
@@ -222,11 +225,14 @@ hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
-# Botón de reclamos/consultas
+# Botón de reclamos/consultas (externo)
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 
 # --- NUEVO BOTÓN SEC IA ---
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
+
+# --- NUEVO: BOTÓN HACER LA PC (POPOVER) ---
+popover_pc = st.popover("💻 HACER LA PC")
 
 # Popover Cargar Novedades
 popover_novedades = st.popover("✏️ Cargar Novedades")
@@ -239,6 +245,30 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("---")
+
+# ================= POPOVER HACER LA PC =================
+with popover_pc:
+    st.markdown("### 🔐 Clave Acceso PC")
+    if not st.session_state.pass_pc_valida:
+        with st.form("form_pc"):
+            cl_pc = st.text_input("Ingrese Clave:", type="password")
+            submitted = st.form_submit_button("✅ ACCEDER")
+            if submitted:
+                if cl_pc == "*":
+                    st.session_state.pass_pc_valida = True
+                    # Redirigir a la página HACER LA PC
+                    st.switch_page("pages/hacerlapc.py")
+                else:
+                    st.error("❌ Clave incorrecta")
+    else:
+        st.success("✅ Acceso concedido")
+        st.markdown("Ya puedes ingresar a la página.")
+        if st.button("🚀 Ir a HACER LA PC"):
+            st.switch_page("pages/hacerlapc.py")
+        # Opcional: botón para cerrar sesión
+        if st.button("Cerrar sesión"):
+            st.session_state.pass_pc_valida = False
+            st.rerun()
 
 # ================= POPOVER CARGAR NOVEDADES =================
 with popover_novedades:
