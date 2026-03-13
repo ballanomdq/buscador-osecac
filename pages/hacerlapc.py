@@ -14,84 +14,125 @@ st.set_page_config(page_title="HACER LA PC - PUCO", layout="wide")
 
 st.title("💻 HACER LA PC - Consulta Masiva PUCO (SISA)")
 
+# Estilo para los resultados
+st.markdown("""
+    <style>
+    .stDataFrame { border: 1px solid #38bdf8; border-radius: 10px; }
+    </style>
+""", unsafe_allow_html=True)
+
 # UI de entrada
 with st.container():
     st.subheader("📋 Ingreso de DNI")
-    dni_input = st.text_area("Escribí un DNI por línea:", height=150)
-    buscar_btn = st.button("🚀 Buscar", type="primary")
+    dni_input = st.text_area("Escribí un DNI por línea:", height=150, placeholder="Ejemplo:\n20333444\n40555666")
+    
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        buscar_btn = st.button("🚀 Buscar", type="primary")
 
-result_container = st.container()
-with result_container:
-    st.subheader("📊 Resultados de la consulta")
-    status_text = st.empty()
-    progress_bar = st.progress(0)
+# Contenedor para estados y progreso
+status_container = st.container()
 
-def consultar(dni_list):
+def consultar_sisa(dni_list):
     resultados = []
     
-    # --- CONFIGURACIÓN PARA STREAMLIT CLOUD ---
+    # 1. Configuración de Opciones (Específicas para Linux/Streamlit)
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.binary_location = "/usr/bin/chromium" # Ruta fija del packages.txt
+    options.binary_location = "/usr/bin/chromium" # Ruta instalada por packages.txt
 
-    # Intentamos abrir el driver con la ruta directa del sistema
+    # 2. Iniciar el Driver usando el Service con ruta fija
     try:
         service = Service("/usr/bin/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
     except Exception as e:
-        st.error(f"Error al iniciar navegador: {e}")
+        st.error(f"Error al iniciar el motor del navegador: {e}")
         return pd.DataFrame()
 
     try:
+        # Ir a la web de SISA
         driver.get("https://sisa.msal.gov.ar/sisa/#sisa")
+        msg_estado.info("Conectando con el portal SISA...")
         time.sleep(5)
         
-        # Click en PUCO
+        # Click en PUCO usando JavaScript para mayor efectividad
         puco = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'PUCO')]"))
+            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'PUCO')]"))
         )
         driver.execute_script("arguments[0].click();", puco)
         
-        # Campo DNI
+        # Esperar a que cargue el campo DNI
         dni_field = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//input[contains(@name, 'dni')]"))
         )
 
         for idx, dni in enumerate(dni_list):
-            status_text.text(f"Consultando {dni}...")
+            msg_estado.warning(f"Procesando DNI: {dni} ({idx+1}/{len(dni_list)})")
+            progreso.progress((idx + 1) / len(dni_list))
+            
             dni_field.clear()
             dni_field.send_keys(str(dni))
             
-            # Click buscar
-            driver.find_element(By.XPATH, "//button[contains(text(), 'Buscar') or @type='submit']").click()
+            # Click en el botón de búsqueda de la web
+            boton_sisa = driver.find_element(By.XPATH, "//button[contains(text(), 'Buscar') or @type='submit']")
+            driver.execute_script("arguments[0].click();", boton_sisa)
             
+            # Extraer datos de la tabla resultante
             try:
-                # Esperar tabla
-                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//table")))
+                WebDriverWait(driver, 8).until(EC.presence_of_element_located((By.XPATH, "//table")))
                 celdas = driver.find_elements(By.TAG_NAME, "td")
-                cobertura = celdas[0].text if celdas else "Sin datos"
-                denom = celdas[1].text if len(celdas) > 1 else "-"
+                
+                cobertura = celdas[0].text if len(celdas) > 0 else "Sin datos"
+                obra_social = celdas[1].text if len(celdas) > 1 else "No especifica"
             except:
-                cobertura = "No hallado"
-                denom = "-"
+                cobertura = "No encontrado / Error"
+                obra_social = "-"
 
-            resultados.append({"DNI": dni, "Cobertura": cobertura, "Obra Social": denom})
-            progress_bar.progress((idx + 1) / len(dni_list))
-            time.sleep(random.uniform(3, 5))
+            resultados.append({
+                "DNI": dni,
+                "Cobertura": cobertura,
+                "Obra Social": obra_social
+            })
+            
+            # Pausa aleatoria para no ser bloqueados
+            if idx < len(dni_list) - 1:
+                time.sleep(random.uniform(3, 6))
+
+        msg_estado.success("¡Consulta finalizada!")
 
     except Exception as e:
-        st.error(f"Error durante la consulta: {e}")
+        st.error(f"Se produjo un error durante la navegación: {e}")
     finally:
         driver.quit()
     
     return pd.DataFrame(resultados)
 
-if buscar_btn and dni_input:
-    dnis = [d.strip() for d in dni_input.split('\n') if d.strip()]
-    df = consultar(dnis)
-    if not df.empty:
-        st.dataframe(df, use_container_width=True)
-        st.download_button("📥 Descargar CSV", df.to_csv(index=False), "resultado.csv")
+# Lógica al presionar el botón
+if buscar_btn:
+    if not dni_input.strip():
+        st.warning("Por favor, ingresá al menos un DNI.")
+    else:
+        lista_dnis = [d.strip() for d in dni_input.split('\n') if d.strip()]
+        
+        with status_container:
+            msg_estado = st.empty()
+            progreso = st.progress(0)
+            
+            df_final = consultar_sisa(lista_dnis)
+            
+            if not df_final.empty:
+                st.subheader("📋 Resultados Obtenidos")
+                st.dataframe(df_final, use_container_width=True, hide_index=True)
+                
+                # Botón de descarga
+                csv = df_final.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Descargar Reporte CSV",
+                    data=csv,
+                    file_name="consulta_puco.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
