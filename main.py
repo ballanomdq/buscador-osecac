@@ -158,6 +158,19 @@ div[data-testid="stPopover"] button:hover {
     margin: 0 !important;
     padding: 0 !important;
 }
+
+/* ===== ESTILO ESPECÍFICO PARA EL BOTÓN DISPENSA (VERDE AGUA) ===== */
+.stLinkButton a[href="https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec"] {
+    background: #20B2AA !important;  /* Verde agua */
+    border-color: #20B2AA !important;
+    color: black !important;
+    font-weight: bold !important;
+}
+.stLinkButton a[href="https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec"]:hover {
+    background: #3CB371 !important;  /* Verde mar medio */
+    border-color: #3CB371 !important;
+    color: black !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -216,7 +229,7 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA, HACER LA PC, Cargar Novedades
+# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA, DISPENSA, HACER LA PC, Cargar Novedades
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
@@ -230,6 +243,9 @@ st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/
 
 # --- NUEVO BOTÓN SEC IA ---
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
+
+# --- NUEVO BOTÓN DISPENSA (VERDE AGUA) ---
+st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec")
 
 # --- NUEVO: BOTÓN HACER LA PC (POPOVER) ---
 popover_pc = st.popover("💻 HACER LA PC")
