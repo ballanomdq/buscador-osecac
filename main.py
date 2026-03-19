@@ -396,10 +396,8 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         st.session_state.novedades_expandido = False
         st.rerun()
 
-# ================= BOTONES FINALES =================
-st.markdown("---")
-st.markdown("### Accesos Rápidos")
-st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
+# ================= BOTONES FINALES (PEGADOS AL EXPANDER ANTERIOR) =================
+st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top: 0.2rem;">', unsafe_allow_html=True)
 
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
