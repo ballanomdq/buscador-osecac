@@ -26,34 +26,24 @@ FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
 # --- FUNCIÓN DEFINITIVA Y PERMANENTE ---
 def subir_a_drive(file_path, file_name):
     try:
-        # !!! ESTO LEE EL SECRETO DE STREAMLIT WEB !!!
         creds_info = st.secrets["gcp_service_account"]
-        
-        # Se autentica usando la información del secreto
         creds = service_account.Credentials.from_service_account_info(
             creds_info, scopes=["https://www.googleapis.com/auth/drive"]
         )
-
         service = build('drive', 'v3', credentials=creds)
-
         file_metadata = {'name': file_name, 'parents': [FOLDER_ID]}
         media = MediaFileUpload(file_path, resumable=True)
-
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-
-        # Hacer el archivo público
         try:
             service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         except:
             pass
-
         return file.get('webViewLink')
-
     except Exception as e:
         st.error(f"Error técnico permanente: {str(e)}")
         return None
 
-# --- INICIALIZACIÓN DE SESIÓN (SE MANTIENE IGUAL) ---
+# --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_links": []}]
 if 'novedades_vistas' not in st.session_state:
@@ -66,7 +56,6 @@ if 'faba_check' not in st.session_state: st.session_state.faba_check = True
 if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
 if 'novedades_expandido' not in st.session_state:
     st.session_state.novedades_expandido = False
-# --- NUEVO: estado para el botón HACER LA PC ---
 if 'pass_pc_valida' not in st.session_state:
     st.session_state.pass_pc_valida = False
 
@@ -97,7 +86,6 @@ div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b 
 .ficha-novedad { border-left: 6px solid #ff4b4b; }
 .stLinkButton a { background-color: rgba(30, 41, 59, 0.8) !important; color: #ffffff !important; border: 1px solid rgba(56,189,248,0.5) !important; border-radius: 10px !important; }
 .stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
-/* FORZAR TEXTO BLANCO EN LINK BUTTONS */
 .stLinkButton button { color: white !important; }
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
 input { color: #000000 !important; font-weight: bold !important; }
@@ -126,14 +114,11 @@ input { color: #000000 !important; font-weight: bold !important; }
     50% { opacity: 0.8; }
     100% { opacity: 1; }
 }
-
 div[data-testid="stCheckbox"] label p {
     font-weight: bold !important;
     font-size: 1.1rem !important;
     color: #38bdf8 !important;
 }
-
-/* ===== ESTILO PARA EL POPOVER (BOTÓN CARGAR NOVEDADES Y HACER LA PC) ===== */
 div[data-testid="stPopover"] {
     margin: 0 !important;
     padding: 0 !important;
@@ -158,10 +143,8 @@ div[data-testid="stPopover"] button:hover {
     margin: 0 !important;
     padding: 0 !important;
 }
-
-/* ===== ESTILO PARA EL BOTÓN DISPENSA DENTRO DEL EXPANDER ===== */
 .boton-dispensa {
-    background-color: #20B2AA !important;  /* Verde agua */
+    background-color: #20B2AA !important;
     border-color: #20B2AA !important;
     color: black !important;
     font-weight: bold !important;
@@ -172,14 +155,14 @@ div[data-testid="stPopover"] button:hover {
     text-decoration: none !important;
 }
 .boton-dispensa:hover {
-    background-color: #3CB371 !important;  /* Verde mar medio */
+    background-color: #3CB371 !important;
     border-color: #3CB371 !important;
     color: black !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- CARGA DE DATOS (SE MANTIENE IGUAL) ---
+# --- CARGA DE DATOS ---
 @st.cache_data(ttl=300)
 def cargar_datos(url):
     try:
@@ -203,8 +186,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER SIMPLIFICADO =================
-# Solo título, logo y botón NOVEDAD (si hay novedades nuevas)
+# ================= HEADER CENTRADO =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -221,7 +203,7 @@ st.markdown("""
 
 st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5);">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Logo
+# Logo centrado
 st.markdown('<div style="display: flex; justify-content: center; align-items: center; margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
@@ -235,7 +217,6 @@ st.markdown('</div>', unsafe_allow_html=True)
 # Botón NOVEDAD (solo si hay nuevas)
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
-
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
 
@@ -246,18 +227,15 @@ st.markdown("""
 
 st.markdown("---")
 
-# ================= EXPANDERS EN EL ORDEN SOLICITADO =================
+# ================= EXPANDERS =================
 
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📈 NOMENCLADOR EXEL OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
     st.link_button("📈 NOMENCLADOR EXEL FABA", "https://lookerstudio.google.com/u/0/reporting/894fde72-fb4b-4c3d-95b0-f3ff74af5fcd/page/1VncF")
-    
     st.markdown("---")
-    
     c1, c2, c3, c4 = st.columns([0.4, 1, 0.4, 1])
-    
     with c1:
         pop_f = st.popover("✏️")
         pop_f.markdown("### 🔑 Clave FABA")
@@ -272,7 +250,6 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
         else: pop_f.success("✅ FABA Habilitado")
     with c2:
         st.checkbox("FABA", key="faba_check", on_change=toggle_faba)
-        
     with c3:
         pop_o = st.popover("✏️")
         pop_o.markdown("### 🔑 Clave OSECAC")
@@ -285,13 +262,11 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                         st.rerun()
                     else: st.error("❌ Clave incorrecta")
         else: pop_o.success("✅ OSECAC Habilitado")
-            
     with c4:
         st.checkbox("OSECAC", key="osecac_check", on_change=toggle_osecac)
     
     sel_faba = st.session_state.faba_check
     sel_osecac = st.session_state.osecac_check
-    
     opcion = "OSECAC" if sel_osecac else "FABA"
     
     edicion_habilitada = False
@@ -306,21 +281,18 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     else:
         df_u = df_osecac_busq if sel_osecac else df_faba
         url_u = URLs["osecac"] if sel_osecac else URLs["faba"]
-        
+    
     term = st.text_input(f"🔍 Escriba término de búsqueda en {opcion}...", key="busqueda_input")
     btn_buscar = st.button("Buscar")
-    
     if btn_buscar:
         if term:
             mask = df_u.apply(lambda row: all(p in str(row).lower() for p in term.lower().split()), axis=1)
             results = df_u[mask]
-            
             if results.empty:
                 st.warning("No se encontraron resultados.")
             else:
                 for i, row in results.iterrows():
                     st.markdown(f'<div class="ficha">{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-                    
                     if edicion_habilitada:
                         with st.expander(f"📝 Editar fila {i}"):
                             c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
@@ -336,7 +308,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
-# 💊 MEDICAMENTOS (nuevo)
+# 💊 MEDICAMENTOS
 with st.expander("💊 MEDICAMENTOS", expanded=False):
     st.markdown("### Acceso a DISPENSA")
     st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec", help="Ir a DISPENSA")
@@ -346,8 +318,6 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
-    
-    # --- SECCIÓN ADMINISTRADORES ---
     st.markdown("---")
     pop_admin = st.popover("🔑 ADMINISTRADORES")
     with pop_admin:
@@ -405,11 +375,9 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
-    
     for n in st.session_state.historial_novedades:
         if n["id"] not in st.session_state.novedades_vistas:
             st.session_state.novedades_vistas.add(n["id"])
-        
         st.markdown(f"""
         <div style="background: linear-gradient(145deg, #1e293b, #0f172a);
                     border-left: 8px solid #ff4b4b;
@@ -421,35 +389,25 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
             <div style="color: white; font-size: 1.2rem; line-height: 1.6; white-space: pre-wrap;">{n["mensaje"]}</div>
         </div>
         """, unsafe_allow_html=True)
-        
         if n.get("archivo_links"):
             for link in n["archivo_links"]:
                 st.markdown(f'<a href="{link}" target="_blank" style="display: inline-block; background: #38bdf8; color: black; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; margin-top: 10px;">📂 Ver archivo adjunto</a>', unsafe_allow_html=True)
-    
     if st.button("❌ Cerrar Novedades"):
         st.session_state.novedades_expandido = False
         st.rerun()
 
-# ================= BOTONES FINALES (RECLAMOS, SEC IA, HACER LA PC, CARGAR NOVEDADES) =================
+# ================= BOTONES FINALES =================
 st.markdown("---")
 st.markdown("### Accesos Rápidos")
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
-# Botón de reclamos/consultas
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
-
-# Botón SEC IA
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
-
-# Popover HACER LA PC
 popover_pc = st.popover("💻 HACER LA PC")
-
-# Popover Cargar Novedades
 popover_novedades = st.popover("✏️ Cargar Novedades")
-
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ================= POPOVER HACER LA PC (contenido) =================
+# POPOVER HACER LA PC
 with popover_pc:
     st.markdown("### 🔐 Clave Acceso PC")
     if not st.session_state.pass_pc_valida:
@@ -471,10 +429,9 @@ with popover_pc:
             st.session_state.pass_pc_valida = False
             st.rerun()
 
-# ================= POPOVER CARGAR NOVEDADES (contenido) =================
+# POPOVER CARGAR NOVEDADES
 with popover_novedades:
     st.markdown("### 🔐 Clave Administración")
-    
     if not st.session_state.pass_novedades_valida:
         with st.form("form_novedades_admin"):
             cl_admin = st.text_input("Ingrese Clave:", type="password")
@@ -488,20 +445,16 @@ with popover_novedades:
         st.success("✅ Acceso concedido")
         st.markdown("---")
         st.write("### Administrar Novedades")
-        
         accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
-        
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
                 m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
                 uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-                
                 col1, col2 = st.columns(2)
                 with col1:
                     submit = st.form_submit_button("📢 PUBLICAR")
                 with col2:
                     cancel = st.form_submit_button("❌ CANCELAR")
-                
                 if submit:
                     if not m.strip():
                         st.error("❌ El mensaje no puede estar vacío")
@@ -520,7 +473,6 @@ with popover_novedades:
                                         drive_links.append(link)
                                     else:
                                         st.warning(f"No se pudo subir {uploaded_file.name}")
-                        
                         nueva_novedad = {
                             "id": str(time.time()),
                             "mensaje": m,
@@ -532,12 +484,10 @@ with popover_novedades:
                         st.success("✅ ¡Publicado exitosamente!")
                         time.sleep(1)
                         st.rerun()
-        
         elif accion == "✏️ Editar existente":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                
                 novedad = st.session_state.historial_novedades[idx_editar]
                 with st.form("editar_novedad_form"):
                     nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
@@ -546,12 +496,10 @@ with popover_novedades:
                         st.success("✅ ¡Actualizado!")
                         time.sleep(1)
                         st.rerun()
-        
         elif accion == "🗑️ Eliminar":
             if st.session_state.historial_novedades:
                 opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
                 idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                
                 if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
                     st.session_state.historial_novedades.pop(idx_eliminar)
                     st.success("✅ ¡Eliminado!")
