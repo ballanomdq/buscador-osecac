@@ -203,8 +203,8 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER =================
-# Contenedor principal del header con flexbox para centrar todo
+# ================= HEADER SIMPLIFICADO =================
+# Solo título, logo y botón NOVEDAD (si hay novedades nuevas)
 st.markdown("""
 <div style="
     width: 100vw;
@@ -221,41 +221,23 @@ st.markdown("""
 
 st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5);">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Contenedor del logo con flexbox para centrado perfecto
+# Logo
 st.markdown('<div style="display: flex; justify-content: center; align-items: center; margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
 try:
     if os.path.exists('logo original.jpg'):
-        # Mostrar imagen centrada como bloque con margen automático
         st.image('logo original.jpg', width=160)
     else:
-        # Placeholder centrado
         st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
 except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA, HACER LA PC, Cargar Novedades
-st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
-
+# Botón NOVEDAD (solo si hay nuevas)
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
 
 if hay_novedades_nuevas:
     st.button("🔴 NOVEDAD", key="btn_novedad_header", on_click=abrir_novedades)
-
-# Botón de reclamos/consultas (externo)
-st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
-
-# --- NUEVO BOTÓN SEC IA ---
-st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
-
-# --- NUEVO: BOTÓN HACER LA PC (POPOVER) ---
-popover_pc = st.popover("💻 HACER LA PC")
-
-# Popover Cargar Novedades
-popover_novedades = st.popover("✏️ Cargar Novedades")
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
     </div>
@@ -264,118 +246,8 @@ st.markdown("""
 
 st.markdown("---")
 
-# ================= POPOVER HACER LA PC =================
-with popover_pc:
-    st.markdown("### 🔐 Clave Acceso PC")
-    if not st.session_state.pass_pc_valida:
-        with st.form("form_pc"):
-            cl_pc = st.text_input("Ingrese Clave:", type="password")
-            submitted = st.form_submit_button("✅ ACCEDER")
-            if submitted:
-                if cl_pc == "*":
-                    st.session_state.pass_pc_valida = True
-                    # Redirigir a la página HACER LA PC
-                    st.switch_page("pages/hacerlapc.py")
-                else:
-                    st.error("❌ Clave incorrecta")
-    else:
-        st.success("✅ Acceso concedido")
-        st.markdown("Ya puedes ingresar a la página.")
-        if st.button("🚀 Ir a HACER LA PC"):
-            st.switch_page("pages/hacerlapc.py")
-        # Opcional: botón para cerrar sesión
-        if st.button("Cerrar sesión"):
-            st.session_state.pass_pc_valida = False
-            st.rerun()
+# ================= EXPANDERS EN EL ORDEN SOLICITADO =================
 
-# ================= POPOVER CARGAR NOVEDADES =================
-with popover_novedades:
-    st.markdown("### 🔐 Clave Administración")
-    
-    if not st.session_state.pass_novedades_valida:
-        with st.form("form_novedades_admin"):
-            cl_admin = st.text_input("Ingrese Clave:", type="password")
-            if st.form_submit_button("✅ OK"):
-                if cl_admin == "*":
-                    st.session_state.pass_novedades_valida = True
-                    st.rerun()
-                else:
-                    st.error("❌ Clave incorrecta")
-    else:
-        st.success("✅ Acceso concedido")
-        st.markdown("---")
-        st.write("### Administrar Novedades")
-        
-        accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
-        
-        if accion == "➕ Agregar nueva":
-            with st.form("nueva_novedad_form"):
-                m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
-                uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    submit = st.form_submit_button("📢 PUBLICAR")
-                with col2:
-                    cancel = st.form_submit_button("❌ CANCELAR")
-                
-                if submit:
-                    if not m.strip():
-                        st.error("❌ El mensaje no puede estar vacío")
-                    else:
-                        drive_links = []
-                        if uploaded_files:
-                            for uploaded_file in uploaded_files:
-                                with st.spinner(f"Subiendo {uploaded_file.name}..."):
-                                    temp_path = f"temp_{uploaded_file.name}"
-                                    with open(temp_path, "wb") as f:
-                                        f.write(uploaded_file.getbuffer())
-                                    link = subir_a_drive(temp_path, uploaded_file.name)
-                                    if os.path.exists(temp_path):
-                                        os.remove(temp_path)
-                                    if link:
-                                        drive_links.append(link)
-                                    else:
-                                        st.warning(f"No se pudo subir {uploaded_file.name}")
-                        
-                        nueva_novedad = {
-                            "id": str(time.time()),
-                            "mensaje": m,
-                            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "archivo_links": drive_links
-                        }
-                        st.session_state.historial_novedades.insert(0, nueva_novedad)
-                        st.session_state.novedades_vistas = set()
-                        st.success("✅ ¡Publicado exitosamente!")
-                        time.sleep(1)
-                        st.rerun()
-        
-        elif accion == "✏️ Editar existente":
-            if st.session_state.historial_novedades:
-                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
-                idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                
-                novedad = st.session_state.historial_novedades[idx_editar]
-                with st.form("editar_novedad_form"):
-                    nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
-                    if st.form_submit_button("💾 GUARDAR CAMBIOS"):
-                        st.session_state.historial_novedades[idx_editar]['mensaje'] = nuevo_mensaje
-                        st.success("✅ ¡Actualizado!")
-                        time.sleep(1)
-                        st.rerun()
-        
-        elif accion == "🗑️ Eliminar":
-            if st.session_state.historial_novedades:
-                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
-                idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                
-                if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
-                    st.session_state.historial_novedades.pop(idx_eliminar)
-                    st.success("✅ ¡Eliminado!")
-                    time.sleep(1)
-                    st.rerun()
-
-# ================== APLICACIÓN ==================
 # 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
@@ -464,7 +336,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
-# --- NUEVO EXPANDER: MEDICAMENTOS (antes de PEDIDOS) ---
+# 💊 MEDICAMENTOS (nuevo)
 with st.expander("💊 MEDICAMENTOS", expanded=False):
     st.markdown("### Acceso a DISPENSA")
     st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec", help="Ir a DISPENSA")
@@ -557,3 +429,131 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
     if st.button("❌ Cerrar Novedades"):
         st.session_state.novedades_expandido = False
         st.rerun()
+
+# ================= BOTONES FINALES (RECLAMOS, SEC IA, HACER LA PC, CARGAR NOVEDADES) =================
+st.markdown("---")
+st.markdown("### Accesos Rápidos")
+st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
+
+# Botón de reclamos/consultas
+st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
+
+# Botón SEC IA
+st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
+
+# Popover HACER LA PC
+popover_pc = st.popover("💻 HACER LA PC")
+
+# Popover Cargar Novedades
+popover_novedades = st.popover("✏️ Cargar Novedades")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# ================= POPOVER HACER LA PC (contenido) =================
+with popover_pc:
+    st.markdown("### 🔐 Clave Acceso PC")
+    if not st.session_state.pass_pc_valida:
+        with st.form("form_pc"):
+            cl_pc = st.text_input("Ingrese Clave:", type="password")
+            submitted = st.form_submit_button("✅ ACCEDER")
+            if submitted:
+                if cl_pc == "*":
+                    st.session_state.pass_pc_valida = True
+                    st.switch_page("pages/hacerlapc.py")
+                else:
+                    st.error("❌ Clave incorrecta")
+    else:
+        st.success("✅ Acceso concedido")
+        st.markdown("Ya puedes ingresar a la página.")
+        if st.button("🚀 Ir a HACER LA PC"):
+            st.switch_page("pages/hacerlapc.py")
+        if st.button("Cerrar sesión"):
+            st.session_state.pass_pc_valida = False
+            st.rerun()
+
+# ================= POPOVER CARGAR NOVEDADES (contenido) =================
+with popover_novedades:
+    st.markdown("### 🔐 Clave Administración")
+    
+    if not st.session_state.pass_novedades_valida:
+        with st.form("form_novedades_admin"):
+            cl_admin = st.text_input("Ingrese Clave:", type="password")
+            if st.form_submit_button("✅ OK"):
+                if cl_admin == "*":
+                    st.session_state.pass_novedades_valida = True
+                    st.rerun()
+                else:
+                    st.error("❌ Clave incorrecta")
+    else:
+        st.success("✅ Acceso concedido")
+        st.markdown("---")
+        st.write("### Administrar Novedades")
+        
+        accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
+        
+        if accion == "➕ Agregar nueva":
+            with st.form("nueva_novedad_form"):
+                m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
+                uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    submit = st.form_submit_button("📢 PUBLICAR")
+                with col2:
+                    cancel = st.form_submit_button("❌ CANCELAR")
+                
+                if submit:
+                    if not m.strip():
+                        st.error("❌ El mensaje no puede estar vacío")
+                    else:
+                        drive_links = []
+                        if uploaded_files:
+                            for uploaded_file in uploaded_files:
+                                with st.spinner(f"Subiendo {uploaded_file.name}..."):
+                                    temp_path = f"temp_{uploaded_file.name}"
+                                    with open(temp_path, "wb") as f:
+                                        f.write(uploaded_file.getbuffer())
+                                    link = subir_a_drive(temp_path, uploaded_file.name)
+                                    if os.path.exists(temp_path):
+                                        os.remove(temp_path)
+                                    if link:
+                                        drive_links.append(link)
+                                    else:
+                                        st.warning(f"No se pudo subir {uploaded_file.name}")
+                        
+                        nueva_novedad = {
+                            "id": str(time.time()),
+                            "mensaje": m,
+                            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                            "archivo_links": drive_links
+                        }
+                        st.session_state.historial_novedades.insert(0, nueva_novedad)
+                        st.session_state.novedades_vistas = set()
+                        st.success("✅ ¡Publicado exitosamente!")
+                        time.sleep(1)
+                        st.rerun()
+        
+        elif accion == "✏️ Editar existente":
+            if st.session_state.historial_novedades:
+                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
+                idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
+                
+                novedad = st.session_state.historial_novedades[idx_editar]
+                with st.form("editar_novedad_form"):
+                    nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
+                    if st.form_submit_button("💾 GUARDAR CAMBIOS"):
+                        st.session_state.historial_novedades[idx_editar]['mensaje'] = nuevo_mensaje
+                        st.success("✅ ¡Actualizado!")
+                        time.sleep(1)
+                        st.rerun()
+        
+        elif accion == "🗑️ Eliminar":
+            if st.session_state.historial_novedades:
+                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
+                idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
+                
+                if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
+                    st.session_state.historial_novedades.pop(idx_eliminar)
+                    st.success("✅ ¡Eliminado!")
+                    time.sleep(1)
+                    st.rerun()
