@@ -12,6 +12,7 @@ import os
 from PIL import Image
 import io
 import json
+import base64  # <-- NUEVO: para codificar la imagen
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -186,7 +187,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CENTRADO =================
+# ================= HEADER CENTRADO (CON LOGO EN BASE64) =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -203,16 +204,26 @@ st.markdown("""
 
 st.markdown('<h1 style="font-weight:800; font-size:2.8rem; color:#ffffff; margin:0.5rem 0 1.2rem 0; text-shadow:2px 2px 6px rgba(0,0,0,0.5);">OSECAC MDP / AGENCIAS</h1>', unsafe_allow_html=True)
 
-# Logo centrado
-st.markdown('<div style="display: flex; justify-content: center; align-items: center; margin: 0.8rem 0 1.5rem 0;">', unsafe_allow_html=True)
-try:
-    if os.path.exists('logo original.jpg'):
-        st.image('logo original.jpg', width=160)
-    else:
-        st.markdown('<div style="width:160px; height:80px; background: rgba(30, 41, 59, 0.5); border-radius:16px; border:2px solid #38bdf8; margin: 0 auto;"></div>', unsafe_allow_html=True)
-except:
-    pass
-st.markdown('</div>', unsafe_allow_html=True)
+# ----- LOGO CENTRADO CON BASE64 (VERSIÓN ROBUSTA) -----
+def image_to_base64(path):
+    with open(path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
+
+if os.path.exists('logo original.jpg'):
+    b64_img = image_to_base64('logo original.jpg')
+    st.markdown(f"""
+        <div style="display: flex; justify-content: center; margin: 1.2rem 0 2rem 0;">
+            <img src="data:image/jpeg;base64,{b64_img}" 
+                 style="width: 160px; height: auto; display: block;" 
+                 alt="Logo OSECAC">
+        </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <div style="display: flex; justify-content: center; margin: 1.2rem 0 2rem 0;">
+            <div style="width:160px; height:80px; background: rgba(30,41,59,0.5); border-radius:16px; border:2px solid #38bdf8;"></div>
+        </div>
+    """, unsafe_allow_html=True)
 
 # Botón NOVEDAD (solo si hay nuevas)
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
