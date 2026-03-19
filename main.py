@@ -159,15 +159,20 @@ div[data-testid="stPopover"] button:hover {
     padding: 0 !important;
 }
 
-/* ===== ESTILO ESPECÍFICO PARA EL BOTÓN DISPENSA (VERDE AGUA) ===== */
-.stLinkButton a[href="https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec"] {
-    background: #20B2AA !important;  /* Verde agua */
+/* ===== ESTILO PARA EL BOTÓN DISPENSA DENTRO DEL EXPANDER ===== */
+.boton-dispensa {
+    background-color: #20B2AA !important;  /* Verde agua */
     border-color: #20B2AA !important;
     color: black !important;
     font-weight: bold !important;
+    border-radius: 10px !important;
+    padding: 8px 20px !important;
+    text-align: center;
+    display: inline-block;
+    text-decoration: none !important;
 }
-.stLinkButton a[href="https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec"]:hover {
-    background: #3CB371 !important;  /* Verde mar medio */
+.boton-dispensa:hover {
+    background-color: #3CB371 !important;  /* Verde mar medio */
     border-color: #3CB371 !important;
     color: black !important;
 }
@@ -229,7 +234,7 @@ except:
     pass
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA, DISPENSA, HACER LA PC, Cargar Novedades
+# Botones superiores: NOVEDAD, RECLAMOS/CONSULTAS, SEC IA, HACER LA PC, Cargar Novedades
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0;">', unsafe_allow_html=True)
 
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
@@ -243,9 +248,6 @@ st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/
 
 # --- NUEVO BOTÓN SEC IA ---
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
-
-# --- NUEVO BOTÓN DISPENSA (VERDE AGUA) ---
-st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec")
 
 # --- NUEVO: BOTÓN HACER LA PC (POPOVER) ---
 popover_pc = st.popover("💻 HACER LA PC")
@@ -461,6 +463,11 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
             st.info("Escriba algo en el buscador.")
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
+
+# --- NUEVO EXPANDER: MEDICAMENTOS (antes de PEDIDOS) ---
+with st.expander("💊 MEDICAMENTOS", expanded=False):
+    st.markdown("### Acceso a DISPENSA")
+    st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec", help="Ir a DISPENSA")
 
 # 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
