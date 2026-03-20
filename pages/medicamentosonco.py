@@ -54,15 +54,17 @@ else:
 # ================= SECCIÓN PLANILLAS =================
 st.markdown("## 📄 PLANILLAS")
 
-# Lista de planillas con los nombres exactos e IDs (los que ya tenemos)
+# Planillas con enlaces editables de PDFescape
 planillas = [
-    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"),
-    ("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad", "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"),
-    ("F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento", "1aslyVdHH56NU3nHacLl7fHu0opvbEueY")
+    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", 
+     "https://www.pdfescape.com/open/?url=https%3A%2F%2Fdrive.google.com%2Fuc%3Fexport%3Ddownload%26id%3D1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"),
+    ("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad", 
+     "https://www.pdfescape.com/open/?url=https%3A%2F%2Fdrive.google.com%2Fuc%3Fexport%3Ddownload%26id%3D1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"),
+    ("F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento", 
+     "https://www.pdfescape.com/open/?url=https%3A%2F%2Fdrive.google.com%2Fuc%3Fexport%3Ddownload%26id%3D1aslyVdHH56NU3nHacLl7fHu0opvbEueY")
 ]
 
-for nombre, doc_id in planillas:
-    url = f"https://drive.google.com/file/d/{doc_id}/view"
+for nombre, url in planillas:
     st.markdown(f"- [{nombre}]({url})")
 
 st.markdown("---")
@@ -70,10 +72,8 @@ st.markdown("---")
 # ================= SECCIÓN REQUISITOS =================
 st.markdown("## 📋 Requisitos para medicación oncológica")
 
-# Función para generar botón de impresión (abre ventana con el contenido)
+# Función para botón de impresión (abre ventana con el contenido)
 def print_button(html_content):
-    # Escapamos el contenido para pasarlo como string en el botón
-    # Usamos un componente HTML con JavaScript
     btn_html = f"""
     <div style="margin-top: 0.5rem;">
         <button onclick="imprimirContenido()" style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:0.25rem 0.75rem; cursor:pointer;">🖨️ Imprimir</button>
@@ -158,21 +158,7 @@ st.markdown("---")
 # ================= SECCIÓN MEDICAMENTOS =================
 st.markdown("## 💊 MEDICAMENTOS")
 
-# Lista completa de medicamentos (unión de no cápita y cápita)
-# (Uso los datos de la circular que me diste, los mismos que usé antes, pero para no repetir,
-#  pondré solo una muestra para que el código sea manejable. En la versión final, incluirás
-#  la lista completa. Aquí pongo unos pocos como ejemplo, pero tú tienes la lista extensa.)
-
-# Como la lista es larguísima, la incluyo completa en el código final (te la paso aparte si quieres,
-# pero para que el código quede legible aquí, la pondré con un comentario de que es la misma del listado).
-# Voy a usar la misma lista que ya teníamos (la extensa) pero para no duplicar 200 líneas en esta respuesta,
-# asumiré que la tienes en tu código anterior. En el código que te voy a dar al final, pondré la lista completa
-# con la estructura de tu circular.
-
-# -------------------------------------------------------------------------
-# AQUÍ VA LA LISTA COMPLETA DE MEDICAMENTOS (la misma que me diste en la circular)
-# La incluyo completa para que no haya error. Son unos 200 items.
-# -------------------------------------------------------------------------
+# Lista completa de medicamentos (ordenada alfabéticamente)
 medicamentos_completos = [
     ("5-AZACETIDINA", "Leucemia Mieloide Aguda / Síndrome Mielodisplásico"),
     ("ABACAVIR + LAMIVUDINA + ZIDOVUDINA", "Melanoma Metastásico / Mieloma Múltiple"),
@@ -184,39 +170,75 @@ medicamentos_completos = [
     ("BENDAMUSTINA, CLORHIDRATO", "Leucemia Linfática Crónica / Linfoma No Hodgkin Folicular / Mieloma Múltiple"),
     ("BEVACIZUMAB", "Cáncer de Colon / CÁNCER DE MAMA / Cáncer de Pulmón / CÁNCER DE RIÑÓN / Cáncer Ovárico Ep. T. de Falopio / Glioblastoma"),
     ("BEXAROTENO", "Linfoma Cutáneo"),
+    ("BLEOMICINA", "ONCOLOGICOS CÁPITA"),
     ("BORTEZOMIB", "Linfoma de Células del Manto / Mieloma Múltiple"),
     ("BRENTUXIMAB VEDOTIN", "ONCOLOGÍA NO S.U.R."),
     ("CABAZITAXEL", "CÁNCER DE PRÓSTATA"),
     ("CAPECITABINA", "ONCOLOGÍA NO S.U.R."),
     ("CETUXIMAB", "Cáncer de Colon / Cáncer de Reg. Cabeza y Cuello / Glioblastoma"),
+    ("CICLOFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
+    ("CIPROTERONA", "ONCOLOGICOS CÁPITA"),
+    ("CISPLATINO", "ONCOLOGICOS CÁPITA"),
+    ("CITARABINA", "ONCOLOGICOS CÁPITA"),
+    ("CLOFAMBUCILO", "ONCOLOGICOS CÁPITA"),
     ("CLOFARABINA", "Leucemia Linfoblástica Aguda"),
     ("CRIZOTINIB", "Cáncer de Pulmón"),
+    ("DACARBAZINA", "ONCOLOGICOS CÁPITA"),
+    ("DACTINOMICINA", "ONCOLOGICOS CÁPITA"),
     ("DASATINIB", "Leucemia Linfoblástica Aguda / LEUCEMIA MIELOIDE CRÓNICA"),
     ("DECITABINE", "Síndrome Mielodisplásico"),
     ("DENOSUMAB", "ONCOLOGÍA NO S.U.R."),
+    ("DEXAMETASONA", "ONCOLOGICOS CÁPITA"),
+    ("DOCETAXEL", "ONCOLOGICOS CÁPITA"),
     ("DOXORRUBICINA LIPOSOMAL", "ONCOLOGÍA NO S.U.R."),
     ("ENZALUTAMIDA", "CÁNCER DE PRÓSTATA"),
+    ("ERITROPOYETINA RECOMB. HUMANA", "ONCOLOGICOS CÁPITA"),
     ("ERLOTINIB", "Cáncer de Páncreas / Cáncer de Pulmón"),
     ("ERWINIA CRISANTASPASA", "Leucemia Linfoblástica Aguda"),
+    ("ETOPÓSIDO", "ONCOLOGICOS CÁPITA"),
     ("EVEROLIMUS", "CÁNCER DE MAMA / Cáncer de Páncreas / CÁNCER DE RIÑÓN"),
+    ("EXEMESTANO", "ONCOLOGICOS CÁPITA"),
+    ("FILGRASTIM", "ONCOLOGICOS CÁPITA"),
+    ("FLUDARABINA", "ONCOLOGICOS CÁPITA"),
+    ("FLUTAMIDA", "ONCOLOGICOS CÁPITA"),
     ("FOSAPREPITANT DIMEGLUMINA", "Efectos adversos ONCO"),
     ("FULVESTRANT", "CÁNCER DE MAMA"),
     ("GEFITINIB", "Cáncer de Pulmón"),
+    ("GEMCITABINA", "ONCOLOGICOS CÁPITA"),
+    ("HIDROCORTISONA", "ONCOLOGICOS CÁPITA"),
+    ("HIDROXIUREA", "ONCOLOGICOS CÁPITA"),
     ("IBRUTINIB", "ONCOLOGÍA NO S.U.R."),
+    ("IDARRUBICINA", "ONCOLOGICOS CÁPITA"),
+    ("IFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
     ("IMATINIB", "CÁNCER GASTROINTESTINAL / Dermatofibrosarcoma Protuberans / Leucemia Linfoblástica Aguda / LEUCEMIA MIELOIDE CRÓNICA / Mastocitosis Sistémica Agresiva / Síndrome Hipereosinofílico / Síndrome Mielodisplásico"),
     ("IPILIMUMAB", "Melanoma Metastásico"),
+    ("IRINOTECÁN", "ONCOLOGICOS CÁPITA"),
     ("IXABEPILONA", "CÁNCER DE MAMA"),
     ("IXAZOMIB", "Mieloma Múltiple"),
     ("LANREOTIDO", "Cáncer Hipofisario Productor de Somatrotrofina / Tumores Endocrinos Gastro-Entero-Pancreáticos Funcionales"),
     ("LAPATINIB", "CÁNCER DE MAMA"),
     ("LENALIDOMIDA", "Mieloma Múltiple / Síndrome Mielodisplásico"),
+    ("LETROZOL", "ONCOLOGICOS CÁPITA"),
+    ("MEDROXIPROGESTERONA", "ONCOLOGICOS CÁPITA"),
+    ("MEGESTROL", "ONCOLOGICOS CÁPITA"),
+    ("MELFALANO", "ONCOLOGICOS CÁPITA"),
+    ("MERCAPTOPURINA", "ONCOLOGICOS CÁPITA"),
+    ("METIL-PREDNISOLONA", "ONCOLOGICOS CÁPITA"),
+    ("METOTREXATO", "ONCOLOGICOS CÁPITA"),
+    ("MITOMICINA", "ONCOLOGICOS CÁPITA"),
     ("MITOTANO", "ONCOLOGÍA NO S.U.R."),
+    ("MITOXANTRONA", "ONCOLOGICOS CÁPITA"),
+    ("NANDROLONA", "ONCOLOGICOS CÁPITA"),
     ("NILOTINIB", "LEUCEMIA MIELOIDE CRÓNICA"),
     ("NIMOTUZUMAB", "Cáncer de Reg. Cabeza y Cuello"),
     ("OCTREOTIDA", "Cáncer Hipofisario Productor de Somatrotrofina / Tumores Endocrinos Gastro-Entero-Pancreáticos Funcionales"),
     ("OLAPARIB", "ONCOLOGÍA NO S.U.R."),
+    ("ONDANSETRÓN", "ONCOLOGICOS CÁPITA"),
     ("OSIMERTINIB", "ONCOLOGÍA NO S.U.R."),
+    ("OXALIPLATINO", "ONCOLOGICOS CÁPITA"),
+    ("PACLITAXEL", "ONCOLOGICOS CÁPITA"),
     ("PACLITAXEL + ALBÚMINA", "Cáncer de Páncreas"),
+    ("PAMIDRONATO DISÓDICO", "ONCOLOGICOS CÁPITA"),
     ("PANITUMUMAB", "Cáncer de Colon"),
     ("PAZOPANIB", "CÁNCER DE RIÑÓN / Sarcoma de Partes Blandas"),
     ("PEG ASPARAGINASA", "Leucemia Linfoblástica Aguda"),
@@ -229,92 +251,42 @@ medicamentos_completos = [
     ("SORAFENIB", "CÁNCER DE HÍGADO (CHC) / CÁNCER DE RIÑÓN"),
     ("SUNITINIB", "Cáncer de Páncreas / CÁNCER DE RIÑÓN / CÁNCER GASTROINTESTINAL"),
     ("TALIDOMIDA", "ONCOLOGÍA NO S.U.R."),
+    ("TAMOXIFENO", "ONCOLOGICOS CÁPITA"),
     ("TEMOZOLOMIDA", "Astrocitoma Anaplásico / Glioblastoma / Melanoma Metastásico"),
     ("TEMSIROLIMUS", "CÁNCER DE RIÑÓN"),
+    ("TIOGUANINA", "ONCOLOGICOS CÁPITA"),
     ("TRABECTEDINA", "Sarcoma de Partes Blandas"),
     ("TRASTUZUMAB", "CÁNCER DE MAMA / CÁNCER GASTROINTESTINAL"),
     ("TRASTUZUMAB + EMTANSINA", "CÁNCER DE MAMA"),
+    ("TRETINOÍNA", "ONCOLOGICOS CÁPITA"),
     ("TRIOXIDO DE ARSÉNICO", "Leucemia Promielocítica"),
     ("VEMURAFENIB", "Melanoma Metastásico"),
-    ("ZOLEDRÓNICO AC.", "ONCOLOGÍA NO S.U.R. / TRATAMIENTO DEL DOLOR ONCOLÓGICO (Receta Magistral)"),
-    ("BLEOMICINA", "ONCOLOGICOS CÁPITA"),
-    ("CICLOFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
-    ("CIPROTERONA", "ONCOLOGICOS CÁPITA"),
-    ("CISPLATINO", "ONCOLOGICOS CÁPITA"),
-    ("CITARABINA", "ONCOLOGICOS CÁPITA"),
-    ("CLOFAMBUCILO", "ONCOLOGICOS CÁPITA"),
-    ("DACARBAZINA", "ONCOLOGICOS CÁPITA"),
-    ("DACTINOMICINA", "ONCOLOGICOS CÁPITA"),
-    ("DEXAMETASONA", "ONCOLOGICOS CÁPITA"),
-    ("DOCETAXEL", "ONCOLOGICOS CÁPITA"),
-    ("ERITROPOYETINA RECOMB. HUMANA", "ONCOLOGICOS CÁPITA"),
-    ("ETOPÓSIDO", "ONCOLOGICOS CÁPITA"),
-    ("EXEMESTANO", "ONCOLOGICOS CÁPITA"),
-    ("FILGRASTIM", "ONCOLOGICOS CÁPITA"),
-    ("FLUDARABINA", "ONCOLOGICOS CÁPITA"),
-    ("FLUTAMIDA", "ONCOLOGICOS CÁPITA"),
-    ("GEMCITABINA", "ONCOLOGICOS CÁPITA"),
-    ("HIDROCORTISONA", "ONCOLOGICOS CÁPITA"),
-    ("HIDROXIUREA", "ONCOLOGICOS CÁPITA"),
-    ("IDARRUBICINA", "ONCOLOGICOS CÁPITA"),
-    ("IFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
-    ("IRINOTECÁN", "ONCOLOGICOS CÁPITA"),
-    ("LETROZOL", "ONCOLOGICOS CÁPITA"),
-    ("MEDROXIPROGESTERONA", "ONCOLOGICOS CÁPITA"),
-    ("MEGESTROL", "ONCOLOGICOS CÁPITA"),
-    ("MELFALANO", "ONCOLOGICOS CÁPITA"),
-    ("MERCAPTOPURINA", "ONCOLOGICOS CÁPITA"),
-    ("METIL-PREDNISOLONA", "ONCOLOGICOS CÁPITA"),
-    ("METOTREXATO", "ONCOLOGICOS CÁPITA"),
-    ("MITOMICINA", "ONCOLOGICOS CÁPITA"),
-    ("MITOXANTRONA", "ONCOLOGICOS CÁPITA"),
-    ("NANDROLONA", "ONCOLOGICOS CÁPITA"),
-    ("ONDANSETRÓN", "ONCOLOGICOS CÁPITA"),
-    ("OXALIPLATINO", "ONCOLOGICOS CÁPITA"),
-    ("PACLITAXEL", "ONCOLOGICOS CÁPITA"),
-    ("PAMIDRONATO DISÓDICO", "ONCOLOGICOS CÁPITA"),
-    ("TAMOXIFENO", "ONCOLOGICOS CÁPITA"),
-    ("TIOGUANINA", "ONCOLOGICOS CÁPITA"),
-    ("TRETINOÍNA", "ONCOLOGICOS CÁPITA"),
     ("VINBLASTINA", "ONCOLOGICOS CÁPITA"),
     ("VINCRISTINA", "ONCOLOGICOS CÁPITA"),
-    ("VINORELBINA", "ONCOLOGICOS CÁPITA")
+    ("VINORELBINA", "ONCOLOGICOS CÁPITA"),
+    ("ZOLEDRÓNICO AC.", "ONCOLOGÍA NO S.U.R. / TRATAMIENTO DEL DOLOR ONCOLÓGICO (Receta Magistral)")
 ]
-# -------------------------------------------------------------------------
 
-# Extraer lista de nombres
+# Ordenar alfabéticamente
+medicamentos_completos.sort(key=lambda x: x[0])
+
+# Extraer nombres para el selectbox
 nombres_med = [m[0] for m in medicamentos_completos]
 
-# Layout de dos columnas para evitar que el dropdown tape el programa
+# Layout de dos columnas
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    # Buscador
-    busqueda = st.text_input("🔎 Buscar medicamento", placeholder="Escribí el principio activo...")
-    # Filtrar
-    if busqueda:
-        opciones_filtradas = [m for m in nombres_med if busqueda.upper() in m.upper()]
-    else:
-        opciones_filtradas = nombres_med
-
-    if opciones_filtradas:
-        seleccion = st.selectbox("Seleccioná un medicamento:", opciones_filtradas, key="med_selector")
-    else:
-        st.warning("No se encontraron medicamentos con ese nombre.")
-        seleccion = None
+    seleccion = st.selectbox("Seleccioná un medicamento:", nombres_med, key="med_selector")
 
 with col2:
-    if seleccion:
-        # Buscar el programa correspondiente
-        programa = next(m[1] for m in medicamentos_completos if m[0] == seleccion)
-        st.markdown(f"""
-        <div style="background-color:#f8fafc; border-left:4px solid #2563eb; padding:1rem; border-radius:8px;">
-            <strong style="color:#2563eb;">Programa asociado:</strong><br>
-            {programa}
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.info("Seleccioná un medicamento para ver su programa.")
+    programa = next(m[1] for m in medicamentos_completos if m[0] == seleccion)
+    st.markdown(f"""
+    <div style="background-color:#f8fafc; border-left:4px solid #2563eb; padding:1rem; border-radius:8px;">
+        <strong style="color:#2563eb;">Programa asociado:</strong><br>
+        {programa}
+    </div>
+    """, unsafe_allow_html=True)
 
 # ================= PIE DE PÁGINA =================
 st.markdown("---")
