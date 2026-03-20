@@ -51,28 +51,33 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
+# ================= TÍTULO PRINCIPAL =================
+st.markdown("""
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h1 style="font-size: 2.2rem; font-weight: 600;">PROGRAMAS Y PLANILLAS ONCOLOGICAS</h1>
+    </div>
+""", unsafe_allow_html=True)
+
 # ================= SECCIÓN PLANILLAS =================
 st.markdown("## 📄 PLANILLAS")
 
-# Planillas con enlaces editables de PDFescape
+# Lista de planillas con los nombres en MAYÚSCULAS y enlaces directos de Drive
 planillas = [
-    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", 
-     "https://www.pdfescape.com/open/?url=https%3A%2F%2Fdrive.google.com%2Fuc%3Fexport%3Ddownload%26id%3D1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"),
-    ("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad", 
-     "https://www.pdfescape.com/open/?url=https%3A%2F%2Fdrive.google.com%2Fuc%3Fexport%3Ddownload%26id%3D1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"),
-    ("F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento", 
-     "https://www.pdfescape.com/open/?url=https%3A%2F%2Fdrive.google.com%2Fuc%3Fexport%3Ddownload%26id%3D1aslyVdHH56NU3nHacLl7fHu0opvbEueY")
+    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"),
+    ("F-PAD.2.74 PRESCRIPCIÓN ONCOLÓGICA 1ERA VEZ – CONTINUIDAD", "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"),
+    ("F-PAD-2-075 PRESCRIPCIÓN ONCOLÓGICA CONTINUIDAD DE TRATAMIENTO", "1aslyVdHH56NU3nHacLl7fHu0opvbEueY")
 ]
 
-for nombre, url in planillas:
+for nombre, doc_id in planillas:
+    url = f"https://drive.google.com/file/d/{doc_id}/view"
     st.markdown(f"- [{nombre}]({url})")
 
 st.markdown("---")
 
 # ================= SECCIÓN REQUISITOS =================
-st.markdown("## 📋 Requisitos para medicación oncológica")
+st.markdown("## 📋 REQUISITOS PARA MEDICACIÓN ONCOLÓGICA")
 
-# Función para botón de impresión (abre ventana con el contenido)
+# Función para generar botón de impresión (abre ventana con el contenido)
 def print_button(html_content):
     btn_html = f"""
     <div style="margin-top: 0.5rem;">
@@ -97,7 +102,7 @@ def print_button(html_content):
     st.components.v1.html(btn_html, height=80)
 
 # Expander 1: Primera vez
-with st.expander("💊 Primera vez (cápita y extracápita)"):
+with st.expander("💊 PRIMERA VEZ (CÁPITA Y EXTRACÁPITA)"):
     contenido1 = """
     <h3>Requisitos Primera Vez</h3>
     <ul>
@@ -117,7 +122,7 @@ with st.expander("💊 Primera vez (cápita y extracápita)"):
     print_button(contenido1)
 
 # Expander 2: Continuidad extracápita
-with st.expander("🔄 Continuidad extracápita"):
+with st.expander("🔄 CONTINUIDAD EXTRACÁPITA"):
     contenido2 = """
     <h3>Requisitos Continuidad Extracápita</h3>
     <ul>
@@ -138,7 +143,7 @@ with st.expander("🔄 Continuidad extracápita"):
     print_button(contenido2)
 
 # Expander 3: Continuidad cápita
-with st.expander("🔄 Continuidad cápita"):
+with st.expander("🔄 CONTINUIDAD CÁPITA"):
     contenido3 = """
     <h3>Requisitos Continuidad Cápita</h3>
     <ul>
@@ -267,23 +272,23 @@ medicamentos_completos = [
     ("ZOLEDRÓNICO AC.", "ONCOLOGÍA NO S.U.R. / TRATAMIENTO DEL DOLOR ONCOLÓGICO (Receta Magistral)")
 ]
 
-# Ordenar alfabéticamente
+# Ordenar alfabéticamente por principio activo
 medicamentos_completos.sort(key=lambda x: x[0])
 
-# Extraer nombres para el selectbox
+# Extraer lista de nombres
 nombres_med = [m[0] for m in medicamentos_completos]
 
 # Layout de dos columnas
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    seleccion = st.selectbox("Seleccioná un medicamento:", nombres_med, key="med_selector")
+    seleccion = st.selectbox("SELECCIONÁ UN MEDICAMENTO:", nombres_med, key="med_selector")
 
 with col2:
     programa = next(m[1] for m in medicamentos_completos if m[0] == seleccion)
     st.markdown(f"""
     <div style="background-color:#f8fafc; border-left:4px solid #2563eb; padding:1rem; border-radius:8px;">
-        <strong style="color:#2563eb;">Programa asociado:</strong><br>
+        <strong style="color:#2563eb;">PROGRAMA ASOCIADO:</strong><br>
         {programa}
     </div>
     """, unsafe_allow_html=True)
