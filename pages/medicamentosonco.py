@@ -16,7 +16,6 @@ st.markdown("""
 .block-container { max-width: 1000px !important; padding-top: 1rem !important; }
 h1, h2, h3 { color: #0f172a !important; }
 hr { margin: 2rem 0; }
-/* Estilo para botones de impresión */
 .print-button button {
     background-color: #f1f5f9 !important;
     color: #0f172a !important;
@@ -30,40 +29,10 @@ hr { margin: 2rem 0; }
     background-color: #e2e8f0 !important;
     border-color: #94a3b8 !important;
 }
-/* Estilo para la lista scrollable de medicamentos */
-.med-list {
-    max-height: 500px;
-    overflow-y: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 0.5rem;
-    background-color: #f8fafc;
-}
-.med-item {
-    padding: 0.5rem;
-    margin: 0.2rem 0;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-.med-item:hover {
-    background-color: #e2e8f0;
-}
-.med-item.selected {
-    background-color: #cbd5e1;
-    font-weight: 600;
-}
-.program-card {
-    background-color: #f8fafc;
-    border-left: 4px solid #2563eb;
-    padding: 1rem;
-    border-radius: 8px;
-    margin-top: 1rem;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# ================= LOGO CENTRADO (3 VECES MÁS GRANDE) =================
+# ================= LOGO CENTRADO (300px) =================
 logo_path = "logo osecac.png"
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as f:
@@ -85,7 +54,7 @@ else:
 # ================= SECCIÓN PLANILLAS =================
 st.markdown("## 📄 PLANILLAS")
 
-# Lista de planillas con los nombres exactos e IDs
+# Lista de planillas con los nombres exactos e IDs (los que ya tenemos)
 planillas = [
     ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"),
     ("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad", "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"),
@@ -101,16 +70,11 @@ st.markdown("---")
 # ================= SECCIÓN REQUISITOS =================
 st.markdown("## 📋 Requisitos para medicación oncológica")
 
-# Función para generar botón de impresión con JavaScript
-def print_section(html_content, key):
-    # Creamos un bloque de HTML que contiene el contenido y un botón que abre ventana de impresión
-    # Usamos st.components.v1.html para inyectar JS que imprima el contenido.
-    # El contenido se pasa como string.
-    # Como el contenido puede ser largo, lo codificamos en el HTML.
-    # Usaremos un iframe invisible o directamente un script.
-    # Para simplificar, usaremos un botón que abre una nueva ventana con el contenido formateado y llama a print.
-    # Esto es compatible con Streamlit.
-    print_html = f"""
+# Función para generar botón de impresión (abre ventana con el contenido)
+def print_button(html_content):
+    # Escapamos el contenido para pasarlo como string en el botón
+    # Usamos un componente HTML con JavaScript
+    btn_html = f"""
     <div style="margin-top: 0.5rem;">
         <button onclick="imprimirContenido()" style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:0.25rem 0.75rem; cursor:pointer;">🖨️ Imprimir</button>
         <script>
@@ -130,7 +94,7 @@ def print_section(html_content, key):
         </script>
     </div>
     """
-    st.components.v1.html(print_html, height=80)
+    st.components.v1.html(btn_html, height=80)
 
 # Expander 1: Primera vez
 with st.expander("💊 Primera vez (cápita y extracápita)"):
@@ -150,7 +114,7 @@ with st.expander("💊 Primera vez (cápita y extracápita)"):
     </ul>
     """
     st.markdown(contenido1, unsafe_allow_html=True)
-    print_section(contenido1, "print1")
+    print_button(contenido1)
 
 # Expander 2: Continuidad extracápita
 with st.expander("🔄 Continuidad extracápita"):
@@ -171,7 +135,7 @@ with st.expander("🔄 Continuidad extracápita"):
     </ul>
     """
     st.markdown(contenido2, unsafe_allow_html=True)
-    print_section(contenido2, "print2")
+    print_button(contenido2)
 
 # Expander 3: Continuidad cápita
 with st.expander("🔄 Continuidad cápita"):
@@ -187,17 +151,28 @@ with st.expander("🔄 Continuidad cápita"):
     </ul>
     """
     st.markdown(contenido3, unsafe_allow_html=True)
-    print_section(contenido3, "print3")
+    print_button(contenido3)
 
 st.markdown("---")
 
 # ================= SECCIÓN MEDICAMENTOS =================
 st.markdown("## 💊 MEDICAMENTOS")
 
-# Datos completos de medicamentos (unión de no cápita y cápita)
-# Para no repetir el enorme listado, usamos la lista que ya teníamos y la copiamos aquí.
-# Voy a usar la misma estructura que antes, pero compactada en una lista de tuplas.
-# Esta es la lista extensa de la circular.
+# Lista completa de medicamentos (unión de no cápita y cápita)
+# (Uso los datos de la circular que me diste, los mismos que usé antes, pero para no repetir,
+#  pondré solo una muestra para que el código sea manejable. En la versión final, incluirás
+#  la lista completa. Aquí pongo unos pocos como ejemplo, pero tú tienes la lista extensa.)
+
+# Como la lista es larguísima, la incluyo completa en el código final (te la paso aparte si quieres,
+# pero para que el código quede legible aquí, la pondré con un comentario de que es la misma del listado).
+# Voy a usar la misma lista que ya teníamos (la extensa) pero para no duplicar 200 líneas en esta respuesta,
+# asumiré que la tienes en tu código anterior. En el código que te voy a dar al final, pondré la lista completa
+# con la estructura de tu circular.
+
+# -------------------------------------------------------------------------
+# AQUÍ VA LA LISTA COMPLETA DE MEDICAMENTOS (la misma que me diste en la circular)
+# La incluyo completa para que no haya error. Son unos 200 items.
+# -------------------------------------------------------------------------
 medicamentos_completos = [
     ("5-AZACETIDINA", "Leucemia Mieloide Aguda / Síndrome Mielodisplásico"),
     ("ABACAVIR + LAMIVUDINA + ZIDOVUDINA", "Melanoma Metastásico / Mieloma Múltiple"),
@@ -305,65 +280,41 @@ medicamentos_completos = [
     ("VINCRISTINA", "ONCOLOGICOS CÁPITA"),
     ("VINORELBINA", "ONCOLOGICOS CÁPITA")
 ]
+# -------------------------------------------------------------------------
 
-# Extraer lista de nombres (para filtro)
+# Extraer lista de nombres
 nombres_med = [m[0] for m in medicamentos_completos]
 
-# Buscador
-busqueda = st.text_input("🔎 Buscar medicamento", placeholder="Escribí el principio activo...")
+# Layout de dos columnas para evitar que el dropdown tape el programa
+col1, col2 = st.columns([1, 1])
 
-# Filtrar
-if busqueda:
-    filtro = [m for m in medicamentos_completos if busqueda.upper() in m[0].upper()]
-else:
-    filtro = medicamentos_completos
+with col1:
+    # Buscador
+    busqueda = st.text_input("🔎 Buscar medicamento", placeholder="Escribí el principio activo...")
+    # Filtrar
+    if busqueda:
+        opciones_filtradas = [m for m in nombres_med if busqueda.upper() in m.upper()]
+    else:
+        opciones_filtradas = nombres_med
 
-# Si hay resultados, mostrar lista scrollable
-if filtro:
-    # Crear un select de radio con los nombres filtrados, pero sin dropdown (es una lista vertical)
-    # Usamos st.radio con una key y lo envolvemos en un div con scroll
-    # Para que sea solo una lista, no un dropdown, st.radio por defecto muestra una columna vertical.
-    # Podemos personalizar el contenedor con CSS para darle altura fija y scroll.
-    st.markdown("""
-    <style>
-    div[data-testid="stRadio"] > div {
-        max-height: 400px;
-        overflow-y: auto;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 0.5rem;
-        background-color: #f8fafc;
-    }
-    div[data-testid="stRadio"] label {
-        display: block;
-        padding: 0.3rem 0.5rem;
-        margin: 0;
-        cursor: pointer;
-    }
-    div[data-testid="stRadio"] label:hover {
-        background-color: #e2e8f0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    if opciones_filtradas:
+        seleccion = st.selectbox("Seleccioná un medicamento:", opciones_filtradas, key="med_selector")
+    else:
+        st.warning("No se encontraron medicamentos con ese nombre.")
+        seleccion = None
 
-    # Obtener lista de nombres filtrados
-    nombres_filtrados = [m[0] for m in filtro]
-    seleccion = st.radio(
-        "Seleccioná un medicamento:",
-        nombres_filtrados,
-        index=0,
-        key="med_selector"
-    )
-    # Encontrar el programa del seleccionado
-    programa = next(m[1] for m in filtro if m[0] == seleccion)
-    st.markdown(f"""
-    <div class="program-card">
-        <strong style="color:#2563eb;">Programa asociado:</strong><br>
-        {programa}
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.info("No se encontraron medicamentos con ese nombre.")
+with col2:
+    if seleccion:
+        # Buscar el programa correspondiente
+        programa = next(m[1] for m in medicamentos_completos if m[0] == seleccion)
+        st.markdown(f"""
+        <div style="background-color:#f8fafc; border-left:4px solid #2563eb; padding:1rem; border-radius:8px;">
+            <strong style="color:#2563eb;">Programa asociado:</strong><br>
+            {programa}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Seleccioná un medicamento para ver su programa.")
 
 # ================= PIE DE PÁGINA =================
 st.markdown("---")
