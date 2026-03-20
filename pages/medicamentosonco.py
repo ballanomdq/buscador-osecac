@@ -13,15 +13,15 @@ st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
 .stApp { background-color: #ffffff !important; color: #1e293b !important; }
-.block-container { max-width: 1000px !important; padding-top: 1rem !important; }
+.block-container { max-width: 1100px !important; padding-top: 1rem !important; }
 
 /* Aumentar tamaño de fuente general */
-body, .stMarkdown, .stTextInput, .stSelectbox, label, p, li {
-    font-size: 1.1rem !important;
+body, .stMarkdown, .stTextInput, .stSelectbox, label, p, li, .stExpander {
+    font-size: 1.2rem !important;
 }
-h1 { font-size: 2.5rem !important; }
-h2 { font-size: 1.8rem !important; }
-h3 { font-size: 1.4rem !important; }
+h1 { font-size: 2.8rem !important; }
+h2 { font-size: 2rem !important; }
+h3 { font-size: 1.6rem !important; }
 
 hr { margin: 2rem 0; }
 .print-button button {
@@ -29,8 +29,8 @@ hr { margin: 2rem 0; }
     color: #0f172a !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 8px !important;
-    padding: 0.25rem 0.75rem !important;
-    font-size: 0.9rem !important;
+    padding: 0.3rem 0.8rem !important;
+    font-size: 1rem !important;
     transition: all 0.2s ease !important;
 }
 .print-button button:hover {
@@ -38,15 +38,25 @@ hr { margin: 2rem 0; }
     border-color: #94a3b8 !important;
 }
 
+/* Botones de descarga más grandes */
+.download-button a {
+    font-size: 1rem !important;
+    padding: 0.4rem 1rem !important;
+    display: inline-block;
+    margin-left: 1rem;
+}
+
 /* Para el menú de medicamentos: dropdown con scroll y tamaño contenido */
 div[data-testid="stSelectbox"] div[data-baseweb="select"] ul {
-    max-height: 200px !important;
+    max-height: 300px !important;
     overflow-y: auto !important;
 }
-/* Hacer los botones de descarga un poco más grandes */
-.download-button a {
-    font-size: 0.9rem !important;
-    padding: 0.3rem 0.8rem !important;
+/* Aumentar tamaño del selectbox */
+div[data-testid="stSelectbox"] label {
+    font-size: 1.2rem !important;
+}
+div[data-baseweb="select"] {
+    font-size: 1.1rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -73,8 +83,8 @@ else:
 # ================= TÍTULO PRINCIPAL =================
 st.markdown("""
     <div style="text-align: center; margin-bottom: 1rem;">
-        <h1 style="font-size: 2.5rem; font-weight: 600;">PROGRAMAS Y PLANILLAS ONCOLOGICAS</h1>
-        <p style="font-size: 1.2rem; color: #475569;">MDP</p>
+        <h1 style="font-size: 2.8rem; font-weight: 600;">PROGRAMAS Y PLANILLAS ONCOLOGICAS</h1>
+        <p style="font-size: 1.4rem; color: #475569;">MDP</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -91,23 +101,27 @@ planillas = [
 for nombre, doc_id, editable in planillas:
     url_vista = f"https://drive.google.com/file/d/{doc_id}/view"
     url_descarga = f"https://drive.google.com/uc?export=download&id={doc_id}"
-    cols = st.columns([4, 1])
+    
+    # Usar columnas para alinear
+    cols = st.columns([4, 1.2, 0.8])
     with cols[0]:
         st.markdown(f"- [{nombre}]({url_vista})")
     with cols[1]:
-        # Botón de descarga
         if editable:
             st.markdown(f"""
             <div style="text-align: right;">
-                <a href="{url_descarga}" download style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:0.2rem 0.6rem; text-decoration:none; color:#1e293b; font-size:0.8rem;" title="Descargar – editable al abrir en PC">⬇️ Descargar</a>
+                <a href="{url_descarga}" download class="download-button" style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:0.4rem 1rem; text-decoration:none; color:#1e293b; font-size:1rem;" title="Descargar – editable al abrir en PC">⬇️ Descargar</a>
             </div>
             """, unsafe_allow_html=True)
         else:
             st.markdown(f"""
             <div style="text-align: right;">
-                <a href="{url_descarga}" download style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:0.2rem 0.6rem; text-decoration:none; color:#1e293b; font-size:0.8rem;">⬇️ Descargar</a>
+                <a href="{url_descarga}" download class="download-button" style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:0.4rem 1rem; text-decoration:none; color:#1e293b; font-size:1rem;">⬇️ Descargar</a>
             </div>
             """, unsafe_allow_html=True)
+    with cols[2]:
+        if editable:
+            st.markdown('<span style="color: #15803d; font-weight: bold; font-size: 1rem;">EDITABLE</span>', unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -117,7 +131,7 @@ st.markdown("## 📋 REQUISITOS PARA MEDICACIÓN ONCOLÓGICA")
 def print_button(html_content):
     btn_html = f"""
     <div style="margin-top: 0.5rem;">
-        <button onclick="imprimirContenido()" style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:0.25rem 0.75rem; cursor:pointer;">🖨️ Imprimir</button>
+        <button onclick="imprimirContenido()" style="background-color:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:0.4rem 0.8rem; cursor:pointer; font-size:1rem;">🖨️ Imprimir</button>
         <script>
             function imprimirContenido() {{
                 var ventana = window.open('', '_blank');
@@ -135,7 +149,7 @@ def print_button(html_content):
         </script>
     </div>
     """
-    st.components.v1.html(btn_html, height=80)
+    st.components.v1.html(btn_html, height=100)
 
 with st.expander("💊 PRIMERA VEZ (CÁPITA Y EXTRACÁPITA)"):
     contenido1 = """
@@ -351,4 +365,4 @@ with col_programa:
 
 # ================= PIE DE PÁGINA =================
 st.markdown("---")
-st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.9rem;'>Documentación actualizada periódicamente. Para consultas, contactar al área de Oncología.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; font-size: 1rem;'>Documentación actualizada periódicamente. Para consultas, contactar al área de Oncología.</p>", unsafe_allow_html=True)
