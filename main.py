@@ -334,10 +334,16 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
-# 💊 MEDICAMENTOS
+# 💊 MEDICAMENTOS (con dos botones: DISPENSA y ONCOLOGÍA)
 with st.expander("💊 MEDICAMENTOS", expanded=False):
-    st.markdown("### Acceso a DISPENSA")
-    st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec", help="Ir a DISPENSA")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("### Acceso a DISPENSA")
+        st.link_button("DISPENSA", "https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec", help="Ir a DISPENSA")
+    with col2:
+        st.markdown("### Acceso a ONCOLOGÍA")
+        if st.button("ONCOLOGÍA", use_container_width=True):
+            st.switch_page("pages/medicamentosonco.py")
 
 # 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
