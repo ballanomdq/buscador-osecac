@@ -13,26 +13,19 @@ st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
 .stApp { background-color: #ffffff !important; color: #1e293b !important; }
-.block-container { max-width: 1000px !important; padding-top: 1rem !important; }
+.block-container { max-width: 900px !important; padding-top: 1rem !important; }
 h1, h2, h3 { color: #0f172a !important; }
 hr { margin: 2rem 0; }
-.stButton > button {
+.stButton > button, .stDownloadButton > button {
     background-color: #f1f5f9 !important;
     color: #0f172a !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 8px !important;
     padding: 0.25rem 0.75rem !important;
     font-size: 0.8rem !important;
-    transition: all 0.2s ease !important;
 }
-.stButton > button:hover {
+.stButton > button:hover, .stDownloadButton > button:hover {
     background-color: #e2e8f0 !important;
-    border-color: #94a3b8 !important;
-}
-.expander-header {
-    font-weight: 600;
-    font-size: 1.2rem;
-    margin: 0;
 }
 a {
     color: #2563eb;
@@ -44,13 +37,13 @@ a:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# ================= LOGO CENTRADO (3 VECES MÁS GRANDE) =================
+# ================= LOGO (3 VECES MÁS GRANDE) =================
 logo_path = "logo osecac.png"
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as f:
         logo_base64 = base64.b64encode(f.read()).decode()
     st.markdown(f"""
-        <div style="display: flex; justify-content: center; margin: 1rem 0 2rem 0;">
+        <div style="display: flex; justify-content: center; margin: 0rem 0 2rem 0;">
             <img src="data:image/png;base64,{logo_base64}" 
                  style="width: 300px; height: auto;" 
                  alt="Logo OSECAC">
@@ -58,110 +51,116 @@ if os.path.exists(logo_path):
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
-        <div style="display: flex; justify-content: center; margin: 1rem 0 2rem 0;">
+        <div style="display: flex; justify-content: center; margin: 0rem 0 2rem 0;">
             <div style="width:300px; height:150px; background: #e2e8f0; border-radius:16px; border:1px solid #cbd5e1;"></div>
         </div>
     """, unsafe_allow_html=True)
 
-# ================= SECCIÓN PLANILLAS =================
+# ================= SECCIÓN PLANILLAS (SÓLO TÍTULOS CON ENLACES) =================
 st.markdown("## 📄 PLANILLAS")
 
 # IDs
 id_consentimiento = "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"
 id_presc_nuevo = "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"
 id_presc_continuidad = "1aslyVdHH56NU3nHacLl7fHu0opvbEueY"
+id_listado = ""  # si no tenés el ID, dejalo vacío y se mostrará solo texto
 
-documentos = [
-    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", id_consentimiento),
-    ("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad", id_presc_nuevo),
-    ("F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento", id_presc_continuidad)
-]
+# Enlaces
+if id_consentimiento:
+    st.markdown(f"[F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR](https://drive.google.com/file/d/{id_consentimiento}/view)")
+else:
+    st.markdown("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR *(enlace pendiente)*")
 
-for nombre, doc_id in documentos:
-    url = f"https://drive.google.com/file/d/{doc_id}/view"
-    st.markdown(f"- [{nombre}]({url})")
+if id_presc_nuevo:
+    st.markdown(f"[F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad](https://drive.google.com/file/d/{id_presc_nuevo}/view)")
+else:
+    st.markdown("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad *(enlace pendiente)*")
+
+if id_presc_continuidad:
+    st.markdown(f"[F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento](https://drive.google.com/file/d/{id_presc_continuidad}/view)")
+else:
+    st.markdown("F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento *(enlace pendiente)*")
+
+if id_listado:
+    st.markdown(f"[📋 Listado de programas según patología oncológica](https://drive.google.com/file/d/{id_listado}/view)")
+else:
+    st.markdown("📋 Listado de programas según patología oncológica *(enlace pendiente)*")
 
 st.markdown("---")
 
-# ================= SECCIÓN REQUISITOS =================
+# ================= REQUISITOS =================
 st.markdown("## 📋 Requisitos para medicación oncológica")
 
-# Función para generar botón de imprimir (usa JavaScript)
-def imprimir_contenido(titulo, contenido):
-    # Escapamos el contenido para HTML
-    contenido_html = contenido.replace("\n", "<br>")
-    html = f"""
-    <html>
-    <head><title>{titulo}</title></head>
-    <body>
-    <h1>{titulo}</h1>
-    <pre style="font-family: monospace;">{contenido}</pre>
-    <script>window.print();</script>
-    </body>
-    </html>
-    """
-    # Creamos un archivo temporal y lo mostramos en una nueva ventana
-    # Usamos st.components.v1.html para abrir una ventana emergente con el contenido y llamar a print()
-    st.components.v1.html(html, height=0, scrolling=False)
-
-# Expander 1: Primera vez
 with st.expander("💊 Primera vez (cápita y extracápita)"):
-    requisitos1 = """REQUISITOS PRIMERA VEZ ONCOLÓGICA
+    st.markdown("""
+    **Requisitos:**
+    - FORM PRESCRIPCION ONCOLOGICA F-PAD-74
+    - RECETA
+    - CARTA COMPROMISO
+    - CONSENTIMIENTO INFORMADO
+    - FORM RESUMEN DE H.C.
+    - LABORATORIO PATOLOGICO
+    - FOT DNI – CARNET – TIT Y CAUSANTE
+    - FOT REC SUELDO / COBRO JUB / ÚLTIMOS 6 PAGOS DEL MONOTRIBUTO
+    - CODEM ANSES Y CERTIF NEGATIVA (MES EN CURSO) TIT Y CAUS
+    - RP indicando la cantidad de envases que usará semestralmente. Para los meses de enero y julio el médico deberá indicar la cantidad de envases que necesitará por el lapso de 6 meses.
+    """)
+    st.download_button(
+        label="🖨️ Descargar / Imprimir",
+        data="REQUISITOS PRIMERA VEZ ONCOLÓGICA\n\n- FORM PRESCRIPCION ONCOLOGICA F-PAD-74\n- RECETA\n- CARTA COMPROMISO\n- CONSENTIMIENTO INFORMADO\n- FORM RESUMEN DE H.C.\n- LABORATORIO PATOLOGICO\n- FOT DNI – CARNET – TIT Y CAUSANTE\n- FOT REC SUELDO / COBRO JUB / ÚLTIMOS 6 PAGOS DEL MONOTRIBUTO\n- CODEM ANSES Y CERTIF NEGATIVA (MES EN CURSO) TIT Y CAUS\n- RP indicando la cantidad de envases que usará semestralmente. Para los meses de enero y julio el médico deberá indicar la cantidad de envases que necesitará por el lapso de 6 meses.",
+        file_name="requisitos_primera_vez.txt",
+        mime="text/plain",
+        key="download_primera"
+    )
 
-- FORM PRESCRIPCION ONCOLOGICA F-PAD-74
-- RECETA
-- CARTA COMPROMISO
-- CONSENTIMIENTO INFORMADO
-- FORM RESUMEN DE H.C.
-- LABORATORIO PATOLOGICO
-- FOT DNI – CARNET – TIT Y CAUSANTE
-- FOT REC SUELDO / COBRO JUB / ÚLTIMOS 6 PAGOS DEL MONOTRIBUTO
-- CODEM ANSES Y CERTIF NEGATIVA (MES EN CURSO) TIT Y CAUS
-- RP indicando la cantidad de envases que usará semestralmente. Para los meses de enero y julio el médico deberá indicar la cantidad de envases que necesitará por el lapso de 6 meses."""
-    st.markdown(requisitos1.replace("\n", "\n\n"))
-    if st.button("🖨️ Imprimir", key="print_primera"):
-        imprimir_contenido("Requisitos Primera Vez", requisitos1)
-
-# Expander 2: Continuidad extracápita
 with st.expander("🔄 Continuidad extracápita"):
-    requisitos2 = """REQUISITOS CONTINUIDAD EXTRACÁPITA
+    st.markdown("""
+    **Requisitos:**
+    - FORMULARIO PRESCRIPCION ONCOLOGICA CONTINUIDAD
+    - RECETA DE OSECAC
+    - CARTA COMPROMISO
+    - CONSENTIMIENTO INFORMADO
+    - FORM DE RESUMEN HIST CLINICA
+    - FORMULARIO DE TUTELAJE
+    - LABORATORIO PATOLOGICO
+    - CODEM Y CERTIF NEGATIVA TIT Y CAUS
+    - CERTIF DE DISCAPACIDAD (SI CORRESPONDE)
+    - EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)
+    - Para la medicación de los meses de enero y julio, el beneficiario deberá presentar una orden médica donde el médico tratante indique cuántos envases necesitará por el lapso de 6 meses.
+    """)
+    st.download_button(
+        label="🖨️ Descargar / Imprimir",
+        data="REQUISITOS CONTINUIDAD EXTRACÁPITA\n\n- FORMULARIO PRESCRIPCION ONCOLOGICA CONTINUIDAD\n- RECETA DE OSECAC\n- CARTA COMPROMISO\n- CONSENTIMIENTO INFORMADO\n- FORM DE RESUMEN HIST CLINICA\n- FORMULARIO DE TUTELAJE\n- LABORATORIO PATOLOGICO\n- CODEM Y CERTIF NEGATIVA TIT Y CAUS\n- CERTIF DE DISCAPACIDAD (SI CORRESPONDE)\n- EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)\n- Para la medicación de los meses de enero y julio, el beneficiario deberá presentar una orden médica donde el médico tratante indique cuántos envases necesitará por el lapso de 6 meses.",
+        file_name="requisitos_continuidad_extra.txt",
+        mime="text/plain",
+        key="download_extra"
+    )
 
-- FORMULARIO PRESCRIPCION ONCOLOGICA CONTINUIDAD
-- RECETA DE OSECAC
-- CARTA COMPROMISO
-- CONSENTIMIENTO INFORMADO
-- FORM DE RESUMEN HIST CLINICA
-- FORMULARIO DE TUTELAJE
-- LABORATORIO PATOLOGICO
-- CODEM Y CERTIF NEGATIVA TIT Y CAUS
-- CERTIF DE DISCAPACIDAD (SI CORRESPONDE)
-- EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)
-- Para la medicación de los meses de enero y julio, el beneficiario deberá presentar una orden médica donde el médico tratante indique cuántos envases necesitará por el lapso de 6 meses."""
-    st.markdown(requisitos2.replace("\n", "\n\n"))
-    if st.button("🖨️ Imprimir", key="print_extra"):
-        imprimir_contenido("Requisitos Continuidad Extracápita", requisitos2)
-
-# Expander 3: Continuidad cápita
 with st.expander("🔄 Continuidad cápita"):
-    requisitos3 = """REQUISITOS CONTINUIDAD CÁPITA
-
-- FORMULARIO F-PAD-2-75
-- RECETARIOS OFICIALES CON DOSIS MENSUALES
-- FOT DNI – CARNET – REC DE SUELDO / COBRO JUB / ULTIMOS 6 PAGOS MONOTRIBUTO
-- CODEM Y CERTIF NEGATIVA TIT Y CAUS
-- CERTIF DE DISCAPACIDAD (SI CORRESPONDE)
-- EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)"""
-    st.markdown(requisitos3.replace("\n", "\n\n"))
-    if st.button("🖨️ Imprimir", key="print_capita"):
-        imprimir_contenido("Requisitos Continuidad Cápita", requisitos3)
+    st.markdown("""
+    **Requisitos:**
+    - FORMULARIO F-PAD-2-75
+    - RECETARIOS OFICIALES CON DOSIS MENSUALES
+    - FOT DNI – CARNET – REC DE SUELDO / COBRO JUB / ULTIMOS 6 PAGOS MONOTRIBUTO
+    - CODEM Y CERTIF NEGATIVA TIT Y CAUS
+    - CERTIF DE DISCAPACIDAD (SI CORRESPONDE)
+    - EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)
+    """)
+    st.download_button(
+        label="🖨️ Descargar / Imprimir",
+        data="REQUISITOS CONTINUIDAD CÁPITA\n\n- FORMULARIO F-PAD-2-75\n- RECETARIOS OFICIALES CON DOSIS MENSUALES\n- FOT DNI – CARNET – REC DE SUELDO / COBRO JUB / ULTIMOS 6 PAGOS MONOTRIBUTO\n- CODEM Y CERTIF NEGATIVA TIT Y CAUS\n- CERTIF DE DISCAPACIDAD (SI CORRESPONDE)\n- EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)",
+        file_name="requisitos_continuidad_capita.txt",
+        mime="text/plain",
+        key="download_capita"
+    )
 
 st.markdown("---")
 
 # ================= SECCIÓN MEDICAMENTOS =================
 st.markdown("## 💊 MEDICAMENTOS")
 
-# Datos completos (como antes)
-no_capita = [
+# Lista completa de medicamentos (tomada de la circular)
+medicamentos = [
     ("5-AZACETIDINA", "Leucemia Mieloide Aguda / Síndrome Mielodisplásico"),
     ("ABACAVIR + LAMIVUDINA + ZIDOVUDINA", "Melanoma Metastásico / Mieloma Múltiple"),
     ("ABIRATERONA, ACETATO", "CÁNCER DE PRÓSTATA"),
@@ -224,10 +223,8 @@ no_capita = [
     ("TRASTUZUMAB + EMTANSINA", "CÁNCER DE MAMA"),
     ("TRIOXIDO DE ARSÉNICO", "Leucemia Promielocítica"),
     ("VEMURAFENIB", "Melanoma Metastásico"),
-    ("ZOLEDRÓNICO AC.", "ONCOLOGÍA NO S.U.R. / TRATAMIENTO DEL DOLOR ONCOLÓGICO (Receta Magistral)")
-]
-
-capita = [
+    ("ZOLEDRÓNICO AC.", "ONCOLOGÍA NO S.U.R. / TRATAMIENTO DEL DOLOR ONCOLÓGICO (Receta Magistral)"),
+    # Cápita
     ("BLEOMICINA", "ONCOLOGICOS CÁPITA"),
     ("CICLOFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
     ("CIPROTERONA", "ONCOLOGICOS CÁPITA"),
@@ -272,32 +269,31 @@ capita = [
     ("VINORELBINA", "ONCOLOGICOS CÁPITA")
 ]
 
-todos_medicamentos = no_capita + capita
+# Ordenar alfabéticamente
+medicamentos.sort(key=lambda x: x[0])
 
-# Crear dos listas para el selectbox: una con los nombres y otra con los programas correspondientes
-nombres = [m[0] for m in todos_medicamentos]
-programas = [m[1] for m in todos_medicamentos]
-
-# Selector para medicamento
-med_seleccionado = st.selectbox(
-    "Seleccioná un principio activo",
-    options=nombres,
-    index=0,
-    key="med_selector"
+# Crear un selectbox con búsqueda automática (tiene buscador integrado)
+opciones = [m[0] for m in medicamentos]
+seleccionado = st.selectbox(
+    "Seleccioná un principio activo (podés escribir para buscar)",
+    options=opciones,
+    index=None,
+    placeholder="Escribí o seleccioná un medicamento..."
 )
 
-# Buscar el programa correspondiente
-idx = nombres.index(med_seleccionado)
-programa_correspondiente = programas[idx]
+# Mostrar el programa del medicamento seleccionado
+if seleccionado:
+    # Buscar el programa correspondiente
+    for med, prog in medicamentos:
+        if med == seleccionado:
+            st.markdown(f"""
+                <div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 1rem; margin-top: 1rem; border-radius: 8px;">
+                    <strong style="font-size: 1.1rem;">Programa asociado:</strong><br>
+                    <span style="font-size: 1rem;">{prog}</span>
+                </div>
+            """, unsafe_allow_html=True)
+            break
 
-# Mostrar el programa en un recuadro destacado
-st.markdown(f"""
-<div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 1rem; margin: 1rem 0; border-radius: 8px;">
-    <strong style="font-size: 1.1rem;">Programa asociado:</strong><br>
-    <span style="font-size: 1rem; color: #1e293b;">{programa_correspondiente}</span>
-</div>
-""", unsafe_allow_html=True)
-
-# Pie de página
+# ================= PIE =================
 st.markdown("---")
 st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.8rem;'>Documentación actualizada periódicamente. Para consultas, contactar al área de Oncología.</p>", unsafe_allow_html=True)
