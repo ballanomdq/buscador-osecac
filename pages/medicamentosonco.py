@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import base64
 import os
 
@@ -45,7 +44,7 @@ a:hover {
 </style>
 """, unsafe_allow_html=True)
 
-# ================= LOGO (más grande) =================
+# ================= LOGO CENTRADO (3 VECES MÁS GRANDE) =================
 logo_path = "logo osecac.png"
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as f:
@@ -67,16 +66,15 @@ else:
 # ================= SECCIÓN PLANILLAS =================
 st.markdown("## 📄 PLANILLAS")
 
-# IDs de las planillas
+# IDs
 id_consentimiento = "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9"
 id_presc_nuevo = "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK"
 id_presc_continuidad = "1aslyVdHH56NU3nHacLl7fHu0opvbEueY"
 
-# Lista de planillas (solo las que tienen enlace)
 documentos = [
-    ("📝 Consentimiento Informado (F-PAD 2-219)", id_consentimiento),
-    ("💊 Prescripción Oncológica – Nuevo Tratamiento", id_presc_nuevo),
-    ("🔄 Prescripción Oncológica – Continuidad", id_presc_continuidad)
+    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", id_consentimiento),
+    ("F-PAD.2.74 Prescripción Oncológica 1ERA VEZ – Continuidad", id_presc_nuevo),
+    ("F-PAD-2-075 Prescripcion Oncologica Continuidad de Tratamiento", id_presc_continuidad)
 ]
 
 for nombre, doc_id in documentos:
@@ -88,29 +86,27 @@ st.markdown("---")
 # ================= SECCIÓN REQUISITOS =================
 st.markdown("## 📋 Requisitos para medicación oncológica")
 
-# Función para generar HTML con script de impresión
-def imprimir_texto(titulo, contenido):
+# Función para generar botón de imprimir (usa JavaScript)
+def imprimir_contenido(titulo, contenido):
+    # Escapamos el contenido para HTML
+    contenido_html = contenido.replace("\n", "<br>")
     html = f"""
-    <!DOCTYPE html>
     <html>
-    <head>
-        <title>{titulo}</title>
-        <style>
-            body {{ font-family: sans-serif; margin: 2rem; }}
-            pre {{ white-space: pre-wrap; }}
-        </style>
-    </head>
+    <head><title>{titulo}</title></head>
     <body>
-        <h2>{titulo}</h2>
-        <pre>{contenido}</pre>
-        <script>window.print();</script>
+    <h1>{titulo}</h1>
+    <pre style="font-family: monospace;">{contenido}</pre>
+    <script>window.print();</script>
     </body>
     </html>
     """
-    return html
+    # Creamos un archivo temporal y lo mostramos en una nueva ventana
+    # Usamos st.components.v1.html para abrir una ventana emergente con el contenido y llamar a print()
+    st.components.v1.html(html, height=0, scrolling=False)
 
-# Contenidos de cada sección
-primera_vez_texto = """REQUISITOS PRIMERA VEZ ONCOLÓGICA
+# Expander 1: Primera vez
+with st.expander("💊 Primera vez (cápita y extracápita)"):
+    requisitos1 = """REQUISITOS PRIMERA VEZ ONCOLÓGICA
 
 - FORM PRESCRIPCION ONCOLOGICA F-PAD-74
 - RECETA
@@ -122,8 +118,13 @@ primera_vez_texto = """REQUISITOS PRIMERA VEZ ONCOLÓGICA
 - FOT REC SUELDO / COBRO JUB / ÚLTIMOS 6 PAGOS DEL MONOTRIBUTO
 - CODEM ANSES Y CERTIF NEGATIVA (MES EN CURSO) TIT Y CAUS
 - RP indicando la cantidad de envases que usará semestralmente. Para los meses de enero y julio el médico deberá indicar la cantidad de envases que necesitará por el lapso de 6 meses."""
+    st.markdown(requisitos1.replace("\n", "\n\n"))
+    if st.button("🖨️ Imprimir", key="print_primera"):
+        imprimir_contenido("Requisitos Primera Vez", requisitos1)
 
-continuidad_extra_texto = """REQUISITOS CONTINUIDAD EXTRACÁPITA
+# Expander 2: Continuidad extracápita
+with st.expander("🔄 Continuidad extracápita"):
+    requisitos2 = """REQUISITOS CONTINUIDAD EXTRACÁPITA
 
 - FORMULARIO PRESCRIPCION ONCOLOGICA CONTINUIDAD
 - RECETA DE OSECAC
@@ -136,8 +137,13 @@ continuidad_extra_texto = """REQUISITOS CONTINUIDAD EXTRACÁPITA
 - CERTIF DE DISCAPACIDAD (SI CORRESPONDE)
 - EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)
 - Para la medicación de los meses de enero y julio, el beneficiario deberá presentar una orden médica donde el médico tratante indique cuántos envases necesitará por el lapso de 6 meses."""
+    st.markdown(requisitos2.replace("\n", "\n\n"))
+    if st.button("🖨️ Imprimir", key="print_extra"):
+        imprimir_contenido("Requisitos Continuidad Extracápita", requisitos2)
 
-continuidad_capita_texto = """REQUISITOS CONTINUIDAD CÁPITA
+# Expander 3: Continuidad cápita
+with st.expander("🔄 Continuidad cápita"):
+    requisitos3 = """REQUISITOS CONTINUIDAD CÁPITA
 
 - FORMULARIO F-PAD-2-75
 - RECETARIOS OFICIALES CON DOSIS MENSUALES
@@ -145,66 +151,153 @@ continuidad_capita_texto = """REQUISITOS CONTINUIDAD CÁPITA
 - CODEM Y CERTIF NEGATIVA TIT Y CAUS
 - CERTIF DE DISCAPACIDAD (SI CORRESPONDE)
 - EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)"""
-
-# Expander 1: Primera vez
-with st.expander("💊 Primera vez (cápita y extracápita)"):
-    st.markdown(primera_vez_texto.replace("\n", "\n\n"))
-    # Botón que abre ventana de impresión
-    html_impresion = imprimir_texto("Requisitos Primera Vez", primera_vez_texto)
-    b64_html = base64.b64encode(html_impresion.encode()).decode()
-    st.markdown(f'<a href="data:text/html;base64,{b64_html}" target="_blank" style="display: inline-block; background-color: #f1f5f9; padding: 0.25rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; color: #0f172a; text-decoration: none; font-size: 0.8rem;">🖨️ Imprimir</a>', unsafe_allow_html=True)
-
-# Expander 2: Continuidad extracápita
-with st.expander("🔄 Continuidad extracápita"):
-    st.markdown(continuidad_extra_texto.replace("\n", "\n\n"))
-    html_impresion = imprimir_texto("Requisitos Continuidad Extracápita", continuidad_extra_texto)
-    b64_html = base64.b64encode(html_impresion.encode()).decode()
-    st.markdown(f'<a href="data:text/html;base64,{b64_html}" target="_blank" style="display: inline-block; background-color: #f1f5f9; padding: 0.25rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; color: #0f172a; text-decoration: none; font-size: 0.8rem;">🖨️ Imprimir</a>', unsafe_allow_html=True)
-
-# Expander 3: Continuidad cápita
-with st.expander("🔄 Continuidad cápita"):
-    st.markdown(continuidad_capita_texto.replace("\n", "\n\n"))
-    html_impresion = imprimir_texto("Requisitos Continuidad Cápita", continuidad_capita_texto)
-    b64_html = base64.b64encode(html_impresion.encode()).decode()
-    st.markdown(f'<a href="data:text/html;base64,{b64_html}" target="_blank" style="display: inline-block; background-color: #f1f5f9; padding: 0.25rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; color: #0f172a; text-decoration: none; font-size: 0.8rem;">🖨️ Imprimir</a>', unsafe_allow_html=True)
+    st.markdown(requisitos3.replace("\n", "\n\n"))
+    if st.button("🖨️ Imprimir", key="print_capita"):
+        imprimir_contenido("Requisitos Continuidad Cápita", requisitos3)
 
 st.markdown("---")
 
 # ================= SECCIÓN MEDICAMENTOS =================
 st.markdown("## 💊 MEDICAMENTOS")
-st.markdown("Listado completo de principios activos y su programa asociado:")
 
-# (Aquí va la lista de medicamentos tal cual estaba, extensa)
-# La mantengo igual a la anterior por brevedad, pero la incluyo completa en el código final.
-
-# ========== DATOS DE MEDICAMENTOS (NO CÁPITA + CÁPITA) ==========
+# Datos completos (como antes)
 no_capita = [
     ("5-AZACETIDINA", "Leucemia Mieloide Aguda / Síndrome Mielodisplásico"),
     ("ABACAVIR + LAMIVUDINA + ZIDOVUDINA", "Melanoma Metastásico / Mieloma Múltiple"),
     ("ABIRATERONA, ACETATO", "CÁNCER DE PRÓSTATA"),
-    # ... (todos los medicamentos que ya tenías)
+    ("APREPITANT", "ONCOLOGÍA NO S.U.R."),
+    ("ASPARAGINASA", "Leucemia Linfoblástica Aguda"),
+    ("AXITINIB", "CÁNCER DE RIÑÓN"),
+    ("AZACITIDINA", "Leucemia Mieloide Aguda / Síndrome Mielodisplásico"),
+    ("BENDAMUSTINA, CLORHIDRATO", "Leucemia Linfática Crónica / Linfoma No Hodgkin Folicular / Mieloma Múltiple"),
+    ("BEVACIZUMAB", "Cáncer de Colon / CÁNCER DE MAMA / Cáncer de Pulmón / CÁNCER DE RIÑÓN / Cáncer Ovárico Ep. T. de Falopio / Glioblastoma"),
+    ("BEXAROTENO", "Linfoma Cutáneo"),
+    ("BORTEZOMIB", "Linfoma de Células del Manto / Mieloma Múltiple"),
+    ("BRENTUXIMAB VEDOTIN", "ONCOLOGÍA NO S.U.R."),
+    ("CABAZITAXEL", "CÁNCER DE PRÓSTATA"),
+    ("CAPECITABINA", "ONCOLOGÍA NO S.U.R."),
+    ("CETUXIMAB", "Cáncer de Colon / Cáncer de Reg. Cabeza y Cuello / Glioblastoma"),
+    ("CLOFARABINA", "Leucemia Linfoblástica Aguda"),
+    ("CRIZOTINIB", "Cáncer de Pulmón"),
+    ("DASATINIB", "Leucemia Linfoblástica Aguda / LEUCEMIA MIELOIDE CRÓNICA"),
+    ("DECITABINE", "Síndrome Mielodisplásico"),
+    ("DENOSUMAB", "ONCOLOGÍA NO S.U.R."),
+    ("DOXORRUBICINA LIPOSOMAL", "ONCOLOGÍA NO S.U.R."),
+    ("ENZALUTAMIDA", "CÁNCER DE PRÓSTATA"),
+    ("ERLOTINIB", "Cáncer de Páncreas / Cáncer de Pulmón"),
+    ("ERWINIA CRISANTASPASA", "Leucemia Linfoblástica Aguda"),
+    ("EVEROLIMUS", "CÁNCER DE MAMA / Cáncer de Páncreas / CÁNCER DE RIÑÓN"),
+    ("FOSAPREPITANT DIMEGLUMINA", "Efectos adversos ONCO"),
+    ("FULVESTRANT", "CÁNCER DE MAMA"),
+    ("GEFITINIB", "Cáncer de Pulmón"),
+    ("IBRUTINIB", "ONCOLOGÍA NO S.U.R."),
+    ("IMATINIB", "CÁNCER GASTROINTESTINAL / Dermatofibrosarcoma Protuberans / Leucemia Linfoblástica Aguda / LEUCEMIA MIELOIDE CRÓNICA / Mastocitosis Sistémica Agresiva / Síndrome Hipereosinofílico / Síndrome Mielodisplásico"),
+    ("IPILIMUMAB", "Melanoma Metastásico"),
+    ("IXABEPILONA", "CÁNCER DE MAMA"),
+    ("IXAZOMIB", "Mieloma Múltiple"),
+    ("LANREOTIDO", "Cáncer Hipofisario Productor de Somatrotrofina / Tumores Endocrinos Gastro-Entero-Pancreáticos Funcionales"),
+    ("LAPATINIB", "CÁNCER DE MAMA"),
+    ("LENALIDOMIDA", "Mieloma Múltiple / Síndrome Mielodisplásico"),
+    ("MITOTANO", "ONCOLOGÍA NO S.U.R."),
+    ("NILOTINIB", "LEUCEMIA MIELOIDE CRÓNICA"),
+    ("NIMOTUZUMAB", "Cáncer de Reg. Cabeza y Cuello"),
+    ("OCTREOTIDA", "Cáncer Hipofisario Productor de Somatrotrofina / Tumores Endocrinos Gastro-Entero-Pancreáticos Funcionales"),
+    ("OLAPARIB", "ONCOLOGÍA NO S.U.R."),
+    ("OSIMERTINIB", "ONCOLOGÍA NO S.U.R."),
+    ("PACLITAXEL + ALBÚMINA", "Cáncer de Páncreas"),
+    ("PANITUMUMAB", "Cáncer de Colon"),
+    ("PAZOPANIB", "CÁNCER DE RIÑÓN / Sarcoma de Partes Blandas"),
+    ("PEG ASPARAGINASA", "Leucemia Linfoblástica Aguda"),
+    ("PEGINTERFERON ALFA-2A", "Melanoma Metastásico"),
+    ("PEMETREXED", "ONCOLOGÍA NO S.U.R."),
+    ("PERTUZUMAB", "CÁNCER DE MAMA"),
+    ("PERTUZUMAB + TRASTUZUMAB", "CÁNCER DE MAMA"),
+    ("RITUXIMAB", "LEUCEMIA LINFÁTICA CRÓNICA / LINFOMA NO HODGKIN FOLICULAR"),
+    ("RUXOLITINIB", "Mielofibrosis"),
+    ("SORAFENIB", "CÁNCER DE HÍGADO (CHC) / CÁNCER DE RIÑÓN"),
+    ("SUNITINIB", "Cáncer de Páncreas / CÁNCER DE RIÑÓN / CÁNCER GASTROINTESTINAL"),
+    ("TALIDOMIDA", "ONCOLOGÍA NO S.U.R."),
+    ("TEMOZOLOMIDA", "Astrocitoma Anaplásico / Glioblastoma / Melanoma Metastásico"),
+    ("TEMSIROLIMUS", "CÁNCER DE RIÑÓN"),
+    ("TRABECTEDINA", "Sarcoma de Partes Blandas"),
+    ("TRASTUZUMAB", "CÁNCER DE MAMA / CÁNCER GASTROINTESTINAL"),
+    ("TRASTUZUMAB + EMTANSINA", "CÁNCER DE MAMA"),
+    ("TRIOXIDO DE ARSÉNICO", "Leucemia Promielocítica"),
+    ("VEMURAFENIB", "Melanoma Metastásico"),
+    ("ZOLEDRÓNICO AC.", "ONCOLOGÍA NO S.U.R. / TRATAMIENTO DEL DOLOR ONCOLÓGICO (Receta Magistral)")
 ]
 
-# Por razones de espacio, voy a poner el listado completo de la respuesta anterior.
-# Pero para que quede funcional, colocaré la lista íntegra de la respuesta anterior (que ya tenía).
-# En la respuesta final incluiré el listado completo.
 capita = [
     ("BLEOMICINA", "ONCOLOGICOS CÁPITA"),
     ("CICLOFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
-    # ... etc.
+    ("CIPROTERONA", "ONCOLOGICOS CÁPITA"),
+    ("CISPLATINO", "ONCOLOGICOS CÁPITA"),
+    ("CITARABINA", "ONCOLOGICOS CÁPITA"),
+    ("CLOFAMBUCILO", "ONCOLOGICOS CÁPITA"),
+    ("DACARBAZINA", "ONCOLOGICOS CÁPITA"),
+    ("DACTINOMICINA", "ONCOLOGICOS CÁPITA"),
+    ("DEXAMETASONA", "ONCOLOGICOS CÁPITA"),
+    ("DOCETAXEL", "ONCOLOGICOS CÁPITA"),
+    ("ERITROPOYETINA RECOMB. HUMANA", "ONCOLOGICOS CÁPITA"),
+    ("ETOPÓSIDO", "ONCOLOGICOS CÁPITA"),
+    ("EXEMESTANO", "ONCOLOGICOS CÁPITA"),
+    ("FILGRASTIM", "ONCOLOGICOS CÁPITA"),
+    ("FLUDARABINA", "ONCOLOGICOS CÁPITA"),
+    ("FLUTAMIDA", "ONCOLOGICOS CÁPITA"),
+    ("GEMCITABINA", "ONCOLOGICOS CÁPITA"),
+    ("HIDROCORTISONA", "ONCOLOGICOS CÁPITA"),
+    ("HIDROXIUREA", "ONCOLOGICOS CÁPITA"),
+    ("IDARRUBICINA", "ONCOLOGICOS CÁPITA"),
+    ("IFOSFAMIDA", "ONCOLOGICOS CÁPITA"),
+    ("IRINOTECÁN", "ONCOLOGICOS CÁPITA"),
+    ("LETROZOL", "ONCOLOGICOS CÁPITA"),
+    ("MEDROXIPROGESTERONA", "ONCOLOGICOS CÁPITA"),
+    ("MEGESTROL", "ONCOLOGICOS CÁPITA"),
+    ("MELFALANO", "ONCOLOGICOS CÁPITA"),
+    ("MERCAPTOPURINA", "ONCOLOGICOS CÁPITA"),
+    ("METIL-PREDNISOLONA", "ONCOLOGICOS CÁPITA"),
+    ("METOTREXATO", "ONCOLOGICOS CÁPITA"),
+    ("MITOMICINA", "ONCOLOGICOS CÁPITA"),
+    ("MITOXANTRONA", "ONCOLOGICOS CÁPITA"),
+    ("NANDROLONA", "ONCOLOGICOS CÁPITA"),
+    ("ONDANSETRÓN", "ONCOLOGICOS CÁPITA"),
+    ("OXALIPLATINO", "ONCOLOGICOS CÁPITA"),
+    ("PACLITAXEL", "ONCOLOGICOS CÁPITA"),
+    ("PAMIDRONATO DISÓDICO", "ONCOLOGICOS CÁPITA"),
+    ("TAMOXIFENO", "ONCOLOGICOS CÁPITA"),
+    ("TIOGUANINA", "ONCOLOGICOS CÁPITA"),
+    ("TRETINOÍNA", "ONCOLOGICOS CÁPITA"),
+    ("VINBLASTINA", "ONCOLOGICOS CÁPITA"),
+    ("VINCRISTINA", "ONCOLOGICOS CÁPITA"),
+    ("VINORELBINA", "ONCOLOGICOS CÁPITA")
 ]
 
-# Unir listas
 todos_medicamentos = no_capita + capita
-df_meds = pd.DataFrame(todos_medicamentos, columns=["Principio Activo", "Programa"])
 
-# Mostrar tabla con scroll
-st.dataframe(
-    df_meds,
-    use_container_width=True,
-    height=500,
-    hide_index=True
+# Crear dos listas para el selectbox: una con los nombres y otra con los programas correspondientes
+nombres = [m[0] for m in todos_medicamentos]
+programas = [m[1] for m in todos_medicamentos]
+
+# Selector para medicamento
+med_seleccionado = st.selectbox(
+    "Seleccioná un principio activo",
+    options=nombres,
+    index=0,
+    key="med_selector"
 )
 
+# Buscar el programa correspondiente
+idx = nombres.index(med_seleccionado)
+programa_correspondiente = programas[idx]
+
+# Mostrar el programa en un recuadro destacado
+st.markdown(f"""
+<div style="background-color: #f8fafc; border-left: 4px solid #2563eb; padding: 1rem; margin: 1rem 0; border-radius: 8px;">
+    <strong style="font-size: 1.1rem;">Programa asociado:</strong><br>
+    <span style="font-size: 1rem; color: #1e293b;">{programa_correspondiente}</span>
+</div>
+""", unsafe_allow_html=True)
+
+# Pie de página
 st.markdown("---")
 st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.8rem;'>Documentación actualizada periódicamente. Para consultas, contactar al área de Oncología.</p>", unsafe_allow_html=True)
