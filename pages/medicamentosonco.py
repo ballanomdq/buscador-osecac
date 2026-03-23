@@ -102,7 +102,6 @@ for nombre, doc_id, editable in planillas:
     url_vista = f"https://drive.google.com/file/d/{doc_id}/view"
     url_descarga = f"https://drive.google.com/uc?export=download&id={doc_id}"
     
-    # Usar columnas para alinear
     cols = st.columns([4, 1.2, 0.8])
     with cols[0]:
         st.markdown(f"- [{nombre}]({url_vista})")
@@ -151,28 +150,36 @@ def print_button(html_content):
     """
     st.components.v1.html(btn_html, height=100)
 
+# ===== 1. PRIMERA VEZ (actualizado según directivas) =====
 with st.expander("💊 PRIMERA VEZ (CÁPITA Y EXTRACÁPITA)"):
     contenido1 = """
-    <h3>Requisitos Primera Vez</h3>
+    <h3>Documentación para primera vez / renovación semestral con cambios</h3>
     <ul>
-        <li>FORM PRESCRIPCION ONCOLOGICA F-PAD-74</li>
-        <li>RECETA</li>
-        <li>CARTA COMPROMISO</li>
-        <li>CONSENTIMIENTO INFORMADO</li>
-        <li>FORM RESUMEN DE H.C.</li>
-        <li>LABORATORIO PATOLOGICO</li>
-        <li>FOT DNI – CARNET – TIT Y CAUSANTE</li>
-        <li>FOT REC SUELDO / COBRO JUB / ÚLTIMOS 6 PAGOS DEL MONOTRIBUTO</li>
-        <li>CODEM ANSES Y CERTIF NEGATIVA (MES EN CURSO) TIT Y CAUS</li>
-        <li>RP indicando la cantidad de envases que usará semestralmente. Para los meses de enero y julio el médico deberá indicar la cantidad de envases que necesitará por el lapso de 6 meses.</li>
+        <li>RECETA OSECAC</li>
+        <li>FORMULARIO DE 1RA VEZ F-PAD-274</li>
+        <li>FORMULARIO CARTA COMPROMISO</li>
+        <li>FORMULARIO DE RESUMEN DE HISTORIA CLÍNICA</li>
+        <li>RP con: DNI, nombre del paciente, medicación indicada, cantidad de envases para el lapso de 6 meses (Enero a Junio / Julio a Diciembre) y diagnóstico.</li>
+        <li><strong>Importante:</strong> Todos los formularios pueden estar hechos en computadora, pero deben tener firma y sello en original.</li>
     </ul>
     """
     st.markdown(contenido1, unsafe_allow_html=True)
     print_button(contenido1)
 
+# ===== 2. CONTINUIDAD EXTRACÁPITA (diferenciando sin cambios / con cambios) =====
 with st.expander("🔄 CONTINUIDAD EXTRACÁPITA"):
-    contenido2 = """
-    <h3>Requisitos Continuidad Extracápita</h3>
+    st.markdown("#### ✅ Sin cambios (misma medicación, misma dosis)")
+    st.markdown("""
+    <ul>
+        <li>RECETA OSECAC</li>
+        <li>FORMULARIO F-PAD-275 (Importante: completo, inclusive Superficie corporal y ECOG/KARNOFSKY)</li>
+    </ul>
+    <p><em>No se requiere presentar el resto de la documentación.</em></p>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("#### 🔄 Con cambios (cambio de dosis, droga, agregar o suspender medicación)")
+    contenido_extracapita_cambios = """
+    <h4>Requisitos para continuidad extracápita con cambios</h4>
     <ul>
         <li>FORMULARIO PRESCRIPCION ONCOLOGICA CONTINUIDAD</li>
         <li>RECETA DE OSECAC</li>
@@ -183,27 +190,64 @@ with st.expander("🔄 CONTINUIDAD EXTRACÁPITA"):
         <li>LABORATORIO PATOLOGICO</li>
         <li>CODEM Y CERTIF NEGATIVA TIT Y CAUS</li>
         <li>CERTIF DE DISCAPACIDAD (SI CORRESPONDE)</li>
-        <li>EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)</li>
-        <li>Para la medicación de los meses de enero y julio, el beneficiario deberá presentar una orden médica donde el médico tratante indique cuántos envases necesitará por el lapso de 6 meses.</li>
+        <li>JUSTIFICACION DEL MEDICO EN CASO DE CAMBIO DE DOSIS</li>
+        <li>RP con: DNI, nombre del paciente, medicación indicada, cantidad de envases para el lapso de 6 meses (Enero a Junio / Julio a Diciembre) y diagnóstico.</li>
     </ul>
     """
-    st.markdown(contenido2, unsafe_allow_html=True)
-    print_button(contenido2)
+    st.markdown(contenido_extracapita_cambios, unsafe_allow_html=True)
+    print_button(contenido_extracapita_cambios + "<p><em>Nota: Aplicar solo en casos de cambios.</em></p>")
 
+# ===== 3. CONTINUIDAD CÁPITA (diferenciando sin cambios / con cambios) =====
 with st.expander("🔄 CONTINUIDAD CÁPITA"):
-    contenido3 = """
-    <h3>Requisitos Continuidad Cápita</h3>
+    st.markdown("#### ✅ Sin cambios (misma medicación, misma dosis)")
+    st.markdown("""
+    <ul>
+        <li>RECETA OSECAC</li>
+        <li>FORMULARIO F-PAD-275 (Importante: completo, inclusive Superficie corporal y ECOG/KARNOFSKY)</li>
+    </ul>
+    <p><em>No se requiere presentar el resto de la documentación.</em></p>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("#### 🔄 Con cambios (cambio de dosis, droga, agregar o suspender medicación)")
+    contenido_capita_cambios = """
+    <h4>Requisitos para continuidad cápita con cambios</h4>
     <ul>
         <li>FORMULARIO F-PAD-2-75</li>
         <li>RECETARIOS OFICIALES CON DOSIS MENSUALES</li>
         <li>FOT DNI – CARNET – REC DE SUELDO / COBRO JUB / ULTIMOS 6 PAGOS MONOTRIBUTO</li>
         <li>CODEM Y CERTIF NEGATIVA TIT Y CAUS</li>
         <li>CERTIF DE DISCAPACIDAD (SI CORRESPONDE)</li>
-        <li>EN CASO DE CAMBIO DE DOSIS (JUSTIFICACION DEL MEDICO)</li>
+        <li>JUSTIFICACION DEL MEDICO EN CASO DE CAMBIO DE DOSIS</li>
+        <li>RP con: DNI, nombre del paciente, medicación indicada, cantidad de envases para el lapso de 6 meses (Enero a Junio / Julio a Diciembre) y diagnóstico.</li>
     </ul>
     """
-    st.markdown(contenido3, unsafe_allow_html=True)
-    print_button(contenido3)
+    st.markdown(contenido_capita_cambios, unsafe_allow_html=True)
+    print_button(contenido_capita_cambios + "<p><em>Nota: Aplicar solo en casos de cambios.</em></p>")
+
+# ===== 4. TRATAMIENTO DEL DOLOR ONCOLÓGICO =====
+with st.expander("💊 TRATAMIENTO DEL DOLOR ONCOLÓGICO"):
+    contenido_dolor = """
+    <h3>Requisitos para Tratamiento del Dolor Oncológico</h3>
+    <ul>
+        <li>RECETARIO OSECAC</li>
+        <li>FORMULARIO F-PAD 2-112 TTO DOLOR</li>
+        <li>RECETA DEL MINISTERIO (receta oficial)</li>
+        <li><strong>Importante:</strong> todos los documentos deben tener la misma fecha.</li>
+    </ul>
+    """
+    st.markdown(contenido_dolor, unsafe_allow_html=True)
+    print_button(contenido_dolor)
+
+# ===== NOTAS ADICIONALES =====
+st.markdown("""
+---
+### 📌 Notas adicionales
+- **Talidomida:** Existen planillas según la condición del paciente. Solicitar en la Delegación para recibir instrucciones particulares.
+- **Renovaciones semestrales:**  
+  * Períodos: Enero a Junio / Julio a Diciembre.  
+  * Las recetas (Rp) con los envases para el mes deben tener fecha anterior al período.  
+  * Ejemplo: fecha de diciembre para el semestre enero-junio; fecha de junio para el semestre julio-diciembre.
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -325,21 +369,17 @@ medicamentos_completos.sort(key=lambda x: x[0])
 # Crear lista de nombres
 nombres = [m[0] for m in medicamentos_completos]
 
-# ===== Widget de selección con búsqueda y sin despliegue masivo =====
+# ===== Widget de selección con búsqueda =====
 col_busqueda, col_programa = st.columns([1, 1])
 
 with col_busqueda:
-    # Campo de búsqueda
     busqueda = st.text_input("🔎 Buscar medicamento", placeholder="Escribí para filtrar...")
     
-    # Filtrar nombres según búsqueda
     if busqueda:
         nombres_filtrados = [n for n in nombres if busqueda.upper() in n.upper()]
     else:
         nombres_filtrados = nombres
     
-    # Selector: solo muestra un elemento a la vez, usa flechas del teclado para navegar
-    # Si hay muchos resultados, el dropdown aparecerá con scroll (lo limitamos con CSS)
     if nombres_filtrados:
         seleccion = st.selectbox(
             "SELECCIONÁ UN MEDICAMENTO:",
