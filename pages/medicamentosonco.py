@@ -91,11 +91,12 @@ st.markdown("""
 # ================= SECCIÓN PLANILLAS =================
 st.markdown("## 📄 PLANILLAS")
 
-# IDs y nombres
+# IDs y nombres (agregamos la nueva planilla)
 planillas = [
     ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9", False),
     ("F-PAD.2.74 PRESCRIPCIÓN ONCOLÓGICA 1ERA VEZ – CONTINUIDAD", "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK", True),
-    ("F-PAD-2-075 PRESCRIPCIÓN ONCOLÓGICA CONTINUIDAD DE TRATAMIENTO", "1aslyVdHH56NU3nHacLl7fHu0opvbEueY", True)
+    ("F-PAD-2-075 PRESCRIPCIÓN ONCOLÓGICA CONTINUIDAD DE TRATAMIENTO", "1aslyVdHH56NU3nHacLl7fHu0opvbEueY", True),
+    ("F-PAD-2-112 Formulario de Prescripcion Especial-1ra Vez Tratamiento del Dolor", "1bF033XJeJiXFvspa80pIJAXI-5SsG4aP", True)
 ]
 
 for nombre, doc_id, editable in planillas:
