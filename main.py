@@ -59,6 +59,8 @@ if 'novedades_expandido' not in st.session_state:
     st.session_state.novedades_expandido = False
 if 'pass_pc_valida' not in st.session_state:
     st.session_state.pass_pc_valida = False
+if 'pass_corresp_valida' not in st.session_state:
+    st.session_state.pass_corresp_valida = False
 
 def toggle_faba():
     if st.session_state.faba_check:
@@ -202,7 +204,6 @@ st.markdown("""
     <div style="text-align: center; max-width: 700px; width: 100%;">
 """, unsafe_allow_html=True)
 
-# ----- TÍTULO CENTRADO (VERSIÓN REFORZADA) -----
 st.markdown("""
 <div style="display: flex; justify-content: center; width: 100%;">
     <h1 style="
@@ -219,7 +220,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ----- LOGO CENTRADO CON BASE64 -----
 def image_to_base64(path):
     with open(path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
@@ -240,7 +240,6 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-# Botón NOVEDAD (solo si hay nuevas)
 ultima_novedad_id = st.session_state.historial_novedades[0]["id"] if st.session_state.historial_novedades else None
 hay_novedades_nuevas = ultima_novedad_id and ultima_novedad_id not in st.session_state.novedades_vistas
 if hay_novedades_nuevas:
@@ -255,7 +254,6 @@ st.markdown("---")
 
 # ================= EXPANDERS =================
 
-# 1. NOMENCLADORES
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
     st.link_button("📘 NOMENCLADOR IA", "https://notebooklm.google.com/notebook/f2116d45-03f5-4102-b8ff-f1e1fa965ffc")
     st.link_button("📈 NOMENCLADOR EXEL OSECAC", "https://lookerstudio.google.com/u/0/reporting/43183d76-61b2-4875-a2f8-341707dcac22/page/1VncF")
@@ -334,11 +332,9 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
     if not edicion_habilitada:
         st.info("💡 Para editar, ingrese la clave correspondiente en el lápiz ✏️")
 
-# 💊 MEDICAMENTOS (con dos botones: DISPENSA y ONCOLOGÍA, sin textos adicionales)
 with st.expander("💊 MEDICAMENTOS", expanded=False):
     col1, col2 = st.columns(2)
     with col1:
-        # Botón DISPENSA con clase verde
         st.markdown("""
         <a href="https://script.google.com/macros/s/AKfycbw56waFLrrPAcRy-PhbUmIMHuZjcfopkc46qfmfmmeguvnD6LIlp306fHQgi_3MmLVp/exec" target="_blank" class="boton-dispensa" style="display: inline-block; text-align: center; width: auto; min-width: 120px;">DISPENSA</a>
         """, unsafe_allow_html=True)
@@ -346,7 +342,6 @@ with st.expander("💊 MEDICAMENTOS", expanded=False):
         if st.button("ONCOLOGÍA"):
             st.switch_page("pages/medicamentosonco.py")
 
-# 2. PEDIDOS
 with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
@@ -364,7 +359,6 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
                 else:
                     st.error("❌ Clave incorrecta")
 
-# 3. PÁGINAS ÚTILES
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
     cols = st.columns(2)
     with cols[0]:
@@ -376,7 +370,6 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
 
-# 4. GESTIONES / DATOS
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
     if bus_t and not df_tramites.empty:
@@ -384,7 +377,6 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# 5. PRÁCTICAS Y ESPECIALISTAS
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
@@ -395,7 +387,6 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
         for i, row in re.iterrows():
             st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
 
-# 6. AGENDAS / MAILS
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
@@ -404,7 +395,6 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# 7. NOVEDADES
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
@@ -429,9 +419,34 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         st.session_state.novedades_expandido = False
         st.rerun()
 
-# ================= BOTONES FINALES (PEGADOS AL EXPANDER ANTERIOR) =================
+# ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top: 0.2rem;">', unsafe_allow_html=True)
 
+# ---- BOTÓN CORRESPONDENCIA (nuevo, va primero) ----
+popover_corresp = st.popover("📬 CORRESPONDENCIA")
+with popover_corresp:
+    st.markdown("### 🔐 Acceso a Correspondencia")
+    if not st.session_state.pass_corresp_valida:
+        with st.form("form_corresp"):
+            cl_corresp = st.text_input("Ingrese Clave:", type="password")
+            submitted_corresp = st.form_submit_button("✅ ACCEDER")
+            if submitted_corresp:
+                if cl_corresp == "*":
+                    st.session_state.pass_corresp_valida = True
+                    st.rerun()
+                else:
+                    st.error("❌ Clave incorrecta")
+    else:
+        st.success("✅ Acceso concedido")
+        st.link_button(
+            "📬 Abrir Sistema de Correspondencia",
+            "https://script.google.com/macros/s/AKfycbxcyT_xPdvPpw90-1CBVRrSXUJ4o622zWyB-rJOc7MaNSIkPZ58wxjFHBz-f0Wv7_TUWA/exec"
+        )
+        if st.button("🔒 Cerrar sesión", key="cerrar_corresp"):
+            st.session_state.pass_corresp_valida = False
+            st.rerun()
+
+# ---- Resto de botones finales (igual que antes) ----
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
 popover_pc = st.popover("💻 HACER LA PC")
