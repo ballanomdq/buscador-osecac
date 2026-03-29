@@ -551,3 +551,4 @@ with popover_novedades:
                     st.success("✅ ¡Eliminado!")
                     time.sleep(1)
                     st.rerun()
+
