@@ -2,21 +2,30 @@ name: Scraping diario de edictos
 
 on:
   schedule:
-    # Lunes a viernes a las 8:00 AM (hora Argentina = 11:00 UTC)
-    - cron: '11 11 * * 1-5'
-  workflow_dispatch:   # Permite ejecutarlo manualmente desde GitHub
+    # Lunes a viernes a las 11 AM UTC (= 8 AM Argentina en horario de invierno)
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch:  # permite ejecutar manualmente
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-      - run: pip install -r requirements.txt
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          pip install requests beautifulsoup4 supabase python-dateutil
+
       - name: Ejecutar scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python scraper_edictos.py
+        run: |
+          python scraper_edictos.py
