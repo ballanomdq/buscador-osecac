@@ -1,23 +1,39 @@
 import streamlit as st
+import os
 from supabase import create_client, Client
 
 st.set_page_config(page_title="Boletín Oficial", layout="wide")
 
-# Leer los secrets
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-
-# Conectar
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 st.title("📰 Boletín Oficial - Fiscalización")
 
-# Botón de prueba
-if st.button("Probar conexión a Supabase"):
+# ----- Función para obtener las credenciales de forma segura -----
+def get_supabase_credentials():
+    # Priorizar st.secrets (para Streamlit Cloud)
     try:
-        # Intentar leer un solo registro
-        data = supabase.table("edictos").select("*").limit(1).execute()
-        st.success("✅ Conexión exitosa. Datos obtenidos:")
-        st.write(data)
-    except Exception as e:
-        st.error(f"❌ Error: {e}")
+        url = st.secrets.get("SUPABASE_URL")
+        key = st.secrets.get("SUPABASE_KEY")
+        if url and key:
+            return url, key
+    except Exception:
+        pass
+
+    # Fallback: variables de entorno (para GitHub Actions o local)
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    if url and key:
+        return url, key
+
+    return None, None
+
+# ----- Mostrar estado de la conexión -----
+SUPABASE_URL, SUPABASE_KEY = get_supabase_credentials()
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    st.error("""
+    ⚠️ **Faltan las credenciales de Supabase.**
+
+    En Streamlit Cloud, debes agregarlas en **Settings → Secrets** con estos nombres:
+    - `SUPABASE_URL`
+    - `SUPABASE_KEY`
+
+    Ejemplo:
