@@ -8,7 +8,7 @@ st.set_page_config(page_title="Boletín Oficial", layout="wide")
 
 st.title("📰 Boletín Oficial - Fiscalización")
 
-# --- Lista de localidades (copiala de tu lista) ---
+# --- Lista de localidades (completa) ---
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -35,32 +35,32 @@ def get_credentials():
 
 SUPABASE_URL, SUPABASE_KEY = get_credentials()
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("❌ Faltan las credenciales de Supabase. Revisá los secrets.")
+    st.error("Faltan credenciales de Supabase. Revisá los secrets.")
     st.stop()
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Botón para forzar scraping ---
+# --- Botón para ejecutar scraping ahora ---
 st.subheader("🔍 Acciones")
 col1, col2 = st.columns(2)
 with col1:
     if st.button("🔄 Forzar búsqueda ahora", use_container_width=True):
         token = st.secrets.get("GH_TOKEN")
         if not token:
-            st.error("❌ Falta el token de GitHub (GH_TOKEN) en secrets.")
+            st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
         else:
-            repo = "ballanomdq/buscador-osecac"   # CAMBIÁ SI TU REPO ES OTRO
+            repo = "ballanomdq/buscador-osecac"   # <-- Cambiá si es diferente
             url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
             headers = {
                 "Authorization": f"token {token}",
                 "Accept": "application/vnd.github.v3+json"
             }
-            data = {"ref": "main"}
+            data = {"ref": "main"}   # o la rama que uses
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 204:
                 st.success("✅ Scraping iniciado. Los nuevos resultados aparecerán en unos minutos.")
             else:
-                st.error(f"❌ Error al iniciar: {response.status_code} - {response.text}")
+                st.error(f"Error al iniciar: {response.status_code} - {response.text}")
 
 with col2:
     if st.button("🔄 Recargar datos", use_container_width=True):
@@ -70,13 +70,13 @@ with col2:
 st.subheader("📋 Edictos encontrados")
 
 # Filtros
-localidades_seleccionadas = st.multiselect("Filtrar por localidad", ["Todas"] + sorted(LOCALIDADES))
+localidades_sel = st.multiselect("Filtrar por localidad", ["Todas"] + LOCALIDADES, default="Todas")
 buscar_texto = st.text_input("Buscar por nombre, CUIT o texto")
 
 # Construir consulta
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
-if "Todas" not in localidades_seleccionadas and localidades_seleccionadas:
-    query = query.in_("localidad", localidades_seleccionadas)
+if "Todas" not in localidades_sel and localidades_sel:
+    query = query.in_("localidad", localidades_sel)
 if buscar_texto:
     query = query.or_(f"nombres.ilike.%{buscar_texto}%,cuit.ilike.%{buscar_texto}%,texto_completo.ilike.%{buscar_texto}%")
 
@@ -85,7 +85,7 @@ datos = response.data
 
 if datos:
     df = pd.DataFrame(datos)
-    # Mostrar tabla resumida
+    # Tabla resumida
     st.dataframe(
         df[["fecha", "boletin_numero", "seccion", "localidad", "nombres", "cuit"]],
         use_container_width=True,
