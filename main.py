@@ -395,6 +395,14 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
+# ========== NUEVO EXPANDER FISCALIZACIÓN ==========
+with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
+    st.markdown("### 📋 Acceso a herramientas de fiscalización")
+    if st.button("📰 BOLETIN"):
+        st.switch_page("pages/boletin.py")
+    # Aquí podrás agregar más botones en el futuro (ej: "OTRA HERRAMIENTA")
+# ==================================================
+
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
@@ -422,7 +430,7 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
 # ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top: 0.2rem;">', unsafe_allow_html=True)
 
-# ---- POPOVER CORRESPONDENCIA ----
+# ---- BOTÓN CORRESPONDENCIA (nuevo, va primero) ----
 popover_corresp = st.popover("📬 CORRESPONDENCIA")
 with popover_corresp:
     st.markdown("### 🔐 Acceso a Correspondencia")
@@ -446,14 +454,7 @@ with popover_corresp:
             st.session_state.pass_corresp_valida = False
             st.rerun()
 
-# ---- POPOVER FISCALIZACIÓN (NUEVO) ----
-popover_fiscalizacion = st.popover("🔍 FISCALIZACIÓN")
-with popover_fiscalizacion:
-    st.markdown("### 📋 Acceso a Boletín Oficial")
-    if st.button("📰 BOLETIN"):
-        st.switch_page("pages/boletin.py")
-
-# ---- BOTONES EXISTENTES ----
+# ---- Resto de botones finales (igual que antes) ----
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
 popover_pc = st.popover("💻 HACER LA PC")
