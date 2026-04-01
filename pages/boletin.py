@@ -8,16 +8,6 @@ st.set_page_config(page_title="Boletín Oficial", layout="wide")
 
 st.title("📰 Boletín Oficial - Fiscalización")
 
-# --- Lista de localidades (completa) ---
-LOCALIDADES = [
-    "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
-    "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
-    "Castelli", "Tordillo", "Conesa", "Lavalle", "San Clemente", "Las Toninas",
-    "Santa Teresita", "Mar del Tuyu", "San Bernardo", "La Lucila del Mar",
-    "Mar de Ajo", "Costa del Este", "Pinamar", "Madariaga", "Villa Gesell",
-    "Mar Chiquita"
-]
-
 # --- Conexión a Supabase ---
 def get_credentials():
     try:
@@ -40,7 +30,17 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Botón para ejecutar scraping ahora ---
+# --- Lista de localidades (copiala de tu scraper) ---
+LOCALIDADES = [
+    "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
+    "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
+    "Castelli", "Tordillo", "Conesa", "Lavalle", "San Clemente", "Las Toninas",
+    "Santa Teresita", "Mar del Tuyu", "San Bernardo", "La Lucila del Mar",
+    "Mar de Ajo", "Costa del Este", "Pinamar", "Madariaga", "Villa Gesell",
+    "Mar Chiquita"
+]
+
+# --- Botones de acción ---
 st.subheader("🔍 Acciones")
 col1, col2 = st.columns(2)
 with col1:
@@ -49,13 +49,13 @@ with col1:
         if not token:
             st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
         else:
-            repo = "ballanomdq/buscador-osecac"   # <-- Cambiá si es diferente
+            repo = "ballanomdq/buscador-osecac"   # Cambiá si es necesario
             url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
             headers = {
                 "Authorization": f"token {token}",
                 "Accept": "application/vnd.github.v3+json"
             }
-            data = {"ref": "main"}   # o la rama que uses
+            data = {"ref": "main"}
             response = requests.post(url, json=data, headers=headers)
             if response.status_code == 204:
                 st.success("✅ Scraping iniciado. Los nuevos resultados aparecerán en unos minutos.")
@@ -70,7 +70,7 @@ with col2:
 st.subheader("📋 Edictos encontrados")
 
 # Filtros
-localidades_sel = st.multiselect("Filtrar por localidad", ["Todas"] + LOCALIDADES, default="Todas")
+localidades_sel = st.multiselect("Filtrar por localidad", ["Todas"] + sorted(LOCALIDADES))
 buscar_texto = st.text_input("Buscar por nombre, CUIT o texto")
 
 # Construir consulta
@@ -85,7 +85,6 @@ datos = response.data
 
 if datos:
     df = pd.DataFrame(datos)
-    # Tabla resumida
     st.dataframe(
         df[["fecha", "boletin_numero", "seccion", "localidad", "nombres", "cuit"]],
         use_container_width=True,
@@ -98,7 +97,6 @@ if datos:
             "cuit": "CUIT"
         }
     )
-    # Detalle expandible
     st.subheader("Detalle completo")
     for _, row in df.iterrows():
         with st.expander(f"{row['fecha']} - {row['localidad']} - {row['nombres'] or 'Sin nombre'}"):
@@ -110,4 +108,4 @@ if datos:
             st.markdown("**Texto completo:**")
             st.markdown(row['texto_completo'])
 else:
-    st.info("No hay edictos guardados todavía. El scraper se ejecutará automáticamente o podés usar 'Forzar búsqueda ahora'.")
+    st.info("No hay edictos guardados todavía. Usá 'Forzar búsqueda ahora' para iniciar el scraping.")
