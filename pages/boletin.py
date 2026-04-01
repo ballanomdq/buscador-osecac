@@ -27,3 +27,23 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     ❌ **Faltan las credenciales de Supabase.**
 
     En Streamlit Cloud, agrégalas en **Settings → Secrets**:
+SUPABASE_URL = "https://vuxchvmixyuwoltletio.supabase.co"
+SUPABASE_KEY = "sb_publishable_7ibXM7nyiR7tFImAD-K5dw_qtVm6H1c"
+
+text
+Luego reinicia la app (tres puntos → Reboot).
+""")
+st.stop()
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+st.success("✅ Conexión a Supabase configurada correctamente.")
+
+if st.button("🔌 Probar conexión a Supabase"):
+try:
+    data = supabase.table("edictos").select("*").limit(1).execute()
+    st.success("✅ Conexión exitosa. Datos obtenidos:")
+    st.write(data)
+except Exception as e:
+    st.error(f"❌ Error en la conexión: {e}")
+    st.info("Revisá que la tabla 'edictos' exista en tu proyecto de Supabase.")
