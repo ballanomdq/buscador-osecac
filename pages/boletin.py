@@ -1,15 +1,23 @@
 import streamlit as st
+from supabase import create_client, Client
 
-st.set_page_config(
-    page_title="Boletín Oficial - Fiscalización",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Boletín Oficial", layout="wide")
+
+# Leer los secrets
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+# Conectar
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.title("📰 Boletín Oficial - Fiscalización")
-st.markdown("Esta página mostrará los edictos judiciales, sucesorios, transferencias y concursos filtrados por las localidades de interés.")
 
-# Aquí luego agregaremos la lógica para consultar la base de datos
-# y mostrar los resultados con filtros.
-
-st.info("🛠️ Página en construcción. Próximamente se mostrarán los resultados automáticos del scraping diario.")
+# Botón de prueba
+if st.button("Probar conexión a Supabase"):
+    try:
+        # Intentar leer un solo registro
+        data = supabase.table("edictos").select("*").limit(1).execute()
+        st.success("✅ Conexión exitosa. Datos obtenidos:")
+        st.write(data)
+    except Exception as e:
+        st.error(f"❌ Error: {e}")
