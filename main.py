@@ -422,7 +422,7 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
 # ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top: 0.2rem;">', unsafe_allow_html=True)
 
-# ---- BOTÓN CORRESPONDENCIA (nuevo, va primero) ----
+# ---- POPOVER CORRESPONDENCIA ----
 popover_corresp = st.popover("📬 CORRESPONDENCIA")
 with popover_corresp:
     st.markdown("### 🔐 Acceso a Correspondencia")
@@ -446,7 +446,14 @@ with popover_corresp:
             st.session_state.pass_corresp_valida = False
             st.rerun()
 
-# ---- Resto de botones finales (igual que antes) ----
+# ---- POPOVER FISCALIZACIÓN (NUEVO) ----
+popover_fiscalizacion = st.popover("🔍 FISCALIZACIÓN")
+with popover_fiscalizacion:
+    st.markdown("### 📋 Acceso a Boletín Oficial")
+    if st.button("📰 BOLETIN"):
+        st.switch_page("pages/boletin.py")
+
+# ---- BOTONES EXISTENTES ----
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
 popover_pc = st.popover("💻 HACER LA PC")
@@ -551,4 +558,3 @@ with popover_novedades:
                     st.success("✅ ¡Eliminado!")
                     time.sleep(1)
                     st.rerun()
-
