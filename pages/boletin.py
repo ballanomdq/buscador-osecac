@@ -87,9 +87,10 @@ for (fecha, boletin), grupo in grupos:
     # Extraer nombres y CUITs únicos del grupo, manejando valores None
     nombres_y_cuits = set()
     for _, row in grupo.iterrows():
-        if row["nombres"]:
+        # Verificar que no sea None antes de split
+        if row.get("nombres") and isinstance(row["nombres"], str):
             nombres_y_cuits.update(row["nombres"].split(", "))
-        if row["cuit"]:
+        if row.get("cuit") and isinstance(row["cuit"], str):
             nombres_y_cuits.update(row["cuit"].split(", "))
     resumen = list(nombres_y_cuits)[:10]
 
@@ -112,9 +113,9 @@ for (fecha, boletin), grupo in grupos:
                 with st.expander(f"Edictos de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
                     for _, row in grupo.iterrows():
                         st.markdown(f"**📍 {row['localidad']}**")
-                        if row["nombres"]:
+                        if row.get("nombres"):
                             st.markdown(f"*Nombres:* {row['nombres']}")
-                        if row["cuit"]:
+                        if row.get("cuit"):
                             st.markdown(f"*CUIT:* {row['cuit']}")
                         st.markdown(f"**Texto:** {row['texto_completo'][:300]}...")
                         # Botón eliminar edicto (con confirmación)
