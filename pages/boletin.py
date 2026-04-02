@@ -5,9 +5,10 @@ from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
 import pytz
+import time
 
 st.set_page_config(page_title="Boletín Oficial - Fiscalización", layout="wide")
-st.title("⚖️ Fiscalización OSECAC - Edictos por Boletín")
+st.title("📚 Fiscalización OSECAC - Boletín Oficial")
 
 # --- Conexión a Supabase ---
 def get_credentials():
@@ -31,116 +32,128 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Lista de localidades ---
-LOCALIDADES = [
-    "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
-    "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
-    "Castelli", "Tordillo", "Conesa", "Lavalle", "San Clemente", "Las Toninas",
-    "Santa Teresita", "Mar del Tuyu", "San Bernardo", "La Lucila del Mar",
-    "Mar de Ajo", "Costa del Este", "Pinamar", "Madariaga", "Villa Gesell",
-    "Mar Chiquita"
-]
-
-# --- Sidebar con acciones y filtros ---
-with st.sidebar:
-    st.header("Acciones")
-    if st.button("🔄 Forzar búsqueda ahora"):
+# --- Botón principal con barra de progreso ---
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button("🔄 Forzar descarga de Boletines del día", use_container_width=True):
         token = st.secrets.get("GH_TOKEN")
         if not token:
             st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
         else:
-            repo = "ballanomdq/buscador-osecac"  # Ajustar si es necesario
+            repo = "ballanomdq/buscador-osecac"  # Ajustá si es necesario
             url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
             headers = {
                 "Authorization": f"token {token}",
                 "Accept": "application/vnd.github.v3+json"
             }
             data = {"ref": "main"}
-            response = requests.post(url, json=data, headers=headers)
-            if response.status_code == 204:
-                st.success("✅ Scraping iniciado. Los nuevos resultados aparecerán en unos minutos.")
-            else:
-                st.error(f"Error al iniciar: {response.status_code}")
+            with st.spinner("⏳ Procesando boletines... esto puede tomar unos segundos."):
+                response = requests.post(url, json=data, headers=headers)
+                if response.status_code == 204:
+                    # Simular progreso (ya que el workflow corre en segundo plano)
+                    progress_bar = st.progress(0)
+                    for i in range(100):
+                        time.sleep(0.02)
+                        progress_bar.progress(i + 1)
+                    progress_bar.empty()
+                    st.success("✅ Scraping iniciado. Los resultados aparecerán en unos minutos.")
+                else:
+                    st.error(f"Error al iniciar: {response.status_code}")
 
-    st.header("Filtros")
-    localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
-    seccion_filtro = st.multiselect("Sección", ["Todas", "JUDICIAL", "OFICIAL"], default=["Todas"])
+st.divider()
 
 # --- Consultar datos ---
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
-if "Todas" not in localidad_filtro and localidad_filtro:
-    query = query.in_("localidad", localidad_filtro)
-if "Todas" not in seccion_filtro and seccion_filtro:
-    query = query.in_("seccion", seccion_filtro)
 response = query.execute()
 datos = response.data
 
 if not datos:
-    st.info("No hay edictos guardados todavía. Usá 'Forzar búsqueda ahora' para iniciar el scraping.")
+    st.markdown(
+        """
+        <div style="text-align: center; margin-top: 50px;">
+            <h3>📭 Bienvenido</h3>
+            <p>Presione el botón superior para iniciar la fiscalización del día.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     st.stop()
 
 df = pd.DataFrame(datos)
-# Convertir fecha a datetime (asumimos que viene en formato ISO sin zona)
 df["fecha"] = pd.to_datetime(df["fecha"])
-# Si la fecha no tiene zona horaria, asumimos que es UTC y la convertimos a Argentina
+# Convertir a zona horaria Argentina
 if df["fecha"].dt.tz is None:
     df["fecha"] = df["fecha"].dt.tz_localize('UTC').dt.tz_convert('America/Argentina/Buenos_Aires')
 else:
     df["fecha"] = df["fecha"].dt.tz_convert('America/Argentina/Buenos_Aires')
 
-# Agrupar por fecha
-grupos = df.groupby("fecha")
+# Agrupar por número de boletín y fecha (un boletín puede tener varias secciones)
+# Usamos una clave compuesta
+df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].dt.strftime("%Y%m%d")
+boletines = df.groupby(["boletin_clave", "fecha", "boletin_numero"])
 
 st.subheader("📖 Boletines disponibles")
 
-# Ordenar fechas descendente
-for fecha in sorted(grupos.groups.keys(), reverse=True):
-    grupo = grupos.get_group(fecha)
-    # Tomar un boletin_numero representativo
-    boletin_numero = grupo.iloc[0]["boletin_numero"]
-    with st.container():
-        st.markdown(f"### 📘 Boletín del {fecha.strftime('%d/%m/%Y')} - N° {boletin_numero}")
-        st.caption(f"Total edictos en esta fecha: {len(grupo)}")
-        # Mostrar cada edicto como tarjeta expandible
-        for _, row in grupo.iterrows():
-            icono = "⚖️" if row["seccion"] == "JUDICIAL" else "📜"
-            titulo = f"{icono} {row['localidad']}"
-            cuits = row.get("cuit_detectados")
-            if cuits:
-                titulo += f" | CUITs: {cuits}"
-            else:
-                titulo += " | Sin CUITs"
-            with st.expander(titulo):
-                st.markdown(f"**Sección:** {row['seccion']}")
-                st.markdown(f"**Localidad:** {row['localidad']}")
-                if row.get("sujetos"):
-                    st.markdown(f"**Sujetos destacados:** {row['sujetos']}")
-                if cuits:
-                    st.markdown("**CUITs / DNIs detectados:**")
-                    # Mostrar cada CUIT con un botón para copiar
-                    for cuit in cuits.split(", "):
-                        col1, col2 = st.columns([4, 1])
-                        with col1:
-                            st.write(cuit)
-                        with col2:
-                            if st.button(f"📋 Copiar", key=f"copy_{row['id']}_{cuit}"):
-                                st.write(f"Copiado: {cuit}")
-                                st.components.v1.html(
-                                    f"<script>navigator.clipboard.writeText('{cuit}');</script>",
-                                    height=0,
-                                )
-                st.markdown("**Texto completo:**")
-                st.markdown(row['texto_completo'])
-                # Botón eliminar
-                if st.button("🗑️ Eliminar este edicto", key=f"elim_{row['id']}"):
-                    if st.session_state.get(f"confirm_{row['id']}", False):
-                        supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                        st.success("Eliminado")
-                        st.rerun()
-                    else:
-                        st.session_state[f"confirm_{row['id']}"] = True
-                        st.warning("Hacé clic otra vez para confirmar eliminación.")
-        st.markdown("---")
+# Convertir a lista para ordenar por fecha descendente
+boletines_list = []
+for (clave, fecha, numero), grupo in boletines:
+    boletines_list.append({
+        "clave": clave,
+        "fecha": fecha,
+        "numero": numero,
+        "grupo": grupo
+    })
+boletines_list.sort(key=lambda x: x["fecha"], reverse=True)
 
-if st.button("🔄 Recargar datos"):
+# Mostrar tarjetas en una cuadrícula (3 columnas)
+cols = st.columns(3)
+for idx, boletin in enumerate(boletines_list):
+    col = cols[idx % 3]
+    with col:
+        # Determinar íconos según las secciones presentes en el grupo
+        secciones = boletin["grupo"]["seccion"].unique()
+        icono = "⚖️" if "JUDICIAL" in secciones else "📜"
+        if "JUDICIAL" in secciones and "OFICIAL" in secciones:
+            icono = "⚖️📜"
+        color = "#e6f2ff" if "JUDICIAL" in secciones else "#f0f0f0"  # azul suave o gris suave
+        # Crear tarjeta expandible
+        with st.expander(f"{icono} Boletín N° {boletin['numero']} - {boletin['fecha'].strftime('%d/%m/%Y')}"):
+            # Mostrar las dos secciones por separado
+            for seccion in ["JUDICIAL", "OFICIAL"]:
+                subgrupo = boletin["grupo"][boletin["grupo"]["seccion"] == seccion]
+                if not subgrupo.empty:
+                    st.markdown(f"### {seccion}")
+                    # Para cada edicto dentro de la sección
+                    for _, row in subgrupo.iterrows():
+                        # Detectar si tiene alerta de quiebra
+                        es_quiebra = "quiebra" in row["texto_completo"].lower()
+                        if es_quiebra:
+                            st.markdown(f"<span style='background-color:#ffcccc; padding:2px 6px; border-radius:10px;'>⚠️ QUIEBRA</span>", unsafe_allow_html=True)
+                        # Título del edicto
+                        st.markdown(f"**📍 {row['localidad']}**")
+                        cuits = row.get("cuit_detectados")
+                        if cuits:
+                            st.markdown(f"**CUITs:** {cuits}")
+                        if row.get("sujetos"):
+                            st.markdown(f"**Sujetos:** {row['sujetos']}")
+                        # Botones para copiar CUITs individuales
+                        if cuits:
+                            for cuit in cuits.split(", "):
+                                col1, col2 = st.columns([4, 1])
+                                with col1:
+                                    st.write(cuit)
+                                with col2:
+                                    if st.button(f"📋 Copiar", key=f"copy_{row['id']}_{cuit}"):
+                                        st.write(f"Copiado: {cuit}")
+                                        st.components.v1.html(
+                                            f"<script>navigator.clipboard.writeText('{cuit}');</script>",
+                                            height=0,
+                                        )
+                        # Texto completo (corto o expandible)
+                        with st.expander("Ver texto completo"):
+                            st.markdown(row["texto_completo"])
+                        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)  # separación entre tarjetas
+
+if st.button("🔄 Recargar datos", key="recargar"):
     st.rerun()
