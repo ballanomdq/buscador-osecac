@@ -11,3 +11,4 @@ webdriver-manager
 pandas
 supabase
 beautifulsoup4
+pytz
