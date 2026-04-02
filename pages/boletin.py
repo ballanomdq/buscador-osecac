@@ -3,10 +3,11 @@ import os
 import requests
 from supabase import create_client, Client
 import pandas as pd
-from datetime import date
+from datetime import datetime
+import pytz
 
 st.set_page_config(page_title="Boletín Oficial - Fiscalización", layout="wide")
-st.title("📚 Fiscalización - Edictos por Boletín")
+st.title("⚖️ Fiscalización - Edictos por Boletín")
 
 # --- Conexión a Supabase ---
 def get_credentials():
@@ -64,7 +65,7 @@ with st.sidebar:
     st.header("Filtros")
     localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
 
-# --- Consultar datos agrupados por fecha ---
+# --- Consultar datos ---
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
 if "Todas" not in localidad_filtro and localidad_filtro:
     query = query.in_("localidad", localidad_filtro)
@@ -76,58 +77,64 @@ if not datos:
     st.stop()
 
 df = pd.DataFrame(datos)
+
+# Asegurar que la fecha sea datetime (ya debería ser string ISO)
 df["fecha"] = pd.to_datetime(df["fecha"])
 
-# Agrupar por fecha (boletín)
-grupos = df.groupby(["fecha", "boletin_numero"])
+# Agrupar por fecha (y opcionalmente por boletín, pero para evitar duplicados agrupamos solo por fecha)
+grupos = df.groupby("fecha")
 
-st.subheader("📖 Boletines disponibles")
+st.subheader("📖 Edictos agrupados por fecha")
 
-for (fecha, boletin), grupo in grupos:
-    # Extraer nombres y CUITs únicos del grupo, manejando valores None
-    nombres_y_cuits = set()
+for fecha, grupo in grupos:
+    # Extraer datos destacados para el resumen del día
+    resumen_cuits = set()
     for _, row in grupo.iterrows():
-        # Verificar que no sea None antes de split
-        if row.get("nombres") and isinstance(row["nombres"], str):
-            nombres_y_cuits.update(row["nombres"].split(", "))
-        if row.get("cuit") and isinstance(row["cuit"], str):
-            nombres_y_cuits.update(row["cuit"].split(", "))
-    resumen = list(nombres_y_cuits)[:10]
+        if row.get("cuit_detectados"):
+            resumen_cuits.update(row["cuit_detectados"].split(", "))
 
     with st.container():
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col1:
-            st.markdown(f"### 📘 Boletín N° {boletin}")
-            st.caption(f"🗓️ {fecha.strftime('%d/%m/%Y')} · {len(grupo)} edictos")
-        with col2:
-            if st.button("👁️ Ver datos clave", key=f"resumen_{fecha}_{boletin}"):
-                with st.expander(f"Resumen de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
-                    if resumen:
-                        st.write("**Nombres / CUITs encontrados:**")
-                        for item in resumen:
-                            st.write(f"- {item}")
+        st.markdown(f"### 📅 {fecha.strftime('%d/%m/%Y')} · {len(grupo)} edictos")
+        if resumen_cuits:
+            st.caption(f"**CUITs encontrados:** {', '.join(list(resumen_cuits)[:8])}")
+
+        # Mostrar cada edicto como una tarjeta expandible
+        for idx, row in grupo.iterrows():
+            # Determinar icono según sección
+            icono = "⚖️" if row["seccion"] == "JUDICIAL" else "📜"
+            # Título de la tarjeta: localidad + CUITs
+            cuit_str = row.get("cuit_detectados") or "Sin CUITs"
+            titulo = f"{icono} **{row['localidad']}** | CUITs: {cuit_str}"
+            with st.expander(titulo):
+                # Mostrar sujetos en mayúsculas (si existen)
+                if row.get("sujetos"):
+                    st.markdown(f"**👤 Sujetos detectados:** {row['sujetos']}")
+                # Mostrar el texto completo
+                st.markdown("**Texto completo del edicto:**")
+                st.markdown(row["texto_completo"])
+                # Botones para copiar cada CUIT individualmente
+                if row.get("cuit_detectados"):
+                    cuits_list = row["cuit_detectados"].split(", ")
+                    st.markdown("**Acciones:**")
+                    cols = st.columns(len(cuits_list))
+                    for i, cuit in enumerate(cuits_list):
+                        with cols[i]:
+                            if st.button(f"📋 Copiar {cuit}", key=f"copy_{row['id']}_{i}"):
+                                st.write(f"Copiado: {cuit}")
+                                # Simulación de copia al portapapeles (requiere JS)
+                                st.markdown(
+                                    f"<script>navigator.clipboard.writeText('{cuit}');</script>",
+                                    unsafe_allow_html=True
+                                )
+                # Botón eliminar edicto
+                if st.button("🗑️ Eliminar este edicto", key=f"elim_{row['id']}"):
+                    if st.session_state.get(f"confirm_{row['id']}", False):
+                        supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                        st.success("Eliminado")
+                        st.rerun()
                     else:
-                        st.write("No se extrajeron nombres o CUITs.")
-        with col3:
-            if st.button("📄 Ver edictos", key=f"detalle_{fecha}_{boletin}"):
-                with st.expander(f"Edictos de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
-                    for _, row in grupo.iterrows():
-                        st.markdown(f"**📍 {row['localidad']}**")
-                        if row.get("nombres"):
-                            st.markdown(f"*Nombres:* {row['nombres']}")
-                        if row.get("cuit"):
-                            st.markdown(f"*CUIT:* {row['cuit']}")
-                        st.markdown(f"**Texto:** {row['texto_completo'][:300]}...")
-                        # Botón eliminar edicto (con confirmación)
-                        if st.button("🗑️ Eliminar este edicto", key=f"elim_{row['id']}"):
-                            if st.session_state.get(f"confirm_{row['id']}", False):
-                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                                st.success("Eliminado")
-                                st.rerun()
-                            else:
-                                st.session_state[f"confirm_{row['id']}"] = True
-                                st.warning("Hacé clic otra vez para confirmar eliminación.")
-                        st.markdown("---")
+                        st.session_state[f"confirm_{row['id']}"] = True
+                        st.warning("Hacé clic otra vez para confirmar eliminación.")
         st.markdown("---")
 
 if st.button("🔄 Recargar datos"):
