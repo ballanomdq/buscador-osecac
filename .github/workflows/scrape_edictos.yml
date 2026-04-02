@@ -2,9 +2,8 @@ name: Scraping diario de edictos
 
 on:
   schedule:
-    # Lunes a viernes a las 11 AM UTC (= 8 AM Argentina en horario de invierno)
     - cron: '0 11 * * 1-5'
-  workflow_dispatch:  # permite ejecutar manualmente
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -21,7 +20,7 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install requests beautifulsoup4 supabase python-dateutil
+          pip install requests pdfplumber supabase
 
       - name: Ejecutar scraper
         env:
