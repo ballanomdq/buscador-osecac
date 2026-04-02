@@ -1,36 +1,23 @@
-import streamlit as st
-import os
 import requests
-from supabase import create_client, Client
-import pandas as pd
-from datetime import date
+import re
+import io
+from datetime import date, timedelta
+from supabase import create_client
+import os
+import sys
+import pdfplumber
 
-st.set_page_config(page_title="Boletín Oficial - Fiscalización", layout="wide")
-st.title("📚 Fiscalización - Edictos por Boletín")
+# --- Configuración ---
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# --- Conexión a Supabase ---
-def get_credentials():
-    try:
-        url = st.secrets.get("SUPABASE_URL")
-        key = st.secrets.get("SUPABASE_KEY")
-        if url and key:
-            return url, key
-    except:
-        pass
-    url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_KEY")
-    if url and key:
-        return url, key
-    return None, None
-
-SUPABASE_URL, SUPABASE_KEY = get_credentials()
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("Faltan credenciales de Supabase. Revisá los secrets.")
-    st.stop()
+    print("❌ ERROR: Faltan SUPABASE_URL y/o SUPABASE_KEY")
+    sys.exit(1)
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+print("✅ Supabase conectado")
 
-# --- Lista de localidades (para filtro opcional) ---
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -40,97 +27,173 @@ LOCALIDADES = [
     "Mar Chiquita"
 ]
 
-# --- Botón para forzar scraping (manual) ---
-with st.sidebar:
-    st.header("Acciones")
-    if st.button("🔄 Forzar búsqueda ahora"):
-        token = st.secrets.get("GH_TOKEN")
-        if not token:
-            st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
-        else:
-            repo = "ballanomdq/buscador-osecac"  # CAMBIAR SI ES OTRO
-            url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
-            headers = {
-                "Authorization": f"token {token}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-            data = {"ref": "main"}
-            response = requests.post(url, json=data, headers=headers)
-            if response.status_code == 204:
-                st.success("✅ Scraping iniciado. Los nuevos resultados aparecerán en unos minutos.")
-            else:
-                st.error(f"Error al iniciar: {response.status_code}")
+SECCIONES = {
+    "JUDICIAL": "https://boletinoficial.gba.gob.ar/secciones/14079/ver",
+    "OFICIAL":  "https://boletinoficial.gba.gob.ar/secciones/14078/ver",
+}
 
-    st.header("Filtros")
-    localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
 
-# --- Consultar datos agrupados por fecha ---
-query = supabase.table("edictos").select("*").order("fecha", desc=True)
-if "Todas" not in localidad_filtro and localidad_filtro:
-    query = query.in_("localidad", localidad_filtro)
-response = query.execute()
-datos = response.data
+CONTEXTO_CHARS = 1500
 
-if not datos:
-    st.info("No hay edictos guardados todavía. Usá 'Forzar búsqueda ahora' para iniciar el scraping.")
-    st.stop()
 
-df = pd.DataFrame(datos)
-df["fecha"] = pd.to_datetime(df["fecha"])
+def descargar_pdf(url):
+    try:
+        print(f"  → Descargando: {url}")
+        resp = requests.get(url, timeout=60, headers=HEADERS)
+        print(f"  ← Status: {resp.status_code} | Content-Type: {resp.headers.get('Content-Type','?')}")
+        resp.raise_for_status()
+        return resp.content
+    except Exception as e:
+        print(f"  ❌ Error descargando: {e}")
+        return None
 
-# Agrupar por fecha (boletín)
-grupos = df.groupby(["fecha", "boletin_numero"])
 
-st.subheader("📖 Boletines disponibles")
+def extraer_texto_pdf(pdf_bytes):
+    texto_total = []
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            print(f"  📄 PDF con {len(pdf.pages)} páginas")
+            for page in pdf.pages:
+                texto = page.extract_text()
+                if texto:
+                    texto_total.append(texto)
+        texto_completo = "\n".join(texto_total)
+        print(f"  📝 Texto extraído: {len(texto_completo):,} caracteres")
+        return texto_completo
+    except Exception as e:
+        print(f"  ❌ Error leyendo PDF: {e}")
+        return ""
 
-for (fecha, boletin), grupo in grupos:
-    # Extraer nombres y CUITs únicos del grupo
-    nombres_y_cuits = set()
-    for _, row in grupo.iterrows():
-        if row["nombres"]:
-            nombres_y_cuits.update(row["nombres"].split(", "))
-        if row["cuit"]:
-            nombres_y_cuits.update(row["cuit"].split(", "))
-    resumen = list(nombres_y_cuits)[:10]
 
-    with st.container():
-        col1, col2, col3 = st.columns([3, 1, 1])
-        with col1:
-            st.markdown(f"### 📘 Boletín N° {boletin}")
-            st.caption(f"🗓️ {fecha.strftime('%d/%m/%Y')} · {len(grupo)} edictos")
-        with col2:
-            # Botón "ojo" para ver resumen
-            if st.button("👁️ Ver datos clave", key=f"resumen_{fecha}_{boletin}"):
-                with st.expander(f"Resumen de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
-                    if resumen:
-                        st.write("**Nombres / CUITs encontrados:**")
-                        for item in resumen:
-                            st.write(f"- {item}")
-                    else:
-                        st.write("No se extrajeron nombres o CUITs.")
-        with col3:
-            # Botón para ver edictos completos
-            if st.button("📄 Ver edictos", key=f"detalle_{fecha}_{boletin}"):
-                with st.expander(f"Edictos de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
-                    for _, row in grupo.iterrows():
-                        st.markdown(f"**📍 {row['localidad']}**")
-                        if row["nombres"]:
-                            st.markdown(f"*Nombres:* {row['nombres']}")
-                        if row["cuit"]:
-                            st.markdown(f"*CUIT:* {row['cuit']}")
-                        st.markdown(f"**Texto:** {row['texto_completo'][:300]}...")
-                        # Botón eliminar edicto (con confirmación)
-                        if st.button("🗑️ Eliminar este edicto", key=f"elim_{row['id']}"):
-                            if st.session_state.get(f"confirm_{row['id']}", False):
-                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                                st.success("Eliminado")
-                                st.rerun()
-                            else:
-                                st.session_state[f"confirm_{row['id']}"] = True
-                                st.warning("Hacé clic otra vez para confirmar eliminación.")
-                        st.markdown("---")
-        st.markdown("---")
+def buscar_localidades(texto):
+    resultados = []
+    texto_lower = texto.lower()
+    for localidad in LOCALIDADES:
+        pos = 0
+        while True:
+            idx = texto_lower.find(localidad.lower(), pos)
+            if idx == -1:
+                break
+            inicio = max(0, idx - CONTEXTO_CHARS)
+            fin = min(len(texto), idx + CONTEXTO_CHARS)
+            fragmento = texto[inicio:fin].strip()
+            resultados.append((localidad, fragmento))
+            pos = idx + len(localidad)
+    print(f"  🔍 Menciones encontradas: {len(resultados)}")
+    return resultados
 
-# Botón para recargar datos manualmente
-if st.button("🔄 Recargar datos"):
-    st.rerun()
+
+def extraer_nombres_cuit(texto):
+    patron = r"(?:CUIT|CUIL|DNI)[\s:\-N°]*([\d][\d\-]{6,})"
+    cuits = list(set(re.findall(patron, texto, re.IGNORECASE)))
+
+    nombres = []
+    lineas = texto.split('\n')
+    for i, linea in enumerate(lineas):
+        if re.search(patron, linea, re.IGNORECASE):
+            partes = re.split(r'(?:CUIT|CUIL|DNI)', linea, flags=re.IGNORECASE)
+            candidato = partes[0].strip().strip('.-,')
+            if 3 < len(candidato) < 80 and any(c.isalpha() for c in candidato):
+                nombres.append(candidato)
+            if i > 0:
+                anterior = lineas[i-1].strip()
+                if 3 < len(anterior) < 80 and any(c.isalpha() for c in anterior):
+                    nombres.append(anterior)
+
+    return list(set(nombres))[:5], cuits
+
+
+def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
+    nombres, cuits = extraer_nombres_cuit(texto)
+    clave_dedup = texto[:400]
+
+    try:
+        existing = supabase.table("edictos").select("id")\
+            .eq("fecha", fecha.isoformat())\
+            .eq("texto_completo", clave_dedup)\
+            .execute()
+        if existing.data:
+            return False
+    except Exception as e:
+        print(f"  ⚠️ Error verificando duplicado: {e}")
+
+    data = {
+        "fecha": fecha.isoformat(),
+        "boletin_numero": str(boletin_numero),
+        "seccion": seccion,
+        "localidad": localidad,
+        "nombres": ", ".join(nombres) if nombres else None,
+        "cuit": ", ".join(cuits) if cuits else None,
+        "texto_completo": texto[:5000],
+        "url_pdf": url,
+    }
+
+    try:
+        supabase.table("edictos").insert(data).execute()
+        print(f"  ✅ Guardado: {localidad} | {nombres[:1]}")
+        return True
+    except Exception as e:
+        print(f"  ❌ Error insertando: {e}")
+        return False
+
+
+def eliminar_viejos(dias=60):
+    """Borra edictos con fecha anterior a hoy - dias"""
+    fecha_limite = date.today() - timedelta(days=dias)
+    try:
+        result = supabase.table("edictos").delete().lt("fecha", fecha_limite.isoformat()).execute()
+        print(f"🗑️ Eliminados {len(result.data)} registros anteriores a {fecha_limite}")
+    except Exception as e:
+        print(f"⚠️ Error al eliminar registros viejos: {e}")
+
+
+def main():
+    hoy = date.today()
+    print(f"\n{'='*55}")
+    print(f"🗞️  Boletín Oficial PBA — {hoy.strftime('%d/%m/%Y')}")
+    print(f"{'='*55}\n")
+
+    total = 0
+
+    for nombre_seccion, url in SECCIONES.items():
+        print(f"\n📂 Sección: {nombre_seccion}")
+
+        pdf_bytes = descargar_pdf(url)
+        if not pdf_bytes:
+            print(f"  ❌ No se pudo descargar")
+            continue
+
+        texto = extraer_texto_pdf(pdf_bytes)
+        if not texto:
+            print(f"  ❌ No se pudo extraer texto")
+            continue
+
+        boletin_numero = "desconocido"
+        match = re.search(r"[Nn][º°]?\s*(\d{4,6})", texto)
+        if match:
+            boletin_numero = match.group(1)
+            print(f"  📋 Boletín N°: {boletin_numero}")
+
+        menciones = buscar_localidades(texto)
+        guardados = 0
+        for localidad, fragmento in menciones:
+            ok = guardar_edicto(localidad, fragmento, nombre_seccion, hoy, boletin_numero, url)
+            if ok:
+                guardados += 1
+
+        print(f"  💾 Guardados en {nombre_seccion}: {guardados}")
+        total += guardados
+
+    # Eliminar registros de más de 60 días
+    eliminar_viejos(60)
+
+    print(f"\n{'='*55}")
+    print(f"✅ Total guardados hoy: {total}")
+    print(f"{'='*55}\n")
+
+
+if __name__ == "__main__":
+    main()
