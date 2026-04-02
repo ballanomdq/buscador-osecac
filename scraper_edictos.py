@@ -41,7 +41,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
 
-CONTEXTO_CHARS = 1500  # Podés aumentarlo si querés más contexto
+CONTEXTO_CHARS = 1500  # Aumentá si querés más contexto
 
 
 def descargar_pdf(url):
@@ -98,8 +98,7 @@ def extraer_cuits_dnis(texto):
     """
     patron_cuit = r"\b\d{2}-\d{8}-\d\b"          # Formato xx-xxxxxxxx-x
     patron_dni = r"\b(?:DNI|CUIT|CUIL)[\s:]*(\d{6,8})\b"  # DNI junto a la palabra
-    # También buscar solo números largos que parezcan DNI (7-8 dígitos)
-    patron_solo_numeros = r"\b(\d{7,8})\b"
+    patron_solo_numeros = r"\b(\d{7,8})\b"        # Números aislados de 7-8 dígitos
 
     encontrados = set()
     # Buscar CUIT formales
@@ -117,25 +116,18 @@ def extraer_cuits_dnis(texto):
 
 
 def extraer_mayusculas(texto):
-    """
-    Encuentra palabras o secuencias de 2 o más palabras en mayúsculas
-    (razones sociales, apellidos, etc.)
-    """
+    """Encuentra palabras o secuencias de 2+ palabras en mayúsculas (razones sociales, apellidos)"""
     patron_mayus = r"\b[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+\b"
     matches = re.findall(patron_mayus, texto)
-    # Filtrar palabras muy cortas o repetidas
     mayusculas = []
     for m in matches:
-        # Si la palabra tiene al menos 3 letras y no es solo números
         if len(m.strip()) >= 3 and not m.isdigit():
             mayusculas.append(m.strip())
     return list(set(mayusculas))
 
 
 def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
-    # Extraer CUIT/DNI
     cuits = extraer_cuits_dnis(texto)
-    # Extraer palabras en mayúsculas (sujetos)
     sujetos = extraer_mayusculas(texto)
 
     clave_dedup = texto[:400]
@@ -156,7 +148,7 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
         "seccion": seccion,
         "localidad": localidad,
         "cuit_detectados": ", ".join(cuits) if cuits else None,
-        "sujetos": ", ".join(sujetos[:5]) if sujetos else None,   # solo primeros 5 para no saturar
+        "sujetos": ", ".join(sujetos[:5]) if sujetos else None,
         "texto_completo": texto[:5000],
         "url_pdf": url,
     }
@@ -180,7 +172,6 @@ def eliminar_viejos(dias=60):
 
 
 def main():
-    # Fecha actual en Argentina
     hoy = datetime.now(AR_TZ).date()
     print(f"\n{'='*55}")
     print(f"🗞️  Boletín Oficial PBA — {hoy.strftime('%d/%m/%Y')} (hora Argentina)")
