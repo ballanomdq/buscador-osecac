@@ -1,7 +1,8 @@
 import requests
 import re
 import io
-from datetime import date, timedelta
+from datetime import datetime, timedelta
+import pytz
 from supabase import create_client
 import os
 import sys
@@ -18,6 +19,10 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 print("✅ Supabase conectado")
 
+# --- Zona horaria Argentina ---
+AR_TZ = pytz.timezone('America/Argentina/Buenos_Aires')
+
+# --- Lista de localidades ---
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -36,7 +41,7 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 }
 
-CONTEXTO_CHARS = 1500
+CONTEXTO_CHARS = 1500  # Podés aumentarlo si querés más contexto
 
 
 def descargar_pdf(url):
@@ -86,28 +91,53 @@ def buscar_localidades(texto):
     return resultados
 
 
-def extraer_nombres_cuit(texto):
-    patron = r"(?:CUIT|CUIL|DNI)[\s:\-N°]*([\d][\d\-]{6,})"
-    cuits = list(set(re.findall(patron, texto, re.IGNORECASE)))
+def extraer_cuits_dnis(texto):
+    """
+    Busca CUIT (xx-xxxxxxxx-x) y DNI (hasta 8 dígitos) en el texto.
+    Devuelve lista de strings únicos.
+    """
+    patron_cuit = r"\b\d{2}-\d{8}-\d\b"          # Formato xx-xxxxxxxx-x
+    patron_dni = r"\b(?:DNI|CUIT|CUIL)[\s:]*(\d{6,8})\b"  # DNI junto a la palabra
+    # También buscar solo números largos que parezcan DNI (7-8 dígitos)
+    patron_solo_numeros = r"\b(\d{7,8})\b"
 
-    nombres = []
-    lineas = texto.split('\n')
-    for i, linea in enumerate(lineas):
-        if re.search(patron, linea, re.IGNORECASE):
-            partes = re.split(r'(?:CUIT|CUIL|DNI)', linea, flags=re.IGNORECASE)
-            candidato = partes[0].strip().strip('.-,')
-            if 3 < len(candidato) < 80 and any(c.isalpha() for c in candidato):
-                nombres.append(candidato)
-            if i > 0:
-                anterior = lineas[i-1].strip()
-                if 3 < len(anterior) < 80 and any(c.isalpha() for c in anterior):
-                    nombres.append(anterior)
+    encontrados = set()
+    # Buscar CUIT formales
+    for match in re.findall(patron_cuit, texto):
+        encontrados.add(match)
+    # Buscar DNI con palabra clave
+    for match in re.findall(patron_dni, texto, re.IGNORECASE):
+        encontrados.add(match)
+    # Buscar números aislados de 7 u 8 dígitos (evitar confundir con años)
+    for match in re.findall(patron_solo_numeros, texto):
+        if len(match) >= 7 and not (1900 <= int(match[:4]) <= 2030):  # evita años
+            encontrados.add(match)
 
-    return list(set(nombres))[:5], cuits
+    return sorted(encontrados)
+
+
+def extraer_mayusculas(texto):
+    """
+    Encuentra palabras o secuencias de 2 o más palabras en mayúsculas
+    (razones sociales, apellidos, etc.)
+    """
+    patron_mayus = r"\b[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+\b"
+    matches = re.findall(patron_mayus, texto)
+    # Filtrar palabras muy cortas o repetidas
+    mayusculas = []
+    for m in matches:
+        # Si la palabra tiene al menos 3 letras y no es solo números
+        if len(m.strip()) >= 3 and not m.isdigit():
+            mayusculas.append(m.strip())
+    return list(set(mayusculas))
 
 
 def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
-    nombres, cuits = extraer_nombres_cuit(texto)
+    # Extraer CUIT/DNI
+    cuits = extraer_cuits_dnis(texto)
+    # Extraer palabras en mayúsculas (sujetos)
+    sujetos = extraer_mayusculas(texto)
+
     clave_dedup = texto[:400]
 
     try:
@@ -125,15 +155,15 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
         "boletin_numero": str(boletin_numero),
         "seccion": seccion,
         "localidad": localidad,
-        "nombres": ", ".join(nombres) if nombres else None,
-        "cuit": ", ".join(cuits) if cuits else None,
+        "cuit_detectados": ", ".join(cuits) if cuits else None,
+        "sujetos": ", ".join(sujetos[:5]) if sujetos else None,   # solo primeros 5 para no saturar
         "texto_completo": texto[:5000],
         "url_pdf": url,
     }
 
     try:
         supabase.table("edictos").insert(data).execute()
-        print(f"  ✅ Guardado: {localidad} | {nombres[:1]}")
+        print(f"  ✅ Guardado: {localidad} | CUITs: {cuits[:2]}")
         return True
     except Exception as e:
         print(f"  ❌ Error insertando: {e}")
@@ -141,8 +171,7 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
 
 
 def eliminar_viejos(dias=60):
-    """Borra edictos con fecha anterior a hoy - dias"""
-    fecha_limite = date.today() - timedelta(days=dias)
+    fecha_limite = datetime.now(AR_TZ).date() - timedelta(days=dias)
     try:
         result = supabase.table("edictos").delete().lt("fecha", fecha_limite.isoformat()).execute()
         print(f"🗑️ Eliminados {len(result.data)} registros anteriores a {fecha_limite}")
@@ -151,9 +180,10 @@ def eliminar_viejos(dias=60):
 
 
 def main():
-    hoy = date.today()
+    # Fecha actual en Argentina
+    hoy = datetime.now(AR_TZ).date()
     print(f"\n{'='*55}")
-    print(f"🗞️  Boletín Oficial PBA — {hoy.strftime('%d/%m/%Y')}")
+    print(f"🗞️  Boletín Oficial PBA — {hoy.strftime('%d/%m/%Y')} (hora Argentina)")
     print(f"{'='*55}\n")
 
     total = 0
@@ -187,7 +217,6 @@ def main():
         print(f"  💾 Guardados en {nombre_seccion}: {guardados}")
         total += guardados
 
-    # Eliminar registros de más de 60 días
     eliminar_viejos(60)
 
     print(f"\n{'='*55}")
