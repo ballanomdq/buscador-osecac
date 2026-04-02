@@ -30,7 +30,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Lista de localidades (para filtro opcional) ---
+# --- Lista de localidades (para filtro) ---
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -84,7 +84,7 @@ grupos = df.groupby(["fecha", "boletin_numero"])
 st.subheader("📖 Boletines disponibles")
 
 for (fecha, boletin), grupo in grupos:
-    # Extraer nombres y CUITs únicos del grupo
+    # Extraer nombres y CUITs únicos del grupo, manejando valores None
     nombres_y_cuits = set()
     for _, row in grupo.iterrows():
         if row["nombres"]:
@@ -99,7 +99,6 @@ for (fecha, boletin), grupo in grupos:
             st.markdown(f"### 📘 Boletín N° {boletin}")
             st.caption(f"🗓️ {fecha.strftime('%d/%m/%Y')} · {len(grupo)} edictos")
         with col2:
-            # Botón "ojo" para ver resumen
             if st.button("👁️ Ver datos clave", key=f"resumen_{fecha}_{boletin}"):
                 with st.expander(f"Resumen de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
                     if resumen:
@@ -109,7 +108,6 @@ for (fecha, boletin), grupo in grupos:
                     else:
                         st.write("No se extrajeron nombres o CUITs.")
         with col3:
-            # Botón para ver edictos completos
             if st.button("📄 Ver edictos", key=f"detalle_{fecha}_{boletin}"):
                 with st.expander(f"Edictos de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
                     for _, row in grupo.iterrows():
@@ -131,6 +129,5 @@ for (fecha, boletin), grupo in grupos:
                         st.markdown("---")
         st.markdown("---")
 
-# Botón para recargar datos manualmente
 if st.button("🔄 Recargar datos"):
     st.rerun()
