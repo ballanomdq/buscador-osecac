@@ -3,10 +3,10 @@ import os
 import requests
 from supabase import create_client, Client
 import pandas as pd
+from datetime import date
 
-st.set_page_config(page_title="Boletín Oficial", layout="wide")
-
-st.title("📰 Boletín Oficial - Fiscalización")
+st.set_page_config(page_title="Boletín Oficial - Fiscalización", layout="wide")
+st.title("📚 Fiscalización - Edictos por Boletín")
 
 # --- Conexión a Supabase ---
 def get_credentials():
@@ -30,7 +30,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Lista de localidades (copiala de tu scraper) ---
+# --- Lista de localidades (para filtro opcional) ---
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -40,16 +40,15 @@ LOCALIDADES = [
     "Mar Chiquita"
 ]
 
-# --- Botones de acción ---
-st.subheader("🔍 Acciones")
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🔄 Forzar búsqueda ahora", use_container_width=True):
+# --- Botón para forzar scraping (manual) ---
+with st.sidebar:
+    st.header("Acciones")
+    if st.button("🔄 Forzar búsqueda ahora"):
         token = st.secrets.get("GH_TOKEN")
         if not token:
             st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
         else:
-            repo = "ballanomdq/buscador-osecac"   # Cambiá si es necesario
+            repo = "ballanomdq/buscador-osecac"  # CAMBIAR SI ES OTRO
             url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
             headers = {
                 "Authorization": f"token {token}",
@@ -60,52 +59,78 @@ with col1:
             if response.status_code == 204:
                 st.success("✅ Scraping iniciado. Los nuevos resultados aparecerán en unos minutos.")
             else:
-                st.error(f"Error al iniciar: {response.status_code} - {response.text}")
+                st.error(f"Error al iniciar: {response.status_code}")
 
-with col2:
-    if st.button("🔄 Recargar datos", use_container_width=True):
-        st.rerun()
+    st.header("Filtros")
+    localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
 
-# --- Mostrar edictos guardados ---
-st.subheader("📋 Edictos encontrados")
-
-# Filtros
-localidades_sel = st.multiselect("Filtrar por localidad", ["Todas"] + sorted(LOCALIDADES))
-buscar_texto = st.text_input("Buscar por nombre, CUIT o texto")
-
-# Construir consulta
+# --- Consultar datos agrupados por fecha ---
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
-if "Todas" not in localidades_sel and localidades_sel:
-    query = query.in_("localidad", localidades_sel)
-if buscar_texto:
-    query = query.or_(f"nombres.ilike.%{buscar_texto}%,cuit.ilike.%{buscar_texto}%,texto_completo.ilike.%{buscar_texto}%")
-
+if "Todas" not in localidad_filtro and localidad_filtro:
+    query = query.in_("localidad", localidad_filtro)
 response = query.execute()
 datos = response.data
 
-if datos:
-    df = pd.DataFrame(datos)
-    st.dataframe(
-        df[["fecha", "boletin_numero", "seccion", "localidad", "nombres", "cuit"]],
-        use_container_width=True,
-        column_config={
-            "fecha": "Fecha",
-            "boletin_numero": "Boletín",
-            "seccion": "Sección",
-            "localidad": "Localidad",
-            "nombres": "Nombres",
-            "cuit": "CUIT"
-        }
-    )
-    st.subheader("Detalle completo")
-    for _, row in df.iterrows():
-        with st.expander(f"{row['fecha']} - {row['localidad']} - {row['nombres'] or 'Sin nombre'}"):
-            st.markdown(f"**Sección:** {row['seccion']}")
-            st.markdown(f"**Boletín:** {row['boletin_numero']}")
-            st.markdown(f"**Localidad:** {row['localidad']}")
-            st.markdown(f"**Nombres:** {row['nombres']}")
-            st.markdown(f"**CUIT:** {row['cuit']}")
-            st.markdown("**Texto completo:**")
-            st.markdown(row['texto_completo'])
-else:
+if not datos:
     st.info("No hay edictos guardados todavía. Usá 'Forzar búsqueda ahora' para iniciar el scraping.")
+    st.stop()
+
+df = pd.DataFrame(datos)
+df["fecha"] = pd.to_datetime(df["fecha"])
+
+# Agrupar por fecha (boletín)
+grupos = df.groupby(["fecha", "boletin_numero"])
+
+st.subheader("📖 Boletines disponibles")
+
+for (fecha, boletin), grupo in grupos:
+    # Extraer nombres y CUITs únicos del grupo
+    nombres_y_cuits = set()
+    for _, row in grupo.iterrows():
+        if row["nombres"]:
+            nombres_y_cuits.update(row["nombres"].split(", "))
+        if row["cuit"]:
+            nombres_y_cuits.update(row["cuit"].split(", "))
+    resumen = list(nombres_y_cuits)[:10]
+
+    with st.container():
+        col1, col2, col3 = st.columns([3, 1, 1])
+        with col1:
+            st.markdown(f"### 📘 Boletín N° {boletin}")
+            st.caption(f"🗓️ {fecha.strftime('%d/%m/%Y')} · {len(grupo)} edictos")
+        with col2:
+            # Botón "ojo" para ver resumen
+            if st.button("👁️ Ver datos clave", key=f"resumen_{fecha}_{boletin}"):
+                with st.expander(f"Resumen de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
+                    if resumen:
+                        st.write("**Nombres / CUITs encontrados:**")
+                        for item in resumen:
+                            st.write(f"- {item}")
+                    else:
+                        st.write("No se extrajeron nombres o CUITs.")
+        with col3:
+            # Botón para ver edictos completos
+            if st.button("📄 Ver edictos", key=f"detalle_{fecha}_{boletin}"):
+                with st.expander(f"Edictos de {boletin} ({fecha.strftime('%d/%m/%Y')})", expanded=True):
+                    for _, row in grupo.iterrows():
+                        st.markdown(f"**📍 {row['localidad']}**")
+                        if row["nombres"]:
+                            st.markdown(f"*Nombres:* {row['nombres']}")
+                        if row["cuit"]:
+                            st.markdown(f"*CUIT:* {row['cuit']}")
+                        st.markdown(f"**Texto:** {row['texto_completo'][:300]}...")
+                        # Botón eliminar edicto (con confirmación)
+                        if st.button("🗑️ Eliminar este edicto", key=f"elim_{row['id']}"):
+                            if st.session_state.get(f"confirm_{row['id']}", False):
+                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                                st.success("Eliminado")
+                                st.rerun()
+                            else:
+                                st.session_state[f"confirm_{row['id']}"] = True
+                                st.warning("Hacé clic otra vez para confirmar eliminación.")
+                        st.markdown("---")
+        st.markdown("---")
+
+# Botón para recargar datos manualmente
+if st.button("🔄 Recargar datos"):
+    st.rerun()
