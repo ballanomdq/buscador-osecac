@@ -10,29 +10,20 @@ import re
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
-# Estilos CSS para mejorar la apariencia de los libros
+# Estilos CSS para los libros
 st.markdown("""
 <style>
-/* Fondo de los expanders de libros */
-div[data-testid="stExpander"] details summary p {
-    font-weight: bold;
-    font-size: 1.1rem;
+div[data-testid="stExpander"] details summary {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 6px solid #1e88e5;
+    margin-bottom: 8px;
 }
-.judicial-libro summary {
-    background-color: #e6f2ff;
-    border-left: 8px solid #1e88e5;
-    border-radius: 10px;
-    padding: 0.5rem;
+.judicial-libro {
+    border-left: 6px solid #1e88e5 !important;
 }
-.oficial-libro summary {
-    background-color: #f0f0f0;
-    border-left: 8px solid #5f6368;
-    border-radius: 10px;
-    padding: 0.5rem;
-}
-.alerta-roja {
-    background-color: #ffebee;
-    border-left: 4px solid #d32f2f;
+.oficial-libro {
+    border-left: 6px solid #5f6368 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -101,7 +92,7 @@ with st.sidebar:
     st.header("Filtros")
     localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
 
-# --- Consultar datos desde Supabase ---
+# --- Consultar datos ---
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
 if "Todas" not in localidad_filtro and localidad_filtro:
     query = query.in_("localidad", localidad_filtro)
@@ -127,247 +118,195 @@ if df["fecha"].dt.tz is None:
 else:
     df["fecha"] = df["fecha"].dt.tz_convert('America/Argentina/Buenos_Aires')
 
-# ================== FUNCIONES MEJORADAS ==================
+# --- Funciones mejoradas ---
 def extraer_nombre_cuit_quiebra(texto):
     """
-    Extrae nombre y CUIT específicos de un edicto de quiebra buscando patrones.
-    Prioriza: 'quiebra de NOMBRE', 'decretado la quiebra de NOMBRE', luego DNI/CUIT.
-    Devuelve (nombre, cuit, es_quiebra_real)
+    Busca específicamente el patrón "quiebra de NOMBRE" o "decretado la quiebra de NOMBRE"
+    y extrae el nombre y CUIT/DNI asociados. Si no, devuelve (None, None).
     """
-    texto_lower = texto.lower()
-    es_quiebra = "quiebra" in texto_lower or "concurso" in texto_lower
-    if not es_quiebra:
-        return None, None, False
-    
-    # Buscar patrones de quiebra con nombre
-    patron_quiebra = r"(?:quiebra|concurso)(?:\s+de|\s+del)?\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(|,|\.|con DNI|con CUIT|$)"
+    # Patrón para capturar nombre en mayúsculas después de "quiebra de"
+    patron_quiebra = r"quiebra de\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?=,|\.|con domicilio|DNI|CUIT)"
     match = re.search(patron_quiebra, texto, re.IGNORECASE)
-    nombre = match.group(1).strip() if match else None
-    
-    # Si no se encontró con ese patrón, buscar palabras en mayúsculas largas (posible nombre)
-    if not nombre:
-        mayus = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{4,}(?:\s+[A-ZÁÉÍÓÚÑ]{4,})+\b', texto)
-        if mayus:
-            nombre = mayus[0]
-    
-    # Buscar CUIT o DNI
-    cuit_match = re.search(r'\b\d{2}-\d{8}-\d\b', texto)
-    cuit = cuit_match.group(0) if cuit_match else None
-    if not cuit:
-        dni_match = re.search(r'\b(\d{7,8})\b', texto)
-        cuit = dni_match.group(1) if dni_match else None
-    
-    return nombre, cuit, es_quiebra
+    if match:
+        nombre = match.group(1).strip()
+        # Buscar CUIT/DNI en los alrededores
+        cuit_match = re.search(r'\b\d{2}-\d{8}-\d\b', texto)
+        dni_match = re.search(r'\b(DNI|CUIT|CUIL)[\s:]*(\d{7,8})\b', texto, re.IGNORECASE)
+        cuit = cuit_match.group(0) if cuit_match else (dni_match.group(2) if dni_match else None)
+        return nombre, cuit
+    return None, None
 
-def extraer_nombre_cuit_general(texto):
-    """Extrae nombre y CUIT/DNI de texto genérico (sin quiebra)"""
-    # Buscar nombres en mayúsculas (al menos dos palabras o una larga)
-    mayus = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{4,}(?:\s+[A-ZÁÉÍÓÚÑ]{4,})+\b', texto)
-    nombre = mayus[0] if mayus else None
-    cuit_match = re.search(r'\b\d{2}-\d{8}-\d\b', texto)
-    cuit = cuit_match.group(0) if cuit_match else None
-    if not cuit:
-        dni_match = re.search(r'\b(\d{7,8})\b', texto)
-        cuit = dni_match.group(1) if dni_match else None
-    return nombre, cuit
+def extraer_nombre_general(texto):
+    """
+    Busca palabras en mayúsculas (posibles nombres) sin contexto de quiebra.
+    """
+    mayusculas = re.findall(r'\b[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\b', texto)
+    if not mayusculas:
+        mayusculas = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{5,}\b', texto)
+    return mayusculas[0] if mayusculas else None
 
 def obtener_info_edicto(row):
     texto = row["texto_completo"]
+    # Datos de BD
     sujetos_db = row.get("sujetos")
     cuits_db = row.get("cuit_detectados")
     
-    # Primero verificar si es quiebra real (con nombre cercano)
-    nombre_q, cuit_q, es_quiebra = extraer_nombre_cuit_quiebra(texto)
+    # Detectar si es quiebra (y validar cercanía)
+    es_quiebra = False
+    nombre_quiebra = None
+    cuit_quiebra = None
+    if "quiebra" in texto.lower() or "concurso" in texto.lower():
+        nombre_quiebra, cuit_quiebra = extraer_nombre_cuit_quiebra(texto)
+        if nombre_quiebra:
+            es_quiebra = True  # Solo si el nombre está cerca de la palabra
     
-    if es_quiebra:
-        # Es una alerta roja legítima
-        nombre = nombre_q if nombre_q else (sujetos_db.split(",")[0] if sujetos_db else None)
-        cuit = cuit_q if cuit_q else (cuits_db.split(",")[0] if cuits_db else None)
-        nivel = "roja"
-        icono = "🚨"
-        motivo = "QUIEBRA/CONCURSO"
-        if not nombre:
-            # Si no se pudo extraer nombre, intentar con el método general
-            nombre, _ = extraer_nombre_cuit_general(texto)
-        return {
-            "quiebra": True,
-            "nivel": nivel,
-            "icono": icono,
-            "motivo": motivo,
-            "nombre_mostrar": nombre if nombre else (cuit if cuit else "Sin datos identificatorios"),
-            "cuit": cuit
-        }
-    else:
-        # No es quiebra, usar lógica normal con prioridad a sujetos_db
+    # Si no es quiebra o no se encontró nombre, usar métodos generales
+    if not es_quiebra:
+        # Usar sujetos de BD si existe
         if sujetos_db and len(sujetos_db.strip()) > 0:
             nombre = sujetos_db.split(",")[0].strip()
         else:
-            nombre, _ = extraer_nombre_cuit_general(texto)
+            nombre = extraer_nombre_general(texto)
         if cuits_db and len(cuits_db.strip()) > 0:
             cuit = cuits_db.split(",")[0].strip()
         else:
-            _, cuit = extraer_nombre_cuit_general(texto)
-        if cuit:
-            nivel = "amarilla"
-            icono = "⚠️"
-            motivo = "PRECAUCIÓN"
-        else:
-            nivel = "gris"
-            icono = "⚪"
-            motivo = "INFORMATIVO"
-        return {
-            "quiebra": False,
-            "nivel": nivel,
-            "icono": icono,
-            "motivo": motivo,
-            "nombre_mostrar": nombre if nombre else (cuit if cuit else "Sin datos identificatorios"),
-            "cuit": cuit
-        }
-
-# ================== SEPARAR ALERTAS REALES DE QUIEBRA ==================
-# Usamos la función mejorada para detectar quiebras verdaderas
-alertas = []
-otros = []
-for _, row in df.iterrows():
-    info = obtener_info_edicto(row)
-    if info["quiebra"]:
-        alertas.append((row, info))
+            cuit_match = re.search(r'\b\d{2}-\d{8}-\d\b', texto)
+            cuit = cuit_match.group(0) if cuit_match else None
     else:
-        otros.append((row, info))
+        nombre = nombre_quiebra
+        cuit = cuit_quiebra
+    
+    # Determinar nivel e ícono
+    if es_quiebra:
+        nivel = "roja"
+        icono = "🚨"
+        motivo = "QUIEBRA/CONCURSO"
+    elif cuit:
+        nivel = "amarilla"
+        icono = "⚠️"
+        motivo = "PRECAUCIÓN"
+    else:
+        nivel = "gris"
+        icono = "⚪"
+        motivo = "INFORMATIVO"
+    
+    nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos identificatorios")
+    return {
+        "quiebra": es_quiebra,
+        "nivel": nivel,
+        "icono": icono,
+        "motivo": motivo,
+        "nombre_mostrar": nombre_mostrar,
+        "cuit": cuit
+    }
 
-# --- Mostrar sección de alertas (si existe) ---
-if alertas:
-    st.subheader("🚨 ALERTAS DE QUIEBRAS Y CONCURSOS")
-    st.caption("Estos edictos contienen palabras clave 'quiebra' o 'concurso' y se ha verificado que están asociadas a un nombre.")
-    for row, info in alertas:
-        titulo = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
-        if info['cuit']:
-            titulo += f" - {info['cuit']}"
-        with st.expander(titulo):
-            texto_resaltado = row["texto_completo"]
-            if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos identificatorios":
-                texto_resaltado = re.sub(rf'\b{re.escape(info['nombre_mostrar'])}\b', f'**{info['nombre_mostrar']}**', texto_resaltado, flags=re.IGNORECASE)
-            st.markdown(texto_resaltado)
-            edicto_id = row["id"]
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                if st.button("✅ Revisado", key=f"rev_alert_{edicto_id}"):
-                    st.session_state[f"revisado_{edicto_id}"] = True
-                    st.rerun()
-            with col_b2:
-                if st.button("🗑️ Eliminar", key=f"del_alert_{edicto_id}"):
-                    confirm_key = f"confirm_alert_{edicto_id}"
-                    if st.session_state.get(confirm_key, False):
-                        supabase.table("edictos").delete().eq("id", edicto_id).execute()
-                        st.success("Eliminado")
-                        st.rerun()
-                    else:
-                        st.session_state[confirm_key] = True
-                        st.warning("Hacé clic otra vez para confirmar eliminación.")
-    st.divider()
-
-# ================== ORGANIZAR POR BOLETINES (LIBROS) ==================
-if not otros:
-    st.info("No hay más edictos para mostrar.")
-    st.stop()
-
-df_resto = pd.DataFrame([row for row, _ in otros])
-df_resto["boletin_clave"] = df_resto["boletin_numero"] + "_" + df_resto["fecha"].dt.strftime("%Y%m%d")
-# Agrupar por boletín y sección para poder separar en columnas
-boletines = df_resto.groupby(["boletin_clave", "fecha", "boletin_numero"])
+# --- Agrupar por boletín y sección ---
+df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].dt.strftime("%Y%m%d")
+boletines = df.groupby(["boletin_clave", "fecha", "boletin_numero"])
 
 boletines_list = []
 for (clave, fecha, numero), grupo in boletines:
+    # Dividir por sección
+    grupo_judicial = grupo[grupo["seccion"] == "JUDICIAL"]
+    grupo_oficial = grupo[grupo["seccion"] == "OFICIAL"]
+    # Ordenar cada grupo por prioridad: quiebra > con cuit > resto
+    def prioridad(row):
+        texto = row["texto_completo"]
+        if "quiebra" in texto.lower() or "concurso" in texto.lower():
+            return 0
+        elif row.get("cuit_detectados"):
+            return 1
+        else:
+            return 2
+    if not grupo_judicial.empty:
+        grupo_judicial = grupo_judicial.sort_values(by="texto_completo", key=lambda x: x.apply(prioridad))
+    if not grupo_oficial.empty:
+        grupo_oficial = grupo_oficial.sort_values(by="texto_completo", key=lambda x: x.apply(prioridad))
     boletines_list.append({
-        "clave": clave,
         "fecha": fecha,
         "numero": numero,
-        "grupo": grupo
+        "judicial": grupo_judicial,
+        "oficial": grupo_oficial
     })
+# Ordenar boletines por fecha descendente
 boletines_list.sort(key=lambda x: x["fecha"], reverse=True)
 
-# --- Dividir en dos columnas: Judicial y Oficial ---
+# --- Mostrar dos columnas: Judicial y Oficial ---
 col_judicial, col_oficial = st.columns(2)
 
 with col_judicial:
-    st.markdown("## ⚖️ LIBRO JUDICIAL")
+    st.markdown("## ⚖️ LIBROS JUDICIALES")
     for boletin in boletines_list:
-        grupo = boletin["grupo"]
-        judicial = grupo[grupo["seccion"] == "JUDICIAL"]
-        if judicial.empty:
-            continue
-        fecha = boletin["fecha"]
-        numero = boletin["numero"]
-        with st.expander(f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"):
-            for _, row in judicial.iterrows():
-                # Obtener info usando la función mejorada (ya que estos no son quiebras)
-                info = obtener_info_edicto(row)
-                titulo = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
-                if info['cuit']:
-                    titulo += f" - {info['cuit']}"
-                revisado_key = f"revisado_{row['id']}"
-                if revisado_key in st.session_state and st.session_state[revisado_key]:
-                    titulo = "🟢 " + titulo
-                with st.expander(titulo):
-                    texto_resaltado = row["texto_completo"]
-                    if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos identificatorios":
-                        texto_resaltado = re.sub(rf'\b{re.escape(info['nombre_mostrar'])}\b', f'**{info['nombre_mostrar']}**', texto_resaltado, flags=re.IGNORECASE)
-                    st.markdown(texto_resaltado)
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        if st.button("✅ Revisado", key=f"rev_{row['id']}"):
-                            st.session_state[revisado_key] = True
-                            st.rerun()
-                    with col_b2:
-                        if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
-                            confirm_key = f"confirm_{row['id']}"
-                            if st.session_state.get(confirm_key, False):
-                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                                st.success("Eliminado")
+        if not boletin["judicial"].empty:
+            fecha = boletin["fecha"]
+            numero = boletin["numero"]
+            with st.expander(f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"):
+                # Mostrar edictos ordenados por prioridad (ya lo están)
+                for _, row in boletin["judicial"].iterrows():
+                    info = obtener_info_edicto(row)
+                    titulo = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
+                    if info['cuit']:
+                        titulo += f" - {info['cuit']}"
+                    revisado_key = f"revisado_{row['id']}"
+                    if revisado_key in st.session_state and st.session_state[revisado_key]:
+                        titulo = "🟢 " + titulo
+                    with st.expander(titulo):
+                        # Resaltar nombre en el texto
+                        texto_resaltado = row["texto_completo"]
+                        if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos identificatorios":
+                            texto_resaltado = re.sub(rf'\b{re.escape(info['nombre_mostrar'])}\b', f'**{info['nombre_mostrar']}**', texto_resaltado, flags=re.IGNORECASE)
+                        st.markdown(texto_resaltado)
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button("✅ Revisado", key=f"rev_{row['id']}"):
+                                st.session_state[revisado_key] = True
                                 st.rerun()
-                            else:
-                                st.session_state[confirm_key] = True
-                                st.warning("Hacé clic otra vez para confirmar eliminación.")
+                        with col_b2:
+                            if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
+                                confirm_key = f"confirm_{row['id']}"
+                                if st.session_state.get(confirm_key, False):
+                                    supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                                    st.success("Eliminado")
+                                    st.rerun()
+                                else:
+                                    st.session_state[confirm_key] = True
+                                    st.warning("Hacé clic otra vez para confirmar eliminación.")
 
 with col_oficial:
-    st.markdown("## 📜 LIBRO OFICIAL")
+    st.markdown("## 📜 LIBROS OFICIALES")
     for boletin in boletines_list:
-        grupo = boletin["grupo"]
-        oficial = grupo[grupo["seccion"] == "OFICIAL"]
-        if oficial.empty:
-            continue
-        fecha = boletin["fecha"]
-        numero = boletin["numero"]
-        with st.expander(f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"):
-            for _, row in oficial.iterrows():
-                info = obtener_info_edicto(row)
-                titulo = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
-                if info['cuit']:
-                    titulo += f" - {info['cuit']}"
-                revisado_key = f"revisado_{row['id']}"
-                if revisado_key in st.session_state and st.session_state[revisado_key]:
-                    titulo = "🟢 " + titulo
-                with st.expander(titulo):
-                    texto_resaltado = row["texto_completo"]
-                    if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos identificatorios":
-                        texto_resaltado = re.sub(rf'\b{re.escape(info['nombre_mostrar'])}\b', f'**{info['nombre_mostrar']}**', texto_resaltado, flags=re.IGNORECASE)
-                    st.markdown(texto_resaltado)
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        if st.button("✅ Revisado", key=f"rev_{row['id']}"):
-                            st.session_state[revisado_key] = True
-                            st.rerun()
-                    with col_b2:
-                        if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
-                            confirm_key = f"confirm_{row['id']}"
-                            if st.session_state.get(confirm_key, False):
-                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                                st.success("Eliminado")
+        if not boletin["oficial"].empty:
+            fecha = boletin["fecha"]
+            numero = boletin["numero"]
+            with st.expander(f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"):
+                for _, row in boletin["oficial"].iterrows():
+                    info = obtener_info_edicto(row)
+                    titulo = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
+                    if info['cuit']:
+                        titulo += f" - {info['cuit']}"
+                    revisado_key = f"revisado_{row['id']}"
+                    if revisado_key in st.session_state and st.session_state[revisado_key]:
+                        titulo = "🟢 " + titulo
+                    with st.expander(titulo):
+                        texto_resaltado = row["texto_completo"]
+                        if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos identificatorios":
+                            texto_resaltado = re.sub(rf'\b{re.escape(info['nombre_mostrar'])}\b', f'**{info['nombre_mostrar']}**', texto_resaltado, flags=re.IGNORECASE)
+                        st.markdown(texto_resaltado)
+                        col_b1, col_b2 = st.columns(2)
+                        with col_b1:
+                            if st.button("✅ Revisado", key=f"rev_{row['id']}"):
+                                st.session_state[revisado_key] = True
                                 st.rerun()
-                            else:
-                                st.session_state[confirm_key] = True
-                                st.warning("Hacé clic otra vez para confirmar eliminación.")
+                        with col_b2:
+                            if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
+                                confirm_key = f"confirm_{row['id']}"
+                                if st.session_state.get(confirm_key, False):
+                                    supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                                    st.success("Eliminado")
+                                    st.rerun()
+                                else:
+                                    st.session_state[confirm_key] = True
+                                    st.warning("Hacé clic otra vez para confirmar eliminación.")
 
-# Botón de recarga manual al final
 if st.button("🔄 Recargar datos", key="recargar"):
     st.rerun()
