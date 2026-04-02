@@ -6,8 +6,35 @@ import pandas as pd
 from datetime import datetime
 import pytz
 import time
+import re
 
-st.set_page_config(page_title="Boletín Oficial - Fiscalización", layout="wide")
+st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
+
+# Estilos CSS para los libros (colores de acento)
+st.markdown("""
+<style>
+/* Libro Judicial (azul) */
+div[data-testid="stExpander"] details summary p:has(> .judicial) {
+    background-color: #e6f2ff;
+    border-left: 6px solid #1e88e5;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+/* Libro Oficial (gris) */
+div[data-testid="stExpander"] details summary p:has(> .oficial) {
+    background-color: #f0f0f0;
+    border-left: 6px solid #5f6368;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+}
+/* Edicto alerta roja */
+.alerta-roja {
+    background-color: #ffebee;
+    border-left: 6px solid #d32f2f;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("📚 Fiscalización OSECAC - Boletín Oficial")
 
 # --- Conexión a Supabase ---
@@ -32,7 +59,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Botón principal con barra de progreso ---
+# --- Botón de forzar descarga (barra de progreso) ---
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     if st.button("🔄 Forzar descarga de Boletines del día", use_container_width=True):
@@ -40,14 +67,11 @@ with col2:
         if not token:
             st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
         else:
-            repo = "ballanomdq/buscador-osecac"  # Ajustá si es necesario
+            repo = "ballanomdq/buscador-osecac"  # Ajustar si es necesario
             url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
-            headers = {
-                "Authorization": f"token {token}",
-                "Accept": "application/vnd.github.v3+json"
-            }
+            headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
             data = {"ref": "main"}
-            with st.spinner("⏳ Procesando boletines... esto puede tomar unos segundos."):
+            with st.spinner("⏳ Procesando boletines... puede tardar unos segundos."):
                 response = requests.post(url, json=data, headers=headers)
                 if response.status_code == 204:
                     progress_bar = st.progress(0)
@@ -61,8 +85,24 @@ with col2:
 
 st.divider()
 
-# --- Consultar datos ---
+# --- Filtro de localidad (sidebar) ---
+LOCALIDADES = [
+    "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
+    "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
+    "Castelli", "Tordillo", "Conesa", "Lavalle", "San Clemente", "Las Toninas",
+    "Santa Teresita", "Mar del Tuyu", "San Bernardo", "La Lucila del Mar",
+    "Mar de Ajo", "Costa del Este", "Pinamar", "Madariaga", "Villa Gesell",
+    "Mar Chiquita"
+]
+
+with st.sidebar:
+    st.header("Filtros")
+    localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
+
+# --- Consultar datos desde Supabase ---
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
+if "Todas" not in localidad_filtro and localidad_filtro:
+    query = query.in_("localidad", localidad_filtro)
 response = query.execute()
 datos = response.data
 
@@ -85,13 +125,11 @@ if df["fecha"].dt.tz is None:
 else:
     df["fecha"] = df["fecha"].dt.tz_convert('America/Argentina/Buenos_Aires')
 
-# Agrupar por número de boletín y fecha
+# Agrupar por boletín (fecha + número) y sección
 df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].dt.strftime("%Y%m%d")
 boletines = df.groupby(["boletin_clave", "fecha", "boletin_numero"])
 
-st.subheader("📖 Boletines disponibles")
-
-# Convertir a lista y ordenar por fecha descendente
+# Ordenar boletines por fecha descendente
 boletines_list = []
 for (clave, fecha, numero), grupo in boletines:
     boletines_list.append({
@@ -102,87 +140,137 @@ for (clave, fecha, numero), grupo in boletines:
     })
 boletines_list.sort(key=lambda x: x["fecha"], reverse=True)
 
-# --- Función para determinar el motivo principal de un grupo de edictos ---
-def obtener_motivo(grupo):
-    textos = grupo["texto_completo"].str.lower().sum()
-    if "quiebra" in textos:
-        return "🚨 QUIEBRA"
-    if "sucesorio" in textos or "sucesión" in textos:
-        return "⚖️ SUCESORIO"
-    if "concurso" in textos:
-        return "📉 CONCURSO"
-    if "transferencia" in textos:
-        return "🔄 TRANSFERENCIA"
-    return "⚪ INFORMATIVO"
+# --- Función para determinar el motivo y nivel de alerta de un edicto ---
+def analizar_edicto(texto, cuits, sujetos):
+    texto_lower = texto.lower()
+    if "quiebra" in texto_lower or "concurso" in texto_lower:
+        return "🚨", "QUIEBRA/CONCURSO", "roja"
+    elif cuits:
+        return "⚠️", "PRECAUCIÓN", "amarilla"
+    else:
+        return "⚪", "INFORMATIVO", "gris"
 
-# --- Mostrar tarjetas en cuadrícula (3 columnas) ---
-cols = st.columns(3)
-for idx, boletin in enumerate(boletines_list):
-    col = cols[idx % 3]
-    with col:
-        grupo = boletin["grupo"]
-        motivo = obtener_motivo(grupo)
-        
-        # Extraer todos los CUITs y nombres (en mayúsculas) de este boletín
-        todos_cuits = set()
-        todos_nombres = set()
-        for _, row in grupo.iterrows():
-            if row.get("cuit_detectados"):
-                for c in row["cuit_detectados"].split(", "):
-                    todos_cuits.add(c)
-            if row.get("sujetos"):
-                for s in row["sujetos"].split(", "):
-                    todos_nombres.add(s)
-        # Tomar un nombre representativo (el primero, o el que tenga mayúsculas largas)
-        nombre_str = ", ".join(sorted(todos_nombres)[:2]) if todos_nombres else "SIN NOMBRE"
-        
-        # Construir título de la tarjeta
-        titulo = f"{motivo} | {boletin['fecha'].strftime('%d/%m/%Y')} | {nombre_str}"
-        if todos_cuits:
-            titulo += f" | CUITs: {', '.join(sorted(todos_cuits)[:3])}"
-            if len(todos_cuits) > 3:
-                titulo += f" (+{len(todos_cuits)-3})"
-        else:
-            titulo += " | SIN CUIT"
-        
-        # Opcional: si el motivo es INFORMATIVO y no hay CUIT, se puede marcar para saltear visualmente
-        if motivo == "⚪ INFORMATIVO" and not todos_cuits:
-            titulo = "⏩ " + titulo  # indicador de que se puede saltar
-        
-        # Crear tarjeta expandible
-        with st.expander(titulo):
-            # Mostrar cada sección por separado
-            for seccion in ["JUDICIAL", "OFICIAL"]:
-                subgrupo = grupo[grupo["seccion"] == seccion]
-                if not subgrupo.empty:
-                    st.markdown(f"### {seccion}")
-                    for _, row in subgrupo.iterrows():
-                        # Alertas específicas
-                        es_quiebra = "quiebra" in row["texto_completo"].lower()
-                        if es_quiebra:
-                            st.markdown(f"<span style='background-color:#ffcccc; padding:2px 6px; border-radius:10px;'>⚠️ QUIEBRA</span>", unsafe_allow_html=True)
-                        st.markdown(f"**📍 {row['localidad']}**")
-                        cuits = row.get("cuit_detectados")
-                        if cuits:
-                            st.markdown(f"**CUITs:** {cuits}")
-                        if row.get("sujetos"):
-                            st.markdown(f"**Sujetos:** {row['sujetos']}")
-                        if cuits:
-                            for cuit in cuits.split(", "):
-                                col1, col2 = st.columns([4, 1])
-                                with col1:
-                                    st.write(cuit)
-                                with col2:
-                                    if st.button(f"📋 Copiar", key=f"copy_{row['id']}_{cuit}"):
-                                        st.write(f"Copiado: {cuit}")
-                                        st.components.v1.html(
-                                            f"<script>navigator.clipboard.writeText('{cuit}');</script>",
-                                            height=0,
-                                        )
-                        with st.expander("Ver texto completo"):
-                            st.markdown(row["texto_completo"])
-                        st.markdown("---")
-        st.markdown("<br>", unsafe_allow_html=True)
+# --- Función para extraer nombre representativo (prioridad: sujetos en mayúsculas, luego CUIT) ---
+def obtener_nombre_cuit(cuits, sujetos):
+    if sujetos:
+        # Tomar el primer sujeto (suele ser el más relevante)
+        return sujetos.split(",")[0].strip()
+    elif cuits:
+        return cuits.split(",")[0].strip()
+    else:
+        return "Sin datos identificatorios"
 
+# --- Mostrar libros por cada boletín ---
+for boletin in boletines_list:
+    fecha = boletin["fecha"]
+    numero = boletin["numero"]
+    grupo = boletin["grupo"]
+    
+    # Dividir el grupo por sección
+    grupo_judicial = grupo[grupo["seccion"] == "JUDICIAL"]
+    grupo_oficial = grupo[grupo["seccion"] == "OFICIAL"]
+    
+    # Mostrar Libro Judicial si tiene edictos
+    if not grupo_judicial.empty:
+        with st.expander(f"⚖️ LIBRO JUDICIAL | N° {numero} | {fecha.strftime('%d/%m/%Y')}"):
+            # Iterar sobre cada edicto dentro de esta sección
+            for _, row in grupo_judicial.iterrows():
+                texto = row["texto_completo"]
+                cuits = row.get("cuit_detectados")
+                sujetos = row.get("sujetos")
+                
+                # Determinar alerta y título
+                icono, motivo, nivel = analizar_edicto(texto, cuits, sujetos)
+                localidad = row["localidad"]
+                nombre_cuit = obtener_nombre_cuit(cuits, sujetos)
+                
+                # Título del edicto (expander interno)
+                titulo = f"{icono} {motivo} | {localidad} | ({nombre_cuit})"
+                
+                # Clave única para session_state (revisado/eliminado)
+                edicto_id = row["id"]
+                revisado_key = f"revisado_{edicto_id}"
+                if revisado_key not in st.session_state:
+                    st.session_state[revisado_key] = False
+                
+                # Si está revisado, cambiar el icono en el título
+                if st.session_state[revisado_key]:
+                    titulo = "🟢 " + titulo
+                
+                with st.expander(titulo):
+                    # Resaltar nombres (suponemos que los sujetos están en mayúsculas)
+                    texto_resaltado = texto
+                    if sujetos:
+                        for s in sujetos.split(","):
+                            s_limpio = s.strip()
+                            if s_limpio:
+                                texto_resaltado = re.sub(rf'\b{re.escape(s_limpio)}\b', f'**{s_limpio}**', texto_resaltado, flags=re.IGNORECASE)
+                    st.markdown(texto_resaltado)
+                    
+                    # Botones de gestión
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("✅ Revisado", key=f"btn_rev_{edicto_id}"):
+                            st.session_state[revisado_key] = True
+                            st.rerun()
+                    with col_b2:
+                        if st.button("🗑️ Eliminar", key=f"btn_del_{edicto_id}"):
+                            # Confirmación en dos pasos
+                            confirm_key = f"confirm_{edicto_id}"
+                            if st.session_state.get(confirm_key, False):
+                                supabase.table("edictos").delete().eq("id", edicto_id).execute()
+                                st.success("Eliminado")
+                                st.rerun()
+                            else:
+                                st.session_state[confirm_key] = True
+                                st.warning("Hacé clic otra vez para confirmar eliminación.")
+    
+    # Mostrar Libro Oficial si tiene edictos
+    if not grupo_oficial.empty:
+        with st.expander(f"📜 LIBRO OFICIAL | N° {numero} | {fecha.strftime('%d/%m/%Y')}"):
+            for _, row in grupo_oficial.iterrows():
+                texto = row["texto_completo"]
+                cuits = row.get("cuit_detectados")
+                sujetos = row.get("sujetos")
+                
+                icono, motivo, nivel = analizar_edicto(texto, cuits, sujetos)
+                localidad = row["localidad"]
+                nombre_cuit = obtener_nombre_cuit(cuits, sujetos)
+                titulo = f"{icono} {motivo} | {localidad} | ({nombre_cuit})"
+                
+                edicto_id = row["id"]
+                revisado_key = f"revisado_{edicto_id}"
+                if revisado_key not in st.session_state:
+                    st.session_state[revisado_key] = False
+                if st.session_state[revisado_key]:
+                    titulo = "🟢 " + titulo
+                
+                with st.expander(titulo):
+                    # Resaltar nombres
+                    texto_resaltado = texto
+                    if sujetos:
+                        for s in sujetos.split(","):
+                            s_limpio = s.strip()
+                            if s_limpio:
+                                texto_resaltado = re.sub(rf'\b{re.escape(s_limpio)}\b', f'**{s_limpio}**', texto_resaltado, flags=re.IGNORECASE)
+                    st.markdown(texto_resaltado)
+                    
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("✅ Revisado", key=f"btn_rev_{edicto_id}"):
+                            st.session_state[revisado_key] = True
+                            st.rerun()
+                    with col_b2:
+                        if st.button("🗑️ Eliminar", key=f"btn_del_{edicto_id}"):
+                            confirm_key = f"confirm_{edicto_id}"
+                            if st.session_state.get(confirm_key, False):
+                                supabase.table("edictos").delete().eq("id", edicto_id).execute()
+                                st.success("Eliminado")
+                                st.rerun()
+                            else:
+                                st.session_state[confirm_key] = True
+                                st.warning("Hacé clic otra vez para confirmar eliminación.")
+
+# Botón de recarga manual
 if st.button("🔄 Recargar datos", key="recargar"):
     st.rerun()
