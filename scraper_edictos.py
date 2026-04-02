@@ -1,21 +1,21 @@
 import requests
 import re
+import io
 from datetime import date
-from supabase import create_client, Client
+from supabase import create_client
 import os
 import sys
-from bs4 import BeautifulSoup
+import pdfplumber
 
 # --- Configuración ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    print("❌ ERROR: Faltan las variables de entorno SUPABASE_URL y/o SUPABASE_KEY")
+    print("❌ ERROR: Faltan SUPABASE_URL y/o SUPABASE_KEY")
     sys.exit(1)
 
-print(f"✅ Conectando a Supabase: {SUPABASE_URL[:30]}...")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 print("✅ Supabase conectado")
 
 LOCALIDADES = [
@@ -27,43 +27,54 @@ LOCALIDADES = [
     "Mar Chiquita"
 ]
 
-BASE_URL = "https://boletinoficial.gba.gob.ar"
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+SECCIONES = {
+    "JUDICIAL": "https://boletinoficial.gba.gob.ar/secciones/14079/ver",
+    "OFICIAL":  "https://boletinoficial.gba.gob.ar/secciones/14078/ver",
 }
 
-# Caracteres a capturar antes y después de cada mención de localidad
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
+
 CONTEXTO_CHARS = 1500
 
-def obtener_html(url, timeout=30):
+
+def descargar_pdf(url):
     try:
-        print(f"  → GET {url}")
-        resp = requests.get(url, timeout=timeout, headers=HEADERS)
-        print(f"  ← Status: {resp.status_code} ({len(resp.text):,} chars)")
+        print(f"  → Descargando: {url}")
+        resp = requests.get(url, timeout=60, headers=HEADERS)
+        print(f"  ← Status: {resp.status_code} | Content-Type: {resp.headers.get('Content-Type','?')}")
         resp.raise_for_status()
-        return resp.text
+        return resp.content
     except Exception as e:
-        print(f"  ❌ Error: {e}")
+        print(f"  ❌ Error descargando: {e}")
         return None
 
-def extraer_texto(html):
-    soup = BeautifulSoup(html, 'html.parser')
-    return soup.get_text(separator="\n")
 
-def extraer_contexto_por_localidad(texto):
-    """
-    Busca cada localidad en el texto completo y extrae un bloque
-    de contexto alrededor de cada mención. Devuelve lista de (localidad, fragmento).
-    """
+def extraer_texto_pdf(pdf_bytes):
+    texto_total = []
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            print(f"  📄 PDF con {len(pdf.pages)} páginas")
+            for page in pdf.pages:
+                texto = page.extract_text()
+                if texto:
+                    texto_total.append(texto)
+        texto_completo = "\n".join(texto_total)
+        print(f"  📝 Texto extraído: {len(texto_completo):,} caracteres")
+        return texto_completo
+    except Exception as e:
+        print(f"  ❌ Error leyendo PDF: {e}")
+        return ""
+
+
+def buscar_localidades(texto):
     resultados = []
     texto_lower = texto.lower()
-
     for localidad in LOCALIDADES:
         pos = 0
-        localidad_lower = localidad.lower()
         while True:
-            idx = texto_lower.find(localidad_lower, pos)
+            idx = texto_lower.find(localidad.lower(), pos)
             if idx == -1:
                 break
             inicio = max(0, idx - CONTEXTO_CHARS)
@@ -71,37 +82,41 @@ def extraer_contexto_por_localidad(texto):
             fragmento = texto[inicio:fin].strip()
             resultados.append((localidad, fragmento))
             pos = idx + len(localidad)
-
-    print(f"  🔍 Menciones de localidades encontradas: {len(resultados)}")
+    print(f"  🔍 Menciones encontradas: {len(resultados)}")
     return resultados
 
+
 def extraer_nombres_cuit(texto):
-    patron_cuit = r"(?:CUIT|CUIL|DNI)[\s:\-]*(\d[\d\-]{6,})"
-    cuits = list(set(re.findall(patron_cuit, texto, re.IGNORECASE)))
+    patron = r"(?:CUIT|CUIL|DNI)[\s:\-N°]*([\d][\d\-]{6,})"
+    cuits = list(set(re.findall(patron, texto, re.IGNORECASE)))
 
     nombres = []
     lineas = texto.split('\n')
     for i, linea in enumerate(lineas):
-        if re.search(patron_cuit, linea, re.IGNORECASE):
+        if re.search(patron, linea, re.IGNORECASE):
             partes = re.split(r'(?:CUIT|CUIL|DNI)', linea, flags=re.IGNORECASE)
-            candidato = partes[0].strip()
-            if len(candidato) > 3 and any(c.isalpha() for c in candidato):
+            candidato = partes[0].strip().strip('.-,')
+            if 3 < len(candidato) < 80 and any(c.isalpha() for c in candidato):
                 nombres.append(candidato)
             if i > 0:
                 anterior = lineas[i-1].strip()
-                if len(anterior) > 3 and any(c.isalpha() for c in anterior):
+                if 3 < len(anterior) < 80 and any(c.isalpha() for c in anterior):
                     nombres.append(anterior)
 
     return list(set(nombres))[:5], cuits
 
-def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_fuente):
+
+def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
     nombres, cuits = extraer_nombres_cuit(texto)
-    clave = texto[:300]
+    clave_dedup = texto[:400]
 
     try:
-        existing = supabase.table("edictos").select("id").eq("fecha", fecha.isoformat()).eq("texto_completo", clave).execute()
+        existing = supabase.table("edictos").select("id")\
+            .eq("fecha", fecha.isoformat())\
+            .eq("texto_completo", clave_dedup)\
+            .execute()
         if existing.data:
-            return False  # duplicado
+            return False
     except Exception as e:
         print(f"  ⚠️ Error verificando duplicado: {e}")
 
@@ -113,75 +128,59 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_fuente)
         "nombres": ", ".join(nombres) if nombres else None,
         "cuit": ", ".join(cuits) if cuits else None,
         "texto_completo": texto[:5000],
-        "url_pdf": url_fuente
+        "url_pdf": url,
     }
 
     try:
         supabase.table("edictos").insert(data).execute()
-        print(f"  ✅ Guardado: {localidad} | nombres: {nombres[:1]}")
+        print(f"  ✅ Guardado: {localidad} | {nombres[:1]}")
         return True
     except Exception as e:
-        print(f"  ❌ Error al guardar: {e}")
+        print(f"  ❌ Error insertando: {e}")
         return False
+
 
 def main():
     hoy = date.today()
-    print(f"\n{'='*50}")
-    print(f"🗞️  Scraping Boletín Oficial - {hoy.strftime('%d/%m/%Y')}")
-    print(f"{'='*50}\n")
+    print(f"\n{'='*55}")
+    print(f"🗞️  Boletín Oficial PBA — {hoy.strftime('%d/%m/%Y')}")
+    print(f"{'='*55}\n")
 
-    total_guardados = 0
+    total = 0
 
-    secciones_urls = {
-        "JUDICIAL": [
-            f"{BASE_URL}/secciones/14079/ver",
-            f"{BASE_URL}/seccion/judicial",
-        ],
-        "OFICIAL": [
-            f"{BASE_URL}/secciones/14078/ver",
-            f"{BASE_URL}/seccion/oficial",
-        ]
-    }
-
-    for nombre_seccion, urls in secciones_urls.items():
+    for nombre_seccion, url in SECCIONES.items():
         print(f"\n📂 Sección: {nombre_seccion}")
-        html = None
-        url_usada = None
 
-        for url in urls:
-            html = obtener_html(url)
-            if html and len(html) > 500:
-                url_usada = url
-                break
-            print(f"  ⚠️ Sin contenido útil en: {url}")
-
-        if not html:
-            print(f"  ❌ No se pudo obtener contenido para {nombre_seccion}")
+        pdf_bytes = descargar_pdf(url)
+        if not pdf_bytes:
+            print(f"  ❌ No se pudo descargar")
             continue
 
-        texto = extraer_texto(html)
-        print(f"  📄 Texto extraído: {len(texto):,} caracteres")
+        texto = extraer_texto_pdf(pdf_bytes)
+        if not texto:
+            print(f"  ❌ No se pudo extraer texto")
+            continue
 
         boletin_numero = "desconocido"
-        match = re.search(r"[Nn][º°ú]?\s*(\d{4,6})", html)
+        match = re.search(r"[Nn][º°]?\s*(\d{4,6})", texto)
         if match:
             boletin_numero = match.group(1)
             print(f"  📋 Boletín N°: {boletin_numero}")
 
-        menciones = extraer_contexto_por_localidad(texto)
-
+        menciones = buscar_localidades(texto)
         guardados = 0
         for localidad, fragmento in menciones:
-            ok = guardar_edicto(localidad, fragmento, nombre_seccion, hoy, boletin_numero, url_usada)
+            ok = guardar_edicto(localidad, fragmento, nombre_seccion, hoy, boletin_numero, url)
             if ok:
                 guardados += 1
 
         print(f"  💾 Guardados en {nombre_seccion}: {guardados}")
-        total_guardados += guardados
+        total += guardados
 
-    print(f"\n{'='*50}")
-    print(f"✅ Total guardados hoy: {total_guardados}")
-    print(f"{'='*50}\n")
+    print(f"\n{'='*55}")
+    print(f"✅ Total guardados hoy: {total}")
+    print(f"{'='*55}\n")
+
 
 if __name__ == "__main__":
     main()
