@@ -64,7 +64,6 @@ with st.sidebar:
 
     st.header("Filtros")
     localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
-    # Filtro por sección
     seccion_filtro = st.multiselect("Sección", ["Todas", "JUDICIAL", "OFICIAL"], default=["Todas"])
 
 # --- Consultar datos ---
@@ -81,32 +80,30 @@ if not datos:
     st.stop()
 
 df = pd.DataFrame(datos)
-# Convertir fecha a datetime con zona horaria Argentina para mostrar
+# Convertir fecha a datetime (asumimos que viene en formato ISO sin zona)
 df["fecha"] = pd.to_datetime(df["fecha"])
-# Si la fecha está en UTC, convertir a Argentina (si no está tz, asumir UTC)
+# Si la fecha no tiene zona horaria, asumimos que es UTC y la convertimos a Argentina
 if df["fecha"].dt.tz is None:
-    # Asumir que viene UTC
     df["fecha"] = df["fecha"].dt.tz_localize('UTC').dt.tz_convert('America/Argentina/Buenos_Aires')
 else:
     df["fecha"] = df["fecha"].dt.tz_convert('America/Argentina/Buenos_Aires')
 
-# Agrupar por fecha (sin boletin_numero para evitar duplicados de misma fecha)
-grupos = df.groupby(["fecha"])
+# Agrupar por fecha
+grupos = df.groupby("fecha")
 
 st.subheader("📖 Boletines disponibles")
 
-# Ordenar grupos por fecha descendente
-for fecha, grupo in grupos.sort_index(ascending=False):
-    # Tomar un boletin_numero representativo (puede haber varios, tomamos el primero)
+# Ordenar fechas descendente
+for fecha in sorted(grupos.groups.keys(), reverse=True):
+    grupo = grupos.get_group(fecha)
+    # Tomar un boletin_numero representativo
     boletin_numero = grupo.iloc[0]["boletin_numero"]
     with st.container():
         st.markdown(f"### 📘 Boletín del {fecha.strftime('%d/%m/%Y')} - N° {boletin_numero}")
         st.caption(f"Total edictos en esta fecha: {len(grupo)}")
         # Mostrar cada edicto como tarjeta expandible
         for _, row in grupo.iterrows():
-            # Icono según sección
             icono = "⚖️" if row["seccion"] == "JUDICIAL" else "📜"
-            # Construir título de la tarjeta
             titulo = f"{icono} {row['localidad']}"
             cuits = row.get("cuit_detectados")
             if cuits:
@@ -116,8 +113,8 @@ for fecha, grupo in grupos.sort_index(ascending=False):
             with st.expander(titulo):
                 st.markdown(f"**Sección:** {row['seccion']}")
                 st.markdown(f"**Localidad:** {row['localidad']}")
-                if row.get("nombres"):
-                    st.markdown(f"**Sujetos destacados:** {row['nombres']}")
+                if row.get("sujetos"):
+                    st.markdown(f"**Sujetos destacados:** {row['sujetos']}")
                 if cuits:
                     st.markdown("**CUITs / DNIs detectados:**")
                     # Mostrar cada CUIT con un botón para copiar
@@ -128,13 +125,8 @@ for fecha, grupo in grupos.sort_index(ascending=False):
                         with col2:
                             if st.button(f"📋 Copiar", key=f"copy_{row['id']}_{cuit}"):
                                 st.write(f"Copiado: {cuit}")
-                                # Usar JavaScript para copiar al portapapeles
                                 st.components.v1.html(
-                                    f"""
-                                    <script>
-                                    navigator.clipboard.writeText("{cuit}");
-                                    </script>
-                                    """,
+                                    f"<script>navigator.clipboard.writeText('{cuit}');</script>",
                                     height=0,
                                 )
                 st.markdown("**Texto completo:**")
