@@ -10,7 +10,7 @@ import re
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
-# Estilos CSS para mejorar la apariencia (opcional)
+# Estilos CSS
 st.markdown("""
 <style>
 div[data-testid="stExpander"] details summary {
@@ -58,7 +58,7 @@ with col2:
         if not token:
             st.error("Falta el token de GitHub (GH_TOKEN) en secrets.")
         else:
-            repo = "ballanomdq/buscador-osecac"  # Ajustar si es necesario
+            repo = "ballanomdq/buscador-osecac"
             url = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
             headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
             data = {"ref": "main"}
@@ -110,13 +110,10 @@ if not datos:
     st.stop()
 
 df = pd.DataFrame(datos)
-df["fecha"] = pd.to_datetime(df["fecha"])
-if df["fecha"].dt.tz is None:
-    df["fecha"] = df["fecha"].dt.tz_localize('UTC').dt.tz_convert('America/Argentina/Buenos_Aires')
-else:
-    df["fecha"] = df["fecha"].dt.tz_convert('America/Argentina/Buenos_Aires')
+# Convertir la columna fecha a datetime sin zona horaria (porque ya es fecha Argentina)
+df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 
-# --- Funciones para análisis de edictos (CORREGIDAS para manejar None) ---
+# --- Funciones para análisis de edictos ---
 def extraer_nombre_cuit_quiebra(texto):
     patron_quiebra = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     match = re.search(patron_quiebra, texto, re.IGNORECASE)
@@ -185,63 +182,72 @@ def obtener_info_edicto(row):
         "es_quiebra": es_quiebra
     }
 
-# --- Agrupar por boletín ---
-df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].dt.strftime("%Y%m%d")
-boletines = df.groupby(["boletin_clave", "fecha", "boletin_numero"])
+# --- Agrupar por fecha (un boletín por día, porque el número puede repetirse) ---
+df["fecha_str"] = df["fecha"].astype(str)
+grupos_fecha = df.groupby("fecha")
 
-boletines_list = []
-for (clave, fecha, numero), grupo in boletines:
-    boletines_list.append({
-        "clave": clave,
-        "fecha": fecha,
-        "numero": numero,
-        "grupo": grupo
-    })
-boletines_list.sort(key=lambda x: x["fecha"], reverse=True)
+# Ordenar fechas descendente
+fechas_ordenadas = sorted(grupos_fecha.groups.keys(), reverse=True)
 
-# --- Función para ordenar edictos dentro de un grupo por prioridad ---
-def ordenar_edictos(grupo_df):
-    prioridades = []
-    for _, row in grupo_df.iterrows():
-        info = obtener_info_edicto(row)
-        prioridades.append(info["nivel"])
-    grupo_df = grupo_df.copy()
-    grupo_df["_prioridad"] = prioridades
-    grupo_df = grupo_df.sort_values("_prioridad")
-    return grupo_df.drop(columns=["_prioridad"])
+# --- Función para eliminar un boletín completo (todos los edictos de una fecha) ---
+def eliminar_boletin(fecha):
+    try:
+        supabase.table("edictos").delete().eq("fecha", fecha.isoformat()).execute()
+        st.success(f"✅ Boletín del {fecha.strftime('%d/%m/%Y')} eliminado correctamente.")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Error al eliminar: {e}")
 
 # --- Crear pestañas (TABS) para Judicial y Oficial ---
 tab_judicial, tab_oficial = st.tabs(["⚖️ JUDICIAL", "📜 OFICIAL"])
 
 with tab_judicial:
-    for boletin in boletines_list:
-        grupo = boletin["grupo"]
+    for fecha in fechas_ordenadas:
+        grupo = grupos_fecha.get_group(fecha)
         grupo_judicial = grupo[grupo["seccion"] == "JUDICIAL"]
         if grupo_judicial.empty:
             continue
-        grupo_judicial = ordenar_edictos(grupo_judicial)
         
-        # Estado del boletín (chequeado o no)
-        check_key = f"check_boletin_{boletin['clave']}_judicial"
+        # Ordenar edictos por prioridad
+        prioridades = []
+        for _, row in grupo_judicial.iterrows():
+            info = obtener_info_edicto(row)
+            prioridades.append(info["nivel"])
+        grupo_judicial = grupo_judicial.copy()
+        grupo_judicial["_prioridad"] = prioridades
+        grupo_judicial = grupo_judicial.sort_values("_prioridad").drop(columns=["_prioridad"])
+        
+        # Clave para estado del boletín (chequeado)
+        check_key = f"check_boletin_{fecha}_judicial"
         if check_key not in st.session_state:
             st.session_state[check_key] = False
         
-        # Título del expander
-        titulo_expander = f"📘 Boletín N° {boletin['numero']} - {boletin['fecha'].strftime('%d/%m/%Y')}"
+        # Título del expander (usamos solo la fecha, porque el número de boletín puede ser engañoso)
+        titulo_expander = f"📘 Boletín del {fecha.strftime('%d/%m/%Y')}"
         if st.session_state[check_key]:
             titulo_expander = "✅ " + titulo_expander
         
         with st.expander(titulo_expander, expanded=False):
-            # Checkbox dentro del expander (al inicio, para no ocupar espacio lateral)
+            # Checkbox para marcar boletín como revisado
             col_check, _ = st.columns([1, 10])
             with col_check:
                 nuevo_estado = st.checkbox("Marcar boletín como revisado", value=st.session_state[check_key],
-                                           key=f"chk_in_{boletin['clave']}_judicial")
+                                           key=f"chk_in_{fecha}_judicial")
                 if nuevo_estado != st.session_state[check_key]:
                     st.session_state[check_key] = nuevo_estado
                     st.rerun()
+            # Botón para eliminar todo el boletín
+            col_del, _ = st.columns([1, 10])
+            with col_del:
+                if st.button("🗑️ Eliminar este boletín completo", key=f"del_boletin_{fecha}_judicial"):
+                    confirm_key = f"confirm_del_boletin_{fecha}_judicial"
+                    if st.session_state.get(confirm_key, False):
+                        eliminar_boletin(fecha)
+                    else:
+                        st.session_state[confirm_key] = True
+                        st.warning("⚠️ Hacé clic otra vez para confirmar la eliminación de TODOS los edictos de este boletín.")
             st.markdown("---")
-            # Mostrar edictos ordenados
+            # Mostrar edictos
             for _, row in grupo_judicial.iterrows():
                 info = obtener_info_edicto(row)
                 titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
@@ -273,18 +279,25 @@ with tab_judicial:
         st.markdown("---")
 
 with tab_oficial:
-    for boletin in boletines_list:
-        grupo = boletin["grupo"]
+    for fecha in fechas_ordenadas:
+        grupo = grupos_fecha.get_group(fecha)
         grupo_oficial = grupo[grupo["seccion"] == "OFICIAL"]
         if grupo_oficial.empty:
             continue
-        grupo_oficial = ordenar_edictos(grupo_oficial)
         
-        check_key = f"check_boletin_{boletin['clave']}_oficial"
+        prioridades = []
+        for _, row in grupo_oficial.iterrows():
+            info = obtener_info_edicto(row)
+            prioridades.append(info["nivel"])
+        grupo_oficial = grupo_oficial.copy()
+        grupo_oficial["_prioridad"] = prioridades
+        grupo_oficial = grupo_oficial.sort_values("_prioridad").drop(columns=["_prioridad"])
+        
+        check_key = f"check_boletin_{fecha}_oficial"
         if check_key not in st.session_state:
             st.session_state[check_key] = False
         
-        titulo_expander = f"📘 Boletín N° {boletin['numero']} - {boletin['fecha'].strftime('%d/%m/%Y')}"
+        titulo_expander = f"📘 Boletín del {fecha.strftime('%d/%m/%Y')}"
         if st.session_state[check_key]:
             titulo_expander = "✅ " + titulo_expander
         
@@ -292,10 +305,19 @@ with tab_oficial:
             col_check, _ = st.columns([1, 10])
             with col_check:
                 nuevo_estado = st.checkbox("Marcar boletín como revisado", value=st.session_state[check_key],
-                                           key=f"chk_in_{boletin['clave']}_oficial")
+                                           key=f"chk_in_{fecha}_oficial")
                 if nuevo_estado != st.session_state[check_key]:
                     st.session_state[check_key] = nuevo_estado
                     st.rerun()
+            col_del, _ = st.columns([1, 10])
+            with col_del:
+                if st.button("🗑️ Eliminar este boletín completo", key=f"del_boletin_{fecha}_oficial"):
+                    confirm_key = f"confirm_del_boletin_{fecha}_oficial"
+                    if st.session_state.get(confirm_key, False):
+                        eliminar_boletin(fecha)
+                    else:
+                        st.session_state[confirm_key] = True
+                        st.warning("⚠️ Hacé clic otra vez para confirmar la eliminación de TODOS los edictos de este boletín.")
             st.markdown("---")
             for _, row in grupo_oficial.iterrows():
                 info = obtener_info_edicto(row)
