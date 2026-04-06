@@ -116,7 +116,7 @@ if df["fecha"].dt.tz is None:
 else:
     df["fecha"] = df["fecha"].dt.tz_convert('America/Argentina/Buenos_Aires')
 
-# --- Funciones para análisis de edictos (sin cambios) ---
+# --- Funciones para análisis de edictos (CORREGIDAS para manejar None) ---
 def extraer_nombre_cuit_quiebra(texto):
     patron_quiebra = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     match = re.search(patron_quiebra, texto, re.IGNORECASE)
@@ -151,11 +151,13 @@ def obtener_info_edicto(row):
         es_quiebra = True
     else:
         es_quiebra = "quiebra" in texto.lower() or "concurso" in texto.lower()
-        if sujetos_db and len(sujetos_db.strip()) > 0:
+        # Manejar None en sujetos_db
+        if sujetos_db and isinstance(sujetos_db, str) and sujetos_db.strip():
             nombre = sujetos_db.split(",")[0].strip()
         else:
             nombre, _ = extraer_nombre_del_texto(texto)
-        if cuits_db and len(cuits_db.strip()) > 0:
+        # Manejar None en cuits_db
+        if cuits_db and isinstance(cuits_db, str) and cuits_db.strip():
             cuit = cuits_db.split(",")[0].strip()
         else:
             _, cuit = extraer_nombre_del_texto(texto)
