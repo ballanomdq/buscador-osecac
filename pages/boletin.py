@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
-# Estilos CSS para diferenciación de colores
+# Estilos CSS: botones pequeños y bordes/colores diferenciados
 st.markdown("""
 <style>
 /* Botones pequeños */
@@ -21,26 +21,21 @@ st.markdown("""
     border-radius: 20px;
     margin: 0 0.2rem;
 }
-/* Expanders de Judicial: borde azul */
+/* Expanders de Judicial: borde azul y texto azul */
 .judicial-expander div[data-testid="stExpander"] details summary {
     background-color: #f0f2f6;
     border-left: 6px solid #1e88e5 !important;
     border-radius: 8px;
     padding: 0.5rem 1rem;
+    color: #1e88e5 !important;
 }
-/* Expanders de Oficial: borde rojo */
+/* Expanders de Oficial: borde rojo y texto rojo */
 .oficial-expander div[data-testid="stExpander"] details summary {
     background-color: #f0f2f6;
     border-left: 6px solid #d32f2f !important;
     border-radius: 8px;
     padding: 0.5rem 1rem;
-}
-/* Iconos de cuaderno azul y rojo (por si acaso) */
-.blue-icon {
-    color: #1e88e5;
-}
-.red-icon {
-    color: #d32f2f;
+    color: #d32f2f !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -263,10 +258,10 @@ def eliminar_boletin(fecha, numero):
 df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].astype(str)
 grupos = df.groupby(["fecha", "boletin_numero"])
 
-# --- Pestañas Judicial y Oficial ---
+# --- Pestañas Judicial y Oficial con bordes/colores diferenciados ---
 tab_judicial, tab_oficial = st.tabs(["⚖️ JUDICIAL", "📜 OFICIAL"])
 
-# Pestaña JUDICIAL (ícono azul y borde azul)
+# Pestaña JUDICIAL (borde azul y texto azul)
 with tab_judicial:
     st.markdown('<div class="judicial-expander">', unsafe_allow_html=True)
     df_judicial = df[df["seccion"] == "JUDICIAL"]
@@ -275,13 +270,11 @@ with tab_judicial:
     else:
         grupos_judicial = df_judicial.groupby(["fecha", "boletin_numero"])
         for (fecha, numero), grupo in grupos_judicial:
-            # Ordenar edictos por prioridad
             prioridades = [obtener_info_edicto(row)["nivel"] for _, row in grupo.iterrows()]
             grupo = grupo.copy()
             grupo["_prioridad"] = prioridades
             grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-            # Título con emoji de cuaderno azul (usando HTML para color)
-            titulo = f'<span style="color:#1e88e5;">📘</span> Boletín N° {numero} - {fecha.strftime("%d/%m/%Y")}'
+            titulo = f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
             check_key = f"check_judicial_{fecha}_{numero}"
             if check_key not in st.session_state:
                 st.session_state[check_key] = False
@@ -335,7 +328,7 @@ with tab_judicial:
             st.markdown("---")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Pestaña OFICIAL (ícono rojo y borde rojo)
+# Pestaña OFICIAL (borde rojo y texto rojo)
 with tab_oficial:
     st.markdown('<div class="oficial-expander">', unsafe_allow_html=True)
     df_oficial = df[df["seccion"] == "OFICIAL"]
@@ -348,8 +341,7 @@ with tab_oficial:
             grupo = grupo.copy()
             grupo["_prioridad"] = prioridades
             grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-            # Título con emoji de cuaderno rojo (usando HTML para color)
-            titulo = f'<span style="color:#d32f2f;">📕</span> Boletín N° {numero} - {fecha.strftime("%d/%m/%Y")}'
+            titulo = f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
             check_key = f"check_oficial_{fecha}_{numero}"
             if check_key not in st.session_state:
                 st.session_state[check_key] = False
