@@ -9,20 +9,18 @@ from datetime import datetime, timedelta
 from supabase import create_client
 from bs4 import BeautifulSoup
 
-# ── Configuración de logging ─────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ── Supabase ────────────────────────────────────────────────────────────
+# --- Supabase ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     log.error("Faltan SUPABASE_URL o SUPABASE_KEY")
     sys.exit(0)
-
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# ── Localidades objetivo ─────────────────────────────────────────────────
+# --- Localidades ---
 LOCALIDADES = {
     "mar del plata", "alvarado", "miramar", "mechongue", "otamendi", "vivorata",
     "vidal", "piran", "las armas", "maipu", "labarden", "guido", "dolores",
@@ -32,15 +30,17 @@ LOCALIDADES = {
     "mar chiquita", "general guido",
 }
 ALIAS_LOCALIDAD = {"general guido": "Guido", "gdor. arias": "Dolores"}
-
-SECCIONES = {
-    "JUDICIAL": "https://boletinoficial.gba.gob.ar/secciones/14079/ver",
-    "OFICIAL":  "https://boletinoficial.gba.gob.ar/secciones/14078/ver",
-}
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 CONTEXTO_CHARS = 1500
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 
-# ── Extracción de fecha real del boletín (desde el texto del PDF) ────────
+# --- URLs base ---
+BASE_URL = "https://boletinoficial.gba.gob.ar"
+SECCIONES = {
+    "JUDICIAL": "JUDICIAL",
+    "OFICIAL": "OFICIAL",
+}
+
+# --- Funciones de extracción de fecha y número desde el PDF ---
 RE_FECHA = re.compile(
     r"La Plata,\s*(?:martes|miércoles|jueves|viernes|sábado|domingo|lunes)?\s*(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+de\s+(\d{4})",
     re.IGNORECASE
@@ -60,10 +60,55 @@ def extraer_fecha_boletin(texto):
     return None
 
 def extraer_numero_boletin(texto):
-    m = re.search(r"N[º°]?\s*(\d{4,6})", texto)
-    return m.group(1) if m else "desconocido"
+    match = re.search(r"N[º°]?\s*(\d{4,6})", texto)
+    return match.group(1) if match else "desconocido"
 
-# ── Descarga y extracción de PDF ────────────────────────────────────────
+# --- Obtener el último boletín desde la página de ediciones anteriores ---
+def obtener_ultimo_boletin():
+    """
+    Scrapea la página de ediciones anteriores y devuelve el número y fecha del último boletín,
+    así como las URLs de sus secciones (Oficial y Judicial).
+    Retorna (numero, fecha_str, urls_secciones) o (None, None, None) si falla.
+    """
+    url_ediciones = f"{BASE_URL}/ediciones-anteriores"
+    try:
+        resp = requests.get(url_ediciones, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        # Buscar el primer panel (último boletín)
+        panel = soup.find("div", class_="panel panel-default")
+        if not panel:
+            log.warning("No se encontró el panel del último boletín")
+            return None, None, None
+        titulo = panel.find("h5", class_="panel-title")
+        if not titulo:
+            return None, None, None
+        # Extraer número y fecha: "BOLETÍN N° 30212 - 07/04/2026"
+        texto_titulo = titulo.get_text(strip=True)
+        match = re.search(r"N°\s*(\d+)\s*-\s*(\d{2}/\d{2}/\d{4})", texto_titulo)
+        if not match:
+            return None, None, None
+        numero = match.group(1)
+        fecha_str = match.group(2)  # dd/mm/aaaa
+        # Dentro del mismo panel, buscar los enlaces a las secciones (Oficial y Judicial)
+        secciones_urls = {}
+        enlaces = panel.find_all("a", href=True)
+        for a in enlaces:
+            texto = a.get_text(strip=True).upper()
+            href = a["href"]
+            if "OFICIAL" in texto and "ver" in href:
+                secciones_urls["OFICIAL"] = href if href.startswith("http") else BASE_URL + href
+            elif "JUDICIAL" in texto and "ver" in href:
+                secciones_urls["JUDICIAL"] = href if href.startswith("http") else BASE_URL + href
+        if "OFICIAL" not in secciones_urls or "JUDICIAL" not in secciones_urls:
+            log.warning(f"No se encontraron ambas secciones para el boletín {numero}")
+            return numero, fecha_str, secciones_urls
+        return numero, fecha_str, secciones_urls
+    except Exception as e:
+        log.error(f"Error al obtener el último boletín: {e}")
+        return None, None, None
+
+# --- Descarga y procesamiento de PDF ---
 def descargar_pdf(url):
     try:
         resp = requests.get(url, timeout=60, headers=HEADERS)
@@ -81,7 +126,6 @@ def extraer_texto_pdf(contenido):
         log.warning(f"Error leyendo PDF: {e}")
         return ""
 
-# ── Búsqueda de localidades y extracción de datos ────────────────────────
 def buscar_localidades(texto):
     resultados = []
     texto_lower = texto.lower()
@@ -93,8 +137,7 @@ def buscar_localidades(texto):
                 break
             inicio = max(0, idx - CONTEXTO_CHARS)
             fin = min(len(texto), idx + CONTEXTO_CHARS)
-            fragmento = texto[inicio:fin].strip()
-            resultados.append((loc.title(), fragmento))
+            resultados.append((loc.title(), texto[inicio:fin].strip()))
             pos = idx + len(loc)
     return resultados
 
@@ -118,7 +161,7 @@ def extraer_mayusculas(texto):
     mayusculas = [m.strip() for m in matches if len(m.strip()) >= 3 and not m.isdigit()]
     return list(set(mayusculas))
 
-def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
+def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf):
     cuits = extraer_cuits_dnis(texto)
     sujetos = extraer_mayusculas(texto)
     clave_dedup = texto[:400]
@@ -135,7 +178,7 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
         "cuit_detectados": ", ".join(cuits) if cuits else None,
         "sujetos": ", ".join(sujetos[:5]) if sujetos else None,
         "texto_completo": texto[:5000],
-        "url_pdf": url,
+        "url_pdf": url_pdf,
     }
     try:
         supabase.table("edictos").insert(data).execute()
@@ -147,72 +190,48 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url):
 def eliminar_viejos(dias=60):
     limite = (datetime.now() - timedelta(days=dias)).date()
     supabase.table("edictos").delete().lt("fecha", limite.isoformat()).execute()
-    log.info(f"Eliminados registros anteriores a {limite}")
 
-# ── Procesar un boletín completo (dos secciones) ─────────────────────────
-def procesar_boletin_completo(fecha, numero, seccion_judicial_url, seccion_oficial_url):
+def procesar_boletin(numero, fecha_str, urls_secciones):
     """
-    Procesa las dos secciones de un boletín (Judicial y Oficial) y guarda los edictos.
-    Retorna (guardados_judicial, guardados_oficial).
+    Procesa un boletín específico dado su número y URLs de secciones.
+    Retorna cantidad total de edictos guardados.
     """
-    guardados_judicial = 0
-    guardados_oficial = 0
-
-    # Sección Judicial
-    pdf_bytes = descargar_pdf(seccion_judicial_url)
-    if pdf_bytes:
-        texto = extraer_texto_pdf(pdf_bytes)
-        if texto:
-            # La fecha real debería ser la misma, pero si no, usamos la que nos dieron
-            menciones = buscar_localidades(texto)
-            for loc, frag in menciones:
-                if guardar_edicto(loc, frag, "JUDICIAL", fecha, numero, seccion_judicial_url):
-                    guardados_judicial += 1
-    else:
-        log.warning(f"No se pudo descargar Judicial para boletín {numero}")
-
-    # Sección Oficial
-    pdf_bytes = descargar_pdf(seccion_oficial_url)
-    if pdf_bytes:
-        texto = extraer_texto_pdf(pdf_bytes)
-        if texto:
-            menciones = buscar_localidades(texto)
-            for loc, frag in menciones:
-                if guardar_edicto(loc, frag, "OFICIAL", fecha, numero, seccion_oficial_url):
-                    guardados_oficial += 1
-    else:
-        log.warning(f"No se pudo descargar Oficial para boletín {numero}")
-
-    return guardados_judicial, guardados_oficial
-
-# ── Scraping diario automático (usa las URLs fijas) ──────────────────────
-def main_diario():
+    try:
+        fecha_obj = datetime.strptime(fecha_str, "%d/%m/%Y").date()
+    except:
+        fecha_obj = (datetime.utcnow() - timedelta(hours=3)).date()
     total = 0
-    for nombre_seccion, url in SECCIONES.items():
+    for seccion_nombre, url in urls_secciones.items():
+        log.info(f"Procesando sección {seccion_nombre} del boletín {numero}")
         pdf_bytes = descargar_pdf(url)
         if not pdf_bytes:
+            log.warning(f"No se pudo descargar PDF de {seccion_nombre}")
             continue
         texto = extraer_texto_pdf(pdf_bytes)
         if not texto:
             continue
-        fecha_boletin = extraer_fecha_boletin(texto)
-        if not fecha_boletin:
-            # Fallback: fecha actual Argentina
-            fecha_boletin = (datetime.utcnow() - timedelta(hours=3)).date()
-        boletin_numero = extraer_numero_boletin(texto)
+        # Si no se pudo extraer fecha del PDF, usar la que viene del listado
+        fecha_pdf = extraer_fecha_boletin(texto)
+        if fecha_pdf:
+            fecha_obj = fecha_pdf
         menciones = buscar_localidades(texto)
-        for loc, frag in menciones:
-            if guardar_edicto(loc, frag, nombre_seccion, fecha_boletin, boletin_numero, url):
+        for localidad, fragmento in menciones:
+            if guardar_edicto(localidad, fragmento, seccion_nombre, fecha_obj, numero, url):
                 total += 1
-        log.info(f"{nombre_seccion}: {len(menciones)} menciones, guardados parciales...")
+        log.info(f"{seccion_nombre}: {len(menciones)} menciones, {total} guardados acumulados")
+    return total
+
+def main():
+    # Obtener el último boletín desde la página de ediciones anteriores
+    numero, fecha_str, urls = obtener_ultimo_boletin()
+    if not numero:
+        log.error("No se pudo obtener el último boletín. Saliendo sin error.")
+        sys.exit(0)
+    log.info(f"Último boletín detectado: N° {numero} - {fecha_str}")
+    total = procesar_boletin(numero, fecha_str, urls)
     eliminar_viejos(60)
-    log.info(f"Total guardados en ejecución diaria: {total}")
+    log.info(f"Total guardados en esta ejecución: {total}")
+    sys.exit(0)
 
 if __name__ == "__main__":
-    # Si se pasa el argumento "historico", se espera que se llamen a funciones externas.
-    # Para el uso normal (workflow diario), simplemente ejecutamos main_diario.
-    if len(sys.argv) > 1 and sys.argv[1] == "historico":
-        # No hacer nada aquí, la interfaz de Streamlit llamará directamente a procesar_boletin_completo
-        pass
-    else:
-        main_diario()
+    main()
