@@ -35,10 +35,6 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 
 # --- URLs base ---
 BASE_URL = "https://boletinoficial.gba.gob.ar"
-SECCIONES = {
-    "JUDICIAL": "JUDICIAL",
-    "OFICIAL": "OFICIAL",
-}
 
 # --- Funciones de extracción de fecha y número desde el PDF ---
 RE_FECHA = re.compile(
@@ -65,17 +61,13 @@ def extraer_numero_boletin(texto):
 
 # --- Obtener el último boletín desde la página de ediciones anteriores ---
 def obtener_ultimo_boletin():
-    """
-    Scrapea la página de ediciones anteriores y devuelve el número y fecha del último boletín,
-    así como las URLs de sus secciones (Oficial y Judicial).
-    Retorna (numero, fecha_str, urls_secciones) o (None, None, None) si falla.
-    """
+    """Scrapea la página de ediciones anteriores y devuelve el número, fecha y URLs de las secciones del último boletín."""
     url_ediciones = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url_ediciones, headers=HEADERS, timeout=30)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
-        # Buscar el primer panel (último boletín)
+        # El primer panel (sin collapse) es el último boletín
         panel = soup.find("div", class_="panel panel-default")
         if not panel:
             log.warning("No se encontró el panel del último boletín")
@@ -83,24 +75,22 @@ def obtener_ultimo_boletin():
         titulo = panel.find("h5", class_="panel-title")
         if not titulo:
             return None, None, None
-        # Extraer número y fecha: "BOLETÍN N° 30212 - 07/04/2026"
         texto_titulo = titulo.get_text(strip=True)
         match = re.search(r"N°\s*(\d+)\s*-\s*(\d{2}/\d{2}/\d{4})", texto_titulo)
         if not match:
             return None, None, None
         numero = match.group(1)
-        fecha_str = match.group(2)  # dd/mm/aaaa
-        # Dentro del mismo panel, buscar los enlaces a las secciones (Oficial y Judicial)
+        fecha_str = match.group(2)
+        # Buscar enlaces a las secciones dentro del mismo panel
         secciones_urls = {}
-        enlaces = panel.find_all("a", href=True)
-        for a in enlaces:
-            texto = a.get_text(strip=True).upper()
+        for a in panel.find_all("a", href=True):
+            texto_a = a.get_text(strip=True).upper()
             href = a["href"]
-            if "OFICIAL" in texto and "ver" in href:
+            if "OFICIAL" in texto_a and "ver" in href:
                 secciones_urls["OFICIAL"] = href if href.startswith("http") else BASE_URL + href
-            elif "JUDICIAL" in texto and "ver" in href:
+            elif "JUDICIAL" in texto_a and "ver" in href:
                 secciones_urls["JUDICIAL"] = href if href.startswith("http") else BASE_URL + href
-        if "OFICIAL" not in secciones_urls or "JUDICIAL" not in secciones_urls:
+        if len(secciones_urls) != 2:
             log.warning(f"No se encontraron ambas secciones para el boletín {numero}")
             return numero, fecha_str, secciones_urls
         return numero, fecha_str, secciones_urls
@@ -192,10 +182,7 @@ def eliminar_viejos(dias=60):
     supabase.table("edictos").delete().lt("fecha", limite.isoformat()).execute()
 
 def procesar_boletin(numero, fecha_str, urls_secciones):
-    """
-    Procesa un boletín específico dado su número y URLs de secciones.
-    Retorna cantidad total de edictos guardados.
-    """
+    """Procesa un boletín específico dado su número y URLs de secciones."""
     try:
         fecha_obj = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except:
@@ -210,7 +197,6 @@ def procesar_boletin(numero, fecha_str, urls_secciones):
         texto = extraer_texto_pdf(pdf_bytes)
         if not texto:
             continue
-        # Si no se pudo extraer fecha del PDF, usar la que viene del listado
         fecha_pdf = extraer_fecha_boletin(texto)
         if fecha_pdf:
             fecha_obj = fecha_pdf
@@ -222,7 +208,6 @@ def procesar_boletin(numero, fecha_str, urls_secciones):
     return total
 
 def main():
-    # Obtener el último boletín desde la página de ediciones anteriores
     numero, fecha_str, urls = obtener_ultimo_boletin()
     if not numero:
         log.error("No se pudo obtener el último boletín. Saliendo sin error.")
