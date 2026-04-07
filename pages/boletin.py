@@ -11,7 +11,11 @@ from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
-# Estilos CSS: botones pequeños y bordes/colores diferenciados
+# ─────────────────────────────────────────────────────────────────
+# CSS — solo lo que Streamlit SÍ respeta globalmente
+# Los expanders NO se pueden colorear con wrappers div (no funciona)
+# El color real se logra inyectando HTML en el título del expander
+# ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 /* Botones pequeños */
@@ -21,28 +25,14 @@ st.markdown("""
     border-radius: 20px;
     margin: 0 0.2rem;
 }
-/* Expanders de Judicial: borde azul y texto azul */
-.judicial-expander div[data-testid="stExpander"] details summary {
-    background-color: #f0f2f6;
-    border-left: 6px solid #1e88e5 !important;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    color: #1e88e5 !important;
-}
-/* Expanders de Oficial: borde rojo y texto rojo */
-.oficial-expander div[data-testid="stExpander"] details summary {
-    background-color: #f0f2f6;
-    border-left: 6px solid #d32f2f !important;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    color: #d32f2f !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📚 Fiscalización OSECAC - Boletín Oficial")
 
-# --- Conexión a Supabase ---
+# ─────────────────────────────────────────────────────────────────
+# Conexión Supabase
+# ─────────────────────────────────────────────────────────────────
 def get_credentials():
     try:
         url = st.secrets.get("SUPABASE_URL")
@@ -64,7 +54,9 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Funciones auxiliares para obtener boletines históricos ---
+# ─────────────────────────────────────────────────────────────────
+# Funciones para boletines históricos
+# ─────────────────────────────────────────────────────────────────
 def obtener_lista_boletines():
     url = "https://boletinoficial.gba.gob.ar/ediciones-anteriores"
     try:
@@ -106,7 +98,9 @@ def obtener_urls_secciones(numero):
         st.error(f"Error al obtener URLs del boletín {numero}: {e}")
     return None
 
-# --- Botones discretos en fila superior ---
+# ─────────────────────────────────────────────────────────────────
+# Botones superiores
+# ─────────────────────────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 with col1:
     if st.button("🔄 Forzar descarga", use_container_width=True, help="Descarga el último boletín disponible"):
@@ -123,7 +117,7 @@ with col1:
                 if response.status_code == 204:
                     st.success("Scraping iniciado. Resultados en minutos.")
                 else:
-                    st.error(f"Error {response.status_code}")
+                    st.error(f"Error {response.status_code}: {response.text}")
 
 with col2:
     if st.button("📜 Históricos", use_container_width=True, help="Seleccionar boletín anterior"):
@@ -137,7 +131,9 @@ with col3:
 with col4:
     st.write("")
 
-# --- Selector de históricos (si está activado) ---
+# ─────────────────────────────────────────────────────────────────
+# Selector de históricos
+# ─────────────────────────────────────────────────────────────────
 if st.session_state.get("show_historicos", False):
     with st.expander("📖 Seleccionar boletín histórico", expanded=True):
         boletines = obtener_lista_boletines()
@@ -148,7 +144,7 @@ if st.session_state.get("show_historicos", False):
                 num = seleccion.split(" - ")[0].replace("N° ", "")
                 urls = obtener_urls_secciones(num)
                 if urls:
-                    st.info(f"Boletín N° {num} seleccionado. El sistema automático ya descarga el último cada día. Para bajarlo ahora, usa 'Forzar descarga' (que obtiene el último). Si necesitas uno específico, se puede implementar, pero por ahora el automático cubre el caso diario.")
+                    st.info("Boletín seleccionado. El automático descarga el último cada día.")
                 else:
                     st.error("No se encontraron las secciones de ese boletín.")
         else:
@@ -158,7 +154,9 @@ if st.session_state.get("show_historicos", False):
             st.rerun()
     st.divider()
 
-# --- Filtros en sidebar ---
+# ─────────────────────────────────────────────────────────────────
+# Sidebar — filtros
+# ─────────────────────────────────────────────────────────────────
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -174,7 +172,9 @@ with st.sidebar:
     seccion_filtro = st.radio("Sección", ["Todas", "JUDICIAL", "OFICIAL"], index=0)
     solo_quiebras = st.checkbox("🚨 Solo quiebras/concursos")
 
-# --- Consultar datos ---
+# ─────────────────────────────────────────────────────────────────
+# Consulta Supabase
+# ─────────────────────────────────────────────────────────────────
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
 if "Todas" not in localidad_filtro and localidad_filtro:
     query = query.in_("localidad", localidad_filtro)
@@ -190,7 +190,9 @@ if not datos:
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 
-# --- Funciones de análisis ---
+# ─────────────────────────────────────────────────────────────────
+# Funciones de análisis (igual que el código original que funciona)
+# ─────────────────────────────────────────────────────────────────
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     match = re.search(patron, texto, re.IGNORECASE)
@@ -231,166 +233,140 @@ def obtener_info_edicto(row):
         else:
             _, cuit = extraer_nombre_del_texto(texto)
     if es_quiebra:
-        nivel = 0
-        icono = "🚨"
-        motivo = "QUIEBRA/CONCURSO"
+        nivel = 0; icono = "🚨"; motivo = "QUIEBRA/CONCURSO"
     elif cuit:
-        nivel = 1
-        icono = "⚠️"
-        motivo = "PRECAUCIÓN"
+        nivel = 1; icono = "⚠️"; motivo = "PRECAUCIÓN"
     else:
-        nivel = 2
-        icono = "⚪"
-        motivo = "INFORMATIVO"
+        nivel = 2; icono = "⚪"; motivo = "INFORMATIVO"
     nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos")
-    return {"nivel": nivel, "icono": icono, "motivo": motivo, "nombre_mostrar": nombre_mostrar, "cuit": cuit}
+    return {"nivel": nivel, "icono": icono, "motivo": motivo,
+            "nombre_mostrar": nombre_mostrar, "cuit": cuit}
 
-# --- Función para eliminar boletín (con confirmación) ---
 def eliminar_boletin(fecha, numero):
     try:
-        supabase.table("edictos").delete().eq("fecha", fecha.isoformat()).eq("boletin_numero", str(numero)).execute()
+        supabase.table("edictos").delete()\
+            .eq("fecha", fecha.isoformat())\
+            .eq("boletin_numero", str(numero)).execute()
         st.success(f"Boletín N° {numero} del {fecha.strftime('%d/%m/%Y')} eliminado.")
         st.rerun()
     except Exception as e:
         st.error(f"Error: {e}")
 
-# --- Agrupar por boletín ---
-df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].astype(str)
-grupos = df.groupby(["fecha", "boletin_numero"])
+# ─────────────────────────────────────────────────────────────────
+# FUNCIÓN CENTRAL: renderizar una pestaña (judicial u oficial)
+#
+# SOLUCIÓN AL PROBLEMA DE COLOR:
+# Streamlit no permite aplicar CSS a expanders desde wrappers div.
+# La única forma confiable de mostrar el ícono de color correcto
+# es poner el emoji/texto de color directamente en el TÍTULO
+# del expander, como string Python. No hay CSS que lo logre.
+# ─────────────────────────────────────────────────────────────────
+def renderizar_seccion(df_seccion, seccion_nombre):
+    """
+    seccion_nombre: "JUDICIAL" o "OFICIAL"
+    - JUDICIAL → libro azul 📘
+    - OFICIAL  → libro rojo 📕
+    Estos emojis tienen color real en todos los navegadores modernos.
+    """
+    # Icono de libro según sección — ESTO es lo que da el color real
+    icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
 
-# --- Pestañas Judicial y Oficial con bordes/colores diferenciados ---
-tab_judicial, tab_oficial = st.tabs(["⚖️ JUDICIAL", "📜 OFICIAL"])
+    if df_seccion.empty:
+        st.info(f"No hay edictos en {seccion_nombre}.")
+        return
 
-# Pestaña JUDICIAL (borde azul y texto azul)
+    grupos = df_seccion.groupby(["fecha", "boletin_numero"])
+
+    for (fecha, numero), grupo in grupos:
+        # Calcular prioridades y reordenar (quiebras primero)
+        grupo = grupo.copy()
+        grupo["_prioridad"] = [obtener_info_edicto(row)["nivel"] for _, row in grupo.iterrows()]
+        grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
+
+        # ── Título del boletín: icono de color + fecha ──────────────
+        check_key = f"check_{seccion_nombre}_{fecha}_{numero}"
+        if check_key not in st.session_state:
+            st.session_state[check_key] = False
+
+        prefijo_rev = "✅ " if st.session_state[check_key] else ""
+        # El icono_libro aquí es 📘 (azul) o 📕 (rojo) según la sección
+        titulo_boletin = f"{prefijo_rev}{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
+
+        with st.expander(titulo_boletin, expanded=False):
+            col_a, col_b, _ = st.columns([1, 1, 8])
+            with col_a:
+                nuevo = st.checkbox(
+                    "Marcar revisado",
+                    value=st.session_state[check_key],
+                    key=f"chk_{seccion_nombre}_{fecha}_{numero}"
+                )
+                if nuevo != st.session_state[check_key]:
+                    st.session_state[check_key] = nuevo
+                    st.rerun()
+            with col_b:
+                if st.button("🗑️ Eliminar", key=f"del_bol_{seccion_nombre}_{fecha}_{numero}"):
+                    confirm_key = f"confirm_del_{seccion_nombre}_{fecha}_{numero}"
+                    if st.session_state.get(confirm_key, False):
+                        eliminar_boletin(fecha, numero)
+                    else:
+                        st.session_state[confirm_key] = True
+                        st.warning("⚠️ Hacé clic otra vez en 'Eliminar' para confirmar.")
+
+            st.markdown("---")
+
+            # ── Edictos individuales ─────────────────────────────────
+            for _, row in grupo.iterrows():
+                info = obtener_info_edicto(row)
+                titulo_edicto = (
+                    f"{info['icono']} {info['motivo']} | "
+                    f"{row['localidad']} | ({info['nombre_mostrar']})"
+                )
+                if info['cuit']:
+                    titulo_edicto += f" - {info['cuit']}"
+
+                rev_key = f"revisado_{row['id']}"
+                if st.session_state.get(rev_key, False):
+                    titulo_edicto = "🟢 " + titulo_edicto
+
+                with st.expander(titulo_edicto):
+                    texto_resaltado = row["texto_completo"]
+                    if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos":
+                        texto_resaltado = re.sub(
+                            rf'\b{re.escape(info["nombre_mostrar"])}\b',
+                            f'**{info["nombre_mostrar"]}**',
+                            texto_resaltado,
+                            flags=re.IGNORECASE
+                        )
+                    st.markdown(texto_resaltado)
+
+                    col_b1, col_b2 = st.columns(2)
+                    with col_b1:
+                        if st.button("✅ Revisado", key=f"rev_{row['id']}"):
+                            st.session_state[rev_key] = True
+                            st.rerun()
+                    with col_b2:
+                        if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
+                            conf_key = f"conf_{row['id']}"
+                            if st.session_state.get(conf_key, False):
+                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                                st.success("Eliminado")
+                                st.rerun()
+                            else:
+                                st.session_state[conf_key] = True
+                                st.warning("Confirmar otra vez")
+
+        st.markdown("---")
+
+
+# ─────────────────────────────────────────────────────────────────
+# Pestañas principales
+# ─────────────────────────────────────────────────────────────────
+tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
+
 with tab_judicial:
-    st.markdown('<div class="judicial-expander">', unsafe_allow_html=True)
     df_judicial = df[df["seccion"] == "JUDICIAL"]
-    if df_judicial.empty:
-        st.info("No hay edictos en JUDICIAL.")
-    else:
-        grupos_judicial = df_judicial.groupby(["fecha", "boletin_numero"])
-        for (fecha, numero), grupo in grupos_judicial:
-            prioridades = [obtener_info_edicto(row)["nivel"] for _, row in grupo.iterrows()]
-            grupo = grupo.copy()
-            grupo["_prioridad"] = prioridades
-            grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-            titulo = f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
-            check_key = f"check_judicial_{fecha}_{numero}"
-            if check_key not in st.session_state:
-                st.session_state[check_key] = False
-            if st.session_state[check_key]:
-                titulo = "✅ " + titulo
-            with st.expander(titulo, expanded=False):
-                col_a, col_b, _ = st.columns([1, 1, 8])
-                with col_a:
-                    nuevo = st.checkbox("Marcar revisado", value=st.session_state[check_key],
-                                        key=f"chk_judicial_{fecha}_{numero}")
-                    if nuevo != st.session_state[check_key]:
-                        st.session_state[check_key] = nuevo
-                        st.rerun()
-                with col_b:
-                    if st.button("🗑️ Eliminar", key=f"del_bol_judicial_{fecha}_{numero}"):
-                        confirm_key = f"confirm_del_judicial_{fecha}_{numero}"
-                        if st.session_state.get(confirm_key, False):
-                            eliminar_boletin(fecha, numero)
-                        else:
-                            st.session_state[confirm_key] = True
-                            st.warning("⚠️ Hacé clic otra vez en 'Eliminar' para confirmar.")
-                st.markdown("---")
-                for _, row in grupo.iterrows():
-                    info = obtener_info_edicto(row)
-                    titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
-                    if info['cuit']:
-                        titulo_edicto += f" - {info['cuit']}"
-                    rev_key = f"revisado_{row['id']}"
-                    if rev_key in st.session_state and st.session_state[rev_key]:
-                        titulo_edicto = "🟢 " + titulo_edicto
-                    with st.expander(titulo_edicto):
-                        texto_resaltado = row["texto_completo"]
-                        if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos":
-                            texto_resaltado = re.sub(rf'\b{re.escape(info["nombre_mostrar"])}\b', f'**{info["nombre_mostrar"]}**', texto_resaltado, flags=re.IGNORECASE)
-                        st.markdown(texto_resaltado)
-                        col_b1, col_b2 = st.columns(2)
-                        with col_b1:
-                            if st.button("✅ Revisado", key=f"rev_{row['id']}"):
-                                st.session_state[rev_key] = True
-                                st.rerun()
-                        with col_b2:
-                            if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
-                                conf_key = f"conf_{row['id']}"
-                                if st.session_state.get(conf_key, False):
-                                    supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                                    st.success("Eliminado")
-                                    st.rerun()
-                                else:
-                                    st.session_state[conf_key] = True
-                                    st.warning("Confirmar otra vez")
-            st.markdown("---")
-    st.markdown('</div>', unsafe_allow_html=True)
+    renderizar_seccion(df_judicial, "JUDICIAL")
 
-# Pestaña OFICIAL (borde rojo y texto rojo)
 with tab_oficial:
-    st.markdown('<div class="oficial-expander">', unsafe_allow_html=True)
     df_oficial = df[df["seccion"] == "OFICIAL"]
-    if df_oficial.empty:
-        st.info("No hay edictos en OFICIAL.")
-    else:
-        grupos_oficial = df_oficial.groupby(["fecha", "boletin_numero"])
-        for (fecha, numero), grupo in grupos_oficial:
-            prioridades = [obtener_info_edicto(row)["nivel"] for _, row in grupo.iterrows()]
-            grupo = grupo.copy()
-            grupo["_prioridad"] = prioridades
-            grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-            titulo = f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
-            check_key = f"check_oficial_{fecha}_{numero}"
-            if check_key not in st.session_state:
-                st.session_state[check_key] = False
-            if st.session_state[check_key]:
-                titulo = "✅ " + titulo
-            with st.expander(titulo, expanded=False):
-                col_a, col_b, _ = st.columns([1, 1, 8])
-                with col_a:
-                    nuevo = st.checkbox("Marcar revisado", value=st.session_state[check_key],
-                                        key=f"chk_oficial_{fecha}_{numero}")
-                    if nuevo != st.session_state[check_key]:
-                        st.session_state[check_key] = nuevo
-                        st.rerun()
-                with col_b:
-                    if st.button("🗑️ Eliminar", key=f"del_bol_oficial_{fecha}_{numero}"):
-                        confirm_key = f"confirm_del_oficial_{fecha}_{numero}"
-                        if st.session_state.get(confirm_key, False):
-                            eliminar_boletin(fecha, numero)
-                        else:
-                            st.session_state[confirm_key] = True
-                            st.warning("⚠️ Hacé clic otra vez en 'Eliminar' para confirmar.")
-                st.markdown("---")
-                for _, row in grupo.iterrows():
-                    info = obtener_info_edicto(row)
-                    titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
-                    if info['cuit']:
-                        titulo_edicto += f" - {info['cuit']}"
-                    rev_key = f"revisado_{row['id']}"
-                    if rev_key in st.session_state and st.session_state[rev_key]:
-                        titulo_edicto = "🟢 " + titulo_edicto
-                    with st.expander(titulo_edicto):
-                        texto_resaltado = row["texto_completo"]
-                        if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos":
-                            texto_resaltado = re.sub(rf'\b{re.escape(info["nombre_mostrar"])}\b', f'**{info["nombre_mostrar"]}**', texto_resaltado, flags=re.IGNORECASE)
-                        st.markdown(texto_resaltado)
-                        col_b1, col_b2 = st.columns(2)
-                        with col_b1:
-                            if st.button("✅ Revisado", key=f"rev_{row['id']}"):
-                                st.session_state[rev_key] = True
-                                st.rerun()
-                        with col_b2:
-                            if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
-                                conf_key = f"conf_{row['id']}"
-                                if st.session_state.get(conf_key, False):
-                                    supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                                    st.success("Eliminado")
-                                    st.rerun()
-                                else:
-                                    st.session_state[conf_key] = True
-                                    st.warning("Confirmar otra vez")
-            st.markdown("---")
-    st.markdown('</div>', unsafe_allow_html=True)
+    renderizar_seccion(df_oficial, "OFICIAL")
