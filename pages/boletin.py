@@ -11,21 +11,15 @@ from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
-# Estilos CSS para botones pequeños e iconos
+# Estilos CSS para botones más pequeños (se aplican globalmente)
 st.markdown("""
 <style>
-/* Botones pequeños con iconos */
-.small-btn {
-    background-color: #f0f2f6;
-    border: none;
-    border-radius: 20px;
+/* Reducir tamaño de botones Streamlit */
+.stButton > button {
     padding: 0.2rem 0.6rem;
     font-size: 0.8rem;
+    border-radius: 20px;
     margin: 0 0.2rem;
-    cursor: pointer;
-}
-.small-btn:hover {
-    background-color: #e0e2e6;
 }
 /* Para los expanders de boletines */
 div[data-testid="stExpander"] details summary {
@@ -77,19 +71,16 @@ def obtener_lista_boletines():
             texto = titulo.get_text(strip=True)
             match = re.search(r"N°\s*(\d+)\s*-\s*(\d{2}/\d{2}/\d{4})", texto)
             if match:
-                numero = match.group(1)
-                fecha_str = match.group(2)
-                boletines.append((numero, fecha_str))
+                boletines.append((match.group(1), match.group(2)))
         return boletines
     except Exception as e:
         st.error(f"Error al obtener lista de boletines: {e}")
         return []
 
-def obtener_urls_secciones_boletin(numero):
+def obtener_urls_secciones(numero):
     """Obtiene las URLs de las secciones Oficial y Judicial para un número de boletín dado"""
     url_base = "https://boletinoficial.gba.gob.ar"
     try:
-        # Ir a la página de ediciones anteriores y encontrar el panel correspondiente
         resp = requests.get(f"{url_base}/ediciones-anteriores", timeout=30)
         soup = BeautifulSoup(resp.text, "html.parser")
         for panel in soup.find_all("div", class_="panel panel-default"):
@@ -97,22 +88,21 @@ def obtener_urls_secciones_boletin(numero):
             if titulo and f"N° {numero}" in titulo.get_text():
                 urls = {}
                 for a in panel.find_all("a", href=True):
-                    texto = a.get_text(strip=True).upper()
+                    texto_a = a.get_text(strip=True).upper()
                     href = a["href"]
-                    if "OFICIAL" in texto and "ver" in href:
+                    if "OFICIAL" in texto_a and "ver" in href:
                         urls["OFICIAL"] = href if href.startswith("http") else url_base + href
-                    elif "JUDICIAL" in texto and "ver" in href:
+                    elif "JUDICIAL" in texto_a and "ver" in href:
                         urls["JUDICIAL"] = href if href.startswith("http") else url_base + href
                 return urls if len(urls) == 2 else None
     except Exception as e:
         st.error(f"Error al obtener URLs del boletín {numero}: {e}")
     return None
 
-# --- Botones discretos en la parte superior (usando columnas) ---
+# --- Botones discretos en fila superior ---
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 with col1:
-    if st.button("🔄 Forzar descarga del día", use_container_width=True, help="Descarga el último boletín disponible"):
-        # Llamar a GitHub Actions o directamente al scraper? Por ahora lanzamos workflow
+    if st.button("🔄 Forzar descarga", use_container_width=True, help="Descarga el último boletín disponible"):
         token = st.secrets.get("GH_TOKEN")
         if not token:
             st.error("Falta GH_TOKEN")
@@ -121,27 +111,26 @@ with col1:
             url_api = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
             headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
             data = {"ref": "main"}
-            with st.spinner("Lanzando scraping automático..."):
+            with st.spinner("Lanzando scraping..."):
                 response = requests.post(url_api, json=data, headers=headers)
                 if response.status_code == 204:
-                    st.success("Scraping iniciado. Los resultados aparecerán en unos minutos.")
+                    st.success("Scraping iniciado. Resultados en minutos.")
                 else:
                     st.error(f"Error {response.status_code}")
 
 with col2:
-    if st.button("📜 Históricos", use_container_width=True, help="Seleccionar y descargar un boletín anterior"):
+    if st.button("📜 Históricos", use_container_width=True, help="Seleccionar boletín anterior"):
         st.session_state.show_historicos = not st.session_state.get("show_historicos", False)
         st.rerun()
 
 with col3:
-    if st.button("🔄 Recargar datos", use_container_width=True, help="Refresca la vista con los datos actuales"):
+    if st.button("🔄 Recargar", use_container_width=True, help="Refrescar datos"):
         st.rerun()
 
 with col4:
-    # Placeholder
-    pass
+    st.write("")  # placeholder
 
-# --- Selector de boletines históricos (si se activó) ---
+# --- Selector de históricos (si está activado) ---
 if st.session_state.get("show_historicos", False):
     with st.expander("📖 Seleccionar boletín histórico", expanded=True):
         boletines = obtener_lista_boletines()
@@ -149,19 +138,14 @@ if st.session_state.get("show_historicos", False):
             opciones = [f"N° {n} - {f}" for n, f in boletines]
             seleccion = st.selectbox("Elegí un boletín", opciones, key="hist_select")
             if st.button("Descargar este boletín"):
-                # Extraer número
                 num = seleccion.split(" - ")[0].replace("N° ", "")
-                urls = obtener_urls_secciones_boletin(num)
+                urls = obtener_urls_secciones(num)
                 if urls:
-                    with st.spinner(f"Descargando boletín N° {num}..."):
-                        # Aquí llamarías a una función que procese el boletín (puede ser una API o directamente ejecutar scraper)
-                        # Por simplicidad, lanzamos un workflow con un parámetro? O mejor, hacemos un script local?
-                        # Como esto es complejo, mostramos un mensaje y sugerimos usar el botón de forzar descarga que ya está actualizado.
-                        st.info(f"Boletín N° {num} seleccionado. Usá el botón 'Forzar descarga del día' (ya está actualizado para obtener el último). Para bajar uno específico, necesitaríamos una función extra. Por ahora, el sistema automático ya baja el último cada mañana.")
+                    st.info(f"Boletín N° {num} seleccionado. El sistema automático ya descarga el último cada día. Para bajarlo ahora, usa 'Forzar descarga' (que obtiene el último). Si necesitas uno específico, se puede implementar, pero por ahora el automático cubre el caso diario.")
                 else:
-                    st.error("No se pudieron obtener las secciones de ese boletín.")
+                    st.error("No se encontraron las secciones de ese boletín.")
         else:
-            st.warning("No se pudieron cargar los boletines históricos.")
+            st.warning("No se pudieron cargar los boletines.")
         if st.button("Cerrar"):
             st.session_state.show_historicos = False
             st.rerun()
@@ -183,7 +167,7 @@ with st.sidebar:
     seccion_filtro = st.radio("Sección", ["Todas", "JUDICIAL", "OFICIAL"], index=0)
     solo_quiebras = st.checkbox("🚨 Solo quiebras/concursos")
 
-# --- Consultar datos desde Supabase ---
+# --- Consultar datos ---
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
 if "Todas" not in localidad_filtro and localidad_filtro:
     query = query.in_("localidad", localidad_filtro)
@@ -193,13 +177,13 @@ response = query.execute()
 datos = response.data
 
 if not datos:
-    st.info("No hay edictos cargados. Usá el botón 'Forzar descarga del día' para iniciar la fiscalización.")
+    st.info("No hay edictos cargados. Usá 'Forzar descarga' para iniciar.")
     st.stop()
 
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 
-# --- Funciones de análisis de edictos (igual que antes) ---
+# --- Funciones de análisis (sin cambios) ---
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     match = re.search(patron, texto, re.IGNORECASE)
@@ -254,7 +238,7 @@ def obtener_info_edicto(row):
     nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos")
     return {"nivel": nivel, "icono": icono, "motivo": motivo, "nombre_mostrar": nombre_mostrar, "cuit": cuit}
 
-# --- Función para eliminar un boletín completo (con confirmación) ---
+# --- Función para eliminar boletín (con confirmación) ---
 def eliminar_boletin(fecha, numero):
     try:
         supabase.table("edictos").delete().eq("fecha", fecha.isoformat()).eq("boletin_numero", str(numero)).execute()
@@ -263,11 +247,11 @@ def eliminar_boletin(fecha, numero):
     except Exception as e:
         st.error(f"Error: {e}")
 
-# --- Agrupar por fecha y número de boletín ---
+# --- Agrupar por boletín ---
 df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].astype(str)
 grupos = df.groupby(["fecha", "boletin_numero"])
 
-# --- Mostrar pestañas Judicial y Oficial ---
+# --- Pestañas Judicial y Oficial ---
 tab_judicial, tab_oficial = st.tabs(["⚖️ JUDICIAL", "📜 OFICIAL"])
 
 for tab, seccion_val in [(tab_judicial, "JUDICIAL"), (tab_oficial, "OFICIAL")]:
@@ -276,7 +260,6 @@ for tab, seccion_val in [(tab_judicial, "JUDICIAL"), (tab_oficial, "OFICIAL")]:
         if df_seccion.empty:
             st.info(f"No hay edictos en {seccion_val}.")
             continue
-        # Agrupar por (fecha, numero_boletin)
         grupos_seccion = df_seccion.groupby(["fecha", "boletin_numero"])
         for (fecha, numero), grupo in grupos_seccion:
             # Ordenar edictos por prioridad
@@ -294,7 +277,7 @@ for tab, seccion_val in [(tab_judicial, "JUDICIAL"), (tab_oficial, "OFICIAL")]:
                 titulo = "✅ " + titulo
             
             with st.expander(titulo, expanded=False):
-                # Fila de botones discretos (checkbox y eliminar)
+                # Fila de botones pequeños (checkbox y eliminar)
                 col_a, col_b, col_c = st.columns([1, 1, 8])
                 with col_a:
                     nuevo = st.checkbox("Marcar revisado", value=st.session_state[check_key],
@@ -303,16 +286,14 @@ for tab, seccion_val in [(tab_judicial, "JUDICIAL"), (tab_oficial, "OFICIAL")]:
                         st.session_state[check_key] = nuevo
                         st.rerun()
                 with col_b:
-                    # Botón eliminar con confirmación (ventana de diálogo)
+                    # Botón eliminar con confirmación (pregunta "¿Estás seguro?")
                     if st.button("🗑️ Eliminar", key=f"del_bol_{seccion_val}_{fecha}_{numero}"):
-                        # Usamos un modal de confirmación simple con session_state
                         confirm_key = f"confirm_del_{seccion_val}_{fecha}_{numero}"
                         if st.session_state.get(confirm_key, False):
                             eliminar_boletin(fecha, numero)
                         else:
                             st.session_state[confirm_key] = True
                             st.warning("⚠️ Hacé clic otra vez en 'Eliminar' para confirmar.")
-                # Espacio para que no quede apretado
                 st.markdown("---")
                 # Mostrar edictos
                 for _, row in grupo.iterrows():
