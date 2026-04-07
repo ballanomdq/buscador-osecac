@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
-# Estilos CSS para botones más pequeños y bordes diferenciados
+# Estilos CSS para diferenciación de colores
 st.markdown("""
 <style>
 /* Botones pequeños */
@@ -21,19 +21,26 @@ st.markdown("""
     border-radius: 20px;
     margin: 0 0.2rem;
 }
-/* Estilo base de los expanders (libros) */
-div[data-testid="stExpander"] details summary {
+/* Expanders de Judicial: borde azul */
+.judicial-expander div[data-testid="stExpander"] details summary {
     background-color: #f0f2f6;
+    border-left: 6px solid #1e88e5 !important;
     border-radius: 8px;
     padding: 0.5rem 1rem;
 }
-/* Clase para pestaña Judicial (azul) */
-.judicial-expander div[data-testid="stExpander"] details summary {
-    border-left: 6px solid #1e88e5;
-}
-/* Clase para pestaña Oficial (rojo) */
+/* Expanders de Oficial: borde rojo */
 .oficial-expander div[data-testid="stExpander"] details summary {
-    border-left: 6px solid #d32f2f;
+    background-color: #f0f2f6;
+    border-left: 6px solid #d32f2f !important;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+}
+/* Iconos de cuaderno azul y rojo (por si acaso) */
+.blue-icon {
+    color: #1e88e5;
+}
+.red-icon {
+    color: #d32f2f;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -188,7 +195,7 @@ if not datos:
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 
-# --- Funciones de análisis (sin cambios) ---
+# --- Funciones de análisis ---
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     match = re.search(patron, texto, re.IGNORECASE)
@@ -256,10 +263,10 @@ def eliminar_boletin(fecha, numero):
 df["boletin_clave"] = df["boletin_numero"] + "_" + df["fecha"].astype(str)
 grupos = df.groupby(["fecha", "boletin_numero"])
 
-# --- Pestañas Judicial y Oficial (con bordes diferenciados) ---
+# --- Pestañas Judicial y Oficial ---
 tab_judicial, tab_oficial = st.tabs(["⚖️ JUDICIAL", "📜 OFICIAL"])
 
-# Pestaña JUDICIAL (borde azul)
+# Pestaña JUDICIAL (ícono azul y borde azul)
 with tab_judicial:
     st.markdown('<div class="judicial-expander">', unsafe_allow_html=True)
     df_judicial = df[df["seccion"] == "JUDICIAL"]
@@ -268,11 +275,13 @@ with tab_judicial:
     else:
         grupos_judicial = df_judicial.groupby(["fecha", "boletin_numero"])
         for (fecha, numero), grupo in grupos_judicial:
+            # Ordenar edictos por prioridad
             prioridades = [obtener_info_edicto(row)["nivel"] for _, row in grupo.iterrows()]
             grupo = grupo.copy()
             grupo["_prioridad"] = prioridades
             grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-            titulo = f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
+            # Título con emoji de cuaderno azul (usando HTML para color)
+            titulo = f'<span style="color:#1e88e5;">📘</span> Boletín N° {numero} - {fecha.strftime("%d/%m/%Y")}'
             check_key = f"check_judicial_{fecha}_{numero}"
             if check_key not in st.session_state:
                 st.session_state[check_key] = False
@@ -326,7 +335,7 @@ with tab_judicial:
             st.markdown("---")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Pestaña OFICIAL (borde rojo)
+# Pestaña OFICIAL (ícono rojo y borde rojo)
 with tab_oficial:
     st.markdown('<div class="oficial-expander">', unsafe_allow_html=True)
     df_oficial = df[df["seccion"] == "OFICIAL"]
@@ -339,7 +348,8 @@ with tab_oficial:
             grupo = grupo.copy()
             grupo["_prioridad"] = prioridades
             grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-            titulo = f"📘 Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
+            # Título con emoji de cuaderno rojo (usando HTML para color)
+            titulo = f'<span style="color:#d32f2f;">📕</span> Boletín N° {numero} - {fecha.strftime("%d/%m/%Y")}'
             check_key = f"check_oficial_{fecha}_{numero}"
             if check_key not in st.session_state:
                 st.session_state[check_key] = False
