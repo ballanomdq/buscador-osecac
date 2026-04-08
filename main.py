@@ -349,7 +349,7 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     
     # NUEVO BOTÓN PARA INFORME DE ÚTILES
     if st.button("📄 INFORME DE ÚTILES POR AGENCIA/SECTORES"):
-        st.switch_page("pages/INFORME UTILES.py")
+        st.switch_page("pages/informe_utiles.py")
     
     st.markdown("---")
     pop_admin = st.popover("🔑 ADMINISTRADORES")
