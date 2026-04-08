@@ -346,6 +346,11 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
+    
+    # NUEVO BOTÓN PARA INFORME DE ÚTILES
+    if st.button("📄 INFORME DE ÚTILES POR AGENCIA/SECTORES"):
+        st.switch_page("pages/INFORME UTILES.py")
+    
     st.markdown("---")
     pop_admin = st.popover("🔑 ADMINISTRADORES")
     with pop_admin:
