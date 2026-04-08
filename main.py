@@ -359,7 +359,9 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
                 else:
                     st.error("❌ Clave incorrecta")
 
+# ================= PÁGINAS ÚTILES (MODIFICADO CON NUEVOS ENLACES) =================
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
+    # Enlaces originales (se mantienen exactamente igual)
     cols = st.columns(2)
     with cols[0]:
         st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
@@ -369,6 +371,46 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("💊 VADEMÉCUM", "https://www.osecac.org.ar/Vademecus")
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
+    
+    st.markdown("---")
+    st.markdown("### ➕ Más recursos útiles")
+    
+    # Lista de nuevos enlaces (nombre, url, emoji)
+    nuevos_enlaces = [
+        ("🩺 sss beneficiario", "https://www.sssalud.gob.ar/index.php?b_publica=Acceso+P%C3%BAblico&user=GRAL&page=bus650"),
+        ("📊 sss monotributo", "https://www.sssalud.gob.ar/?page=busmon"),
+        ("💰 sss pagos s domest", "https://www.sssalud.gob.ar/index.php?cat=consultas&page=mono_pagos_sd"),
+        ("⚙️ sss opciones", "https://www.sssalud.gob.ar/index.php?cat=consultas&page=busopc"),
+        ("💵 sss pagos monotributo", "https://www.sssalud.gob.ar/index.php?cat=consultas&page=mono_pagos"),
+        ("❌ negativa anses", "https://servicioswww.anses.gob.ar/censite/index.aspx"),
+        ("🏥 sanatorio belgrano", "https://www.sanatoriobelgrano.com.ar/"),
+        ("🏥 HPC", "https://www.hpc.org.ar/"),
+        ("🏥 amec", "https://amec.org.ar/"),
+        ("📋 SEC", "https://secza.org.ar/"),
+        ("💼 PORTAL SUELDOS", "http://portalrrhh.osecac.org.ar:8092/?ReturnUrl=%2fLiquidaciones%2fIndex"),
+        ("🏢 FABA", "http://www.aol.faba.org.ar/"),
+        ("📷 I. RADIOLOGICO", "https://www.iradiologico.com.ar/"),
+        ("🔐 SAES", "http://portal.gmssa.com.ar/saes/Login.aspx"),
+        ("🏛️ faecys", "https://www.faecys.org.ar/"),
+        ("👤 PORTAL PACIENTES", "https://www.osecac.org.ar/Account/Login?ReturnUrl=%2FPortalPaciente%2Fpaciente"),
+        ("🧮 CALCULADORA SALARIAL", "https://secza.org.ar/login"),
+        ("📝 RECETAS OSECAC", "http://servicios-externos.osecac.org.ar/solicitudes/recetas"),
+        ("🔬 MANLAB", "https://www.manlab.com.ar/contacto/"),
+        ("🧪 SELAB LABORATORIO", "https://selab.com.ar/"),
+        ("🏠 ARCA CASAS PARTICULARES", "https://www.arca.gob.ar/casasparticulares/aportes-contribuciones-ART/conceptos.asp"),
+        ("📈 Cálculo de intereses resarcitorios", "https://serviciosweb.afip.gob.ar/genericos/calculointeres/resarcitorios.aspx")
+    ]
+    
+    # Dividir en dos columnas para mejor visualización
+    mitad = len(nuevos_enlaces) // 2 + (len(nuevos_enlaces) % 2)
+    col_izq, col_der = st.columns(2)
+    
+    with col_izq:
+        for nombre, url in nuevos_enlaces[:mitad]:
+            st.link_button(nombre, url)
+    with col_der:
+        for nombre, url in nuevos_enlaces[mitad:]:
+            st.link_button(nombre, url)
 
 with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
     bus_t = st.text_input("Buscá trámites...", key="bus_t")
