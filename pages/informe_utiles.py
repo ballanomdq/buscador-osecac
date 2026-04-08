@@ -8,16 +8,20 @@ import base64
 
 st.set_page_config(layout="wide", page_title="Informe de Útiles")
 
+# Título principal
 st.title("📊 INFORME DE PEDIDOS DE ÚTILES")
 st.markdown("---")
-
-st.write("✅ 1. Llegamos hasta aquí")
 
 # ========== CONFIGURACIÓN ==========
 SPREADSHEET_ID = "1eaujMJahDPn7YBpHeGKG_pSIvxjosnD6f2MHXLfngbI"
 SHEET_NAME = "Respuestas de formulario 1"
 
-st.write("✅ 2. Configuración cargada")
+# Lista de todas las agencias
+AGENCIAS_TODAS = [
+    "MIRAMAR", "M CHIQUITA", "MECHONGUE", "GESELL", "DOLORES", "MONOLITO",
+    "PINAMAR", "S CLEMENTE", "MAR DE AJO", "MAIPU", "S TERESITA", "MADARIAGA",
+    "PIRAN", "VIDAL"
+]
 
 # ========== FUNCIÓN PARA CARGAR DATOS ==========
 @st.cache_data(ttl=300)
@@ -37,31 +41,105 @@ def cargar_datos_utiles():
         st.error(f"Error al cargar datos: {e}")
         return pd.DataFrame()
 
-st.write("✅ 3. Función definida")
+# ========== PROCESAMIENTO ==========
+def procesar_informe(df, mes, anio, dia_inicio, dia_fin, agencias_seleccionadas):
+    # Convertir fecha
+    fecha_col = 'FECHA' if 'FECHA' in df.columns else 'Marca temporal'
+    df['fecha'] = pd.to_datetime(df[fecha_col], errors='coerce', dayfirst=True)
+    df = df.dropna(subset=['fecha'])
+    
+    # Filtrar por año, mes y rango de días
+    df = df[(df['fecha'].dt.year == anio) & 
+            (df['fecha'].dt.month == mes) &
+            (df['fecha'].dt.day >= dia_inicio) &
+            (df['fecha'].dt.day <= dia_fin)]
+    
+    # Filtrar por agencias seleccionadas
+    if agencias_seleccionadas:
+        df = df[df['AGENCIA'].isin(agencias_seleccionadas)]
+    
+    if df.empty:
+        return None
+    
+    # Definir columnas de productos
+    excluir = ['Marca temporal', 'FECHA', '¿A dónde pertenece?', 'AGENCIA', 'SECTOR',
+               'MODELO_SOPORTE', 'OTROS PEDIDOS ARREGLADO', 'OTROS PEDIDOS',
+               'MODELO DE IMPRESORA', 'TONER CANTIDAD', 'fecha']
+    items = [col for col in df.columns if col not in excluir and not col.startswith('OTROS')]
+    
+    # Agrupar por agencia y sumar
+    df_agrupado = df.groupby('AGENCIA')[items].sum().reset_index()
+    df_agrupado[items] = df_agrupado[items].fillna(0)
+    
+    # Pivot: items como filas, agencias como columnas
+    df_pivot = df_agrupado.set_index('AGENCIA').T
+    # Agregar total por ítem
+    df_pivot['TOTAL ÍTEM'] = df_pivot.sum(axis=1)
+    # Agregar fila de total por agencia
+    total_por_agencia = df_pivot.sum(axis=0)
+    df_pivot.loc['TOTAL AGENCIA'] = total_por_agencia
+    
+    return df_pivot
 
-# Intentar cargar datos para ver si hay error inmediato
-df_raw = cargar_datos_utiles()
-st.write(f"✅ 4. Datos cargados: {len(df_raw)} filas")
+# ========== FILTROS EN LA PÁGINA PRINCIPAL (sin sidebar) ==========
+st.subheader("🔍 Filtros de búsqueda")
 
-# ========== INTERFAZ DE USUARIO ==========
-st.sidebar.write("### 🧪 Barra lateral visible")
-with st.sidebar:
-    st.header("🔍 Filtros")
-    año = st.number_input("Año", min_value=2020, max_value=2030, value=2026, step=1)
-    mes = st.selectbox("Mes", options=list(range(1,13)), 
+# Organizar filtros en columnas para que sea más compacto
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    año = st.number_input("📅 Año", min_value=2020, max_value=2030, value=2026, step=1)
+with col2:
+    mes = st.selectbox("📆 Mes", options=list(range(1,13)), 
                        format_func=lambda x: datetime(2000, x, 1).strftime('%B'), 
                        index=datetime.today().month-1)
-    dia_inicio = st.number_input("Día desde", min_value=1, max_value=31, value=1)
-    dia_fin = st.number_input("Día hasta", min_value=1, max_value=31, value=15)
-    agencias_seleccionadas = st.multiselect("Agencias (vacío = todas)", 
-                                            options=["MIRAMAR", "M CHIQUITA", "MECHONGUE", "GESELL", "DOLORES", "MONOLITO",
-                                                     "PINAMAR", "S CLEMENTE", "MAR DE AJO", "MAIPU", "S TERESITA", "MADARIAGA",
-                                                     "PIRAN", "VIDAL"])
-    generar = st.button("📊 GENERAR INFORME", type="primary")
+with col3:
+    dia_inicio = st.number_input("📅 Día desde", min_value=1, max_value=31, value=1)
+with col4:
+    dia_fin = st.number_input("📅 Día hasta", min_value=1, max_value=31, value=15)
 
-st.write("✅ 5. Barra lateral creada correctamente")
+# Filtro de agencias (multiselect ocupa todo el ancho)
+agencias_seleccionadas = st.multiselect("🏢 Agencias (vacío = todas)", options=AGENCIAS_TODAS)
+
+# Botón para generar informe
+generar = st.button("📊 GENERAR INFORME", type="primary", use_container_width=True)
+
+# ========== CARGA DE DATOS Y GENERACIÓN DEL INFORME ==========
+df_raw = cargar_datos_utiles()
 
 if generar:
-    st.write("✅ Botón presionado. Procesando...")
-    # Aquí iría el procesamiento, pero lo omitimos por ahora
-    st.info("Informe aún no implementado en modo prueba")
+    if df_raw.empty:
+        st.warning("No se pudieron cargar los datos. Revisá la conexión a Google Sheets.")
+    else:
+        with st.spinner("Procesando pedidos, por favor espera..."):
+            informe = procesar_informe(df_raw, mes, año, dia_inicio, dia_fin, agencias_seleccionadas)
+        
+        if informe is None:
+            st.info("📭 No hay pedidos para los filtros seleccionados.")
+        else:
+            st.success(f"✅ Informe generado para {datetime(año, mes, 1).strftime('%B %Y')} (días {dia_inicio} al {dia_fin})")
+            
+            # Mostrar tabla con formato y colores
+            st.dataframe(informe.style.format("{:.0f}").background_gradient(cmap='Blues', axis=None), 
+                         use_container_width=True, height=600)
+            
+            # Botón de descarga CSV
+            csv = informe.to_csv()
+            b64 = base64.b64encode(csv.encode()).decode()
+            href = f'<a href="data:file/csv;base64,{b64}" download="informe_utiles.csv" style="text-decoration: none;">📥 Descargar informe en CSV</a>'
+            st.markdown(href, unsafe_allow_html=True)
+            
+            # Gráfico de barras: top 10 ítems más pedidos
+            st.subheader("📈 Top 10 ítems más solicitados")
+            top_items = informe[:-1].copy()  # excluir la fila de total agencia
+            top_items['Total General'] = top_items.sum(axis=1)
+            top_items = top_items.sort_values('Total General', ascending=False).head(10)
+            fig = px.bar(top_items, x=top_items.index, y='Total General', 
+                         title="Cantidad total por ítem",
+                         labels={'index': 'Ítem', 'Total General': 'Cantidad pedida'},
+                         color='Total General', color_continuous_scale='Blues')
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Opcional: tabla resumen por agencia (transpuesta)
+            with st.expander("📋 Ver resumen por agencia (filas y columnas intercambiadas)"):
+                st.dataframe(informe.T.style.format("{:.0f}").background_gradient(cmap='Greens', axis=None),
+                             use_container_width=True)
