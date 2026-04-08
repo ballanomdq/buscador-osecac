@@ -3,77 +3,97 @@ import pandas as pd
 import gspread
 from google.oauth2 import service_account
 from datetime import datetime
-import base64
 
 st.set_page_config(layout="wide", page_title="Informe de Útiles")
 
-# Inyectamos CSS para mejorar la tabla en pantalla y para la impresión
+# ========== ESTILOS FUERTES PARA VISIBILIDAD ==========
 st.markdown("""
 <style>
-    /* Estilo para la tabla en pantalla */
-    .stDataFrame {
-        font-size: 18px !important;
+    /* Fondo general claro, texto negro */
+    .stApp {
+        background-color: white !important;
     }
+    .stMarkdown, .stTitle, .stSubheader, label, .st-bb {
+        color: black !important;
+    }
+    /* Tabla en pantalla: bordes negros, fondo blanco, letra negra grande */
     .dataframe {
         font-size: 18px !important;
+        font-family: Arial, sans-serif !important;
         border-collapse: collapse !important;
-        width: 100%;
+        width: 100% !important;
+        background-color: white !important;
+        color: black !important;
     }
     .dataframe th, .dataframe td {
-        border: 2px solid #cccccc !important;
-        padding: 12px 8px !important;
+        border: 2px solid #000000 !important;
+        padding: 10px 8px !important;
         text-align: center !important;
         vertical-align: middle !important;
+        background-color: white !important;
+        color: black !important;
     }
     .dataframe th {
-        background-color: #1e293b !important;
-        color: white !important;
+        background-color: #f0f0f0 !important;
         font-weight: bold !important;
+        font-size: 16px !important;
     }
-    
-    /* Estilos específicos para la impresión (PDF) */
+    /* Botón grande y vistoso */
+    div.stButton > button {
+        background-color: #0066cc !important;
+        color: white !important;
+        font-size: 24px !important;
+        font-weight: bold !important;
+        padding: 15px 30px !important;
+        border-radius: 12px !important;
+        border: none !important;
+        width: 100% !important;
+        margin-top: 20px !important;
+    }
+    div.stButton > button:hover {
+        background-color: #004999 !important;
+        transform: scale(1.02);
+    }
+    /* Ocultar elementos de Streamlit que molestan */
+    #MainMenu, footer, header {
+        display: none !important;
+    }
+    /* Para la impresión: títulos verticales y hoja A4 apaisada */
     @media print {
         body {
+            margin: 0.5cm;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
-            margin: 1cm;
         }
-        .stApp, .stMarkdown, .stButton, .stSelectbox, .stNumberInput, .stMultiSelect {
+        .stApp, .stMarkdown, .stButton, .stSelectbox, .stNumberInput, .stMultiSelect, .stTitle, .stSubheader {
             display: none !important;
         }
-        /* Mostrar solo la tabla */
-        .print-only {
+        .printable-area {
             display: block !important;
         }
         .dataframe {
-            font-size: 12pt !important;
+            font-size: 11pt !important;
             width: 100% !important;
-            border-collapse: collapse !important;
-        }
-        .dataframe th, .dataframe td {
-            border: 1px solid black !important;
-            padding: 6px 4px !important;
-            text-align: center !important;
         }
         .dataframe th {
-            background-color: #e0e0e0 !important;
-            color: black !important;
-            font-weight: bold;
-            /* Rotar texto verticalmente para ahorrar ancho */
             writing-mode: vertical-rl;
             text-orientation: mixed;
             height: 120px;
             white-space: nowrap;
+            font-size: 10pt !important;
+            background-color: #e0e0e0 !important;
+            color: black !important;
+            border: 1px solid black !important;
         }
-        /* Asegurar que la tabla no se corte */
-        .main .block-container {
-            max-width: 100% !important;
-            padding: 0 !important;
+        .dataframe td {
+            border: 1px solid black !important;
+            padding: 4px !important;
         }
     }
 </style>
 """, unsafe_allow_html=True)
 
+# ========== TÍTULO ==========
 st.title("📊 INFORME DE PEDIDOS DE ÚTILES")
 st.markdown("---")
 
@@ -146,7 +166,7 @@ def procesar_informe(df, mes, anio, dia_inicio, dia_fin, agencias_seleccionadas)
     
     return df_pivot
 
-# ========== FILTROS EN LA PÁGINA ==========
+# ========== FILTROS ==========
 st.subheader("🔍 Filtros de búsqueda")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -162,17 +182,14 @@ with col4:
 
 agencias_seleccionadas = st.multiselect("🏢 Agencias (vacío = todas)", options=AGENCIAS_TODAS)
 
-col_btn1, col_btn2 = st.columns(2)
-with col_btn1:
-    generar = st.button("📊 GENERAR INFORME", type="primary", use_container_width=True)
-with col_btn2:
-    # Botón para imprimir/PDF (solo se activa si ya hay un informe generado)
-    imprimir = st.button("🖨️ Imprimir / Guardar PDF", use_container_width=True, disabled=not st.session_state.get('informe_listo', False))
+# Botón para generar informe (grande y centrado)
+col_btn = st.columns([1,2,1])
+with col_btn[1]:
+    generar = st.button("📊 GENERAR INFORME", use_container_width=True)
 
-# ========== CARGA Y GENERACIÓN ==========
-df_raw = cargar_datos_utiles()
-
+# ========== GENERACIÓN Y VISUALIZACIÓN ==========
 if generar:
+    df_raw = cargar_datos_utiles()
     if df_raw.empty:
         st.warning("No se pudieron cargar los datos. Revisá la conexión a Google Sheets.")
     else:
@@ -181,28 +198,28 @@ if generar:
         
         if informe is None:
             st.info("📭 No hay pedidos para los filtros seleccionados.")
-            st.session_state['informe_listo'] = False
+            st.session_state['informe'] = None
         else:
             st.session_state['informe'] = informe
-            st.session_state['informe_listo'] = True
+            st.session_state['filtros'] = (año, mes, dia_inicio, dia_fin)
             st.success(f"✅ Informe generado para {datetime(año, mes, 1).strftime('%B %Y')} (días {dia_inicio} al {dia_fin})")
             
-            # Mostrar tabla con estilo mejorado (en pantalla)
-            st.markdown('<div class="print-only">', unsafe_allow_html=True)
-            st.dataframe(informe.style.format("{:.0f}"), use_container_width=True, height=600)
+            # Mostrar tabla dentro de un div que será visible en impresión
+            st.markdown('<div class="printable-area">', unsafe_allow_html=True)
+            st.dataframe(informe.style.format("{:.0f}"), use_container_width=True, height=500)
             st.markdown('</div>', unsafe_allow_html=True)
-
-# Si ya hay un informe guardado en sesión, mostrarlo (para que persista al hacer clic en imprimir)
-if st.session_state.get('informe_listo', False) and not generar:
-    informe = st.session_state['informe']
-    st.success(f"✅ Informe actual (puedes imprimirlo)")
-    st.dataframe(informe.style.format("{:.0f}"), use_container_width=True, height=600)
-
-# Lógica para imprimir (abre diálogo de impresión del navegador)
-if imprimir and st.session_state.get('informe_listo', False):
-    # Inyectamos JavaScript para abrir la ventana de impresión
-    st.markdown("""
-        <script>
-            window.print();
-        </script>
-    """, unsafe_allow_html=True)
+            
+            # Botón grande para descargar PDF (abrir diálogo de impresión)
+            st.markdown("---")
+            col_pdf = st.columns([1,2,1])
+            with col_pdf[1]:
+                if st.button("📥 DESCARGAR INFORME EN PDF", use_container_width=True):
+                    # Cambiamos el título de la página para que el PDF tenga nombre sugerido
+                    mes_nombre = datetime(año, mes, 1).strftime('%B_%Y')
+                    nombre_sugerido = f"Informe_Utiles_{mes_nombre}.pdf"
+                    st.markdown(f"""
+                        <script>
+                            document.title = "{nombre_sugerido}";
+                            window.print();
+                        </script>
+                    """, unsafe_allow_html=True)
