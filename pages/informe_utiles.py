@@ -4,29 +4,33 @@ import gspread
 from google.oauth2 import service_account
 from datetime import datetime
 from reportlab.lib.pagesizes import landscape, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
+from reportlab.lib.units import cm
 from io import BytesIO
-import base64
+import time
 
-st.set_page_config(layout="wide", page_title="Informe de Útiles")
+st.set_page_config(layout="wide", page_title="Informe de Útiles", initial_sidebar_state="collapsed")
 
-# ========== ESTILOS FUERTES PARA VISIBILIDAD ==========
+# ========== ESTILOS FUERTES (blanco y negro, legible) ==========
 st.markdown("""
 <style>
-    /* Fondo general claro, texto negro */
+    /* Fondo general blanco */
     .stApp {
         background-color: white !important;
     }
-    .stMarkdown, .stTitle, .stSubheader, label, .st-bb {
+    .main .block-container {
+        background-color: white !important;
+    }
+    /* Todos los textos negros */
+    .stMarkdown, .stTitle, .stSubheader, label, .st-bb, .st-at, div, p, h1, h2, h3, h4, h5, h6 {
         color: black !important;
     }
-    /* Tabla en pantalla: bordes negros, fondo blanco, letra negra grande */
+    /* Tabla en pantalla: fondo blanco, texto negro, bordes negros, fuente grande */
     .dataframe {
         font-size: 18px !important;
-        font-family: Arial, sans-serif !important;
+        font-family: 'Segoe UI', Arial, sans-serif !important;
         border-collapse: collapse !important;
         width: 100% !important;
         background-color: white !important;
@@ -34,34 +38,31 @@ st.markdown("""
     }
     .dataframe th, .dataframe td {
         border: 2px solid #000000 !important;
-        padding: 10px 8px !important;
+        padding: 12px 8px !important;
         text-align: center !important;
         vertical-align: middle !important;
         background-color: white !important;
         color: black !important;
     }
     .dataframe th {
-        background-color: #f0f0f0 !important;
+        background-color: #e6e6e6 !important;
         font-weight: bold !important;
         font-size: 16px !important;
     }
-    /* Botón grande y vistoso */
+    /* Botones grandes */
     div.stButton > button {
         background-color: #0066cc !important;
         color: white !important;
-        font-size: 24px !important;
+        font-size: 20px !important;
         font-weight: bold !important;
-        padding: 15px 30px !important;
-        border-radius: 12px !important;
+        padding: 12px 24px !important;
+        border-radius: 10px !important;
         border: none !important;
-        width: 100% !important;
-        margin-top: 20px !important;
     }
     div.stButton > button:hover {
         background-color: #004999 !important;
-        transform: scale(1.02);
     }
-    /* Ocultar elementos de Streamlit que molestan */
+    /* Ocultar elementos de Streamlit */
     #MainMenu, footer, header {
         display: none !important;
     }
@@ -82,23 +83,29 @@ AGENCIAS_TODAS = [
     "PIRAN", "VIDAL"
 ]
 
-# ========== FUNCIÓN CARGAR DATOS ==========
+# ========== FUNCIÓN CARGAR DATOS CON REINTENTOS ==========
 @st.cache_data(ttl=300)
-def cargar_datos_utiles():
-    try:
-        creds_info = st.secrets["gcp_service_account"]
-        creds = service_account.Credentials.from_service_account_info(
-            creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
-        )
-        client = gspread.authorize(creds)
-        sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
-        data = sheet.get_all_records()
-        df = pd.DataFrame(data)
-        df.columns = df.columns.str.replace('\n', ' ').str.strip()
-        return df
-    except Exception as e:
-        st.error(f"Error al cargar datos: {e}")
-        return pd.DataFrame()
+def cargar_datos_utiles(retries=3):
+    for i in range(retries):
+        try:
+            creds_info = st.secrets["gcp_service_account"]
+            creds = service_account.Credentials.from_service_account_info(
+                creds_info, scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"]
+            )
+            client = gspread.authorize(creds)
+            sheet = client.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
+            data = sheet.get_all_records()
+            df = pd.DataFrame(data)
+            df.columns = df.columns.str.replace('\n', ' ').str.strip()
+            return df
+        except Exception as e:
+            if i < retries - 1:
+                time.sleep(2 ** i)  # espera exponencial
+                continue
+            else:
+                st.error(f"Error al cargar datos después de {retries} intentos: {e}")
+                return pd.DataFrame()
+    return pd.DataFrame()
 
 # ========== PROCESAR INFORME ==========
 def procesar_informe(df, mes, anio, dia_inicio, dia_fin, agencias_seleccionadas):
@@ -141,62 +148,46 @@ def procesar_informe(df, mes, anio, dia_inicio, dia_fin, agencias_seleccionadas)
     
     return df_pivot
 
-# ========== FUNCIÓN PARA GENERAR PDF ==========
-def generar_pdf(informe, mes_nombre, año):
+# ========== GENERAR PDF CON REPORTLAB ==========
+def generar_pdf(df_pivot, titulo):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
-                            rightMargin=10*mm, leftMargin=10*mm,
-                            topMargin=15*mm, bottomMargin=15*mm)
-    
+                            rightMargin=1*cm, leftMargin=1*cm,
+                            topMargin=1*cm, bottomMargin=1*cm)
     elementos = []
     
     # Estilos
     styles = getSampleStyleSheet()
-    titulo_style = ParagraphStyle(name='Titulo', parent=styles['Title'], fontSize=14, alignment=1, spaceAfter=12)
-    subtitulo_style = ParagraphStyle(name='Subtitulo', parent=styles['Normal'], fontSize=10, alignment=1, spaceAfter=20)
+    titulo_style = ParagraphStyle('Titulo', parent=styles['Title'], fontSize=16, alignment=1, spaceAfter=12)
+    subtitulo_style = ParagraphStyle('Subtitulo', parent=styles['Normal'], fontSize=12, alignment=1, spaceAfter=20)
     
-    # Título
-    titulo = Paragraph(f"Informe de Pedidos de Útiles - {mes_nombre} {año}", titulo_style)
-    elementos.append(titulo)
-    elementos.append(Spacer(1, 5*mm))
+    elementos.append(Paragraph(titulo, titulo_style))
+    elementos.append(Spacer(1, 10))
     
     # Convertir DataFrame a lista de listas
-    # Primero, obtener los nombres de las columnas (agencias) y filas (items)
-    columnas = list(informe.columns)
-    filas = list(informe.index)
-    
-    # Construir datos para la tabla
-    data = []
-    # Encabezados: primera fila con los nombres de agencias (incluyendo TOTAL AGENCIA)
-    data.append(['Ítem / Agencia'] + columnas)
-    # Agregar cada fila de ítem
-    for idx in filas:
-        row = [idx] + [informe.loc[idx, col] for col in columnas]
-        data.append(row)
+    data = [df_pivot.columns.tolist()]  # encabezados
+    for idx, row in df_pivot.iterrows():
+        fila = [idx] + [int(v) if isinstance(v, (int, float)) else v for v in row.tolist()]
+        data.append(fila)
     
     # Crear tabla
-    # Estimamos un ancho de columna: la primera columna más ancha, las demás iguales
-    num_cols = len(columnas) + 1
-    col_widths = [50*mm] + [25*mm] * (num_cols - 1)  # ajustable
-    table = Table(data, colWidths=col_widths, repeatRows=1)
-    
-    # Estilo de la tabla
-    style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+    tabla = Table(data)
+    estilo_tabla = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
-        ('BACKGROUND', (0, 1), (-1, -2), colors.beige),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('BACKGROUND', (0, 1), (-1, -2), colors.white),
         ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('FONTSIZE', (0, 1), (-1, -1), 7),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
     ])
-    table.setStyle(style)
+    tabla.setStyle(estilo_tabla)
+    elementos.append(tabla)
     
-    elementos.append(table)
     doc.build(elementos)
     buffer.seek(0)
     return buffer
@@ -217,43 +208,56 @@ with col4:
 
 agencias_seleccionadas = st.multiselect("🏢 Agencias (vacío = todas)", options=AGENCIAS_TODAS)
 
-# Botón para generar informe
 col_btn = st.columns([1,2,1])
 with col_btn[1]:
     generar = st.button("📊 GENERAR INFORME", use_container_width=True)
 
-# ========== GENERACIÓN Y VISUALIZACIÓN ==========
+# ========== ESTADO EN SESIÓN ==========
+if 'informe' not in st.session_state:
+    st.session_state.informe = None
+
+# ========== GENERAR Y MOSTRAR ==========
 if generar:
-    df_raw = cargar_datos_utiles()
+    with st.spinner("Cargando datos desde Google Sheets..."):
+        df_raw = cargar_datos_utiles()
     if df_raw.empty:
-        st.warning("No se pudieron cargar los datos. Revisá la conexión a Google Sheets.")
+        st.warning("No se pudieron cargar los datos. Revisá la conexión o intentá más tarde.")
     else:
         with st.spinner("Procesando pedidos..."):
             informe = procesar_informe(df_raw, mes, año, dia_inicio, dia_fin, agencias_seleccionadas)
         
         if informe is None:
             st.info("📭 No hay pedidos para los filtros seleccionados.")
-            st.session_state['informe'] = None
+            st.session_state.informe = None
         else:
-            st.session_state['informe'] = informe
-            st.session_state['filtros'] = (año, mes, dia_inicio, dia_fin)
-            mes_nombre = datetime(año, mes, 1).strftime('%B')
-            st.success(f"✅ Informe generado para {mes_nombre} {año} (días {dia_inicio} al {dia_fin})")
+            st.session_state.informe = informe
+            st.session_state.filtros = (año, mes, dia_inicio, dia_fin)
+            st.success(f"✅ Informe generado para {datetime(año, mes, 1).strftime('%B %Y')} (días {dia_inicio} al {dia_fin})")
             
-            # Mostrar tabla en pantalla (ahora sí, bien visible)
-            st.markdown('<div style="background-color: white; padding: 10px; border-radius: 5px;">', unsafe_allow_html=True)
+            # Mostrar tabla en pantalla
             st.dataframe(informe.style.format("{:.0f}"), use_container_width=True, height=500)
-            st.markdown('</div>', unsafe_allow_html=True)
             
             # Botón de descarga de PDF
-            st.markdown("---")
-            col_pdf = st.columns([1,2,1])
-            with col_pdf[1]:
-                if st.button("📥 DESCARGAR INFORME EN PDF", use_container_width=True):
-                    # Generar PDF
-                    pdf_buffer = generar_pdf(informe, mes_nombre, año)
-                    b64 = base64.b64encode(pdf_buffer.getvalue()).decode()
-                    # Crear link de descarga
-                    href = f'<a href="data:application/pdf;base64,{b64}" download="Informe_Utiles_{mes_nombre}_{año}.pdf" style="text-decoration: none; background-color: #28a745; color: white; padding: 12px 24px; border-radius: 8px; font-weight: bold; display: inline-block; text-align: center;">📄 Haga clic aquí si la descarga no comienza automáticamente</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-                    st.success("✅ PDF generado correctamente. La descarga debería comenzar automáticamente. Si no, usa el enlace de arriba.")
+            titulo_pdf = f"Informe de Útiles - {datetime(año, mes, 1).strftime('%B %Y')}"
+            pdf_buffer = generar_pdf(informe, titulo_pdf)
+            st.download_button(
+                label="📥 DESCARGAR INFORME EN PDF",
+                data=pdf_buffer,
+                file_name=f"Informe_Utiles_{datetime(año, mes, 1).strftime('%B_%Y')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+# Si ya había un informe generado (por si el usuario no quiere generar de nuevo)
+if st.session_state.informe is not None and not generar:
+    st.dataframe(st.session_state.informe.style.format("{:.0f}"), use_container_width=True, height=500)
+    año, mes, dia_inicio, dia_fin = st.session_state.filtros
+    titulo_pdf = f"Informe de Útiles - {datetime(año, mes, 1).strftime('%B %Y')}"
+    pdf_buffer = generar_pdf(st.session_state.informe, titulo_pdf)
+    st.download_button(
+        label="📥 DESCARGAR INFORME EN PDF",
+        data=pdf_buffer,
+        file_name=f"Informe_Utiles_{datetime(año, mes, 1).strftime('%B_%Y')}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
