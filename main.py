@@ -359,9 +359,9 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
                 else:
                     st.error("❌ Clave incorrecta")
 
-# ================= PÁGINAS ÚTILES (MODIFICADO CON NUEVOS ENLACES) =================
+# ================= PÁGINAS ÚTILES (CON NUEVOS ENLACES SIN TEXTO ADICIONAL) =================
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
-    # Enlaces originales (se mantienen exactamente igual)
+    # Enlaces originales
     cols = st.columns(2)
     with cols[0]:
         st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
@@ -372,10 +372,7 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
     
-    st.markdown("---")
-    st.markdown("### ➕ Más recursos útiles")
-    
-    # Lista de nuevos enlaces (nombre, url, emoji)
+    # Nuevos enlaces (sin ningún texto adicional ni separador)
     nuevos_enlaces = [
         ("🩺 sss beneficiario", "https://www.sssalud.gob.ar/index.php?b_publica=Acceso+P%C3%BAblico&user=GRAL&page=bus650"),
         ("📊 sss monotributo", "https://www.sssalud.gob.ar/?page=busmon"),
@@ -401,7 +398,7 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         ("📈 Cálculo de intereses resarcitorios", "https://serviciosweb.afip.gob.ar/genericos/calculointeres/resarcitorios.aspx")
     ]
     
-    # Dividir en dos columnas para mejor visualización
+    # Dividir en dos columnas
     mitad = len(nuevos_enlaces) // 2 + (len(nuevos_enlaces) % 2)
     col_izq, col_der = st.columns(2)
     
