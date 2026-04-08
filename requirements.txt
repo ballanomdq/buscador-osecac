@@ -15,3 +15,4 @@ pytz
 pdfplumber
 plotly
 matplotlib
+reportlab
