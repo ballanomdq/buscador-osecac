@@ -20,7 +20,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     sys.exit(0)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Localidades ---
+# --- Localidades (igual que antes) ---
 LOCALIDADES = {
     "mar del plata", "alvarado", "miramar", "mechongue", "otamendi", "vivorata",
     "vidal", "piran", "las armas", "maipu", "labarden", "guido", "dolores",
@@ -32,8 +32,6 @@ LOCALIDADES = {
 ALIAS_LOCALIDAD = {"general guido": "Guido", "gdor. arias": "Dolores"}
 CONTEXTO_CHARS = 1500
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
-
-# --- URLs base ---
 BASE_URL = "https://boletinoficial.gba.gob.ar"
 
 # --- Funciones de extracción de fecha y número desde el PDF ---
@@ -59,9 +57,9 @@ def extraer_numero_boletin(texto):
     match = re.search(r"N[º°]?\s*(\d{4,6})", texto)
     return match.group(1) if match else "desconocido"
 
-# --- Obtener el último boletín desde la página de ediciones anteriores ---
+# --- Obtener el último boletín desde la página de ediciones anteriores (ahora tolerante) ---
 def obtener_ultimo_boletin():
-    """Scrapea la página de ediciones anteriores y devuelve el número, fecha y URLs de las secciones del último boletín."""
+    """Scrapea la página de ediciones anteriores y devuelve el número, fecha y URLs de las secciones disponibles (al menos una)."""
     url_ediciones = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url_ediciones, headers=HEADERS, timeout=30)
@@ -81,7 +79,7 @@ def obtener_ultimo_boletin():
             return None, None, None
         numero = match.group(1)
         fecha_str = match.group(2)
-        # Buscar enlaces a las secciones dentro del mismo panel
+        # Buscar enlaces a las secciones dentro del mismo panel (puede haber 1 o 2)
         secciones_urls = {}
         for a in panel.find_all("a", href=True):
             texto_a = a.get_text(strip=True).upper()
@@ -90,9 +88,10 @@ def obtener_ultimo_boletin():
                 secciones_urls["OFICIAL"] = href if href.startswith("http") else BASE_URL + href
             elif "JUDICIAL" in texto_a and "ver" in href:
                 secciones_urls["JUDICIAL"] = href if href.startswith("http") else BASE_URL + href
-        if len(secciones_urls) != 2:
-            log.warning(f"No se encontraron ambas secciones para el boletín {numero}")
-            return numero, fecha_str, secciones_urls
+        if not secciones_urls:
+            log.warning(f"No se encontró ninguna sección para el boletín {numero}")
+            return numero, fecha_str, None
+        log.info(f"Secciones encontradas para el boletín {numero}: {list(secciones_urls.keys())}")
         return numero, fecha_str, secciones_urls
     except Exception as e:
         log.error(f"Error al obtener el último boletín: {e}")
@@ -182,12 +181,15 @@ def eliminar_viejos(dias=60):
     supabase.table("edictos").delete().lt("fecha", limite.isoformat()).execute()
 
 def procesar_boletin(numero, fecha_str, urls_secciones):
-    """Procesa un boletín específico dado su número y URLs de secciones."""
+    """Procesa un boletín específico dado su número y URLs de secciones (puede ser 1 o 2)."""
     try:
         fecha_obj = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except:
         fecha_obj = (datetime.utcnow() - timedelta(hours=3)).date()
     total = 0
+    if not urls_secciones:
+        log.warning(f"No hay URLs de secciones para el boletín {numero}. Se omite.")
+        return 0
     for seccion_nombre, url in urls_secciones.items():
         log.info(f"Procesando sección {seccion_nombre} del boletín {numero}")
         pdf_bytes = descargar_pdf(url)
