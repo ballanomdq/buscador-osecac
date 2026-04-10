@@ -9,6 +9,7 @@ import time
 import re
 from bs4 import BeautifulSoup
 import io
+import base64   # <--- ESTO ES LO QUE FALTABA
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
