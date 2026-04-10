@@ -3,13 +3,13 @@ import os
 import requests
 from supabase import create_client
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pytz
 import time
 import re
 from bs4 import BeautifulSoup
 import io
-import base64   # <--- ESTO ES LO QUE FALTABA
+import base64
 
 st.set_page_config(page_title="Boletín Oficial - OSECAC", layout="wide")
 
@@ -49,7 +49,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Funciones auxiliares para boletines históricos ---
+# --- Funciones auxiliares (sin cambios) ---
 def obtener_lista_boletines():
     url = "https://boletinoficial.gba.gob.ar/ediciones-anteriores"
     try:
@@ -91,7 +91,7 @@ def obtener_urls_secciones(numero):
         st.error(f"Error al obtener URLs del boletín {numero}: {e}")
     return None
 
-# --- Botones superiores ---
+# --- Botones superiores (sin cambios) ---
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 with col1:
     if st.button("🔄 Forzar descarga", use_container_width=True, help="Descarga el último boletín disponible"):
@@ -122,7 +122,7 @@ with col3:
 with col4:
     st.write("")
 
-# --- Selector de históricos ---
+# --- Selector de históricos (sin cambios) ---
 if st.session_state.get("show_historicos", False):
     with st.expander("📖 Seleccionar boletín histórico", expanded=True):
         boletines = obtener_lista_boletines()
@@ -158,9 +158,12 @@ with st.sidebar:
     localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
     seccion_filtro = st.radio("Sección", ["Todas", "JUDICIAL", "OFICIAL"], index=0)
     solo_quiebras = st.checkbox("🚨 Solo quiebras/concursos")
+    # Nuevo control: cantidad de días a mostrar
+    dias_a_mostrar = st.slider("Mostrar boletines de los últimos días", min_value=1, max_value=60, value=15)
 
-# --- Consulta Supabase ---
-query = supabase.table("edictos").select("*").order("fecha", desc=True)
+# --- Consulta Supabase con límite de días ---
+fecha_limite = date.today() - timedelta(days=dias_a_mostrar)
+query = supabase.table("edictos").select("*").gte("fecha", fecha_limite.isoformat()).order("fecha", desc=True)
 if "Todas" not in localidad_filtro and localidad_filtro:
     query = query.in_("localidad", localidad_filtro)
 if seccion_filtro != "Todas":
@@ -169,13 +172,13 @@ response = query.execute()
 datos = response.data
 
 if not datos:
-    st.info("No hay edictos cargados. Usá 'Forzar descarga' para iniciar.")
+    st.info("No hay edictos cargados en el período seleccionado. Usá 'Forzar descarga' para iniciar.")
     st.stop()
 
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 
-# --- Funciones de análisis ---
+# --- Funciones de análisis (sin cambios) ---
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     match = re.search(patron, texto, re.IGNORECASE)
@@ -235,9 +238,7 @@ def eliminar_boletin(fecha, numero):
     except Exception as e:
         st.error(f"Error: {e}")
 
-# --- Función para generar el contenido descargable de un boletín ---
 def generar_descarga_boletin(grupo, seccion_nombre, fecha, numero):
-    """Genera un string HTML con todo el contenido del boletín tal como se ve en la página."""
     html = f"""
     <html>
     <head>
@@ -260,7 +261,6 @@ def generar_descarga_boletin(grupo, seccion_nombre, fecha, numero):
     """
     for _, row in grupo.iterrows():
         info = obtener_info_edicto(row)
-        # Clase CSS según motivo
         if info['motivo'] == "QUIEBRA/CONCURSO":
             clase = "quiebra"
         elif info['motivo'] == "PRECAUCIÓN":
@@ -281,41 +281,26 @@ def generar_descarga_boletin(grupo, seccion_nombre, fecha, numero):
     html += "</body></html>"
     return html
 
-# --- Función para renderizar una sección (Judicial u Oficial) con checkbox de revisado y botón de descarga ---
+# --- Función renderizar_seccion optimizada (sin cambios en la lógica interna, solo recibe el df ya filtrado) ---
 def renderizar_seccion(df_seccion, seccion_nombre):
-    """
-    seccion_nombre: "JUDICIAL" o "OFICIAL"
-    """
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
-
     if df_seccion.empty:
-        st.info(f"No hay edictos en {seccion_nombre}.")
+        st.info(f"No hay edictos en {seccion_nombre} para el período seleccionado.")
         return
-
     grupos = df_seccion.groupby(["fecha", "boletin_numero"])
-
     for (fecha, numero), grupo in grupos:
-        # Reordenar edictos por prioridad
         grupo = grupo.copy()
         grupo["_prioridad"] = [obtener_info_edicto(row)["nivel"] for _, row in grupo.iterrows()]
         grupo = grupo.sort_values("_prioridad").drop(columns=["_prioridad"])
-
         check_key = f"check_{seccion_nombre}_{fecha}_{numero}"
         if check_key not in st.session_state:
             st.session_state[check_key] = False
-
         prefijo_rev = "✅ " if st.session_state[check_key] else ""
         titulo_boletin = f"{prefijo_rev}{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
-
         with st.expander(titulo_boletin, expanded=False):
-            # Fila de botones: checkbox para marcar boletín completo, botón de eliminar, botón de descargar
             col_a, col_b, col_c, _ = st.columns([1, 1, 1, 7])
             with col_a:
-                nuevo = st.checkbox(
-                    "Marcar revisado",
-                    value=st.session_state[check_key],
-                    key=f"chk_{seccion_nombre}_{fecha}_{numero}"
-                )
+                nuevo = st.checkbox("Marcar revisado", value=st.session_state[check_key], key=f"chk_{seccion_nombre}_{fecha}_{numero}")
                 if nuevo != st.session_state[check_key]:
                     st.session_state[check_key] = nuevo
                     st.rerun()
@@ -328,7 +313,6 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                         st.session_state[confirm_key] = True
                         st.warning("⚠️ Hacé clic otra vez en 'Eliminar' para confirmar.")
             with col_c:
-                # Botón para descargar este boletín completo
                 if st.button("💾 Descargar", key=f"download_{seccion_nombre}_{fecha}_{numero}"):
                     html_content = generar_descarga_boletin(grupo, seccion_nombre, fecha, numero)
                     b64 = base64.b64encode(html_content.encode()).decode()
@@ -338,43 +322,22 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                     time.sleep(2)
                     st.rerun()
             st.markdown("---")
-
-            # Edictos individuales
             for _, row in grupo.iterrows():
                 info = obtener_info_edicto(row)
-                titulo_edicto = (
-                    f"{info['icono']} {info['motivo']} | "
-                    f"{row['localidad']} | ({info['nombre_mostrar']})"
-                )
+                titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
                 if info['cuit']:
                     titulo_edicto += f" - {info['cuit']}"
-
                 rev_key = f"revisado_edicto_{row['id']}"
-                # Checkbox para marcar/desmarcar edicto individual
                 edicto_checked = st.session_state.get(rev_key, False)
-                # Usamos un checkbox en lugar del botón anterior
-                # Para mantener la compatibilidad, lo ponemos dentro del expander del edicto
-                # pero el título no se modifica con el checkbox; la marca visual será el checkbox mismo.
-                # Para mayor claridad, agregamos el checkbox en el cuerpo, no en el título.
-                # No obstante, para que se vea un tilde en el título, podríamos agregar un ícono, pero lo dejamos simple.
-                # El usuario puede marcar/desmarcar el checkbox.
                 with st.expander(titulo_edicto):
-                    # Checkbox para marcar revisado
                     nuevo_estado = st.checkbox("✓ Marcar como revisado", value=edicto_checked, key=f"chk_edicto_{row['id']}")
                     if nuevo_estado != edicto_checked:
                         st.session_state[rev_key] = nuevo_estado
                         st.rerun()
-                    # Mostrar el texto resaltado
                     texto_resaltado = row["texto_completo"]
                     if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos":
-                        texto_resaltado = re.sub(
-                            rf'\b{re.escape(info["nombre_mostrar"])}\b',
-                            f'**{info["nombre_mostrar"]}**',
-                            texto_resaltado,
-                            flags=re.IGNORECASE
-                        )
+                        texto_resaltado = re.sub(rf'\b{re.escape(info["nombre_mostrar"])}\b', f'**{info["nombre_mostrar"]}**', texto_resaltado, flags=re.IGNORECASE)
                     st.markdown(texto_resaltado)
-                    # Botón eliminar edicto individual (sin cambios)
                     if st.button("🗑️ Eliminar este edicto", key=f"del_edicto_{row['id']}"):
                         conf_key = f"conf_edicto_{row['id']}"
                         if st.session_state.get(conf_key, False):
@@ -388,11 +351,9 @@ def renderizar_seccion(df_seccion, seccion_nombre):
 
 # --- Pestañas principales ---
 tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
-
 with tab_judicial:
     df_judicial = df[df["seccion"] == "JUDICIAL"]
     renderizar_seccion(df_judicial, "JUDICIAL")
-
 with tab_oficial:
     df_oficial = df[df["seccion"] == "OFICIAL"]
     renderizar_seccion(df_oficial, "OFICIAL")
