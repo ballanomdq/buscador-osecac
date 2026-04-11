@@ -45,9 +45,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 BASE_URL = "https://boletinoficial.gba.gob.ar"
 HEADERS  = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 
-# ── Funciones de scraping (selectores actualizados) ───────────────────────────
+# ── Funciones de scraping ─────────────────────────────────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
-    """Extrae URLs de sección desde un div.panel-default usando los selectores actuales."""
     urls = {}
     panel_body = panel.find("div", class_="panel-body")
     if not panel_body:
@@ -111,6 +110,29 @@ def obtener_urls_secciones(numero: str) -> dict:
         st.error(f"Error al obtener URLs del boletín {numero}: {e}")
         return {}
 
+# ── Función de diagnóstico ────────────────────────────────────────────────────
+def diagnosticar_base():
+    """Consulta la base SIN filtros para ver qué hay realmente."""
+    try:
+        # Total de registros
+        total_resp = supabase.table("edictos").select("id", count="exact").limit(0).execute()
+        total = total_resp.count if total_resp.count else 0
+
+        # Últimos 5 registros (sin filtro de fecha)
+        ultimos_resp = supabase.table("edictos").select("id, fecha, boletin_numero, seccion, localidad")\
+            .order("fecha", desc=True).limit(5).execute()
+        ultimos = ultimos_resp.data if ultimos_resp.data else []
+
+        # Fechas distintas
+        fechas_resp = supabase.table("edictos").select("fecha").execute()
+        fechas_set = set()
+        for r in (fechas_resp.data or []):
+            fechas_set.add(r.get("fecha", "sin fecha"))
+
+        return total, ultimos, sorted(fechas_set, reverse=True)
+    except Exception as e:
+        return None, None, str(e)
+
 # ── Botones superiores ────────────────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
@@ -136,11 +158,77 @@ with col2:
         st.rerun()
 
 with col3:
-    if st.button("🔄 Recargar", use_container_width=True, help="Refrescar datos"):
+    if st.button("🔍 Diagnóstico", use_container_width=True, help="Ver qué hay en la base de datos"):
+        st.session_state.show_diagnostico = not st.session_state.get("show_diagnostico", False)
         st.rerun()
 
 with col4:
-    st.write("")
+    if st.button("🔄 Recargar", use_container_width=True, help="Refrescar datos"):
+        st.rerun()
+
+# ── Panel de diagnóstico ──────────────────────────────────────────────────────
+if st.session_state.get("show_diagnostico", False):
+    with st.expander("🔧 DIAGNÓSTICO DE BASE DE DATOS", expanded=True):
+        with st.spinner("Consultando Supabase..."):
+            total, ultimos, fechas = diagnosticar_base()
+
+        if total is None:
+            st.error(f"❌ ERROR DE CONEXIÓN: {fechas}")
+            st.markdown("**Posibles causas:**")
+            st.code("""
+1. SUPABASE_URL incorrecta (verificá que no tenga /rest al final)
+2. SUPABASE_KEY incorrecta (usá la ANON key, no la service_role)
+3. RLS (Row Level Security) bloqueando lecturas
+4. La tabla 'edictos' no existe
+
+SOLUCIÓN RÁPIDA en Supabase SQL Editor:
+  ALTER TABLE edictos DISABLE ROW LEVEL SECURITY;
+            """)
+        elif total == 0:
+            st.warning("⚠️ La tabla existe pero está VACÍA (0 registros)")
+            st.markdown("**El scraper nunca guardó nada. Verificá:**")
+            st.code("""
+1. Andá a GitHub Actions y mirá los logs del workflow scrape_edictos
+2. Buscá líneas con "❌ ERROR INSERTANDO"
+3. Verificá que las credenciales en GitHub Secrets sean correctas
+            """)
+        else:
+            st.success(f"✅ Hay {total} registros en la base")
+            st.markdown("**Fechas encontradas:**")
+            for f in fechas[:10]:
+                st.write(f"  📅 {f}")
+            if len(fechas) > 10:
+                st.write(f"  ... y {len(fechas) - 10} fechas más")
+
+            st.markdown("**Últimos 5 registros:**")
+            if ultimos:
+                for r in ultimos:
+                    st.write(f"  📄 {r.get('fecha')} | N°{r.get('boletin_numero')} | {r.get('seccion')} | {r.get('localidad')} | ID:{r.get('id')}")
+            else:
+                st.write("  (no se pudieron leer)")
+
+            # Test de fecha
+            st.markdown("---")
+            hoy = date.today()
+            st.markdown(f"**Fecha de hoy (servidor Streamlit):** `{hoy}`")
+            if fechas and isinstance(fechas[0], str):
+                st.markdown(f"**Última fecha en base:** `{fechas[0]}`")
+                try:
+                    ultima = date.fromisoformat(fechas[0])
+                    diff = (hoy - ultima).days
+                    if diff < 0:
+                        st.error(f"⚠️ La última fecha es {abs(diff)} días EN EL FUTURO. Problema de timezone.")
+                    elif diff > 60:
+                        st.error(f"⚠️ La última fecha es de hace {diff} días. El filtro de {60} días la oculta.")
+                    else:
+                        st.success(f"✅ La última fecha está dentro del rango del filtro ({diff} días atrás).")
+                except Exception:
+                    pass
+
+        if st.button("Cerrar diagnóstico"):
+            st.session_state.show_diagnostico = False
+            st.rerun()
+    st.divider()
 
 # ── Selector de históricos ────────────────────────────────────────────────────
 if st.session_state.get("show_historicos", False):
@@ -171,221 +259,4 @@ if st.session_state.get("show_historicos", False):
                     st.markdown(f"- **{sec}**: `{url_pdf}`")
                 st.info("Para procesar este boletín histórico, usá 'Forzar descarga' (el scraper tomará el más reciente).")
         else:
-            st.warning("No se pudo cargar la lista de boletines.")
-
-        if st.button("Cerrar"):
-            st.session_state.show_historicos = False
-            st.session_state.pop("hist_urls", None)
-            st.rerun()
-    st.divider()
-
-# ── Sidebar filtros ───────────────────────────────────────────────────────────
-LOCALIDADES = [
-    "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
-    "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
-    "Castelli", "Tordillo", "Conesa", "Lavalle", "San Clemente", "Las Toninas",
-    "Santa Teresita", "Mar del Tuyu", "San Bernardo", "La Lucila del Mar",
-    "Mar de Ajo", "Costa del Este", "Pinamar", "Madariaga", "Villa Gesell",
-    "Mar Chiquita"
-]
-
-with st.sidebar:
-    st.header("Filtros")
-    localidad_filtro = st.multiselect("Localidad", ["Todas"] + sorted(LOCALIDADES), default=["Todas"])
-    seccion_filtro   = st.radio("Sección", ["Todas", "JUDICIAL", "OFICIAL"], index=0)
-    solo_quiebras    = st.checkbox("🚨 Solo quiebras/concursos")
-    dias_a_mostrar   = st.slider("Mostrar últimos N días", min_value=1, max_value=60, value=15)
-
-# ── Consulta Supabase ─────────────────────────────────────────────────────────
-fecha_limite = date.today() - timedelta(days=dias_a_mostrar)
-query = supabase.table("edictos").select("*").gte("fecha", fecha_limite.isoformat()).order("fecha", desc=True)
-if "Todas" not in localidad_filtro and localidad_filtro:
-    query = query.in_("localidad", localidad_filtro)
-if seccion_filtro != "Todas":
-    query = query.eq("seccion", seccion_filtro)
-response = query.execute()
-datos    = response.data
-
-if not datos:
-    st.info("No hay edictos en el período seleccionado. Usá 'Forzar descarga' para iniciar.")
-    st.stop()
-
-df = pd.DataFrame(datos)
-df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
-
-# ── Funciones de análisis (CORREGIDAS para manejar None) ──────────────────────
-def extraer_nombre_cuit_quiebra(texto):
-    patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
-    m = re.search(patron, texto, re.IGNORECASE)
-    if m:
-        return m.group(1).strip(), m.group(2) if m.group(2) else None
-    return None, None
-
-def extraer_nombre_del_texto(texto):
-    cuit_m = re.search(r'\b\d{2}-\d{8}-\d\b', texto)
-    cuit   = cuit_m.group(0) if cuit_m else None
-    dni_m  = re.search(r'\b(\d{7,8})\b', texto)
-    dni    = dni_m.group(1) if dni_m else None
-    mayus  = re.findall(r'\b[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\b', texto)
-    if not mayus:
-        mayus = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{5,}\b', texto)
-    nombre = mayus[0] if mayus else (f"DNI {dni}" if dni else None)
-    return nombre, cuit
-
-def obtener_info_edicto(row):
-    texto      = row["texto_completo"]
-    sujetos_db = row.get("sujetos")
-    cuits_db   = row.get("cuit_detectados")
-    
-    # Intentar extraer nombre y cuit de quiebra
-    nombre_q, cuit_q = extraer_nombre_cuit_quiebra(texto)
-    if nombre_q:
-        nombre = nombre_q
-        cuit = cuit_q
-        es_quiebra = True
-    else:
-        es_quiebra = "quiebra" in texto.lower() or "concurso" in texto.lower()
-        # Manejar sujetos_db (puede ser None)
-        if sujetos_db and isinstance(sujetos_db, str) and sujetos_db.strip():
-            nombre = sujetos_db.split(",")[0].strip()
-        else:
-            nombre, _ = extraer_nombre_del_texto(texto)
-        # Manejar cuits_db (puede ser None)
-        if cuits_db and isinstance(cuits_db, str) and cuits_db.strip():
-            cuit = cuits_db.split(",")[0].strip()
-        else:
-            _, cuit = extraer_nombre_del_texto(texto)
-    
-    if es_quiebra:
-        nivel, icono, motivo = 0, "🚨", "QUIEBRA/CONCURSO"
-    elif cuit:
-        nivel, icono, motivo = 1, "⚠️", "PRECAUCIÓN"
-    else:
-        nivel, icono, motivo = 2, "⚪", "INFORMATIVO"
-    
-    nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos")
-    return {
-        "nivel": nivel,
-        "icono": icono,
-        "motivo": motivo,
-        "nombre_mostrar": nombre_mostrar,
-        "cuit": cuit
-    }
-
-def eliminar_boletin(fecha, numero):
-    try:
-        supabase.table("edictos").delete()\
-            .eq("fecha", fecha.isoformat())\
-            .eq("boletin_numero", str(numero)).execute()
-        st.success(f"Boletín N° {numero} del {fecha.strftime('%d/%m/%Y')} eliminado.")
-        st.rerun()
-    except Exception as e:
-        st.error(f"Error: {e}")
-
-def generar_descarga_boletin(grupo, seccion_nombre, fecha, numero):
-    html = f"""<html><head><meta charset="UTF-8">
-    <title>Boletín {seccion_nombre} N° {numero} - {fecha.strftime('%d/%m/%Y')}</title>
-    <style>body{{font-family:Arial,sans-serif;margin:20px}}
-    .edicto{{margin-bottom:20px;border-left:4px solid #ccc;padding-left:10px}}
-    .quiebra{{color:red;font-weight:bold}}.precaucion{{color:orange}}
-    .informativo{{color:gray}}.localidad{{font-weight:bold}}</style>
-    </head><body>
-    <h1>Boletín {seccion_nombre} N° {numero} - {fecha.strftime('%d/%m/%Y')}</h1>
-    <p>Total: {len(grupo)} edictos</p><hr>"""
-    for _, row in grupo.iterrows():
-        info  = obtener_info_edicto(row)
-        clase = {"QUIEBRA/CONCURSO":"quiebra","PRECAUCIÓN":"precaucion"}.get(info['motivo'],"informativo")
-        html += f"""<div class="edicto">
-        <p class="localidad">📍 {row['localidad']}</p>
-        <p class="{clase}">{info['icono']} {info['motivo']}</p>
-        <p><strong>Identificador:</strong> {info['nombre_mostrar']}</p>
-        {f"<p><strong>CUIT/DNI:</strong> {info['cuit']}</p>" if info['cuit'] else ""}
-        <pre>{row['texto_completo']}</pre></div><hr>"""
-    html += "</body></html>"
-    return html
-
-# ── Renderizado de una sección ────────────────────────────────────────────────
-def renderizar_seccion(df_seccion, seccion_nombre):
-    icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
-    if df_seccion.empty:
-        st.info(f"No hay edictos en {seccion_nombre} para el período seleccionado.")
-        return
-
-    grupos = df_seccion.groupby(["fecha", "boletin_numero"])
-    for (fecha, numero), grupo in grupos:
-        grupo = grupo.copy()
-        grupo["_p"] = [obtener_info_edicto(r)["nivel"] for _, r in grupo.iterrows()]
-        grupo = grupo.sort_values("_p").drop(columns=["_p"])
-
-        check_key = f"check_{seccion_nombre}_{fecha}_{numero}"
-        if check_key not in st.session_state:
-            st.session_state[check_key] = False
-
-        prefijo = "✅ " if st.session_state[check_key] else ""
-        titulo  = f"{prefijo}{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')}"
-
-        with st.expander(titulo, expanded=False):
-            col_a, col_b, col_c, _ = st.columns([1, 1, 1, 7])
-            with col_a:
-                nuevo = st.checkbox("Marcar revisado", value=st.session_state[check_key],
-                                    key=f"chk_{seccion_nombre}_{fecha}_{numero}")
-                if nuevo != st.session_state[check_key]:
-                    st.session_state[check_key] = nuevo
-                    st.rerun()
-            with col_b:
-                if st.button("🗑️ Eliminar", key=f"del_bol_{seccion_nombre}_{fecha}_{numero}"):
-                    ck = f"confirm_del_{seccion_nombre}_{fecha}_{numero}"
-                    if st.session_state.get(ck, False):
-                        eliminar_boletin(fecha, numero)
-                    else:
-                        st.session_state[ck] = True
-                        st.warning("⚠️ Hacé clic otra vez para confirmar.")
-            with col_c:
-                if st.button("💾 Descargar", key=f"dl_{seccion_nombre}_{fecha}_{numero}"):
-                    html_c = generar_descarga_boletin(grupo, seccion_nombre, fecha, numero)
-                    b64    = base64.b64encode(html_c.encode()).decode()
-                    href   = (f'<a href="data:text/html;base64,{b64}" '
-                              f'download="Boletin_{seccion_nombre}_{numero}_{fecha.strftime("%Y%m%d")}.html">'
-                              f'📥 Descargar HTML</a>')
-                    st.markdown(href, unsafe_allow_html=True)
-
-            st.markdown("---")
-            for _, row in grupo.iterrows():
-                info    = obtener_info_edicto(row)
-                tit_ed  = f"{info['icono']} {info['motivo']} | {row['localidad']} | ({info['nombre_mostrar']})"
-                if info['cuit']:
-                    tit_ed += f" - {info['cuit']}"
-                rev_key = f"revisado_edicto_{row['id']}"
-                if st.session_state.get(rev_key, False):
-                    tit_ed = "🟢 " + tit_ed
-                with st.expander(tit_ed):
-                    nuevo_e = st.checkbox("✓ Marcar como revisado", value=st.session_state.get(rev_key, False),
-                                          key=f"chk_edicto_{row['id']}")
-                    if nuevo_e != st.session_state.get(rev_key, False):
-                        st.session_state[rev_key] = nuevo_e
-                        st.rerun()
-                    texto_r = row["texto_completo"]
-                    if info['nombre_mostrar'] and info['nombre_mostrar'] != "Sin datos":
-                        texto_r = re.sub(
-                            rf'\b{re.escape(info["nombre_mostrar"])}\b',
-                            f'**{info["nombre_mostrar"]}**',
-                            texto_r, flags=re.IGNORECASE
-                        )
-                    st.markdown(texto_r)
-                    if st.button("🗑️ Eliminar este edicto", key=f"del_edicto_{row['id']}"):
-                        ck = f"conf_edicto_{row['id']}"
-                        if st.session_state.get(ck, False):
-                            supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                            st.success("Eliminado")
-                            st.rerun()
-                        else:
-                            st.session_state[ck] = True
-                            st.warning("Hacé clic otra vez para confirmar.")
-        st.markdown("---")
-
-# ── Pestañas ──────────────────────────────────────────────────────────────────
-tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
-with tab_judicial:
-    renderizar_seccion(df[df["seccion"] == "JUDICIAL"], "JUDICIAL")
-with tab_oficial:
-    renderizar_seccion(df[df["seccion"] == "OFICIAL"], "OFICIAL")
+            st
