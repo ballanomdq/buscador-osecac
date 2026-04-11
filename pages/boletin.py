@@ -47,12 +47,7 @@ HEADERS  = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 
 # ── Funciones de scraping (selectores actualizados) ───────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
-    """
-    Extrae URLs de sección desde un div.panel-default usando los selectores
-    actuales del sitio del Boletín Oficial:
-      div.section > h5.body-title   → nombre (OFICIAL / JUDICIAL)
-      a[title="Ver PDF"]             → href del PDF
-    """
+    """Extrae URLs de sección desde un div.panel-default usando los selectores actuales."""
     urls = {}
     panel_body = panel.find("div", class_="panel-body")
     if not panel_body:
@@ -77,7 +72,6 @@ def obtener_secciones_de_panel(panel) -> dict:
     return urls
 
 def obtener_lista_boletines() -> list:
-    """Devuelve lista de (numero, fecha_str) de los boletines disponibles."""
     url = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -98,10 +92,6 @@ def obtener_lista_boletines() -> list:
         return []
 
 def obtener_urls_secciones(numero: str) -> dict:
-    """
-    Dado un número de boletín, devuelve sus URLs de sección.
-    Usa los selectores HTML actualizados.
-    """
     url = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -112,7 +102,6 @@ def obtener_urls_secciones(numero: str) -> dict:
             if not titulo_tag:
                 continue
             texto = titulo_tag.get_text(strip=True)
-            # Buscar el número en el título (flexible ante variaciones de formato)
             if re.search(rf"N[°º]?\s*{re.escape(numero)}\b", texto, re.IGNORECASE):
                 urls = obtener_secciones_de_panel(panel)
                 if urls:
@@ -172,23 +161,15 @@ if st.session_state.get("show_historicos", False):
                     st.session_state["hist_urls"]   = urls
                     st.session_state["hist_numero"] = num_sel
                 else:
-                    st.error(
-                        f"No se encontraron secciones para el boletín N° {num_sel}. "
-                        "Puede que ese boletín no tenga PDF disponible aún."
-                    )
+                    st.error(f"No se encontraron secciones para el boletín N° {num_sel}.")
                     st.session_state.pop("hist_urls", None)
 
-            # Si ya tenemos las URLs, mostrar botón de descarga manual
             if st.session_state.get("hist_urls") and st.session_state.get("hist_numero") == num_sel:
                 urls = st.session_state["hist_urls"]
                 st.write("URLs disponibles:")
                 for sec, url_pdf in urls.items():
                     st.markdown(f"- **{sec}**: `{url_pdf}`")
-                st.info(
-                    "Para procesar este boletín histórico completamente, "
-                    "iniciá el scraper desde 'Forzar descarga' — "
-                    "el scraper automáticamente tomará el más reciente."
-                )
+                st.info("Para procesar este boletín histórico, usá 'Forzar descarga' (el scraper tomará el más reciente).")
         else:
             st.warning("No se pudo cargar la lista de boletines.")
 
@@ -232,7 +213,7 @@ if not datos:
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 
-# ── Funciones de análisis ─────────────────────────────────────────────────────
+# ── Funciones de análisis (CORREGIDAS para manejar None) ──────────────────────
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     m = re.search(patron, texto, re.IGNORECASE)
@@ -252,29 +233,42 @@ def extraer_nombre_del_texto(texto):
     return nombre, cuit
 
 def obtener_info_edicto(row):
-    texto     = row["texto_completo"]
+    texto      = row["texto_completo"]
     sujetos_db = row.get("sujetos")
     cuits_db   = row.get("cuit_detectados")
+    
+    # Intentar extraer nombre y cuit de quiebra
     nombre_q, cuit_q = extraer_nombre_cuit_quiebra(texto)
     if nombre_q:
-        nombre, cuit, es_quiebra = nombre_q, cuit_q, True
+        nombre = nombre_q
+        cuit = cuit_q
+        es_quiebra = True
     else:
         es_quiebra = "quiebra" in texto.lower() or "concurso" in texto.lower()
-        nombre = sujetos_db.split(",")[0].strip() if sujetos_db and sujetos_db.strip() else None
-        if not nombre:
+        # Manejar sujetos_db (puede ser None)
+        if sujetos_db and isinstance(sujetos_db, str) and sujetos_db.strip():
+            nombre = sujetos_db.split(",")[0].strip()
+        else:
             nombre, _ = extraer_nombre_del_texto(texto)
-        cuit = cuits_db.split(",")[0].strip() if cuits_db and cuits_db.strip() else None
-        if not cuit:
+        # Manejar cuits_db (puede ser None)
+        if cuits_db and isinstance(cuits_db, str) and cuits_db.strip():
+            cuit = cuits_db.split(",")[0].strip()
+        else:
             _, cuit = extraer_nombre_del_texto(texto)
+    
     if es_quiebra:
         nivel, icono, motivo = 0, "🚨", "QUIEBRA/CONCURSO"
     elif cuit:
         nivel, icono, motivo = 1, "⚠️", "PRECAUCIÓN"
     else:
         nivel, icono, motivo = 2, "⚪", "INFORMATIVO"
+    
+    nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos")
     return {
-        "nivel": nivel, "icono": icono, "motivo": motivo,
-        "nombre_mostrar": nombre or cuit or "Sin datos",
+        "nivel": nivel,
+        "icono": icono,
+        "motivo": motivo,
+        "nombre_mostrar": nombre_mostrar,
         "cuit": cuit
     }
 
