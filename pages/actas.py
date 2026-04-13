@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
+import json
 
 # Configuración de página
 st.set_page_config(
@@ -106,6 +107,19 @@ CREATE TABLE padron_deuda_presunta (
     """, unsafe_allow_html=True)
     st.stop()
 
+# ==================== FUNCIÓN PARA CONVERTIR VALORES A JSON SERIALIZABLE ====================
+def convertir_a_serializable(valor):
+    """Convierte valores no serializables a JSON"""
+    if valor is None:
+        return None
+    if pd.isna(valor):
+        return None
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        return valor.isoformat() if hasattr(valor, 'isoformat') else str(valor)
+    if isinstance(valor, (pd.Timedelta, pd.Period)):
+        return str(valor)
+    return valor
+
 # ==================== MAPEO DE COLUMNAS ====================
 COLUMNAS_EXCEL_A_INTERNO = {
     'DELEGACION': 'delegacion',
@@ -181,8 +195,12 @@ with tab1:
                     """, unsafe_allow_html=True)
                     st.stop()
             
-            # Limpiar datos
+            # Limpiar datos y convertir a serializable
             df_ordenado = df_ordenado.replace({pd.NA: None, float('nan'): None})
+            
+            # Aplicar conversión a cada celda
+            for col in df_ordenado.columns:
+                df_ordenado[col] = df_ordenado[col].apply(convertir_a_serializable)
             
             if df_ordenado.empty:
                 st.markdown("""
@@ -234,11 +252,19 @@ with tab1:
                         
                         if nuevos:
                             try:
-                                resultado = supabase.table("padron_deuda_presunta").insert(nuevos).execute()
+                                # Insertar en lotes de 100 para evitar problemas
+                                lote_size = 100
+                                total_insertados = 0
+                                
+                                for i in range(0, len(nuevos), lote_size):
+                                    lote = nuevos[i:i+lote_size]
+                                    resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
+                                    total_insertados += len(resultado.data)
+                                
                                 st.markdown(f"""
                                 <div class="success-box">
                                     <strong>CARGA COMPLETADA</strong><br>
-                                    Se insertaron {len(resultado.data):,} registros nuevos.<br>
+                                    Se insertaron {total_insertados:,} registros nuevos.<br>
                                     {f'({duplicados} duplicados omitidos)' if duplicados > 0 else ''}
                                 </div>
                                 """, unsafe_allow_html=True)
