@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
-import hashlib
 
 # Configuración de página
 st.set_page_config(
@@ -11,10 +10,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Conexión a Supabase
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ==================== CONEXIÓN A SUPABASE (PROYECTO FISCALIZACIÓN) ====================
+SUPABASE_URL_ACTAS = st.secrets["SUPABASE_URL_ACTAS"]
+SUPABASE_KEY_ACTAS = st.secrets["SUPABASE_KEY_ACTAS"]
+supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
 
 # Estilo profesional
 st.markdown("""
@@ -83,27 +82,17 @@ with col_back:
 st.markdown("---")
 
 # ==================== VERIFICAR TABLA ====================
-@st.cache_data(ttl=60)
-def verificar_tabla():
-    """Verifica si la tabla existe en Supabase"""
-    try:
-        # Intentar hacer una consulta simple
-        response = supabase.table("padron_deuda_presunta").select("id").limit(1).execute()
-        return True, "Tabla encontrada"
-    except Exception as e:
-        error_msg = str(e)
-        if "PGRST205" in error_msg or "does not exist" in error_msg:
-            return False, "La tabla 'padron_deuda_presunta' no existe en Supabase"
-        return False, error_msg
-
-tabla_existe, mensaje = verificar_tabla()
-
-if not tabla_existe:
+try:
+    test = supabase.table("padron_deuda_presunta").select("id").limit(1).execute()
+    tabla_ok = True
+except Exception as e:
+    tabla_ok = False
     st.markdown(f"""
     <div class="warning-box">
         <strong>ERROR DE CONFIGURACIÓN</strong><br>
-        {mensaje}<br><br>
-        <strong>Solución:</strong> Ejecutá el siguiente SQL en el editor de Supabase:<br>
+        La tabla 'padron_deuda_presunta' no existe en el proyecto de Supabase de Fiscalización.<br><br>
+        <strong>Solución:</strong> Ejecutá el siguiente SQL en el SQL Editor de:<br>
+        <code>https://yjdlzlqedjdevxyjrpsg.supabase.co</code><br><br>
         <code style="background:#000; padding:0.5rem; display:block; white-space:pre-wrap;">
 CREATE TABLE padron_deuda_presunta (
     id SERIAL PRIMARY KEY,
@@ -180,23 +169,17 @@ with tab1:
             
             # Mapear a nombres internos
             df_ordenado = pd.DataFrame()
-            columnas_faltantes = []
-            
             for nombre_excel, nombre_interno in COLUMNAS_EXCEL_A_INTERNO.items():
                 if nombre_excel in df_raw.columns:
                     df_ordenado[nombre_interno] = df_raw[nombre_excel]
                 else:
-                    columnas_faltantes.append(nombre_excel)
-            
-            if columnas_faltantes:
-                st.markdown(f"""
-                <div class="warning-box">
-                    <strong>COLUMNAS NO ENCONTRADAS</strong><br>
-                    No se encontraron: {', '.join(columnas_faltantes[:5])}<br>
-                    <small>Verifique que el archivo tenga el formato correcto.</small>
-                </div>
-                """, unsafe_allow_html=True)
-                st.stop()
+                    st.markdown(f"""
+                    <div class="warning-box">
+                        <strong>COLUMNA NO ENCONTRADA</strong><br>
+                        No se encontró: {nombre_excel}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.stop()
             
             # Limpiar datos
             df_ordenado = df_ordenado.replace({pd.NA: None, float('nan'): None})
@@ -229,19 +212,8 @@ with tab1:
                     with st.spinner("Verificando y procesando..."):
                         registros = df_ordenado.to_dict(orient='records')
                         
-                        # Obtener registros existentes (solo CUIT y ultima_acta para comparar)
-                        try:
-                            existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
-                        except Exception as e:
-                            st.markdown(f"""
-                            <div class="warning-box">
-                                <strong>ERROR AL CONSULTAR BASE DE DATOS</strong><br>
-                                {str(e)[:200]}
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.stop()
-                        
-                        # Crear set de pares (cuit, ultima_acta) existentes
+                        # Obtener registros existentes
+                        existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
                         existentes_set = set()
                         for reg in existentes.data:
                             cuit = reg.get('cuit', '')
@@ -249,14 +221,12 @@ with tab1:
                             if cuit:
                                 existentes_set.add((cuit, acta if acta else ''))
                         
-                        # Filtrar nuevos registros
+                        # Filtrar nuevos
                         nuevos = []
                         duplicados = 0
-                        
                         for reg in registros:
                             cuit = reg.get('cuit', '')
                             acta = reg.get('ultima_acta', '')
-                            
                             if (cuit, acta if acta else '') not in existentes_set:
                                 nuevos.append(reg)
                             else:
@@ -264,12 +234,7 @@ with tab1:
                         
                         if nuevos:
                             try:
-                                # Insertar todos los nuevos
                                 resultado = supabase.table("padron_deuda_presunta").insert(nuevos).execute()
-                                
-                                st.session_state.registros_insertados = len(resultado.data)
-                                st.session_state.carga_realizada = True
-                                
                                 st.markdown(f"""
                                 <div class="success-box">
                                     <strong>CARGA COMPLETADA</strong><br>
@@ -288,7 +253,7 @@ with tab1:
                             st.markdown("""
                             <div class="warning-box">
                                 <strong>SIN REGISTROS NUEVOS</strong><br>
-                                Todos los registros ya existen en la base de datos.
+                                Todos los registros ya existen.
                             </div>
                             """, unsafe_allow_html=True)
                             
@@ -303,12 +268,8 @@ with tab1:
 # ==================== TAB 2: EDITAR LEGAJOS ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
-    st.info("Funcionalidad disponible después de cargar datos")
-    
     try:
-        # Intentar cargar datos existentes
-        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, legajo_inspector, fecha_vencimiento, estado_gestion").limit(10).execute()
-        
+        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, legajo_inspector, fecha_vencimiento, estado_gestion").limit(50).execute()
         if datos.data:
             df_datos = pd.DataFrame(datos.data)
             st.dataframe(df_datos, use_container_width=True)
@@ -320,4 +281,4 @@ with tab2:
 # ==================== TAB 3: SOLICITAR ACTAS ====================
 with tab3:
     st.markdown("### Solicitar Actas a Central")
-    st.info("Funcionalidad disponible después de cargar y editar legajos")
+    st.info("Funcionalidad disponible después de cargar datos")
