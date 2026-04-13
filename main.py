@@ -444,6 +444,8 @@ with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
     if st.button("📰 BOLETIN"):
         st.switch_page("pages/boletin.py")
+    if st.button("📋 ACTAS"):
+        st.switch_page("pages/actas.py")
     # Aquí podrás agregar más botones en el futuro (ej: "OTRA HERRAMIENTA")
 # ==================================================
 
@@ -546,60 +548,4 @@ with popover_novedades:
         accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
-                m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
-                uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
-                col1, col2 = st.columns(2)
-                with col1:
-                    submit = st.form_submit_button("📢 PUBLICAR")
-                with col2:
-                    cancel = st.form_submit_button("❌ CANCELAR")
-                if submit:
-                    if not m.strip():
-                        st.error("❌ El mensaje no puede estar vacío")
-                    else:
-                        drive_links = []
-                        if uploaded_files:
-                            for uploaded_file in uploaded_files:
-                                with st.spinner(f"Subiendo {uploaded_file.name}..."):
-                                    temp_path = f"temp_{uploaded_file.name}"
-                                    with open(temp_path, "wb") as f:
-                                        f.write(uploaded_file.getbuffer())
-                                    link = subir_a_drive(temp_path, uploaded_file.name)
-                                    if os.path.exists(temp_path):
-                                        os.remove(temp_path)
-                                    if link:
-                                        drive_links.append(link)
-                                    else:
-                                        st.warning(f"No se pudo subir {uploaded_file.name}")
-                        nueva_novedad = {
-                            "id": str(time.time()),
-                            "mensaje": m,
-                            "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-                            "archivo_links": drive_links
-                        }
-                        st.session_state.historial_novedades.insert(0, nueva_novedad)
-                        st.session_state.novedades_vistas = set()
-                        st.success("✅ ¡Publicado exitosamente!")
-                        time.sleep(1)
-                        st.rerun()
-        elif accion == "✏️ Editar existente":
-            if st.session_state.historial_novedades:
-                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
-                idx_editar = st.selectbox("Seleccionar novedad a editar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                novedad = st.session_state.historial_novedades[idx_editar]
-                with st.form("editar_novedad_form"):
-                    nuevo_mensaje = st.text_area("Editar mensaje:", value=novedad['mensaje'])
-                    if st.form_submit_button("💾 GUARDAR CAMBIOS"):
-                        st.session_state.historial_novedades[idx_editar]['mensaje'] = nuevo_mensaje
-                        st.success("✅ ¡Actualizado!")
-                        time.sleep(1)
-                        st.rerun()
-        elif accion == "🗑️ Eliminar":
-            if st.session_state.historial_novedades:
-                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}..." for n in st.session_state.historial_novedades]
-                idx_eliminar = st.selectbox("Seleccionar novedad a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
-                if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="primary"):
-                    st.session_state.historial_novedades.pop(idx_eliminar)
-                    st.success("✅ ¡Eliminado!")
-                    time.sleep(1)
-                    st.rerun()
+                m = st.text_area("📄 Nuevo comunicado:", placeholder="
