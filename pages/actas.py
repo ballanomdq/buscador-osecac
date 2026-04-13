@@ -88,14 +88,43 @@ tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos", "�
 with tab1:
     st.markdown("### Cargar Padrón de Deuda Presunta")
     
-    # Columnas esperadas en el orden correcto
+    # Columnas esperadas en el orden correcto (nombres internos sin espacios)
     COLUMNAS_ORDEN = [
-        'DELEGACION', 'LOCALIDAD', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA',
-        'CP', 'CALLE', 'NUMERO', 'PISO', 'DPTO', 'FECHARELDEPENDENCIA',
-        'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL', 'ULTIMA ACTA', 'DESDE',
-        'HASTA', 'DETECTADO', 'ESTADO', 'FECHA_PAGO_OBL', 'EMPL 10-2025',
-        'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'
+        'delegacion', 'localidad', 'cuit', 'razon_social', 'deuda_presunta',
+        'cp', 'calle', 'numero', 'piso', 'dpto', 'fechareldependencia',
+        'email', 'tel_dom_legal', 'tel_dom_real', 'ultima_acta', 'desde',
+        'hasta', 'detectado', 'estado', 'fecha_pago_obl', 'empl_10_2025',
+        'emp_11_2025', 'empl_12_2025', 'actividad', 'situacion'
     ]
+    
+    # Mapeo de nombres de Excel a nombres internos
+    MAPEO_EXCEL_A_INTERNO = {
+        'DELEGACION': 'delegacion',
+        'LOCALIDAD': 'localidad',
+        'CUIT': 'cuit',
+        'RAZON SOCIAL': 'razon_social',
+        'DEUDA PRESUNTA': 'deuda_presunta',
+        'CP': 'cp',
+        'CALLE': 'calle',
+        'NUMERO': 'numero',
+        'PISO': 'piso',
+        'DPTO': 'dpto',
+        'FECHARELDEPENDENCIA': 'fechareldependencia',
+        'EMAIL': 'email',
+        'TEL_DOM_LEGAL': 'tel_dom_legal',
+        'TEL_DOM_REAL': 'tel_dom_real',
+        'ULTIMA ACTA': 'ultima_acta',
+        'DESDE': 'desde',
+        'HASTA': 'hasta',
+        'DETECTADO': 'detectado',
+        'ESTADO': 'estado',
+        'FECHA_PAGO_OBL': 'fecha_pago_obl',
+        'EMPL 10-2025': 'empl_10_2025',
+        'EMP 11-2025': 'emp_11_2025',
+        'EMPL 12-2025': 'empl_12_2025',
+        'ACTIVIDAD': 'actividad',
+        'SITUACION': 'situacion'
+    }
     
     uploaded_file = st.file_uploader(
         "Seleccionar archivo (Padrón Deuda Presunta)",
@@ -122,41 +151,24 @@ with tab1:
             # Limpiar nombres de columnas (mayúsculas y sin espacios extras)
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
-            # Buscar las columnas necesarias (flexible, no importa el orden)
-            mapeo_columnas = {}
-            for col_esperada in COLUMNAS_ORDEN:
-                col_upper = col_esperada.upper()
-                if col_upper in df_raw.columns:
-                    mapeo_columnas[col_esperada] = col_upper
-                else:
-                    # Buscar coincidencia parcial
-                    encontrada = None
-                    for col_real in df_raw.columns:
-                        if col_esperada.upper() in col_real or col_real in col_esperada.upper():
-                            encontrada = col_real
-                            break
-                    if encontrada:
-                        mapeo_columnas[col_esperada] = encontrada
-                    else:
-                        st.markdown(f"""
-                        <div class="warning-box">
-                            <strong>COLUMNA NO ENCONTRADA</strong><br>
-                            No se pudo encontrar la columna: {col_esperada}<br>
-                            Columnas disponibles: {', '.join(df_raw.columns[:10])}...
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.stop()
-            
-            # Reordenar el DataFrame según el orden esperado
+            # Crear DataFrame con nombres internos
             df_ordenado = pd.DataFrame()
-            for col_esperada in COLUMNAS_ORDEN:
-                col_real = mapeo_columnas[col_esperada]
-                df_ordenado[col_esperada] = df_raw[col_real]
+            for nombre_excel, nombre_interno in MAPEO_EXCEL_A_INTERNO.items():
+                if nombre_excel in df_raw.columns:
+                    df_ordenado[nombre_interno] = df_raw[nombre_excel]
+                else:
+                    st.markdown(f"""
+                    <div class="warning-box">
+                        <strong>COLUMNA NO ENCONTRADA</strong><br>
+                        No se pudo encontrar la columna: {nombre_excel}<br>
+                        Columnas disponibles: {', '.join(list(df_raw.columns)[:10])}...
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.stop()
             
             # Limpiar datos
             df_ordenado = df_ordenado.replace({pd.NA: None, float('nan'): None})
             
-            # Validar que se pudo leer correctamente
             if df_ordenado.empty or len(df_ordenado) == 0:
                 st.markdown("""
                 <div class="warning-box">
@@ -165,98 +177,83 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # Verificar que la columna CUIT y ULTIMA ACTA existan
-                if 'CUIT' not in df_ordenado.columns or 'ULTIMA ACTA' not in df_ordenado.columns:
-                    st.markdown("""
-                    <div class="warning-box">
-                        <strong>ESTRUCTURA INCORRECTA</strong><br>
-                        El archivo no contiene las columnas 'CUIT' o 'ULTIMA ACTA'.
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    # Agregar columnas nuevas
-                    df_ordenado['legajo_inspector'] = None
-                    df_ordenado['fecha_vencimiento'] = None
-                    df_ordenado['nro_acta'] = None
-                    df_ordenado['fecha_carga'] = datetime.now().isoformat()
-                    df_ordenado['estado_gestion'] = 'PENDIENTE'
-                    
-                    # Mostrar resumen
-                    st.markdown(f"""
-                    <div class="info-box">
-                        <strong>Resumen del archivo</strong><br>
-                        Registros detectados: {len(df_ordenado):,}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    with st.expander("Ver vista previa (primeras 10 filas)"):
-                        st.dataframe(df_ordenado.head(10), use_container_width=True)
-                    
-                    if st.button("Confirmar carga", type="primary", key="btn_cargar_padron"):
-                        with st.spinner("Verificando duplicados y procesando..."):
-                            registros = df_ordenado.to_dict(orient='records')
+                # Agregar columnas nuevas
+                df_ordenado['legajo_inspector'] = None
+                df_ordenado['fecha_vencimiento'] = None
+                df_ordenado['nro_acta'] = None
+                df_ordenado['fecha_carga'] = datetime.now().isoformat()
+                df_ordenado['estado_gestion'] = 'PENDIENTE'
+                
+                # Mostrar resumen
+                st.markdown(f"""
+                <div class="info-box">
+                    <strong>Resumen del archivo</strong><br>
+                    Registros detectados: {len(df_ordenado):,}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                with st.expander("Ver vista previa (primeras 10 filas)"):
+                    st.dataframe(df_ordenado.head(10), use_container_width=True)
+                
+                if st.button("Confirmar carga", type="primary", key="btn_cargar_padron"):
+                    with st.spinner("Verificando duplicados y procesando..."):
+                        registros = df_ordenado.to_dict(orient='records')
+                        
+                        # Obtener todos los pares (cuit, ultima_acta) existentes
+                        existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
+                        existentes_set = set()
+                        for reg in existentes.data:
+                            cuit_val = reg.get('cuit')
+                            acta_val = reg.get('ultima_acta')
+                            if cuit_val and acta_val:
+                                existentes_set.add((str(cuit_val).strip(), str(acta_val).strip()))
+                        
+                        # Filtrar registros nuevos
+                        nuevos_registros = []
+                        duplicados = 0
+                        
+                        for reg in registros:
+                            cuit_reg = str(reg.get('cuit', '')).strip()
+                            acta_reg = str(reg.get('ultima_acta', '')).strip()
                             
-                            # Obtener todos los pares (CUIT, ULTIMA ACTA) existentes en la BD
-                            existentes = supabase.table("padron_deuda_presunta").select("CUIT, ULTIMA ACTA").execute()
-                            existentes_set = set()
-                            for reg in existentes.data:
-                                cuit_val = reg.get('CUIT')
-                                acta_val = reg.get('ULTIMA ACTA')
-                                if cuit_val and acta_val:
-                                    existentes_set.add((str(cuit_val).strip(), str(acta_val).strip()))
-                            
-                            # Filtrar registros nuevos (los que NO tienen el mismo CUIT + misma ULTIMA ACTA)
-                            nuevos_registros = []
-                            duplicados = 0
-                            
-                            for reg in registros:
-                                cuit_reg = str(reg.get('CUIT', '')).strip()
-                                acta_reg = str(reg.get('ULTIMA ACTA', '')).strip()
-                                
-                                clave = (cuit_reg, acta_reg)
-                                if clave not in existentes_set:
-                                    nuevos_registros.append(reg)
-                                else:
-                                    duplicados += 1
-                            
-                            if nuevos_registros:
-                                # Insertar en lotes de 500
-                                lote_size = 500
-                                total_insertados = 0
-                                
-                                for i in range(0, len(nuevos_registros), lote_size):
-                                    lote = nuevos_registros[i:i+lote_size]
-                                    resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
-                                    total_insertados += len(resultado.data)
-                                
-                                st.session_state.registros_insertados = total_insertados
-                                st.session_state.carga_realizada = True
-                                
-                                st.markdown(f"""
-                                <div class="success-box">
-                                    <strong>CARGA COMPLETADA</strong><br>
-                                    Se insertaron {total_insertados:,} registros nuevos.<br>
-                                    {f'({duplicados} registros duplicados omitidos)' if duplicados > 0 else ''}
-                                </div>
-                                """, unsafe_allow_html=True)
+                            clave = (cuit_reg, acta_reg)
+                            if clave not in existentes_set:
+                                nuevos_registros.append(reg)
                             else:
-                                st.markdown("""
-                                <div class="warning-box">
-                                    <strong>SIN REGISTROS NUEVOS</strong><br>
-                                    Todos los registros del archivo ya existen en la base de datos<br>
-                                    (mismo CUIT y mismo número de ULTIMA ACTA).
-                                </div>
-                                """, unsafe_allow_html=True)
+                                duplicados += 1
+                        
+                        if nuevos_registros:
+                            lote_size = 500
+                            total_insertados = 0
+                            
+                            for i in range(0, len(nuevos_registros), lote_size):
+                                lote = nuevos_registros[i:i+lote_size]
+                                resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
+                                total_insertados += len(resultado.data)
+                            
+                            st.session_state.registros_insertados = total_insertados
+                            st.session_state.carga_realizada = True
+                            
+                            st.markdown(f"""
+                            <div class="success-box">
+                                <strong>CARGA COMPLETADA</strong><br>
+                                Se insertaron {total_insertados:,} registros nuevos.<br>
+                                {f'({duplicados} registros duplicados omitidos)' if duplicados > 0 else ''}
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown("""
+                            <div class="warning-box">
+                                <strong>SIN REGISTROS NUEVOS</strong><br>
+                                Todos los registros del archivo ya existen en la base de datos.
+                            </div>
+                            """, unsafe_allow_html=True)
                             
         except Exception as e:
             st.markdown(f"""
             <div class="warning-box">
                 <strong>ERROR AL LEER EL ARCHIVO</strong><br>
-                {str(e)}<br><br>
-                <strong>Posibles soluciones:</strong><br>
-                - Verificar que el archivo no esté abierto en otro programa<br>
-                - Guardar el archivo como .xlsx (formato más reciente)<br>
-                - Verificar que las columnas tengan los nombres esperados
+                {str(e)}
             </div>
             """, unsafe_allow_html=True)
 
@@ -264,44 +261,40 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Obtener lista de períodos disponibles (usando ULTIMA ACTA como identificador)
-    datos_totales = supabase.table("padron_deuda_presunta").select("ULTIMA ACTA, fecha_carga").order("fecha_carga", desc=True).execute()
+    # Obtener lista de actas disponibles
+    datos_totales = supabase.table("padron_deuda_presunta").select("ultima_acta, fecha_carga").order("fecha_carga", desc=True).execute()
     
     actas_unicas = []
     if datos_totales.data:
         for reg in datos_totales.data:
-            if reg.get('ULTIMA ACTA') and reg.get('ULTIMA ACTA') not in actas_unicas:
-                actas_unicas.append(reg.get('ULTIMA ACTA'))
+            if reg.get('ultima_acta') and reg.get('ultima_acta') not in actas_unicas:
+                actas_unicas.append(reg.get('ultima_acta'))
     
     if actas_unicas:
         acta_seleccionada = st.selectbox("Seleccionar período (por ULTIMA ACTA)", actas_unicas, key="select_acta")
         
-        # Botón para editar inspectores
         if st.button("👥 Administrar Inspectores", key="btn_admin_inspectores"):
             st.switch_page("pages/inspectores.py")
         
-        # Cargar datos del acta seleccionada
-        datos = supabase.table("padron_deuda_presunta").select("*").eq("ULTIMA ACTA", acta_seleccionada).execute()
+        datos = supabase.table("padron_deuda_presunta").select("*").eq("ultima_acta", acta_seleccionada).execute()
         
         if datos.data:
             df_datos = pd.DataFrame(datos.data)
             
-            # Seleccionar columnas a mostrar
-            columnas_mostrar = ['id', 'CUIT', 'RAZON SOCIAL', 'CALLE', 'NUMERO', 'legajo_inspector', 'fecha_vencimiento', 'nro_acta', 'estado_gestion']
+            columnas_mostrar = ['id', 'cuit', 'razon_social', 'calle', 'numero', 'legajo_inspector', 'fecha_vencimiento', 'nro_acta', 'estado_gestion']
             df_editable = df_datos[[col for col in columnas_mostrar if col in df_datos.columns]].copy()
             
             st.info(f"Mostrando {len(df_editable)} registros del acta {acta_seleccionada}")
             
-            # Editor de datos
             edited_df = st.data_editor(
                 df_editable,
                 use_container_width=True,
                 column_config={
-                    "legajo_inspector": st.column_config.TextColumn("Legajo Inspector", help="Número de legajo del inspector asignado"),
+                    "legajo_inspector": st.column_config.TextColumn("Legajo Inspector"),
                     "fecha_vencimiento": st.column_config.DateColumn("Fecha Vencimiento", format="DD/MM/YYYY"),
                     "estado_gestion": st.column_config.SelectColumn("Estado", options=["PENDIENTE", "ACTA_SOLICITADA", "ACTA_RECIBIDA", "CERRADO"]),
                 },
-                disabled=['id', 'CUIT', 'RAZON SOCIAL', 'CALLE', 'NUMERO', 'nro_acta'],
+                disabled=['id', 'cuit', 'razon_social', 'calle', 'numero', 'nro_acta'],
                 key="editor_legajos"
             )
             
@@ -316,8 +309,7 @@ with tab2:
                     
                     st.markdown("""
                     <div class="success-box">
-                        <strong>CAMBIOS GUARDADOS</strong><br>
-                        Los datos fueron actualizados correctamente.
+                        <strong>CAMBIOS GUARDADOS</strong>
                     </div>
                     """, unsafe_allow_html=True)
                     st.rerun()
@@ -333,13 +325,11 @@ with tab3:
     if actas_unicas:
         acta_solicitud = st.selectbox("Seleccionar período (por ULTIMA ACTA)", actas_unicas, key="select_acta_solicitud")
         
-        # Cargar registros con legajo y vencimiento completos
-        datos = supabase.table("padron_deuda_presunta").select("*").eq("ULTIMA ACTA", acta_solicitud).execute()
+        datos = supabase.table("padron_deuda_presunta").select("*").eq("ultima_acta", acta_solicitud).execute()
         
         if datos.data:
             df_solicitud = pd.DataFrame(datos.data)
             
-            # Filtrar los que tienen legajo y vencimiento
             df_completos = df_solicitud[
                 df_solicitud['legajo_inspector'].notna() & 
                 df_solicitud['fecha_vencimiento'].notna()
@@ -353,49 +343,37 @@ with tab3:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Mostrar los registros a enviar
-                df_envio = df_completos[['CUIT', 'legajo_inspector', 'fecha_vencimiento', 'RAZON SOCIAL']].copy()
+                df_envio = df_completos[['cuit', 'legajo_inspector', 'fecha_vencimiento', 'razon_social']].copy()
                 st.dataframe(df_envio, use_container_width=True)
                 
-                # Campo para email destinatario
                 email_destino = st.text_input(
                     "Email de destino (Central)",
-                    value="central@osecac.org.ar",
-                    help="Los datos se enviarán a esta dirección"
+                    value="central@osecac.org.ar"
                 )
                 
                 if st.button("Enviar Solicitud por Email", type="primary", key="btn_enviar_email"):
-                    with st.spinner("Preparando solicitud..."):
-                        # Construir cuerpo del email
-                        cuerpo = f"Solicitud de Actas - Acta N° {acta_solicitud}\n\n"
-                        cuerpo += "Se solicitan actas para las siguientes empresas:\n\n"
-                        cuerpo += "CUIT | Legajo Inspector | Fecha Vencimiento | Razón Social\n"
-                        cuerpo += "-" * 80 + "\n"
-                        
-                        for _, row in df_completos.iterrows():
-                            cuerpo += f"{row['CUIT']} | {row['legajo_inspector']} | {row['fecha_vencimiento']} | {row['RAZON SOCIAL']}\n"
-                        
-                        cuerpo += f"\nTotal de solicitudes: {len(df_completos)}\n"
-                        cuerpo += f"Fecha de envío: {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-                        
-                        # Mostrar preview
-                        st.text_area("Preview del email", cuerpo, height=300)
-                        
-                        # Actualizar estado en la base
-                        for _, row in df_completos.iterrows():
-                            supabase.table("padron_deuda_presunta").update({
-                                "estado_gestion": "ACTA_SOLICITADA"
-                            }).eq("id", row['id']).execute()
-                        
-                        st.markdown("""
-                        <div class="success-box">
-                            <strong>SOLICITUD REGISTRADA</strong><br>
-                            Se actualizó el estado de los registros a "ACTA_SOLICITADA".<br>
-                            <strong>Nota:</strong> La configuración de envío de email SMTP debe ser completada en los secrets.
-                        </div>
-                        """, unsafe_allow_html=True)
+                    cuerpo = f"Solicitud de Actas - Acta N° {acta_solicitud}\n\n"
+                    cuerpo += "CUIT | Legajo Inspector | Fecha Vencimiento | Razón Social\n"
+                    cuerpo += "-" * 80 + "\n"
+                    
+                    for _, row in df_completos.iterrows():
+                        cuerpo += f"{row['cuit']} | {row['legajo_inspector']} | {row['fecha_vencimiento']} | {row['razon_social']}\n"
+                    
+                    st.text_area("Preview del email", cuerpo, height=300)
+                    
+                    for _, row in df_completos.iterrows():
+                        supabase.table("padron_deuda_presunta").update({
+                            "estado_gestion": "ACTA_SOLICITADA"
+                        }).eq("id", row['id']).execute()
+                    
+                    st.markdown("""
+                    <div class="success-box">
+                        <strong>SOLICITUD REGISTRADA</strong><br>
+                        Se actualizó el estado de los registros a "ACTA_SOLICITADA".
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
-                st.warning("No hay registros con legajo y fecha de vencimiento completos para este período.")
+                st.warning("No hay registros con legajo y fecha de vencimiento completos.")
         else:
             st.info(f"No hay datos para el acta {acta_solicitud}")
     else:
