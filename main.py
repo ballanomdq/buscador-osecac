@@ -439,7 +439,7 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# ========== NUEVO EXPANDER FISCALIZACIÓN ==========
+# ========== EXPANDER FISCALIZACIÓN ==========
 with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
     if st.button("📰 BOLETIN"):
@@ -548,4 +548,5 @@ with popover_novedades:
         accion = st.radio("Seleccionar acción:", ["➕ Agregar nueva", "✏️ Editar existente", "🗑️ Eliminar"])
         if accion == "➕ Agregar nueva":
             with st.form("nueva_novedad_form"):
-                m = st.text_area("📄 Nuevo comunicado:", placeholder="
+                m = st.text_area("📄 Nuevo comunicado:", placeholder="Escriba el mensaje de la novedad...")
+                uploaded_files = st.file_uploader("📎 Adjuntar archivos (PDF, Imagen):", type
