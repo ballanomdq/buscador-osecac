@@ -83,23 +83,38 @@ with col_back:
 st.markdown("---")
 
 # ==================== VERIFICAR TABLA ====================
+@st.cache_data(ttl=60)
 def verificar_tabla():
+    """Verifica si la tabla existe en Supabase"""
     try:
-        supabase.table("padron_deuda_presunta").select("id").limit(1).execute()
-        return True
+        # Intentar hacer una consulta simple
+        response = supabase.table("padron_deuda_presunta").select("id").limit(1).execute()
+        return True, "Tabla encontrada"
     except Exception as e:
-        if "relation" in str(e).lower() or "does not exist" in str(e).lower():
-            st.markdown("""
-            <div class="warning-box">
-                <strong>TABLA NO EXISTE</strong><br>
-                Ejecutá este SQL en Supabase:<br>
-                <code>CREATE TABLE padron_deuda_presunta (id SERIAL PRIMARY KEY, cuit TEXT, ultima_acta TEXT, fecha_carga TIMESTAMP DEFAULT NOW());</code>
-            </div>
-            """, unsafe_allow_html=True)
-            return False
-        return True
+        error_msg = str(e)
+        if "PGRST205" in error_msg or "does not exist" in error_msg:
+            return False, "La tabla 'padron_deuda_presunta' no existe en Supabase"
+        return False, error_msg
 
-if not verificar_tabla():
+tabla_existe, mensaje = verificar_tabla()
+
+if not tabla_existe:
+    st.markdown(f"""
+    <div class="warning-box">
+        <strong>ERROR DE CONFIGURACIÓN</strong><br>
+        {mensaje}<br><br>
+        <strong>Solución:</strong> Ejecutá el siguiente SQL en el editor de Supabase:<br>
+        <code style="background:#000; padding:0.5rem; display:block; white-space:pre-wrap;">
+CREATE TABLE padron_deuda_presunta (
+    id SERIAL PRIMARY KEY,
+    cuit TEXT,
+    razon_social TEXT,
+    ultima_acta TEXT,
+    fecha_carga TIMESTAMP DEFAULT NOW()
+);
+        </code>
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
 
 # ==================== MAPEO DE COLUMNAS ====================
@@ -130,25 +145,6 @@ COLUMNAS_EXCEL_A_INTERNO = {
     'ACTIVIDAD': 'actividad',
     'SITUACION': 'situacion'
 }
-
-# Columnas a comparar para detectar cambios (excluyendo CUIT y ULTIMA ACTA)
-COLUMNAS_COMPARACION = [
-    'delegacion', 'localidad', 'razon_social', 'deuda_presunta', 'cp', 'calle',
-    'numero', 'piso', 'dpto', 'fechareldependencia', 'email', 'tel_dom_legal',
-    'tel_dom_real', 'desde', 'hasta', 'detectado', 'estado', 'fecha_pago_obl',
-    'empl_10_2025', 'emp_11_2025', 'empl_12_2025', 'actividad', 'situacion'
-]
-
-def generar_hash_registro(registro, columnas):
-    """Genera un hash único del registro para comparar"""
-    valores = []
-    for col in columnas:
-        val = registro.get(col, '')
-        if pd.isna(val):
-            val = ''
-        valores.append(str(val))
-    texto = '|'.join(valores)
-    return hashlib.md5(texto.encode()).hexdigest()
 
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos", "📧 Solicitar Actas"])
@@ -184,17 +180,23 @@ with tab1:
             
             # Mapear a nombres internos
             df_ordenado = pd.DataFrame()
+            columnas_faltantes = []
+            
             for nombre_excel, nombre_interno in COLUMNAS_EXCEL_A_INTERNO.items():
                 if nombre_excel in df_raw.columns:
                     df_ordenado[nombre_interno] = df_raw[nombre_excel]
                 else:
-                    st.markdown(f"""
-                    <div class="warning-box">
-                        <strong>COLUMNA NO ENCONTRADA</strong><br>
-                        No se pudo encontrar: {nombre_excel}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.stop()
+                    columnas_faltantes.append(nombre_excel)
+            
+            if columnas_faltantes:
+                st.markdown(f"""
+                <div class="warning-box">
+                    <strong>COLUMNAS NO ENCONTRADAS</strong><br>
+                    No se encontraron: {', '.join(columnas_faltantes[:5])}<br>
+                    <small>Verifique que el archivo tenga el formato correcto.</small>
+                </div>
+                """, unsafe_allow_html=True)
+                st.stop()
             
             # Limpiar datos
             df_ordenado = df_ordenado.replace({pd.NA: None, float('nan'): None})
@@ -224,88 +226,69 @@ with tab1:
                     st.dataframe(df_ordenado.head(10), use_container_width=True)
                 
                 if st.button("Confirmar carga", type="primary", key="btn_cargar_padron"):
-                    with st.spinner("Verificando duplicados y procesando..."):
+                    with st.spinner("Verificando y procesando..."):
                         registros = df_ordenado.to_dict(orient='records')
                         
-                        # Obtener todos los registros existentes
-                        existentes = supabase.table("padron_deuda_presunta").select("*").execute()
-                        
-                        # Crear diccionario de existentes por CUIT
-                        existentes_por_cuit = {}
-                        for reg in existentes.data:
-                            cuit = reg.get('cuit', '')
-                            if cuit:
-                                if cuit not in existentes_por_cuit:
-                                    existentes_por_cuit[cuit] = []
-                                existentes_por_cuit[cuit].append(reg)
-                        
-                        nuevos_registros = []
-                        duplicados = 0
-                        actualizados = 0
-                        
-                        for nuevo in registros:
-                            cuit_nuevo = nuevo.get('cuit', '')
-                            acta_nueva = nuevo.get('ultima_acta', '')
-                            
-                            # Generar hash del nuevo registro
-                            hash_nuevo = generar_hash_registro(nuevo, COLUMNAS_COMPARACION)
-                            
-                            es_duplicado = False
-                            
-                            if cuit_nuevo in existentes_por_cuit:
-                                for existente in existentes_por_cuit[cuit_nuevo]:
-                                    acta_existente = existente.get('ultima_acta', '')
-                                    
-                                    # Caso 1: Ambas tienen acta y son iguales -> DUPLICADO
-                                    if acta_nueva and acta_existente and acta_nueva == acta_existente:
-                                        es_duplicado = True
-                                        break
-                                    
-                                    # Caso 2: Ambas NO tienen acta (None o vacío)
-                                    elif not acta_nueva and not acta_existente:
-                                        hash_existente = generar_hash_registro(existente, COLUMNAS_COMPARACION)
-                                        if hash_nuevo == hash_existente:
-                                            es_duplicado = True
-                                            break
-                            
-                            if es_duplicado:
-                                duplicados += 1
-                            else:
-                                nuevos_registros.append(nuevo)
-                        
-                        if nuevos_registros:
-                            # Insertar en lotes de 500
-                            lote_size = 500
-                            total_insertados = 0
-                            
-                            for i in range(0, len(nuevos_registros), lote_size):
-                                lote = nuevos_registros[i:i+lote_size]
-                                try:
-                                    resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
-                                    total_insertados += len(resultado.data)
-                                except Exception as e:
-                                    st.markdown(f"""
-                                    <div class="warning-box">
-                                        <strong>ERROR EN LOTE {i//lote_size + 1}</strong><br>
-                                        {str(e)[:200]}
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                            
-                            st.session_state.registros_insertados = total_insertados
-                            st.session_state.carga_realizada = True
-                            
+                        # Obtener registros existentes (solo CUIT y ultima_acta para comparar)
+                        try:
+                            existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
+                        except Exception as e:
                             st.markdown(f"""
-                            <div class="success-box">
-                                <strong>CARGA COMPLETADA</strong><br>
-                                Se insertaron {total_insertados:,} registros nuevos.<br>
-                                {f'({duplicados} registros duplicados omitidos)' if duplicados > 0 else ''}
+                            <div class="warning-box">
+                                <strong>ERROR AL CONSULTAR BASE DE DATOS</strong><br>
+                                {str(e)[:200]}
                             </div>
                             """, unsafe_allow_html=True)
+                            st.stop()
+                        
+                        # Crear set de pares (cuit, ultima_acta) existentes
+                        existentes_set = set()
+                        for reg in existentes.data:
+                            cuit = reg.get('cuit', '')
+                            acta = reg.get('ultima_acta', '')
+                            if cuit:
+                                existentes_set.add((cuit, acta if acta else ''))
+                        
+                        # Filtrar nuevos registros
+                        nuevos = []
+                        duplicados = 0
+                        
+                        for reg in registros:
+                            cuit = reg.get('cuit', '')
+                            acta = reg.get('ultima_acta', '')
+                            
+                            if (cuit, acta if acta else '') not in existentes_set:
+                                nuevos.append(reg)
+                            else:
+                                duplicados += 1
+                        
+                        if nuevos:
+                            try:
+                                # Insertar todos los nuevos
+                                resultado = supabase.table("padron_deuda_presunta").insert(nuevos).execute()
+                                
+                                st.session_state.registros_insertados = len(resultado.data)
+                                st.session_state.carga_realizada = True
+                                
+                                st.markdown(f"""
+                                <div class="success-box">
+                                    <strong>CARGA COMPLETADA</strong><br>
+                                    Se insertaron {len(resultado.data):,} registros nuevos.<br>
+                                    {f'({duplicados} duplicados omitidos)' if duplicados > 0 else ''}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            except Exception as e:
+                                st.markdown(f"""
+                                <div class="warning-box">
+                                    <strong>ERROR AL INSERTAR</strong><br>
+                                    {str(e)[:300]}
+                                </div>
+                                """, unsafe_allow_html=True)
                         else:
                             st.markdown("""
                             <div class="warning-box">
                                 <strong>SIN REGISTROS NUEVOS</strong><br>
-                                Todos los registros del archivo ya existen en la base de datos.
+                                Todos los registros ya existen en la base de datos.
                             </div>
                             """, unsafe_allow_html=True)
                             
@@ -320,144 +303,21 @@ with tab1:
 # ==================== TAB 2: EDITAR LEGAJOS ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
+    st.info("Funcionalidad disponible después de cargar datos")
     
     try:
-        # Obtener lista de actas disponibles
-        datos_totales = supabase.table("padron_deuda_presunta").select("ultima_acta, fecha_carga").order("fecha_carga", desc=True).execute()
+        # Intentar cargar datos existentes
+        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, legajo_inspector, fecha_vencimiento, estado_gestion").limit(10).execute()
         
-        actas_unicas = []
-        if datos_totales.data:
-            for reg in datos_totales.data:
-                acta = reg.get('ultima_acta')
-                if acta and acta not in actas_unicas:
-                    actas_unicas.append(acta)
-            # Agregar opción para "SIN ACTA"
-            actas_unicas.insert(0, "(SIN NÚMERO DE ACTA)")
-        
-        if actas_unicas:
-            acta_seleccionada = st.selectbox("Seleccionar período", actas_unicas, key="select_acta")
-            
-            if st.button("👥 Administrar Inspectores", key="btn_admin_inspectores"):
-                try:
-                    st.switch_page("pages/inspectores.py")
-                except:
-                    st.warning("Página de inspectores no encontrada")
-            
-            # Cargar datos según selección
-            if acta_seleccionada == "(SIN NÚMERO DE ACTA)":
-                datos = supabase.table("padron_deuda_presunta").select("*").is_("ultima_acta", "null").execute()
-            else:
-                datos = supabase.table("padron_deuda_presunta").select("*").eq("ultima_acta", acta_seleccionada).execute()
-            
-            if datos.data:
-                df_datos = pd.DataFrame(datos.data)
-                
-                columnas_mostrar = ['id', 'cuit', 'razon_social', 'calle', 'numero', 'legajo_inspector', 'fecha_vencimiento', 'nro_acta', 'estado_gestion']
-                df_editable = df_datos[[col for col in columnas_mostrar if col in df_datos.columns]].copy()
-                
-                st.info(f"Mostrando {len(df_editable)} registros")
-                
-                edited_df = st.data_editor(
-                    df_editable,
-                    use_container_width=True,
-                    column_config={
-                        "legajo_inspector": st.column_config.TextColumn("Legajo Inspector"),
-                        "fecha_vencimiento": st.column_config.DateColumn("Fecha Vencimiento", format="DD/MM/YYYY"),
-                        "estado_gestion": st.column_config.SelectColumn("Estado", options=["PENDIENTE", "ACTA_SOLICITADA", "ACTA_RECIBIDA", "CERRADO"]),
-                    },
-                    disabled=['id', 'cuit', 'razon_social', 'calle', 'numero', 'nro_acta'],
-                    key="editor_legajos"
-                )
-                
-                if st.button("Guardar Cambios", type="primary", key="btn_guardar_legajos"):
-                    with st.spinner("Guardando cambios..."):
-                        for _, row in edited_df.iterrows():
-                            supabase.table("padron_deuda_presunta").update({
-                                "legajo_inspector": row['legajo_inspector'] if pd.notna(row['legajo_inspector']) else None,
-                                "fecha_vencimiento": row['fecha_vencimiento'] if pd.notna(row['fecha_vencimiento']) else None,
-                                "estado_gestion": row['estado_gestion']
-                            }).eq("id", row['id']).execute()
-                        
-                        st.markdown("""
-                        <div class="success-box">
-                            <strong>CAMBIOS GUARDADOS</strong>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.rerun()
-            else:
-                st.info("No hay datos para la selección actual")
+        if datos.data:
+            df_datos = pd.DataFrame(datos.data)
+            st.dataframe(df_datos, use_container_width=True)
         else:
-            st.info("No hay períodos cargados. Cargue un padrón primero.")
+            st.info("No hay datos cargados todavía")
     except Exception as e:
-        st.markdown(f"""
-        <div class="warning-box">
-            <strong>ERROR AL CARGAR DATOS</strong><br>
-            {str(e)[:200]}
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("Cargue un padrón primero")
 
 # ==================== TAB 3: SOLICITAR ACTAS ====================
 with tab3:
     st.markdown("### Solicitar Actas a Central")
-    
-    try:
-        datos_totales = supabase.table("padron_deuda_presunta").select("ultima_acta").execute()
-        
-        actas_unicas = []
-        if datos_totales.data:
-            for reg in datos_totales.data:
-                acta = reg.get('ultima_acta')
-                if acta and acta not in actas_unicas:
-                    actas_unicas.append(acta)
-        
-        if actas_unicas:
-            acta_solicitud = st.selectbox("Seleccionar período", actas_unicas, key="select_acta_solicitud")
-            
-            datos = supabase.table("padron_deuda_presunta").select("*").eq("ultima_acta", acta_solicitud).execute()
-            
-            if datos.data:
-                df_solicitud = pd.DataFrame(datos.data)
-                
-                df_completos = df_solicitud[
-                    df_solicitud['legajo_inspector'].notna() & 
-                    df_solicitud['fecha_vencimiento'].notna()
-                ]
-                
-                if len(df_completos) > 0:
-                    st.markdown(f"""
-                    <div class="info-box">
-                        <strong>Registros listos para solicitar actas</strong><br>
-                        {len(df_completos)} empresas tienen legajo y vencimiento asignados.
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    df_envio = df_completos[['cuit', 'legajo_inspector', 'fecha_vencimiento', 'razon_social']].copy()
-                    st.dataframe(df_envio, use_container_width=True)
-                    
-                    email_destino = st.text_input("Email de destino", value="central@osecac.org.ar")
-                    
-                    if st.button("Registrar Solicitud", type="primary", key="btn_enviar_email"):
-                        for _, row in df_completos.iterrows():
-                            supabase.table("padron_deuda_presunta").update({
-                                "estado_gestion": "ACTA_SOLICITADA"
-                            }).eq("id", row['id']).execute()
-                        
-                        st.markdown("""
-                        <div class="success-box">
-                            <strong>SOLICITUD REGISTRADA</strong><br>
-                            Se actualizó el estado de los registros a "ACTA_SOLICITADA".
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.warning("No hay registros con legajo y fecha de vencimiento completos.")
-            else:
-                st.info(f"No hay datos para el acta seleccionada")
-        else:
-            st.info("No hay períodos cargados.")
-    except Exception as e:
-        st.markdown(f"""
-        <div class="warning-box">
-            <strong>ERROR</strong><br>
-            {str(e)[:200]}
-        </div>
-        """, unsafe_allow_html=True)
+    st.info("Funcionalidad disponible después de cargar y editar legajos")
