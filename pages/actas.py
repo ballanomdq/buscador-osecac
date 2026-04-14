@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
-import json
 import math
 
 # Configuración de página
@@ -12,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== CONEXIÓN A SUPABASE (PROYECTO FISCALIZACIÓN) ====================
+# Conexión a Supabase (proyecto fiscalización)
 SUPABASE_URL_ACTAS = st.secrets["SUPABASE_URL_ACTAS"]
 SUPABASE_KEY_ACTAS = st.secrets["SUPABASE_KEY_ACTAS"]
 supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
@@ -61,12 +60,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Inicializar estado de sesión
-if 'carga_realizada' not in st.session_state:
-    st.session_state.carga_realizada = False
-if 'registros_insertados' not in st.session_state:
-    st.session_state.registros_insertados = 0
-
 # Header
 st.markdown("""
 <div class="main-header">
@@ -75,68 +68,16 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Botón para volver al inicio
-col_back, col_title = st.columns([1, 5])
+# Botón volver
+col_back, _ = st.columns([1, 5])
 with col_back:
     if st.button("← Volver", key="btn_volver"):
         st.switch_page("main.py")
 
 st.markdown("---")
 
-# ==================== VERIFICAR TABLA ====================
-try:
-    test = supabase.table("padron_deuda_presunta").select("id").limit(1).execute()
-    tabla_ok = True
-except Exception as e:
-    tabla_ok = False
-    st.markdown(f"""
-    <div class="warning-box">
-        <strong>ERROR DE CONFIGURACIÓN</strong><br>
-        La tabla 'padron_deuda_presunta' no existe en el proyecto de Supabase de Fiscalización.<br><br>
-        <strong>Solución:</strong> Ejecutá el siguiente SQL en el SQL Editor de:<br>
-        <code>https://yjdlzlqedjdevxyjrpsg.supabase.co</code><br><br>
-        <code style="background:#000; padding:0.5rem; display:block; white-space:pre-wrap;">
-CREATE TABLE padron_deuda_presunta (
-    id SERIAL PRIMARY KEY,
-    cuit TEXT,
-    razon_social TEXT,
-    ultima_acta TEXT,
-    fecha_carga TIMESTAMP DEFAULT NOW()
-);
-        </code>
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop()
-
-# ==================== FUNCIÓN PARA LIMPIAR VALORES ====================
-def limpiar_valor(valor):
-    """Limpia valores no serializables para JSON"""
-    # Si es None, devolver None
-    if valor is None:
-        return None
-    # Si es NaN de pandas o math.nan
-    if pd.isna(valor) or (isinstance(valor, float) and math.isnan(valor)):
-        return None
-    # Si es infinito
-    if isinstance(valor, float) and (math.isinf(valor)):
-        return None
-    # Si es Timestamp, convertir a string ISO
-    if isinstance(valor, pd.Timestamp):
-        return valor.isoformat()
-    # Si es datetime, convertir a string ISO
-    if isinstance(valor, datetime):
-        return valor.isoformat()
-    # Si es float o int, devolver como está
-    if isinstance(valor, (int, float)):
-        return valor
-    # Si es string, limpiar
-    if isinstance(valor, str):
-        return valor.strip() if valor.strip() else None
-    # Cualquier otro tipo, convertir a string
-    return str(valor) if valor else None
-
-# ==================== MAPEO DE COLUMNAS ====================
-COLUMNAS_EXCEL_A_INTERNO = {
+# ==================== MAPEO EXCEL -> TABLA ====================
+MAPEO_EXCEL_A_TABLA = {
     'DELEGACION': 'delegacion',
     'LOCALIDAD': 'localidad',
     'CUIT': 'cuit',
@@ -164,15 +105,31 @@ COLUMNAS_EXCEL_A_INTERNO = {
     'SITUACION': 'situacion'
 }
 
+# ==================== FUNCIÓN LIMPIAR VALORES ====================
+def limpiar_valor(valor):
+    if valor is None:
+        return None
+    if pd.isna(valor) or (isinstance(valor, float) and math.isnan(valor)):
+        return None
+    if isinstance(valor, float) and math.isinf(valor):
+        return None
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        return valor.isoformat() if hasattr(valor, 'isoformat') else str(valor)
+    if isinstance(valor, (int, float)):
+        return valor
+    if isinstance(valor, str):
+        return valor.strip() if valor.strip() else None
+    return str(valor) if valor else None
+
 # ==================== PESTAÑAS ====================
-tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos", "📧 Solicitar Actas"])
+tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas"])
 
 # ==================== TAB 1: CARGAR PADRÓN ====================
 with tab1:
     st.markdown("### Cargar Padrón de Deuda Presunta")
     
     uploaded_file = st.file_uploader(
-        "Seleccionar archivo (Padrón Deuda Presunta)",
+        "Seleccionar archivo Excel",
         type=["xls", "xlsx"],
         key="upload_padron"
     )
@@ -193,65 +150,43 @@ with tab1:
             else:
                 df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
             
-            # Limpiar nombres de columnas
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
-            # Mapear a nombres internos
-            df_ordenado = pd.DataFrame()
-            columnas_faltantes = []
-            
-            for nombre_excel, nombre_interno in COLUMNAS_EXCEL_A_INTERNO.items():
-                if nombre_excel in df_raw.columns:
-                    df_ordenado[nombre_interno] = df_raw[nombre_excel]
+            # Crear DataFrame con las columnas mapeadas
+            df_final = pd.DataFrame()
+            for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
+                if col_excel in df_raw.columns:
+                    df_final[col_tabla] = df_raw[col_excel].apply(limpiar_valor)
                 else:
-                    columnas_faltantes.append(nombre_excel)
+                    st.error(f"Columna '{col_excel}' no encontrada en el archivo")
+                    st.stop()
             
-            if columnas_faltantes:
-                st.markdown(f"""
-                <div class="warning-box">
-                    <strong>COLUMNAS NO ENCONTRADAS</strong><br>
-                    No se encontraron: {', '.join(columnas_faltantes[:5])}
-                </div>
-                """, unsafe_allow_html=True)
-                st.stop()
-            
-            # LIMPIEZA TOTAL DE DATOS - ELIMINAR TODOS LOS NAN
-            # Reemplazar NaN por None en todo el DataFrame
-            df_ordenado = df_ordenado.where(pd.notna(df_ordenado), None)
-            
-            # Aplicar limpieza profunda a cada celda
-            for col in df_ordenado.columns:
-                df_ordenado[col] = df_ordenado[col].apply(limpiar_valor)
-            
-            if df_ordenado.empty or len(df_ordenado) == 0:
-                st.markdown("""
-                <div class="warning-box">
-                    <strong>ARCHIVO VACÍO</strong>
-                </div>
-                """, unsafe_allow_html=True)
+            if df_final.empty:
+                st.warning("Archivo vacío")
             else:
-                # Agregar columnas nuevas
-                df_ordenado['legajo_inspector'] = None
-                df_ordenado['fecha_vencimiento'] = None
-                df_ordenado['nro_acta'] = None
-                df_ordenado['fecha_carga'] = datetime.now().isoformat()
-                df_ordenado['estado_gestion'] = 'PENDIENTE'
+                # Agregar columnas que no vienen del Excel
+                df_final['leg'] = None
+                df_final['vto'] = None
+                df_final['mail_enviado'] = 'NO'
+                df_final['acta'] = None
+                df_final['fecha_carga'] = datetime.now().isoformat()
+                df_final['estado_gestion'] = 'PENDIENTE'
                 
                 st.markdown(f"""
                 <div class="info-box">
                     <strong>Resumen del archivo</strong><br>
-                    Registros detectados: {len(df_ordenado):,}
+                    Registros detectados: {len(df_final):,}
                 </div>
                 """, unsafe_allow_html=True)
                 
                 with st.expander("Ver vista previa"):
-                    st.dataframe(df_ordenado.head(10), use_container_width=True)
+                    st.dataframe(df_final.head(10), use_container_width=True)
                 
-                if st.button("Confirmar carga", type="primary", key="btn_cargar_padron"):
-                    with st.spinner("Verificando y procesando..."):
-                        registros = df_ordenado.to_dict(orient='records')
+                if st.button("Confirmar carga", type="primary"):
+                    with st.spinner("Procesando..."):
+                        registros = df_final.to_dict(orient='records')
                         
-                        # Obtener registros existentes
+                        # Verificar duplicados por CUIT + ULTIMA_ACTA
                         existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
                         existentes_set = set()
                         for reg in existentes.data:
@@ -260,79 +195,93 @@ with tab1:
                             if cuit:
                                 existentes_set.add((str(cuit), str(acta) if acta else ''))
                         
-                        # Filtrar nuevos
                         nuevos = []
                         duplicados = 0
-                        
                         for reg in registros:
-                            cuit = reg.get('cuit', '')
-                            acta = reg.get('ultima_acta', '')
-                            clave = (str(cuit) if cuit else '', str(acta) if acta else '')
-                            
-                            if clave not in existentes_set:
-                                # Limpiar nuevamente cada campo del registro
-                                registro_limpio = {}
-                                for k, v in reg.items():
-                                    registro_limpio[k] = limpiar_valor(v)
-                                nuevos.append(registro_limpio)
+                            cuit = str(reg.get('cuit', ''))
+                            acta = str(reg.get('ultima_acta', ''))
+                            if (cuit, acta) not in existentes_set:
+                                nuevos.append(reg)
                             else:
                                 duplicados += 1
                         
                         if nuevos:
-                            try:
-                                # Insertar en lotes de 50 para evitar problemas
-                                lote_size = 50
-                                total_insertados = 0
-                                
-                                for i in range(0, len(nuevos), lote_size):
-                                    lote = nuevos[i:i+lote_size]
-                                    resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
-                                    total_insertados += len(resultado.data)
-                                
-                                st.markdown(f"""
-                                <div class="success-box">
-                                    <strong>CARGA COMPLETADA</strong><br>
-                                    Se insertaron {total_insertados:,} registros nuevos.<br>
-                                    {f'({duplicados} duplicados omitidos)' if duplicados > 0 else ''}
-                                </div>
-                                """, unsafe_allow_html=True)
-                            except Exception as e:
-                                st.markdown(f"""
-                                <div class="warning-box">
-                                    <strong>ERROR AL INSERTAR</strong><br>
-                                    {str(e)[:300]}
-                                </div>
-                                """, unsafe_allow_html=True)
-                        else:
-                            st.markdown("""
-                            <div class="warning-box">
-                                <strong>SIN REGISTROS NUEVOS</strong><br>
-                                Todos los registros ya existen.
+                            # Insertar en lotes de 50
+                            total_insertados = 0
+                            for i in range(0, len(nuevos), 50):
+                                lote = nuevos[i:i+50]
+                                resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
+                                total_insertados += len(resultado.data)
+                            
+                            st.markdown(f"""
+                            <div class="success-box">
+                                <strong>CARGA COMPLETADA</strong><br>
+                                Se insertaron {total_insertados:,} registros nuevos.<br>
+                                {f'({duplicados} duplicados omitidos)' if duplicados > 0 else ''}
                             </div>
                             """, unsafe_allow_html=True)
+                        else:
+                            st.warning("Sin registros nuevos. Todos ya existen.")
                             
         except Exception as e:
-            st.markdown(f"""
-            <div class="warning-box">
-                <strong>ERROR AL LEER EL ARCHIVO</strong><br>
-                {str(e)[:300]}
-            </div>
-            """, unsafe_allow_html=True)
+            st.error(f"Error: {str(e)[:300]}")
 
-# ==================== TAB 2: EDITAR LEGAJOS ====================
+# ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
+    
     try:
-        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, legajo_inspector, fecha_vencimiento, estado_gestion").limit(50).execute()
+        datos = supabase.table("padron_deuda_presunta").select("*").execute()
+        
         if datos.data:
             df_datos = pd.DataFrame(datos.data)
-            st.dataframe(df_datos, use_container_width=True)
+            st.write(f"**Total de registros:** {len(df_datos)}")
+            
+            # Columnas a mostrar en el editor
+            columnas_editor = ['id', 'cuit', 'razon_social', 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion']
+            columnas_existentes = [col for col in columnas_editor if col in df_datos.columns]
+            df_editable = df_datos[columnas_existentes].copy()
+            
+            edited_df = st.data_editor(
+                df_editable,
+                use_container_width=True,
+                column_config={
+                    "leg": st.column_config.TextColumn("LEG", help="Número de legajo del inspector"),
+                    "vto": st.column_config.DateColumn("VTO", format="DD/MM/YYYY", help="Fecha de vencimiento"),
+                    "mail_enviado": st.column_config.SelectColumn("MAIL ENVIADO", options=["NO", "SI"]),
+                    "acta": st.column_config.TextColumn("ACTA", help="Número de acta"),
+                    "estado_gestion": st.column_config.SelectColumn("Estado", options=["PENDIENTE", "ACTA_SOLICITADA", "ACTA_RECIBIDA", "CERRADO"]),
+                },
+                disabled=['id', 'cuit', 'razon_social'],
+                key="editor_completo"
+            )
+            
+            if st.button("Guardar Cambios", type="primary"):
+                with st.spinner("Guardando..."):
+                    for _, row in edited_df.iterrows():
+                        datos_update = {}
+                        if 'leg' in edited_df.columns:
+                            datos_update['leg'] = row['leg'] if pd.notna(row['leg']) else None
+                        if 'vto' in edited_df.columns:
+                            datos_update['vto'] = row['vto'] if pd.notna(row['vto']) else None
+                        if 'mail_enviado' in edited_df.columns:
+                            datos_update['mail_enviado'] = row['mail_enviado']
+                        if 'acta' in edited_df.columns:
+                            datos_update['acta'] = row['acta'] if pd.notna(row['acta']) else None
+                        if 'estado_gestion' in edited_df.columns:
+                            datos_update['estado_gestion'] = row['estado_gestion']
+                        
+                        if datos_update:
+                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['id']).execute()
+                    
+                    st.success("Cambios guardados correctamente")
+                    st.rerun()
         else:
-            st.info("No hay datos cargados todavía")
+            st.info("No hay datos cargados. Cargue un padrón primero.")
     except Exception as e:
-        st.info("Cargue un padrón primero")
+        st.error(f"Error: {str(e)[:200]}")
 
 # ==================== TAB 3: SOLICITAR ACTAS ====================
 with tab3:
     st.markdown("### Solicitar Actas a Central")
-    st.info("Funcionalidad disponible después de cargar datos")
+    st.info("Funcionalidad en desarrollo. Próximamente.")
