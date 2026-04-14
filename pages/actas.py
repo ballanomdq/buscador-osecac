@@ -3,6 +3,7 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 import json
+import math
 
 # Configuración de página
 st.set_page_config(
@@ -107,18 +108,32 @@ CREATE TABLE padron_deuda_presunta (
     """, unsafe_allow_html=True)
     st.stop()
 
-# ==================== FUNCIÓN PARA CONVERTIR VALORES A JSON SERIALIZABLE ====================
-def convertir_a_serializable(valor):
-    """Convierte valores no serializables a JSON"""
+# ==================== FUNCIÓN PARA LIMPIAR VALORES ====================
+def limpiar_valor(valor):
+    """Limpia valores no serializables para JSON"""
+    # Si es None, devolver None
     if valor is None:
         return None
-    if pd.isna(valor):
+    # Si es NaN de pandas o math.nan
+    if pd.isna(valor) or (isinstance(valor, float) and math.isnan(valor)):
         return None
-    if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.isoformat() if hasattr(valor, 'isoformat') else str(valor)
-    if isinstance(valor, (pd.Timedelta, pd.Period)):
-        return str(valor)
-    return valor
+    # Si es infinito
+    if isinstance(valor, float) and (math.isinf(valor)):
+        return None
+    # Si es Timestamp, convertir a string ISO
+    if isinstance(valor, pd.Timestamp):
+        return valor.isoformat()
+    # Si es datetime, convertir a string ISO
+    if isinstance(valor, datetime):
+        return valor.isoformat()
+    # Si es float o int, devolver como está
+    if isinstance(valor, (int, float)):
+        return valor
+    # Si es string, limpiar
+    if isinstance(valor, str):
+        return valor.strip() if valor.strip() else None
+    # Cualquier otro tipo, convertir a string
+    return str(valor) if valor else None
 
 # ==================== MAPEO DE COLUMNAS ====================
 COLUMNAS_EXCEL_A_INTERNO = {
@@ -183,26 +198,32 @@ with tab1:
             
             # Mapear a nombres internos
             df_ordenado = pd.DataFrame()
+            columnas_faltantes = []
+            
             for nombre_excel, nombre_interno in COLUMNAS_EXCEL_A_INTERNO.items():
                 if nombre_excel in df_raw.columns:
                     df_ordenado[nombre_interno] = df_raw[nombre_excel]
                 else:
-                    st.markdown(f"""
-                    <div class="warning-box">
-                        <strong>COLUMNA NO ENCONTRADA</strong><br>
-                        No se encontró: {nombre_excel}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.stop()
+                    columnas_faltantes.append(nombre_excel)
             
-            # Limpiar datos y convertir a serializable
-            df_ordenado = df_ordenado.replace({pd.NA: None, float('nan'): None})
+            if columnas_faltantes:
+                st.markdown(f"""
+                <div class="warning-box">
+                    <strong>COLUMNAS NO ENCONTRADAS</strong><br>
+                    No se encontraron: {', '.join(columnas_faltantes[:5])}
+                </div>
+                """, unsafe_allow_html=True)
+                st.stop()
             
-            # Aplicar conversión a cada celda
+            # LIMPIEZA TOTAL DE DATOS - ELIMINAR TODOS LOS NAN
+            # Reemplazar NaN por None en todo el DataFrame
+            df_ordenado = df_ordenado.where(pd.notna(df_ordenado), None)
+            
+            # Aplicar limpieza profunda a cada celda
             for col in df_ordenado.columns:
-                df_ordenado[col] = df_ordenado[col].apply(convertir_a_serializable)
+                df_ordenado[col] = df_ordenado[col].apply(limpiar_valor)
             
-            if df_ordenado.empty:
+            if df_ordenado.empty or len(df_ordenado) == 0:
                 st.markdown("""
                 <div class="warning-box">
                     <strong>ARCHIVO VACÍO</strong>
@@ -237,23 +258,30 @@ with tab1:
                             cuit = reg.get('cuit', '')
                             acta = reg.get('ultima_acta', '')
                             if cuit:
-                                existentes_set.add((cuit, acta if acta else ''))
+                                existentes_set.add((str(cuit), str(acta) if acta else ''))
                         
                         # Filtrar nuevos
                         nuevos = []
                         duplicados = 0
+                        
                         for reg in registros:
                             cuit = reg.get('cuit', '')
                             acta = reg.get('ultima_acta', '')
-                            if (cuit, acta if acta else '') not in existentes_set:
-                                nuevos.append(reg)
+                            clave = (str(cuit) if cuit else '', str(acta) if acta else '')
+                            
+                            if clave not in existentes_set:
+                                # Limpiar nuevamente cada campo del registro
+                                registro_limpio = {}
+                                for k, v in reg.items():
+                                    registro_limpio[k] = limpiar_valor(v)
+                                nuevos.append(registro_limpio)
                             else:
                                 duplicados += 1
                         
                         if nuevos:
                             try:
-                                # Insertar en lotes de 100 para evitar problemas
-                                lote_size = 100
+                                # Insertar en lotes de 50 para evitar problemas
+                                lote_size = 50
                                 total_insertados = 0
                                 
                                 for i in range(0, len(nuevos), lote_size):
