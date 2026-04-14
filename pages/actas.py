@@ -119,19 +119,31 @@ def excel_serial_a_fecha(n):
 
 def fecha_para_mostrar(valor):
     """Convierte fecha a DD/MM/YYYY para mostrar (sin hora)."""
-    if valor is None or pd.isna(valor):
+    if valor is None:
         return None
+    try:
+        if pd.isna(valor):
+            return None
+    except (TypeError, ValueError):
+        pass
     try:
         if isinstance(valor, (pd.Timestamp, datetime)):
             return valor.strftime('%d/%m/%Y')
         if isinstance(valor, str):
-            if re.match(r'\d{4}-\d{2}-\d{2}', valor):
-                fecha = datetime.strptime(valor, '%Y-%m-%d')
-                return fecha.strftime('%d/%m/%Y')
-            if re.match(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', valor):
-                fecha = datetime.strptime(valor[:10], '%Y-%m-%d')
-                return fecha.strftime('%d/%m/%Y')
-            if re.match(r'\d{2}/\d{2}/\d{4}', valor):
+            valor = valor.strip()
+            if not valor:
+                return None
+            # ISO 8601 con T: "2024-01-15T00:00:00" o "2024-01-15T00:00:00+00:00"
+            if re.match(r'\d{4}-\d{2}-\d{2}T', valor):
+                return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+            # Con espacio: "2024-01-15 00:00:00"
+            if re.match(r'\d{4}-\d{2}-\d{2} ', valor):
+                return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+            # Solo fecha: "2024-01-15"
+            if re.match(r'^\d{4}-\d{2}-\d{2}$', valor):
+                return datetime.strptime(valor, '%Y-%m-%d').strftime('%d/%m/%Y')
+            # Ya está en DD/MM/YYYY
+            if re.match(r'^\d{2}/\d{2}/\d{4}$', valor):
                 return valor
             return valor
         return str(valor)
@@ -146,12 +158,15 @@ def fecha_para_guardar(valor):
         if isinstance(valor, (pd.Timestamp, datetime)):
             return valor.strftime('%Y-%m-%d')
         if isinstance(valor, str):
+            valor = valor.strip()
+            if not valor:
+                return None
+            # Si viene en formato DD/MM/YYYY
             if re.match(r'\d{2}/\d{2}/\d{4}', valor):
                 fecha = datetime.strptime(valor, '%d/%m/%Y')
                 return fecha.strftime('%Y-%m-%d')
+            # Si viene en formato ISO con T o espacio
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
-                return valor
-            if re.match(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', valor):
                 return valor[:10]
         return None
     except:
@@ -475,25 +490,19 @@ with tab2:
             key="filtro_mail"
         )
     
-    if filtro_mail == "SI":
-        query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI")
-    elif filtro_mail == "NO":
-        query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "NO")
-    else:
-        query_total = supabase.table("padron_deuda_presunta").select("id", count="exact")
+    # ==================== CONTEO CORREGIDO ====================
+    # Usar head=True para obtener el count exacto sin traer todos los datos
+    query_total = supabase.table("padron_deuda_presunta").select("*", count="exact", head=True)
     
     if localidad_seleccionada != "TODAS" and localidades_unicas:
-        ids_por_localidad = supabase.table("padron_deuda_presunta").select("id").eq("localidad", localidad_seleccionada).execute()
-        ids_lista = [item['id'] for item in ids_por_localidad.data]
-        if ids_lista:
-            query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").in_("id", ids_lista)
-            if filtro_mail == "SI":
-                query_total = query_total.eq("mail_enviado", "SI")
-            elif filtro_mail == "NO":
-                query_total = query_total.eq("mail_enviado", "NO")
+        query_total = query_total.eq("localidad", localidad_seleccionada)
     
-    total_registros = query_total.execute()
-    total = total_registros.count
+    if filtro_mail == "SI":
+        query_total = query_total.eq("mail_enviado", "SI")
+    elif filtro_mail == "NO":
+        query_total = query_total.eq("mail_enviado", "NO")
+    
+    total = query_total.execute().count
     
     with col_filtro3:
         st.metric("Total registros", total)
@@ -536,22 +545,16 @@ with tab2:
         
         offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
         
-        if filtro_mail == "SI":
-            query_datos = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI")
-        elif filtro_mail == "NO":
-            query_datos = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "NO")
-        else:
-            query_datos = supabase.table("padron_deuda_presunta").select("*")
+        # ==================== QUERY DE DATOS CORREGIDA ====================
+        query_datos = supabase.table("padron_deuda_presunta").select("*")
         
         if localidad_seleccionada != "TODAS" and localidades_unicas:
-            ids_por_localidad = supabase.table("padron_deuda_presunta").select("id").eq("localidad", localidad_seleccionada).execute()
-            ids_lista = [item['id'] for item in ids_por_localidad.data]
-            if ids_lista:
-                query_datos = supabase.table("padron_deuda_presunta").select("*").in_("id", ids_lista)
-                if filtro_mail == "SI":
-                    query_datos = query_datos.eq("mail_enviado", "SI")
-                elif filtro_mail == "NO":
-                    query_datos = query_datos.eq("mail_enviado", "NO")
+            query_datos = query_datos.eq("localidad", localidad_seleccionada)
+        
+        if filtro_mail == "SI":
+            query_datos = query_datos.eq("mail_enviado", "SI")
+        elif filtro_mail == "NO":
+            query_datos = query_datos.eq("mail_enviado", "NO")
         
         datos = query_datos.range(offset, offset + registros_por_pagina - 1).execute()
         
