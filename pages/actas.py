@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
+import openpyxl
+import xlrd
 
 # Configuración de página
 st.set_page_config(
@@ -86,50 +88,87 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
-            # LEER EL EXCEL CON TODAS LAS COLUMNAS COMO STRING (dtype=str)
-            # Esta es la CLAVE: evitar que pandas interprete números
+            # LEER EXCEL USANDO openpyxl DIRECTAMENTE (sin pandas para la lectura)
+            from io import BytesIO
+            
+            # Cargar el workbook
             if uploaded_file.name.endswith('.xls'):
-                df_raw = pd.read_excel(uploaded_file, engine='xlrd', dtype=str)
-            else:
-                df_raw = pd.read_excel(uploaded_file, engine='openpyxl', dtype=str)
-            
-            # Limpiar nombres de columnas
-            df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
-            
-            # Crear DataFrame final
-            df_final = pd.DataFrame()
-            
-            for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
-                if col_excel in df_raw.columns:
-                    # Limpiar valores: convertir NaN a None, strings vacíos a None
-                    valores_limpios = []
-                    for val in df_raw[col_excel]:
-                        if pd.isna(val) or val == 'nan' or val == 'NaN' or val == '':
-                            valores_limpios.append(None)
+                # Para archivos .xls usamos xlrd
+                workbook = xlrd.open_workbook(file_contents=uploaded_file.read())
+                sheet = workbook.sheet_by_index(0)
+                
+                # Obtener encabezados (primera fila)
+                headers = [str(sheet.cell_value(0, col)).strip().upper() for col in range(sheet.ncols)]
+                
+                # Obtener datos
+                datos = []
+                for row in range(1, sheet.nrows):
+                    fila = {}
+                    for col in range(sheet.ncols):
+                        valor = sheet.cell_value(row, col)
+                        # Convertir a string o None
+                        if valor == '' or valor is None:
+                            valor = None
                         else:
-                            valores_limpios.append(str(val).strip())
-                    df_final[col_tabla] = valores_limpios
-                else:
-                    st.error(f"Columna '{col_excel}' no encontrada")
-                    st.stop()
+                            valor = str(valor).strip()
+                        fila[headers[col]] = valor
+                    datos.append(fila)
+            else:
+                # Para archivos .xlsx usamos openpyxl
+                workbook = openpyxl.load_workbook(BytesIO(uploaded_file.read()), data_only=True)
+                sheet = workbook.active
+                
+                # Obtener encabezados (primera fila)
+                headers = []
+                for col in range(1, sheet.max_column + 1):
+                    val = sheet.cell(row=1, column=col).value
+                    headers.append(str(val).strip().upper() if val else f"COL_{col}")
+                
+                # Obtener datos
+                datos = []
+                for row in range(2, sheet.max_row + 1):
+                    fila = {}
+                    for col in range(1, sheet.max_column + 1):
+                        valor = sheet.cell(row=row, column=col).value
+                        # Convertir a string o None
+                        if valor is None or valor == '':
+                            valor = None
+                        else:
+                            valor = str(valor).strip()
+                        fila[headers[col-1]] = valor
+                    datos.append(fila)
             
-            # Agregar columnas extras
-            df_final['leg'] = None
-            df_final['vto'] = None
-            df_final['mail_enviado'] = 'NO'
-            df_final['acta'] = None
-            df_final['fecha_carga'] = datetime.now().isoformat()
-            df_final['estado_gestion'] = 'PENDIENTE'
+            # Ahora datos es una lista de diccionarios con TODOS los valores como string o None
+            # Mapear a las columnas de la tabla
+            registros_finales = []
             
-            st.success(f"✅ Archivo procesado: {len(df_final)} registros")
+            for fila in datos:
+                registro = {}
+                for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
+                    if col_excel in fila:
+                        registro[col_tabla] = fila[col_excel]
+                    else:
+                        registro[col_tabla] = None
+                
+                # Agregar columnas extras
+                registro['leg'] = None
+                registro['vto'] = None
+                registro['mail_enviado'] = 'NO'
+                registro['acta'] = None
+                registro['fecha_carga'] = datetime.now().isoformat()
+                registro['estado_gestion'] = 'PENDIENTE'
+                
+                registros_finales.append(registro)
             
+            st.success(f"✅ Archivo procesado: {len(registros_finales)} registros")
+            
+            # Mostrar vista previa
+            df_preview = pd.DataFrame(registros_finales[:5])
             with st.expander("Vista previa"):
-                st.dataframe(df_final.head(10), use_container_width=True)
+                st.dataframe(df_preview, use_container_width=True)
             
             if st.button("✅ Confirmar carga", type="primary"):
                 with st.spinner("Cargando datos..."):
-                    registros = df_final.to_dict(orient='records')
-                    
                     # Verificar duplicados
                     existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
                     existentes_set = set()
@@ -140,7 +179,7 @@ with tab1:
                     
                     nuevos = []
                     duplicados = 0
-                    for reg in registros:
+                    for reg in registros_finales:
                         cuit = str(reg.get('cuit') or '')
                         acta = str(reg.get('ultima_acta') or '')
                         if (cuit, acta) not in existentes_set:
