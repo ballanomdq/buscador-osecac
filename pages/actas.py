@@ -5,6 +5,16 @@ from datetime import datetime, date
 import math
 import numpy as np
 import re
+import locale
+
+# Intentar configurar locale para formato argentino
+try:
+    locale.setlocale(locale.LC_ALL, 'es_AR.UTF-8')
+except:
+    try:
+        locale.setlocale(locale.LC_ALL, 'spanish')
+    except:
+        pass
 
 # Configuración de página
 st.set_page_config(
@@ -49,6 +59,22 @@ with col_back:
 st.markdown("---")
 
 # ==================== FUNCIONES DE LIMPIEZA ====================
+def formatear_numero_argentino(valor):
+    """Convierte un número a formato argentino: $1.234,56"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        num = float(valor)
+        if num.is_integer():
+            return f"${int(num):,}".replace(",", ".")
+        else:
+            entero = int(num)
+            decimal = int(round((num - entero) * 100))
+            entero_formateado = f"{entero:,}".replace(",", ".")
+            return f"${entero_formateado},{decimal:02d}"
+    except:
+        return str(valor) if valor else None
+
 def limpiar_valor(val):
     """Convierte cualquier valor no serializable a JSON en None o string limpio."""
     if val is None:
@@ -102,6 +128,9 @@ def fecha_para_mostrar(valor):
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 fecha = datetime.strptime(valor, '%Y-%m-%d')
                 return fecha.strftime('%d/%m/%Y')
+            if re.match(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', valor):
+                fecha = datetime.strptime(valor[:10], '%Y-%m-%d')
+                return fecha.strftime('%d/%m/%Y')
             if re.match(r'\d{2}/\d{2}/\d{4}', valor):
                 return valor
             return valor
@@ -122,6 +151,8 @@ def fecha_para_guardar(valor):
                 return fecha.strftime('%Y-%m-%d')
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 return valor
+            if re.match(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', valor):
+                return valor[:10]
         return None
     except:
         return None
@@ -177,6 +208,9 @@ MAPA_COLUMNAS = {
     "SITUACION": "situacion"
 }
 
+# Columnas que deben formatearse como moneda
+COLUMNAS_MONEDA = {"deuda_presunta", "detectado"}
+
 # Columnas que pueden contener seriales de fecha Excel
 COLUMNAS_FECHA = {"fechareldependencia", "desde", "hasta", "fecha_pago_obl"}
 
@@ -218,16 +252,13 @@ TITULOS_MOSTRAR = {
 # ==================== FUNCIÓN PARA PROCESAR EXCEL ====================
 def procesar_excel(archivo):
     """Lee el Excel y devuelve una lista de dicts listos para Supabase."""
-    # Leer TODO como string primero
     if archivo.name.endswith('.xls'):
         df = pd.read_excel(archivo, engine='xlrd', dtype=str)
     else:
         df = pd.read_excel(archivo, engine='openpyxl', dtype=str)
     
-    # Limpiar nombres de columnas
     df.columns = [str(col).strip().upper() for col in df.columns]
     
-    # Verificar columnas
     faltantes = [c for c in COLUMNAS_EXCEL if c not in df.columns]
     if faltantes:
         raise ValueError(f"Columnas faltantes: {faltantes}")
@@ -243,19 +274,22 @@ def procesar_excel(archivo):
             val = fila.get(col_db)
             val = limpiar_valor(val)
             
-            # Si es string, limpiar espacios y "nan" literales
             if isinstance(val, str):
                 val = val.strip()
                 if val.lower() in ("nan", "none", "nat", ""):
                     val = None
-                # Limpiar números con formato: "1.0" → "1"
                 elif val.endswith(".0") and val[:-2].lstrip("-").isdigit():
                     val = val[:-2]
-                # Convertir serial de fecha si corresponde
                 elif col_db in COLUMNAS_FECHA and val and val.isdigit():
                     val = excel_serial_a_fecha(int(val))
             
-            # ULTIMA ACTA vacía → "*"
+            if col_db in COLUMNAS_MONEDA and val and isinstance(val, (int, float, str)):
+                try:
+                    num_val = float(val) if isinstance(val, str) else val
+                    val = formatear_numero_argentino(num_val)
+                except:
+                    pass
+            
             if col_db == "ultima_acta" and not val:
                 val = "*"
             
@@ -282,21 +316,18 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
-            # Procesar Excel
             registros = procesar_excel(uploaded_file)
             total_registros = len(registros)
             
-            # Agregar columnas extras
             for reg in registros:
                 reg['leg'] = None
                 reg['vto'] = None
                 reg['mail_enviado'] = 'NO'
                 reg['acta'] = None
-                reg['fecha_carga'] = date.today().isoformat()  # SOLO FECHA, sin hora
+                reg['fecha_carga'] = date.today().isoformat()
                 reg['estado_gestion'] = 'PENDIENTE'
             
-            # ==================== DETECCIÓN DE DUPLICADOS ====================
-            # Obtener TODOS los pares (cuit, ultima_acta) existentes (sin límite)
+            # Detección de duplicados
             todos_existentes = []
             offset = 0
             batch_size = 1000
@@ -317,14 +348,12 @@ with tab1:
                 if cuit:
                     existentes_set.add((cuit, acta))
             
-            # También obtener los que tienen ultima_acta = '*' (None en la BD)
             batch_none = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").is_("ultima_acta", "null").execute()
             for reg in batch_none.data:
                 cuit = str(reg.get('cuit') or '')
                 if cuit:
                     existentes_set.add((cuit, '*'))
             
-            # Filtrar registros nuevos
             nuevos_registros = []
             duplicados = 0
             
@@ -348,7 +377,6 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
             
-            # Vista previa
             if nuevos_registros:
                 with st.expander("Vista previa (primeros 10 registros nuevos)"):
                     df_preview = pd.DataFrame(nuevos_registros[:10])
@@ -376,7 +404,6 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botones de acción
     col_accion1, col_accion2, col_accion3 = st.columns(3)
     
     with col_accion1:
@@ -401,7 +428,6 @@ with tab2:
         if st.button("🔄 Recargar", key="btn_recargar"):
             st.rerun()
     
-    # Confirmación eliminar TODO
     if st.session_state.get('confirmar_eliminar_todo', False):
         st.warning("⚠️ ¿Estás SEGURO? Esta acción eliminará TODOS los registros de la base de datos. No se puede deshacer.")
         col_si, col_no = st.columns(2)
@@ -420,7 +446,6 @@ with tab2:
     
     st.markdown("---")
     
-    # Obtener localidades
     todas_localidades = supabase.table("padron_deuda_presunta").select("localidad").execute()
     localidades_unicas = sorted(set([l['localidad'] for l in todas_localidades.data if l.get('localidad')]))
     
@@ -428,7 +453,6 @@ with tab2:
         localidades_unicas.remove('MAR DEL PLATA')
         localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
     
-    # Filtros
     col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 1, 1])
     
     with col_filtro1:
@@ -451,7 +475,6 @@ with tab2:
             key="filtro_mail"
         )
     
-    # CONTAR registros
     if filtro_mail == "SI":
         query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
@@ -489,7 +512,6 @@ with tab2:
             st.session_state.ultimo_filtro = (localidad_seleccionada, filtro_mail)
             st.rerun()
         
-        # Navegación
         col_ant, col_num, col_sig = st.columns([1, 2, 1])
         
         with col_ant:
@@ -514,7 +536,6 @@ with tab2:
         
         offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
         
-        # OBTENER DATOS
         if filtro_mail == "SI":
             query_datos = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI")
         elif filtro_mail == "NO":
@@ -541,12 +562,10 @@ with tab2:
             
             df_datos = pd.DataFrame(datos.data)
             
-            # Limpiar números enteros en EMPL
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
             
-            # Convertir fechas para mostrar (sin hora)
             for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
@@ -557,7 +576,6 @@ with tab2:
             
             df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
             
-            # Checkbox para seleccionar todos
             st.markdown("#### Seleccionar registros")
             col_check_all, _ = st.columns([1, 4])
             with col_check_all:
@@ -582,7 +600,6 @@ with tab2:
                 key=f"editor_{st.session_state.pagina_actual}"
             )
             
-            # Guardar IDs seleccionados
             ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
             st.session_state.ids_a_eliminar = ids_seleccionados
             
