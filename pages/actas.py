@@ -313,17 +313,11 @@ with tab2:
     
     with col_accion1:
         if st.button("🗑️ Eliminar ÚLTIMOS 100"):
-            with st.spinner("Eliminando..."):
-                datos = supabase.table("padron_deuda_presunta").select("id").order("id", desc=True).limit(100).execute()
-                if datos.data:
-                    for reg in datos.data:
-                        supabase.table("padron_deuda_presunta").delete().eq("id", reg['id']).execute()
-                    st.success(f"✅ Se eliminaron {len(datos.data)} registros")
-                    st.rerun()
+            st.session_state.confirmar_eliminar_ultimos = True
     
     with col_accion2:
         if st.button("🗑️ Eliminar TODOS"):
-            st.session_state.confirmar_eliminar = True
+            st.session_state.confirmar_eliminar_todos = True
     
     with col_accion3:
         if st.button("🔄 Recargar"):
@@ -338,24 +332,45 @@ with tab2:
                 st.warning("No hay registros seleccionados")
         st.markdown('</div>', unsafe_allow_html=True)
     
+    # Confirmación eliminar últimos 100
+    if st.session_state.get('confirmar_eliminar_ultimos', False):
+        st.warning("⚠️ ¿Eliminar los ÚLTIMOS 100 registros?")
+        col_si, col_no = st.columns(2)
+        with col_si:
+            if st.button("✅ SÍ"):
+                with st.spinner("Eliminando..."):
+                    datos = supabase.table("padron_deuda_presunta").select("id").order("id", desc=True).limit(100).execute()
+                    if datos.data:
+                        for reg in datos.data:
+                            supabase.table("padron_deuda_presunta").delete().eq("id", reg['id']).execute()
+                        st.success(f"✅ Se eliminaron {len(datos.data)} registros")
+                    st.session_state.confirmar_eliminar_ultimos = False
+                    st.rerun()
+        with col_no:
+            if st.button("❌ No"):
+                st.session_state.confirmar_eliminar_ultimos = False
+                st.rerun()
+    
     # Confirmación eliminar todos
-    if st.session_state.get('confirmar_eliminar', False):
-        st.warning("⚠️ ¿Eliminar TODOS los registros? Esta acción no se puede deshacer.")
+    if st.session_state.get('confirmar_eliminar_todos', False):
+        st.warning("⚠️ ¿Eliminar TODOS los registros? Esta acción NO se puede deshacer.")
         col_si, col_no = st.columns(2)
         with col_si:
             if st.button("✅ SÍ, ELIMINAR TODO"):
-                supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
-                st.success("✅ Todos los registros fueron eliminados")
-                st.session_state.confirmar_eliminar = False
-                st.rerun()
+                with st.spinner("Eliminando..."):
+                    supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
+                    st.success("✅ Todos los registros fueron eliminados")
+                    st.session_state.confirmar_eliminar_todos = False
+                    st.rerun()
         with col_no:
             if st.button("❌ Cancelar"):
-                st.session_state.confirmar_eliminar = False
+                st.session_state.confirmar_eliminar_todos = False
                 st.rerun()
     
     # Confirmación eliminar seleccionados
     if st.session_state.get('confirmar_eliminar_seleccionados', False):
-        st.warning(f"⚠️ ¿Eliminar {len(st.session_state.get('ids_a_eliminar', []))} registros seleccionados?")
+        cantidad = len(st.session_state.get('ids_a_eliminar', []))
+        st.warning(f"⚠️ ¿Eliminar los {cantidad} registros seleccionados?")
         col_si, col_no = st.columns(2)
         with col_si:
             if st.button("✅ SÍ, ELIMINAR"):
@@ -383,18 +398,22 @@ with tab2:
             localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
         
         if not localidades_unicas:
-            localidades_unicas = ["TODAS"]
+            localidades_unicas = []
         
         # Filtros
         col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 1, 1])
         
         with col_filtro1:
-            localidad_seleccionada = st.selectbox(
-                "📌 LOCALIDAD:",
-                options=["TODAS"] + localidades_unicas,
-                index=0,
-                key="filtro_localidad"
-            )
+            if localidades_unicas:
+                localidad_seleccionada = st.selectbox(
+                    "📌 LOCALIDAD:",
+                    options=["TODAS"] + localidades_unicas,
+                    index=0,
+                    key="filtro_localidad"
+                )
+            else:
+                localidad_seleccionada = "TODAS"
+                st.selectbox("📌 LOCALIDAD:", options=["TODAS"], index=0, key="filtro_localidad", disabled=True)
         
         with col_filtro2:
             filtro_mail = st.selectbox(
@@ -405,22 +424,22 @@ with tab2:
             )
         
         with col_filtro3:
-            if localidad_seleccionada != "TODAS":
+            if localidad_seleccionada != "TODAS" and localidades_unicas:
                 count_localidad = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("localidad", localidad_seleccionada).execute()
                 st.metric("Registros", count_localidad.count)
         
-        # Construir consulta base
-        query = supabase.table("padron_deuda_presunta")
+        # Construir consulta base para el TOTAL (para contar)
+        query_count = supabase.table("padron_deuda_presunta")
         
-        if localidad_seleccionada != "TODAS":
-            query = query.eq("localidad", localidad_seleccionada)
+        if localidad_seleccionada != "TODAS" and localidades_unicas:
+            query_count = query_count.eq("localidad", localidad_seleccionada)
         
         if filtro_mail == "SI":
-            query = query.eq("mail_enviado", "SI")
+            query_count = query_count.eq("mail_enviado", "SI")
         elif filtro_mail == "NO":
-            query = query.eq("mail_enviado", "NO")
+            query_count = query_count.eq("mail_enviado", "NO")
         
-        total_registros = query.select("id", count="exact").execute()
+        total_registros = query_count.select("id", count="exact").execute()
         total = total_registros.count
         
         st.write(f"**Total de registros:** {total}")
@@ -465,10 +484,12 @@ with tab2:
             
             offset = (st.session_state.pagina_actual_localidad - 1) * registros_por_pagina
             
-            # Obtener datos
+            # Obtener datos para la página actual
             query_data = supabase.table("padron_deuda_presunta")
-            if localidad_seleccionada != "TODAS":
+            
+            if localidad_seleccionada != "TODAS" and localidades_unicas:
                 query_data = query_data.eq("localidad", localidad_seleccionada)
+            
             if filtro_mail == "SI":
                 query_data = query_data.eq("mail_enviado", "SI")
             elif filtro_mail == "NO":
