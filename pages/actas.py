@@ -5,6 +5,7 @@ from datetime import datetime
 import numpy as np
 import re
 import math
+import json
 
 # Configuración de página
 st.set_page_config(
@@ -48,24 +49,37 @@ with col_back:
 
 st.markdown("---")
 
-# ==================== FUNCIONES ====================
-def limpiar_valor(valor):
-    """Limpia valores básicos"""
-    if valor is None or pd.isna(valor):
+# ==================== FUNCIONES DE LIMPIEZA ====================
+def limpiar_valor_a_string(valor):
+    """Convierte CUALQUIER valor a string o None. NUNCA devuelve nan."""
+    if valor is None:
         return None
-    if isinstance(valor, float) and (math.isnan(valor) or math.isinf(valor)):
+    if pd.isna(valor):
         return None
-    if isinstance(valor, str) and valor.strip() == '':
-        return None
-    return valor
+    if isinstance(valor, float):
+        if math.isnan(valor) or math.isinf(valor):
+            return None
+        # Si es entero sin decimales, convertir a int sin .0
+        if valor.is_integer():
+            return str(int(valor))
+        return str(valor)
+    if isinstance(valor, (int, np.integer)):
+        return str(valor)
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        return valor.strftime('%Y-%m-%d')
+    if isinstance(valor, str):
+        if valor.strip() == '' or valor.lower() in ['nan', 'none', 'null']:
+            return None
+        return valor.strip()
+    return str(valor)
 
 def normalizar_ultima_acta(valor):
     """Si ULTIMA ACTA está vacía, la reemplaza con '*'"""
     if valor is None or pd.isna(valor):
         return '*'
-    if isinstance(valor, float) and math.isnan(valor):
-        return '*'
     if isinstance(valor, str) and valor.strip() == '':
+        return '*'
+    if isinstance(valor, float) and math.isnan(valor):
         return '*'
     return str(valor).strip()
 
@@ -203,13 +217,14 @@ with tab1:
             # Limpiar nombres de columnas
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
-            # Reemplazar valores vacíos por None
+            # LIMPIEZA NUCLEAR: reemplazar TODOS los valores problemáticos
             df_raw = df_raw.replace({np.nan: None, 'nan': None, 'NaN': None, '': None})
             
             df_final = pd.DataFrame()
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
-                    valores = [limpiar_valor(val) for val in df_raw[col_excel]]
+                    # Convertir cada valor a string o None
+                    valores = [limpiar_valor_a_string(val) for val in df_raw[col_excel]]
                     df_final[col_tabla] = valores
                 else:
                     st.error(f"Columna '{col_excel}' no encontrada")
@@ -227,16 +242,15 @@ with tab1:
             df_final['ultima_acta'] = df_final['ultima_acta'].apply(normalizar_ultima_acta)
             
             # ==================== DETECCIÓN DE DUPLICADOS ====================
-            # Obtener todos los pares (cuit, ultima_acta) existentes en la base
+            # Obtener todos los pares (cuit, ultima_acta) existentes
             existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
             existentes_set = set()
             for reg in existentes.data:
                 cuit = str(reg.get('cuit') or '')
-                acta = str(reg.get('ultima_acta') or '')
+                acta = str(reg.get('ultima_acta') or '*')
+                if not acta or acta == '' or acta == 'None':
+                    acta = '*'
                 if cuit:
-                    # También normalizamos los existentes para comparar
-                    if not acta or acta == '' or acta == 'None':
-                        acta = '*'
                     existentes_set.add((cuit, acta))
             
             # Filtrar registros del Excel
@@ -283,7 +297,17 @@ with tab1:
                     total_insertados = 0
                     for i in range(0, len(nuevos_registros), 100):
                         lote = nuevos_registros[i:i+100]
-                        resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
+                        # Limpiar nuevamente cada registro para asegurar que no haya nan
+                        lote_limpio = []
+                        for reg in lote:
+                            reg_limpio = {}
+                            for k, v in reg.items():
+                                if pd.isna(v) or (isinstance(v, float) and math.isnan(v)):
+                                    reg_limpio[k] = None
+                                else:
+                                    reg_limpio[k] = v
+                            lote_limpio.append(reg_limpio)
+                        resultado = supabase.table("padron_deuda_presunta").insert(lote_limpio).execute()
                         total_insertados += len(resultado.data)
                     
                     st.success(f"✅ Carga completada: {total_insertados} registros nuevos insertados. Duplicados omitidos: {duplicados}")
@@ -292,6 +316,7 @@ with tab1:
                             
         except Exception as e:
             st.error(f"Error: {str(e)}")
+            st.info("Si el error persiste, verifica que el archivo Excel no tenga celdas con formatos especiales.")
 
 # ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
 with tab2:
