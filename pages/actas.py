@@ -3,7 +3,6 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 import numpy as np
-import json
 
 # Configuración de página
 st.set_page_config(
@@ -26,8 +25,6 @@ st.markdown("""
     .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; }
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
-    .delete-button button { background-color: #dc2626 !important; }
-    .delete-button button:hover { background-color: #b91c1c !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -47,53 +44,78 @@ with col_back:
 
 st.markdown("---")
 
-# ==================== FUNCIÓN DE LIMPIEZA NUCLEAR ====================
+# ==================== FUNCIONES DE LIMPIEZA ====================
+def limpiar_numero_entero(valor):
+    """Convierte 1.0 a 1"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        num = float(valor)
+        if num.is_integer():
+            return int(num)
+        return num
+    except:
+        return valor
+
+def convertir_fecha_sin_hora(valor):
+    """Convierte fecha a string sin hora (solo DD/MM/YYYY)"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        if isinstance(valor, (pd.Timestamp, datetime)):
+            return valor.strftime('%d/%m/%Y')
+        if isinstance(valor, str):
+            # Si ya es string, tomar solo la fecha
+            if ' ' in valor:
+                return valor.split(' ')[0]
+            return valor
+        if isinstance(valor, (int, float)):
+            # Número de Excel a fecha
+            fecha_base = datetime(1899, 12, 30)
+            fecha = fecha_base + pd.Timedelta(days=float(valor))
+            return fecha.strftime('%d/%m/%Y')
+        return str(valor)
+    except:
+        return str(valor) if valor else None
+
+def convertir_fecha_excel_sin_hora(valor):
+    """Convierte número de Excel a fecha sin hora"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        if isinstance(valor, (int, float)) and valor > 30000:
+            fecha_base = datetime(1899, 12, 30)
+            fecha = fecha_base + pd.Timedelta(days=float(valor))
+            return fecha.strftime('%d/%m/%Y')
+        if isinstance(valor, (pd.Timestamp, datetime)):
+            return valor.strftime('%d/%m/%Y')
+        return str(valor) if valor else None
+    except:
+        return str(valor) if valor else None
+
 def limpiar_para_json(valor):
-    """Convierte CUALQUIER valor a un tipo JSON serializable"""
-    # None
+    """Convierte CUALQUIER valor a JSON serializable"""
     if valor is None:
         return None
-    # NaN de pandas o numpy
     if pd.isna(valor):
         return None
     if isinstance(valor, float):
         if np.isnan(valor) or np.isinf(valor):
             return None
-        # Si es float sin decimales, convertir a int
         if valor.is_integer():
             return int(valor)
         return valor
-    # Timestamp
     if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.isoformat()
-    # Numpy integers
+        return valor.strftime('%d/%m/%Y')
     if isinstance(valor, np.integer):
         return int(valor)
-    # Numpy floats
     if isinstance(valor, np.floating):
         if np.isnan(valor):
             return None
         return float(valor)
-    # String vacío
     if isinstance(valor, str) and valor.strip() == '':
         return None
-    # Cualquier otro tipo
     return valor
-
-def convertir_fecha_excel(valor):
-    """Convierte número de Excel a fecha (44854 -> 28/02/2019)"""
-    if valor is None or pd.isna(valor):
-        return None
-    try:
-        if isinstance(valor, (int, float)):
-            fecha_base = datetime(1899, 12, 30)
-            fecha = fecha_base + pd.Timedelta(days=float(valor))
-            return fecha.strftime('%d/%m/%Y')
-        if isinstance(valor, str):
-            return valor
-        return None
-    except:
-        return str(valor) if valor else None
 
 # ==================== MAPEO DE COLUMNAS ====================
 MAPEO_EXCEL_A_TABLA = {
@@ -189,13 +211,12 @@ with tab1:
                 if col_excel in df_raw.columns:
                     valores = []
                     for val in df_raw[col_excel]:
-                        # Limpieza nuclear de cada valor
                         if pd.isna(val):
                             valores.append(None)
                         else:
                             val_str = str(val).strip()
                             
-                            # Columnas de números enteros
+                            # Columnas de números enteros (EMPL) - limpiar .0
                             if col_tabla in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                                 try:
                                     num = float(val)
@@ -206,11 +227,13 @@ with tab1:
                                 except:
                                     valores.append(None)
                             
-                            # Columnas de fechas
+                            # Columnas de fechas - sin hora
                             elif col_tabla in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
                                 if isinstance(val, (int, float)) and val > 30000:
-                                    fecha = convertir_fecha_excel(val)
+                                    fecha = convertir_fecha_excel_sin_hora(val)
                                     valores.append(fecha)
+                                elif isinstance(val, (pd.Timestamp, datetime)):
+                                    valores.append(val.strftime('%d/%m/%Y'))
                                 else:
                                     valores.append(val_str if val_str else None)
                             
@@ -238,10 +261,10 @@ with tab1:
             df_final['vto'] = None
             df_final['mail_enviado'] = 'NO'
             df_final['acta'] = None
-            df_final['fecha_carga'] = datetime.now().isoformat()
+            df_final['fecha_carga'] = datetime.now().strftime('%d/%m/%Y')
             df_final['estado_gestion'] = 'PENDIENTE'
             
-            # LIMPIEZA NUCLEAR FINAL: convertir TODO a JSON serializable
+            # Limpieza final
             for col in df_final.columns:
                 df_final[col] = df_final[col].apply(limpiar_para_json)
             
@@ -254,7 +277,7 @@ with tab1:
                 with st.spinner("Cargando datos..."):
                     registros = df_final.to_dict(orient='records')
                     
-                    # Verificar que no haya NaN en los registros
+                    # Limpieza final de NaN
                     for reg in registros:
                         for k, v in reg.items():
                             if pd.isna(v):
@@ -322,27 +345,34 @@ with tab2:
             total_registros = len(df_datos)
             st.write(f"**Total de registros en la base:** {total_registros}")
             
-            # Selector de cantidad
-            opciones = [100, 500, 1000, 5000, total_registros]
-            mostrar = st.selectbox("Registros a mostrar:", opciones, index=min(3, len(opciones)-1))
+            # Limpiar números enteros en las columnas EMPL
+            for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
+                if col in df_datos.columns:
+                    df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
             
-            if mostrar == total_registros:
-                df_mostrar = df_datos.copy()
-            else:
-                df_mostrar = df_datos.tail(mostrar).copy()
+            # Limpiar fechas para que no tengan hora
+            for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
+                if col in df_datos.columns:
+                    df_datos[col] = df_datos[col].apply(convertir_fecha_sin_hora)
             
+            # Limpiar fecha_carga
+            if 'fecha_carga' in df_datos.columns:
+                df_datos['fecha_carga'] = df_datos['fecha_carga'].apply(convertir_fecha_sin_hora)
+            
+            # Mostrar TODOS los registros (sin límite)
+            st.info(f"📝 Mostrando TODOS los {total_registros} registros")
+            
+            # Renombrar columnas
+            df_mostrar = df_datos.copy()
             if 'fecha_carga' in df_mostrar.columns:
                 df_mostrar = df_mostrar.drop(columns=['fecha_carga'])
             
             df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
             
-            st.info(f"📝 Mostrando {len(df_mostrar)} registros")
-            
-            # Editor
             edited_df = st.data_editor(
                 df_mostrar,
                 use_container_width=True,
-                height=600,
+                height=700,
                 disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
                           'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
                           'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
