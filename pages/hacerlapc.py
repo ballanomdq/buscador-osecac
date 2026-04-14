@@ -1,64 +1,86 @@
-import streamlit as st
-import pandas as pd
-import requests
+import pyautogui
 import time
-import re
+import os
 
-st.set_page_config(page_title="PUCO RÁPIDO - OSECAC", layout="wide")
-st.title("⚡ Buscador PUCO (Versión Camuflada)")
+# --- CONFIGURACIÓN DE SEGURIDAD ---
+pyautogui.FAILSAFE = True  # Si movés el mouse a una esquina de la pantalla, el robot se apaga (por si se vuelve loco)
 
-dni_input = st.text_area("Ingresá los DNIs:", height=150)
-buscar_btn = st.button("🚀 Consultar Ahora", type="primary")
+class RobotOsecac:
+    def __init__(self):
+        self.tandas_exitosas = 0
+        self.errores = []
 
-def consultar_sisa_humano(dni):
-    # Intentamos obtener una sesión limpia en cada tanda
-    session = requests.Session()
-    
-    # Headers MUY realistas
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Accept-Language": "es-AR,es;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Content-Type": "text/x-gwt-rpc; charset=UTF-8",
-        "X-GWT-Module-Base": "https://sisa.msal.gov.ar/sisa/sisa/",
-        "X-GWT-Permutation": "AC8C40F803E54F7569451C561053A1B6",
-        "Origin": "https://sisa.msal.gov.ar",
-        "Referer": "https://sisa.msal.gov.ar/sisa/",
-    }
+    def informe(self, mensaje):
+        print(f"[{time.strftime('%H:%M:%S')}] 🤖 {mensaje}")
 
-    # Payload corregido (7|0|14...)
-    payload = f"7|0|14|https://sisa.msal.gov.ar/sisa/sisa/|5CFBDB55F3DE4A47FE42E765E5AA02D3|ar.gob.msal.sisa.client.commons.components.lista.service.ListService|getPage|java.lang.Integer/3438268394|java.util.List|Z|ar.gob.msal.sisa.shared.model.list.ComplexFilter/30068811|java.util.ArrayList/4159755760|ar.gob.msal.sisa.client.commons.components.lista.simple.SearchFilter/1978531670|97390|ar.gob.msal.sisa.client.entitys.list.Filter$OPERATION/3408968308|ar.gob.msal.sisa.client.entitys.list.Filter$OPERATOR/860546718|{dni}|1|2|3|4|10|5|5|5|6|6|5|7|5|6|8|5|790|5|1|-2|9|0|9|1|10|11|12|0|13|0|0|14|0|0|1|5|25|0|0|"
+    def esperar_y_cerrar_cartel(self):
+        self.informe("Buscando el cartel de seguridad amarillo...")
+        # Intentamos cerrar con teclado primero (es más rápido)
+        time.sleep(2)
+        pyautogui.press('esc')
+        time.sleep(1)
+        pyautogui.press('enter')
+        self.informe("Comando de cierre enviado. Verificando...")
 
-    try:
-        # Primero "tocamos" la puerta
-        session.get("https://sisa.msal.gov.ar/sisa/", timeout=10)
-        
-        # Tiramos el centro
-        res = session.post(
-            "https://sisa.msal.gov.ar/sisa/sisa/service/list", 
-            data=payload, 
-            headers=headers, 
-            timeout=15
-        )
-        
-        # Si SISA responde, buscamos tu DNI en el texto
-        if str(dni) in res.text:
-            # Buscamos patrones de texto entre comillas
-            strings = re.findall(r'"([^"]*)"', res.text)
-            idx = strings.index(str(dni))
-            # OSECAC suele estar 2 o 3 posiciones después del DNI
-            return {"DNI": dni, "Cobertura": strings[idx+2], "Beneficiario": strings[idx+3], "Estado": "✅"}
-        
-        return {"DNI": dni, "Cobertura": "No detectado", "Beneficiario": "-", "Estado": "❓"}
-    except:
-        return {"DNI": dni, "Cobertura": "Error de Red", "Beneficiario": "-", "Estado": "📡"}
+    def procesar_impresion(self):
+        self.informe("Localizando botones de la ventana modal...")
+        # Navegación ciega pero efectiva por TAB (ya que el modal tiene el foco)
+        # TAB 1: Cantidad de copias
+        # TAB 2: Checkbox S/Ciudad
+        # TAB 3: Link Imprimir
+        try:
+            time.sleep(2)
+            for _ in range(3):
+                pyautogui.press('tab')
+                time.sleep(0.3)
+            
+            pyautogui.press('space') # Tilda 'S/Ciudad'
+            self.informe("✓ Checkbox S/Ciudad tildado")
+            
+            time.sleep(0.5)
+            pyautogui.press('enter') # Ejecuta Imprimir
+            self.informe("✓ Botón Imprimir presionado")
+            return True
+        except Exception as e:
+            self.errores.append(f"Falla en controles: {str(e)}")
+            return False
 
-if buscar_btn and dni_input:
-    dnis = [d.strip() for d in dni_input.split('\n') if d.strip()]
-    resultados = []
-    barra = st.progress(0)
-    for i, d in enumerate(dnis):
-        resultados.append(consultar_sisa_humano(d))
-        barra.progress((i + 1) / len(dnis))
-        time.sleep(1) # Pausa más larga para que no nos bloqueen
-    st.dataframe(pd.DataFrame(resultados))
+    def ejecutar(self, cantidad_tandas=5):
+        self.informe("¡INICIANDO OPERACIÓN RESCATE!")
+        self.informe("Tenés 5 segundos para poner Edge al frente...")
+        time.sleep(5)
+
+        for i in range(cantidad_tandas):
+            self.informe(f"--- INICIANDO TANDA {i+1} ---")
+            
+            # Paso 1: Ejecutar tu Favorito (Botón Mágico)
+            # Asumimos que el mouse está sobre el botón o lo apretás vos la primera vez
+            # Si querés que el robot haga clic en el favorito, pasame la coordenada
+            
+            # Paso 2: El bloqueo de seguridad
+            self.esperar_y_cerrar_cartel()
+
+            # Paso 3: Operar la ventana
+            if self.procesar_impresion():
+                self.tandas_exitosas += 1
+                self.informe(f"Tanda {i+1} completada. Esperando descarga...")
+            else:
+                self.informe(f"Hubo un problema en la tanda {i+1}")
+            
+            time.sleep(10) # Tiempo para que el servidor de OSECAC respire
+
+        self.mostrar_resumen()
+
+    def mostrar_resumen(self):
+        print("\n" + "="*30)
+        print("      RESUMEN DEL ROBOT")
+        print("="*30)
+        print(f"Actas procesadas (aprox): {self.tandas_exitosas * 2}")
+        print(f"Errores encontrados: {len(self.errores)}")
+        for err in self.errores:
+            print(f"- {err}")
+        print("="*30)
+
+if __name__ == "__main__":
+    bot = RobotOsecac()
+    bot.ejecutar(cantidad_tandas=10) # Cambiá este número según cuántas actas tengas
