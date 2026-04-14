@@ -2,89 +2,229 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
-import math
-import numpy as np
 
 # Configuración de página
-st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide")
+st.set_page_config(
+    page_title="Fiscalización - OSECAC",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# Conexión a Supabase
+# Conexión a Supabase (proyecto fiscalización)
 SUPABASE_URL_ACTAS = st.secrets["SUPABASE_URL_ACTAS"]
 SUPABASE_KEY_ACTAS = st.secrets["SUPABASE_KEY_ACTAS"]
 supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
 
-# Estilos
-st.markdown("""<style>.main-header { background-color: #1e293b; padding: 1rem; border-radius: 8px; border-left: 5px solid #3b82f6; color: white; }</style>""", unsafe_allow_html=True)
-st.markdown('<div class="main-header"><h2>Fiscalización - Control Total</h2></div>', unsafe_allow_html=True)
+# Estilo
+st.markdown("""
+<style>
+    .main-header {
+        background-color: #1e293b;
+        padding: 1.2rem 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid #3b82f6;
+    }
+    .success-box {
+        background-color: #064e3b;
+        padding: 1rem;
+        border-radius: 6px;
+        border-left: 4px solid #10b981;
+        margin: 1rem 0;
+    }
+    .warning-box {
+        background-color: #451a03;
+        padding: 1rem;
+        border-radius: 6px;
+        border-left: 4px solid #f59e0b;
+        margin: 1rem 0;
+    }
+    .info-box {
+        background-color: #1e293b;
+        padding: 1rem;
+        border-radius: 6px;
+        border-left: 4px solid #3b82f6;
+        margin: 1rem 0;
+    }
+    div[data-testid="stButton"] button {
+        background-color: #3b82f6;
+        color: white;
+        font-weight: 500;
+        border: none;
+        padding: 0.4rem 1.2rem;
+    }
+    div[data-testid="stButton"] button:hover {
+        background-color: #2563eb;
+    }
+</style>
+""", unsafe_allow_html=True)
 
+# Header
+st.markdown("""
+<div class="main-header">
+    <h2 style="color: #ffffff; margin: 0; font-weight: 500;">Fiscalización - Deuda Presunta</h2>
+    <p style="color: #94a3b8; margin: 0.3rem 0 0 0; font-size: 0.85rem;">Sistema de gestión y seguimiento</p>
+</div>
+""", unsafe_allow_html=True)
+
+col_back, _ = st.columns([1, 5])
+with col_back:
+    if st.button("← Volver", key="btn_volver"):
+        st.switch_page("main.py")
+
+st.markdown("---")
+
+# MAPEO
 MAPEO_EXCEL_A_TABLA = {
-    'DELEGACION': 'delegacion', 'LOCALIDAD': 'localidad', 'CUIT': 'cuit',
-    'RAZON SOCIAL': 'razon_social', 'DEUDA PRESUNTA': 'deuda_presunta',
-    'CP': 'cp', 'CALLE': 'calle', 'NUMERO': 'numero', 'PISO': 'piso',
-    'DPTO': 'dpto', 'FECHARELDEPENDENCIA': 'fechareldependencia',
-    'EMAIL': 'email', 'TEL_DOM_LEGAL': 'tel_dom_legal', 'TEL_DOM_REAL': 'tel_dom_real',
-    'ULTIMA ACTA': 'ultima_acta', 'DESDE': 'desde', 'HASTA': 'hasta',
-    'DETECTADO': 'detectado', 'ESTADO': 'estado', 'FECHA_PAGO_OBL': 'fecha_pago_obl',
-    'EMPL 10-2025': 'empl_10_2025', 'EMP 11-2025': 'emp_11_2025',
-    'EMPL 12-2025': 'empl_12_2025', 'ACTIVIDAD': 'actividad', 'SITUACION': 'situacion'
+    'DELEGACION': 'delegacion',
+    'LOCALIDAD': 'localidad',
+    'CUIT': 'cuit',
+    'RAZON SOCIAL': 'razon_social',
+    'DEUDA PRESUNTA': 'deuda_presunta',
+    'CP': 'cp',
+    'CALLE': 'calle',
+    'NUMERO': 'numero',
+    'PISO': 'piso',
+    'DPTO': 'dpto',
+    'FECHARELDEPENDENCIA': 'fechareldependencia',
+    'EMAIL': 'email',
+    'TEL_DOM_LEGAL': 'tel_dom_legal',
+    'TEL_DOM_REAL': 'tel_dom_real',
+    'ULTIMA ACTA': 'ultima_acta',
+    'DESDE': 'desde',
+    'HASTA': 'hasta',
+    'DETECTADO': 'detectado',
+    'ESTADO': 'estado',
+    'FECHA_PAGO_OBL': 'fecha_pago_obl',
+    'EMPL 10-2025': 'empl_10_2025',
+    'EMP 11-2025': 'emp_11_2025',
+    'EMPL 12-2025': 'empl_12_2025',
+    'ACTIVIDAD': 'actividad',
+    'SITUACION': 'situacion'
 }
 
-def ultra_limpieza(d):
-    """Limpia diccionarios de cualquier valor NaN o Infinitos para que Supabase no explote"""
-    for k, v in d.items():
-        if isinstance(v, float):
-            if math.isnan(v) or math.isinf(v):
-                d[k] = None
-        elif pd.isna(v):
-            d[k] = None
-    return d
+tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas"])
 
-tab1, tab2, tab3 = st.tabs(["📊 Carga Blindada", "✏️ Editor", "📧 Actas"])
-
+# ==================== TAB 1 ====================
 with tab1:
-    uploaded_file = st.file_uploader("Subir Padrón", type=["xls", "xlsx"])
-    if uploaded_file:
+    st.markdown("### Cargar Padrón de Deuda Presunta")
+    
+    uploaded_file = st.file_uploader(
+        "Seleccionar archivo Excel",
+        type=["xls", "xlsx"],
+        key="upload_padron"
+    )
+    
+    if uploaded_file is not None:
+        st.info(f"Archivo: {uploaded_file.name} - {uploaded_file.size/1024:.1f} KB")
+        
         try:
-            engine = 'xlrd' if uploaded_file.name.endswith('.xls') else 'openpyxl'
-            df_raw = pd.read_excel(uploaded_file, engine=engine)
+            # Leer archivo
+            if uploaded_file.name.endswith('.xls'):
+                df_raw = pd.read_excel(uploaded_file, engine='xlrd')
+            else:
+                df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
+            
+            # Limpiar nombres de columnas
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
+            # Crear DataFrame nuevo con valores LIMPIOS (TODO A STRING)
             df_final = pd.DataFrame()
+            
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
-                    df_final[col_tabla] = df_raw[col_excel]
+                    # Convertir la columna COMPLETA a string y reemplazar NaN por None
+                    valores_limpios = []
+                    for val in df_raw[col_excel]:
+                        if pd.isna(val):
+                            valores_limpios.append(None)
+                        else:
+                            valores_limpios.append(str(val).strip() if str(val).strip() else None)
+                    df_final[col_tabla] = valores_limpios
                 else:
-                    st.error(f"Falta: {col_excel}")
+                    st.error(f"Columna '{col_excel}' no encontrada")
                     st.stop()
-
-            # Rellenar campos vacíos por defecto
-            df_final['leg'] = ""
+            
+            # Agregar columnas extras
+            df_final['leg'] = None
             df_final['vto'] = None
             df_final['mail_enviado'] = 'NO'
-            df_final['acta'] = ""
+            df_final['acta'] = None
             df_final['fecha_carga'] = datetime.now().isoformat()
             df_final['estado_gestion'] = 'PENDIENTE'
-
-            st.info(f"Registros detectados: {len(df_final)}")
             
-            if st.button("🚀 INICIAR CARGA SEGURA"):
-                with st.spinner("Limpiando y subiendo..."):
-                    # LA CLAVE: Convertimos a diccionarios y limpiamos CADA UNO
-                    lista_dicts = df_final.to_dict(orient='records')
-                    registros_limpios = [ultra_limpieza(r) for r in lista_dicts]
+            st.success(f"✅ Archivo leído correctamente. {len(df_final)} registros.")
+            
+            with st.expander("Vista previa"):
+                st.dataframe(df_final.head(10), use_container_width=True)
+            
+            if st.button("Confirmar carga", type="primary"):
+                with st.spinner("Cargando datos..."):
+                    registros = df_final.to_dict(orient='records')
                     
-                    # Subir por bloques
-                    for i in range(0, len(registros_limpios), 50):
-                        lote = registros_limpios[i:i+50]
-                        supabase.table("padron_deuda_presunta").insert(lote).execute()
+                    # Insertar directamente
+                    resultado = supabase.table("padron_deuda_presunta").insert(registros).execute()
                     
-                    st.success("¡Carga terminada con éxito!")
-                    st.balloons()
+                    st.success(f"✅ Carga completada. {len(resultado.data)} registros insertados.")
+                    
         except Exception as e:
-            st.error(f"Error detectado: {e}")
+            st.error(f"Error: {str(e)}")
 
+# ==================== TAB 2 ====================
 with tab2:
-    st.write("Datos en la base:")
-    res = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, leg, vto").execute()
-    if res.data:
-        st.dataframe(pd.DataFrame(res.data))
+    st.markdown("### Editar Legajos y Fechas de Vencimiento")
+    
+    try:
+        datos = supabase.table("padron_deuda_presunta").select("*").execute()
+        
+        if datos.data:
+            df_datos = pd.DataFrame(datos.data)
+            st.write(f"**Total de registros:** {len(df_datos)}")
+            
+            columnas_editor = ['id', 'cuit', 'razon_social', 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion']
+            columnas_existentes = [col for col in columnas_editor if col in df_datos.columns]
+            df_editable = df_datos[columnas_existentes].copy()
+            
+            edited_df = st.data_editor(
+                df_editable,
+                use_container_width=True,
+                column_config={
+                    "leg": st.column_config.TextColumn("LEG"),
+                    "vto": st.column_config.DateColumn("VTO", format="DD/MM/YYYY"),
+                    "mail_enviado": st.column_config.SelectColumn("MAIL ENVIADO", options=["NO", "SI"]),
+                    "acta": st.column_config.TextColumn("ACTA"),
+                    "estado_gestion": st.column_config.SelectColumn("Estado", options=["PENDIENTE", "ACTA_SOLICITADA", "ACTA_RECIBIDA", "CERRADO"]),
+                },
+                disabled=['id', 'cuit', 'razon_social'],
+                key="editor"
+            )
+            
+            if st.button("Guardar Cambios", type="primary"):
+                with st.spinner("Guardando..."):
+                    for _, row in edited_df.iterrows():
+                        datos_update = {}
+                        if 'leg' in edited_df.columns:
+                            datos_update['leg'] = row['leg'] if pd.notna(row['leg']) else None
+                        if 'vto' in edited_df.columns:
+                            datos_update['vto'] = row['vto'] if pd.notna(row['vto']) else None
+                        if 'mail_enviado' in edited_df.columns:
+                            datos_update['mail_enviado'] = row['mail_enviado']
+                        if 'acta' in edited_df.columns:
+                            datos_update['acta'] = row['acta'] if pd.notna(row['acta']) else None
+                        if 'estado_gestion' in edited_df.columns:
+                            datos_update['estado_gestion'] = row['estado_gestion']
+                        
+                        if datos_update:
+                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['id']).execute()
+                    
+                    st.success("Cambios guardados")
+                    st.rerun()
+        else:
+            st.info("No hay datos cargados")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+# ==================== TAB 3 ====================
+with tab3:
+    st.markdown("### Solicitar Actas a Central")
+    st.info("Funcionalidad en desarrollo")
