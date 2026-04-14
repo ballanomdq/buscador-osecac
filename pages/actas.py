@@ -3,6 +3,7 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 import numpy as np
+import re
 
 # Configuración de página
 st.set_page_config(
@@ -44,7 +45,51 @@ with col_back:
 
 st.markdown("---")
 
-# MAPEO DE COLUMNAS
+# ==================== FUNCIONES DE LIMPIEZA ====================
+def convertir_numero_excel(valor):
+    """Convierte números de Excel (1.0 -> 1)"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        # Si es float y termina en .0, convertirlo a entero
+        if isinstance(valor, float) and valor.is_integer():
+            return int(valor)
+        return valor
+    except:
+        return valor
+
+def convertir_fecha_excel(valor):
+    """Convierte número de Excel a fecha (44854 -> 28/02/2019)"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        # Si es número, convertirlo a fecha
+        if isinstance(valor, (int, float)):
+            # Excel usa 30/12/1899 como base
+            fecha_base = datetime(1899, 12, 30)
+            fecha = fecha_base + pd.Timedelta(days=float(valor))
+            return fecha.strftime('%d/%m/%Y')
+        # Si ya es string, devolverlo
+        if isinstance(valor, str):
+            return valor
+        return None
+    except:
+        return str(valor) if valor else None
+
+def formatear_numero(valor):
+    """Formatea número con separadores de miles"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        num = float(valor)
+        # Si es entero, mostrar sin decimales
+        if num.is_integer():
+            return f"{int(num):,}".replace(",", ".")
+        return f"{num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return str(valor)
+
+# ==================== MAPEO DE COLUMNAS ====================
 MAPEO_EXCEL_A_TABLA = {
     'DELEGACION': 'delegacion',
     'LOCALIDAD': 'localidad',
@@ -73,7 +118,7 @@ MAPEO_EXCEL_A_TABLA = {
     'SITUACION': 'situacion'
 }
 
-# Títulos bonitos para mostrar
+# Títulos bonitos para mostrar (sin fecha_carga)
 TITULOS_MOSTRAR = {
     'id': 'ID',
     'delegacion': 'DELEGACION',
@@ -95,7 +140,7 @@ TITULOS_MOSTRAR = {
     'hasta': 'HASTA',
     'detectado': 'DETECTADO',
     'estado': 'ESTADO',
-    'fecha_pago_obl': 'FECHA_PAGO_OBL',
+    'fecha_pago_obl': 'FECHA PAGO OBL',
     'empl_10_2025': 'EMPL 10-2025',
     'emp_11_2025': 'EMP 11-2025',
     'empl_12_2025': 'EMPL 12-2025',
@@ -105,7 +150,6 @@ TITULOS_MOSTRAR = {
     'vto': 'VTO',
     'mail_enviado': 'MAIL ENVIADO',
     'acta': 'ACTA',
-    'fecha_carga': 'FECHA CARGA',
     'estado_gestion': 'ESTADO GESTION'
 }
 
@@ -126,22 +170,67 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
+            # Leer Excel
             if uploaded_file.name.endswith('.xls'):
-                df_raw = pd.read_excel(uploaded_file, engine='xlrd', dtype=str)
+                df_raw = pd.read_excel(uploaded_file, engine='xlrd')
             else:
-                df_raw = pd.read_excel(uploaded_file, engine='openpyxl', dtype=str)
+                df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
             
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
-            df_raw = df_raw.replace({np.nan: None, 'nan': None, 'NaN': None, '': None})
             
+            # Crear DataFrame final
             df_final = pd.DataFrame()
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
-                    df_final[col_tabla] = df_raw[col_excel]
+                    valores = []
+                    for val in df_raw[col_excel]:
+                        if pd.isna(val):
+                            valores.append(None)
+                        else:
+                            # Limpiar cada valor según el tipo de columna
+                            val_str = str(val).strip()
+                            
+                            # Columnas de números enteros (EMPL)
+                            if col_tabla in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
+                                try:
+                                    num = float(val)
+                                    if num.is_integer():
+                                        valores.append(int(num))
+                                    else:
+                                        valores.append(num)
+                                except:
+                                    valores.append(val_str)
+                            
+                            # Columnas de fechas
+                            elif col_tabla in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
+                                # Convertir fecha de Excel
+                                if isinstance(val, (int, float)) and val > 30000:
+                                    fecha = convertir_fecha_excel(val)
+                                    valores.append(fecha)
+                                else:
+                                    valores.append(val_str)
+                            
+                            # Columnas de números con formato
+                            elif col_tabla in ['deuda_presunta', 'detectado']:
+                                try:
+                                    num = float(val)
+                                    # Formatear con $ y separadores
+                                    if num.is_integer():
+                                        valores.append(f"${int(num):,}".replace(",", "."))
+                                    else:
+                                        valores.append(f"${num:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                                except:
+                                    valores.append(val_str)
+                            
+                            else:
+                                valores.append(val_str)
+                    
+                    df_final[col_tabla] = valores
                 else:
                     st.error(f"Columna '{col_excel}' no encontrada")
                     st.stop()
             
+            # Agregar columnas extras (sin fecha_carga visible)
             df_final['leg'] = None
             df_final['vto'] = None
             df_final['mail_enviado'] = 'NO'
@@ -158,33 +247,14 @@ with tab1:
                 with st.spinner("Cargando datos..."):
                     registros = df_final.to_dict(orient='records')
                     
-                    existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
-                    existentes_set = set()
-                    for reg in existentes.data:
-                        cuit = str(reg.get('cuit') or '')
-                        acta = str(reg.get('ultima_acta') or '')
-                        existentes_set.add((cuit, acta))
+                    # Insertar directamente
+                    total = 0
+                    for i in range(0, len(registros), 100):
+                        lote = registros[i:i+100]
+                        resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
+                        total += len(resultado.data)
                     
-                    nuevos = []
-                    duplicados = 0
-                    for reg in registros:
-                        cuit = str(reg.get('cuit') or '')
-                        acta = str(reg.get('ultima_acta') or '')
-                        if (cuit, acta) not in existentes_set:
-                            nuevos.append(reg)
-                        else:
-                            duplicados += 1
-                    
-                    if nuevos:
-                        total = 0
-                        for i in range(0, len(nuevos), 100):
-                            lote = nuevos[i:i+100]
-                            resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
-                            total += len(resultado.data)
-                        
-                        st.success(f"✅ Carga completada: {total} registros insertados. Duplicados omitidos: {duplicados}")
-                    else:
-                        st.warning("Sin registros nuevos")
+                    st.success(f"✅ Carga completada: {total} registros insertados.")
                             
         except Exception as e:
             st.error(f"Error: {str(e)}")
@@ -201,33 +271,31 @@ with tab2:
             total_registros = len(df_datos)
             st.write(f"**Total de registros en la base:** {total_registros}")
             
-            # Selector de cantidad
-            mostrar = st.radio(
-                "¿Cuántos registros querés ver?",
-                options=[100, 500, 1000, total_registros],
-                horizontal=True,
-                index=0
-            )
+            # Mostrar TODOS los registros
+            st.info(f"📝 Mostrando todos los {total_registros} registros. Editá las celdas y presioná 'Guardar Cambios'")
             
-            df_mostrar = df_datos.head(mostrar).copy()
+            # Eliminar columna fecha_carga de la vista (no se muestra)
+            if 'fecha_carga' in df_datos.columns:
+                df_datos = df_datos.drop(columns=['fecha_carga'])
             
             # Renombrar columnas para mostrar títulos bonitos
+            df_mostrar = df_datos.copy()
             df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
-            
-            st.info(f"📝 Mostrando {len(df_mostrar)} registros. Editá las celdas y presioná 'Guardar Cambios'")
             
             edited_df = st.data_editor(
                 df_mostrar,
                 use_container_width=True,
-                height=500,
-                disabled=['ID', 'CUIT', 'RAZON SOCIAL'],  # Estas no se pueden editar
+                height=600,
+                disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
+                          'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
+                          'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
+                          'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
                 key="editor_completo"
             )
             
             if st.button("💾 Guardar Cambios", type="primary"):
                 with st.spinner("Guardando cambios..."):
                     modificados = 0
-                    # Mapeo inverso para guardar
                     inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
                     
                     for idx, row in edited_df.iterrows():
