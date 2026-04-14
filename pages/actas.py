@@ -73,6 +73,42 @@ MAPEO_EXCEL_A_TABLA = {
     'SITUACION': 'situacion'
 }
 
+# Títulos bonitos para mostrar
+TITULOS_MOSTRAR = {
+    'id': 'ID',
+    'delegacion': 'DELEGACION',
+    'localidad': 'LOCALIDAD',
+    'cuit': 'CUIT',
+    'razon_social': 'RAZON SOCIAL',
+    'deuda_presunta': 'DEUDA PRESUNTA',
+    'cp': 'CP',
+    'calle': 'CALLE',
+    'numero': 'NUMERO',
+    'piso': 'PISO',
+    'dpto': 'DPTO',
+    'fechareldependencia': 'FECHARELDEPENDENCIA',
+    'email': 'EMAIL',
+    'tel_dom_legal': 'TEL_DOM_LEGAL',
+    'tel_dom_real': 'TEL_DOM_REAL',
+    'ultima_acta': 'ULTIMA ACTA',
+    'desde': 'DESDE',
+    'hasta': 'HASTA',
+    'detectado': 'DETECTADO',
+    'estado': 'ESTADO',
+    'fecha_pago_obl': 'FECHA_PAGO_OBL',
+    'empl_10_2025': 'EMPL 10-2025',
+    'emp_11_2025': 'EMP 11-2025',
+    'empl_12_2025': 'EMPL 12-2025',
+    'actividad': 'ACTIVIDAD',
+    'situacion': 'SITUACION',
+    'leg': 'LEG',
+    'vto': 'VTO',
+    'mail_enviado': 'MAIL ENVIADO',
+    'acta': 'ACTA',
+    'fecha_carga': 'FECHA CARGA',
+    'estado_gestion': 'ESTADO GESTION'
+}
+
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas"])
 
@@ -162,54 +198,61 @@ with tab2:
         
         if datos.data:
             df_datos = pd.DataFrame(datos.data)
-            st.write(f"**Total de registros:** {len(df_datos)}")
+            total_registros = len(df_datos)
+            st.write(f"**Total de registros en la base:** {total_registros}")
             
-            st.info("Mostrando primeros 100 registros. Podés editar fila por fila.")
-            df_mostrar = df_datos.head(100).copy()
-            
-            columnas_editor = ['id', 'cuit', 'razon_social', 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion']
-            columnas_existentes = [col for col in columnas_editor if col in df_mostrar.columns]
-            df_editable = df_mostrar[columnas_existentes].copy()
-            
-            if 'vto' in df_editable.columns:
-                df_editable['vto'] = pd.to_datetime(df_editable['vto']).dt.strftime('%Y-%m-%d')
-            
-            edited_df = st.data_editor(
-                df_editable,
-                use_container_width=True,
-                column_config={
-                    "leg": st.column_config.TextColumn("LEG"),
-                    "vto": st.column_config.TextColumn("VTO", help="YYYY-MM-DD"),
-                    "mail_enviado": st.column_config.TextColumn("MAIL ENVIADO"),
-                    "acta": st.column_config.TextColumn("ACTA"),
-                    "estado_gestion": st.column_config.TextColumn("Estado"),
-                },
-                disabled=['id', 'cuit', 'razon_social'],
-                key="editor"
+            # Selector de cantidad
+            mostrar = st.radio(
+                "¿Cuántos registros querés ver?",
+                options=[100, 500, 1000, total_registros],
+                horizontal=True,
+                index=0
             )
             
-            if st.button("Guardar Cambios", type="primary"):
-                with st.spinner("Guardando..."):
-                    for _, row in edited_df.iterrows():
+            df_mostrar = df_datos.head(mostrar).copy()
+            
+            # Renombrar columnas para mostrar títulos bonitos
+            df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
+            
+            st.info(f"📝 Mostrando {len(df_mostrar)} registros. Editá las celdas y presioná 'Guardar Cambios'")
+            
+            edited_df = st.data_editor(
+                df_mostrar,
+                use_container_width=True,
+                height=500,
+                disabled=['ID', 'CUIT', 'RAZON SOCIAL'],  # Estas no se pueden editar
+                key="editor_completo"
+            )
+            
+            if st.button("💾 Guardar Cambios", type="primary"):
+                with st.spinner("Guardando cambios..."):
+                    modificados = 0
+                    # Mapeo inverso para guardar
+                    inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
+                    
+                    for idx, row in edited_df.iterrows():
+                        original = df_mostrar.loc[idx]
                         datos_update = {}
-                        if 'leg' in edited_df.columns:
-                            datos_update['leg'] = row['leg'] if pd.notna(row['leg']) and row['leg'] != '' else None
-                        if 'vto' in edited_df.columns:
-                            val = row['vto']
-                            datos_update['vto'] = val if pd.notna(val) and val != '' else None
-                        if 'mail_enviado' in edited_df.columns:
-                            val = row['mail_enviado']
-                            datos_update['mail_enviado'] = str(val).upper() if pd.notna(val) and val != '' else 'NO'
-                        if 'acta' in edited_df.columns:
-                            datos_update['acta'] = row['acta'] if pd.notna(row['acta']) and row['acta'] != '' else None
-                        if 'estado_gestion' in edited_df.columns:
-                            val = row['estado_gestion']
-                            datos_update['estado_gestion'] = str(val).upper() if pd.notna(val) and val != '' else 'PENDIENTE'
+                        
+                        for col_bonito in ['LEG', 'VTO', 'MAIL ENVIADO', 'ACTA', 'ESTADO GESTION']:
+                            if col_bonito in edited_df.columns:
+                                nuevo_valor = row[col_bonito]
+                                viejo_valor = original.get(col_bonito)
+                                
+                                if pd.isna(nuevo_valor) or nuevo_valor == '':
+                                    nuevo_valor = None
+                                if pd.isna(viejo_valor) or viejo_valor == '':
+                                    viejo_valor = None
+                                
+                                if nuevo_valor != viejo_valor:
+                                    col_real = inverso.get(col_bonito, col_bonito.lower())
+                                    datos_update[col_real] = nuevo_valor
                         
                         if datos_update:
-                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['id']).execute()
+                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
+                            modificados += 1
                     
-                    st.success("✅ Cambios guardados correctamente")
+                    st.success(f"✅ {modificados} registros actualizados correctamente")
                     st.rerun()
         else:
             st.info("No hay datos cargados")
