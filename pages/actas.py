@@ -48,29 +48,26 @@ with col_back:
 
 st.markdown("---")
 
-# ==================== FUNCIONES DE LIMPIEZA EXTREMA ====================
-def limpiar_valor_nuclear(valor):
-    """Convierte CUALQUIER valor a None o string, sin excepciones"""
-    if valor is None:
+# ==================== FUNCIONES ====================
+def limpiar_valor(valor):
+    """Limpia valores básicos"""
+    if valor is None or pd.isna(valor):
         return None
-    if pd.isna(valor):
+    if isinstance(valor, float) and (math.isnan(valor) or math.isinf(valor)):
         return None
-    if isinstance(valor, float):
-        if math.isnan(valor) or math.isinf(valor):
-            return None
-        # Si es entero sin decimales, convertir a int y luego a string
-        if valor.is_integer():
-            return str(int(valor))
-        return str(valor)
-    if isinstance(valor, (int, np.integer)):
-        return str(valor)
-    if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.strftime('%Y-%m-%d')
-    if isinstance(valor, str):
-        if valor.strip() == '' or valor.lower() in ['nan', 'none', 'null']:
-            return None
-        return valor.strip()
-    return str(valor)
+    if isinstance(valor, str) and valor.strip() == '':
+        return None
+    return valor
+
+def normalizar_ultima_acta(valor):
+    """Si ULTIMA ACTA está vacía, la reemplaza con '*'"""
+    if valor is None or pd.isna(valor):
+        return '*'
+    if isinstance(valor, float) and math.isnan(valor):
+        return '*'
+    if isinstance(valor, str) and valor.strip() == '':
+        return '*'
+    return str(valor).strip()
 
 def fecha_para_mostrar(valor):
     if valor is None or pd.isna(valor):
@@ -197,7 +194,7 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
-            # Leer Excel
+            # Leer Excel como string para evitar problemas
             if uploaded_file.name.endswith('.xls'):
                 df_raw = pd.read_excel(uploaded_file, engine='xlrd', dtype=str)
             else:
@@ -206,14 +203,13 @@ with tab1:
             # Limpiar nombres de columnas
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
-            # LIMPIEZA NUCLEAR: reemplazar todos los NaN/None por None
+            # Reemplazar valores vacíos por None
             df_raw = df_raw.replace({np.nan: None, 'nan': None, 'NaN': None, '': None})
             
             df_final = pd.DataFrame()
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
-                    # Aplicar limpieza nuclear a cada valor
-                    valores = [limpiar_valor_nuclear(val) for val in df_raw[col_excel]]
+                    valores = [limpiar_valor(val) for val in df_raw[col_excel]]
                     df_final[col_tabla] = valores
                 else:
                     st.error(f"Columna '{col_excel}' no encontrada")
@@ -227,24 +223,33 @@ with tab1:
             df_final['fecha_carga'] = datetime.now().strftime('%Y-%m-%d')
             df_final['estado_gestion'] = 'PENDIENTE'
             
+            # NORMALIZAR ULTIMA ACTA: los valores vacíos se convierten en '*'
+            df_final['ultima_acta'] = df_final['ultima_acta'].apply(normalizar_ultima_acta)
+            
             # ==================== DETECCIÓN DE DUPLICADOS ====================
-            # Obtener todos los pares (cuit, ultima_acta) existentes
+            # Obtener todos los pares (cuit, ultima_acta) existentes en la base
             existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
             existentes_set = set()
             for reg in existentes.data:
                 cuit = str(reg.get('cuit') or '')
                 acta = str(reg.get('ultima_acta') or '')
                 if cuit:
+                    # También normalizamos los existentes para comparar
+                    if not acta or acta == '' or acta == 'None':
+                        acta = '*'
                     existentes_set.add((cuit, acta))
             
-            # Filtrar registros
+            # Filtrar registros del Excel
             registros = df_final.to_dict(orient='records')
             nuevos_registros = []
             duplicados = 0
             
             for reg in registros:
                 cuit = str(reg.get('cuit') or '')
-                acta = str(reg.get('ultima_acta') or '')
+                acta = str(reg.get('ultima_acta') or '*')
+                if not acta or acta == '' or acta == 'None':
+                    acta = '*'
+                
                 if (cuit, acta) not in existentes_set:
                     nuevos_registros.append(reg)
                 else:
@@ -258,7 +263,8 @@ with tab1:
                 <strong>📊 Resumen del archivo</strong><br>
                 Total de registros en el archivo: {total_registros}<br>
                 Registros NUEVOS (se cargarán): {nuevos_count}<br>
-                Registros DUPLICADOS (se omitirán): {duplicados}
+                Registros DUPLICADOS (se omitirán): {duplicados}<br>
+                <small>* Los registros sin número de ULTIMA ACTA se identifican con '*'</small>
             </div>
             """, unsafe_allow_html=True)
             
