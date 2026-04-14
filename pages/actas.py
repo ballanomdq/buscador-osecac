@@ -308,7 +308,7 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Solo un botón de eliminar seleccionados
+    # Botón eliminar seleccionados
     col_accion1, col_accion2 = st.columns([1, 4])
     
     with col_accion1:
@@ -320,7 +320,6 @@ with tab2:
                 st.warning("No hay registros seleccionados")
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Confirmación eliminar
     if st.session_state.get('confirmar_eliminar', False):
         cantidad = len(st.session_state.get('ids_a_eliminar', []))
         st.warning(f"⚠️ ¿Eliminar los {cantidad} registros seleccionados?")
@@ -341,21 +340,18 @@ with tab2:
     
     st.markdown("---")
     
+    # Obtener localidades
+    todas_localidades = supabase.table("padron_deuda_presunta").select("localidad").execute()
+    localidades_unicas = sorted(set([l['localidad'] for l in todas_localidades.data if l.get('localidad')]))
+    
+    if 'MAR DEL PLATA' in localidades_unicas:
+        localidades_unicas.remove('MAR DEL PLATA')
+        localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
+    
     # Filtros
     col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 1, 1])
     
     with col_filtro1:
-        # Obtener localidades
-        todas_localidades = supabase.table("padron_deuda_presunta").select("localidad").execute()
-        localidades_unicas = sorted(set([l['localidad'] for l in todas_localidades.data if l.get('localidad')]))
-        
-        if 'MAR DEL PLATA' in localidades_unicas:
-            localidades_unicas.remove('MAR DEL PLATA')
-            localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
-        
-        if not localidades_unicas:
-            localidades_unicas = []
-        
         if localidades_unicas:
             localidad_seleccionada = st.selectbox(
                 "📌 LOCALIDAD:",
@@ -365,6 +361,7 @@ with tab2:
             )
         else:
             localidad_seleccionada = "TODAS"
+            st.selectbox("📌 LOCALIDAD:", options=["TODAS"], index=0, key="filtro_localidad", disabled=True)
     
     with col_filtro2:
         filtro_mail = st.selectbox(
@@ -374,18 +371,33 @@ with tab2:
             key="filtro_mail"
         )
     
-    # Contar total con filtros
-    query_total = supabase.table("padron_deuda_presunta")
+    # CONTAR registros - CONSTRUIR CONSULTA DE FORMA SEGURA
+    # Para contar, usamos un enfoque diferente: primero filtramos por mail, luego por localidad si es necesario
     
-    if localidad_seleccionada != "TODAS" and localidades_unicas:
-        query_total = query_total.eq("localidad", localidad_seleccionada)
-    
+    # PASO 1: Filtro por mail
     if filtro_mail == "SI":
-        query_total = query_total.eq("mail_enviado", "SI")
+        query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
-        query_total = query_total.eq("mail_enviado", "NO")
+        query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "NO")
+    else:
+        query_total = supabase.table("padron_deuda_presunta").select("id", count="exact")
     
-    total_registros = query_total.select("id", count="exact").execute()
+    # PASO 2: Si hay localidad seleccionada y no es TODAS, aplicamos filtro adicional
+    if localidad_seleccionada != "TODAS" and localidades_unicas:
+        # Necesitamos obtener los IDs que cumplen con el filtro de localidad
+        # Hacemos una consulta separada y luego combinamos
+        ids_por_localidad = supabase.table("padron_deuda_presunta").select("id").eq("localidad", localidad_seleccionada).execute()
+        ids_lista = [item['id'] for item in ids_por_localidad.data]
+        
+        if ids_lista:
+            # Ahora filtramos por esos IDs
+            query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").in_("id", ids_lista)
+            if filtro_mail == "SI":
+                query_total = query_total.eq("mail_enviado", "SI")
+            elif filtro_mail == "NO":
+                query_total = query_total.eq("mail_enviado", "NO")
+    
+    total_registros = query_total.execute()
     total = total_registros.count
     
     with col_filtro3:
@@ -433,18 +445,25 @@ with tab2:
         
         offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
         
-        # Obtener datos
-        query_datos = supabase.table("padron_deuda_presunta")
+        # OBTENER DATOS - construir consulta de forma segura
+        if filtro_mail == "SI":
+            query_datos = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI")
+        elif filtro_mail == "NO":
+            query_datos = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "NO")
+        else:
+            query_datos = supabase.table("padron_deuda_presunta").select("*")
         
         if localidad_seleccionada != "TODAS" and localidades_unicas:
-            query_datos = query_datos.eq("localidad", localidad_seleccionada)
+            ids_por_localidad = supabase.table("padron_deuda_presunta").select("id").eq("localidad", localidad_seleccionada).execute()
+            ids_lista = [item['id'] for item in ids_por_localidad.data]
+            if ids_lista:
+                query_datos = supabase.table("padron_deuda_presunta").select("*").in_("id", ids_lista)
+                if filtro_mail == "SI":
+                    query_datos = query_datos.eq("mail_enviado", "SI")
+                elif filtro_mail == "NO":
+                    query_datos = query_datos.eq("mail_enviado", "NO")
         
-        if filtro_mail == "SI":
-            query_datos = query_datos.eq("mail_enviado", "SI")
-        elif filtro_mail == "NO":
-            query_datos = query_datos.eq("mail_enviado", "NO")
-        
-        datos = query_datos.select("*").range(offset, offset + registros_por_pagina - 1).execute()
+        datos = query_datos.range(offset, offset + registros_por_pagina - 1).execute()
         
         if datos.data:
             desde = offset + 1
@@ -474,7 +493,6 @@ with tab2:
             with col_check_all:
                 seleccionar_todos = st.checkbox("✅ SELECCIONAR TODOS (página actual)", key="seleccionar_todos")
             
-            # Agregar columna de selección
             df_mostrar.insert(0, "🗑️", False)
             
             if seleccionar_todos:
@@ -494,7 +512,6 @@ with tab2:
                 key=f"editor_{st.session_state.pagina_actual}"
             )
             
-            # Guardar IDs seleccionados
             ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
             st.session_state.ids_a_eliminar = ids_seleccionados
             
@@ -504,7 +521,6 @@ with tab2:
             st.markdown("---")
             st.markdown("#### Editar campos (LEG, VTO, ACTA, etc.)")
             
-            # Botón guardar cambios (como en tu código original)
             if st.button("💾 Guardar Cambios", type="primary"):
                 with st.spinner("Guardando..."):
                     inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
