@@ -275,31 +275,62 @@ with tab1:
             for col in df_final.columns:
                 df_final[col] = df_final[col].apply(limpiar_para_json)
             
-            st.success(f"✅ Archivo procesado: {len(df_final)} registros")
+            # ==================== DETECCIÓN DE DUPLICADOS ====================
+            # Obtener todos los pares (cuit, ultima_acta) existentes en la base
+            existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
+            existentes_set = set()
+            for reg in existentes.data:
+                cuit = str(reg.get('cuit') or '')
+                acta = str(reg.get('ultima_acta') or '')
+                if cuit:
+                    existentes_set.add((cuit, acta))
             
-            df_preview = df_final.copy()
-            for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
-                if col in df_preview.columns:
-                    df_preview[col] = df_preview[col].apply(fecha_para_mostrar)
+            # Filtrar registros del Excel
+            registros = df_final.to_dict(orient='records')
+            nuevos_registros = []
+            duplicados = 0
             
-            with st.expander("Vista previa"):
-                st.dataframe(df_preview.head(10), use_container_width=True)
+            for reg in registros:
+                cuit = str(reg.get('cuit') or '')
+                acta = str(reg.get('ultima_acta') or '')
+                if (cuit, acta) not in existentes_set:
+                    nuevos_registros.append(reg)
+                else:
+                    duplicados += 1
             
-            if st.button("✅ Confirmar carga", type="primary"):
+            total_registros = len(registros)
+            nuevos_count = len(nuevos_registros)
+            
+            st.markdown(f"""
+            <div class="info-box">
+                <strong>📊 Resumen del archivo</strong><br>
+                Total de registros en el archivo: {total_registros}<br>
+                Registros NUEVOS (se cargarán): {nuevos_count}<br>
+                Registros DUPLICADOS (se omitirán): {duplicados}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Vista previa de los NUEVOS registros (no los duplicados)
+            if nuevos_registros:
+                df_preview = pd.DataFrame(nuevos_registros[:10])
+                for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
+                    if col in df_preview.columns:
+                        df_preview[col] = df_preview[col].apply(fecha_para_mostrar)
+                
+                with st.expander("Vista previa (SOLO registros nuevos)"):
+                    st.dataframe(df_preview, use_container_width=True)
+            
+            if nuevos_registros and st.button("✅ Confirmar carga", type="primary"):
                 with st.spinner("Cargando datos..."):
-                    registros = df_final.to_dict(orient='records')
-                    for reg in registros:
-                        for k, v in reg.items():
-                            if pd.isna(v):
-                                reg[k] = None
-                    
-                    total = 0
-                    for i in range(0, len(registros), 100):
-                        lote = registros[i:i+100]
+                    total_insertados = 0
+                    for i in range(0, len(nuevos_registros), 100):
+                        lote = nuevos_registros[i:i+100]
                         resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
-                        total += len(resultado.data)
+                        total_insertados += len(resultado.data)
                     
-                    st.success(f"✅ Carga completada: {total} registros insertados.")
+                    st.success(f"✅ Carga completada: {total_insertados} registros nuevos insertados. Duplicados omitidos: {duplicados}")
+            elif not nuevos_registros:
+                st.warning(f"⚠️ No hay registros nuevos para cargar. Los {total_registros} registros del archivo ya existen en la base de datos (mismo CUIT y misma ULTIMA ACTA).")
                             
         except Exception as e:
             st.error(f"Error: {str(e)}")
@@ -308,34 +339,46 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botón eliminar seleccionados
-    col_accion1, col_accion2 = st.columns([1, 4])
+    # Botones de acción
+    col_accion1, col_accion2, col_accion3 = st.columns(3)
     
     with col_accion1:
         st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-        if st.button("🗑️ Eliminar seleccionados", key="btn_eliminar"):
+        if st.button("🗑️ Eliminar seleccionados", key="btn_eliminar_seleccionados"):
             if st.session_state.get('ids_a_eliminar', []):
-                st.session_state.confirmar_eliminar = True
+                supabase.table("padron_deuda_presunta").delete().in_("id", st.session_state.ids_a_eliminar).execute()
+                st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
+                st.session_state.ids_a_eliminar = []
+                st.rerun()
             else:
                 st.warning("No hay registros seleccionados")
         st.markdown('</div>', unsafe_allow_html=True)
     
-    if st.session_state.get('confirmar_eliminar', False):
-        cantidad = len(st.session_state.get('ids_a_eliminar', []))
-        st.warning(f"⚠️ ¿Eliminar los {cantidad} registros seleccionados?")
+    with col_accion2:
+        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+        if st.button("🗑️ Eliminar TODO", key="btn_eliminar_todo"):
+            st.session_state.confirmar_eliminar_todo = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col_accion3:
+        if st.button("🔄 Recargar", key="btn_recargar"):
+            st.rerun()
+    
+    # Confirmación eliminar TODO
+    if st.session_state.get('confirmar_eliminar_todo', False):
+        st.warning("⚠️ ¿Estás SEGURO? Esta acción eliminará TODOS los registros de la base de datos. No se puede deshacer.")
         col_si, col_no = st.columns(2)
         with col_si:
-            if st.button("✅ SÍ, ELIMINAR"):
-                with st.spinner("Eliminando..."):
-                    for id_reg in st.session_state.ids_a_eliminar:
-                        supabase.table("padron_deuda_presunta").delete().eq("id", id_reg).execute()
-                    st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
-                    st.session_state.confirmar_eliminar = False
+            if st.button("✅ SÍ, ELIMINAR TODO"):
+                with st.spinner("Eliminando todos los registros..."):
+                    supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
+                    st.success("✅ Todos los registros fueron eliminados")
+                    st.session_state.confirmar_eliminar_todo = False
                     st.session_state.ids_a_eliminar = []
                     st.rerun()
         with col_no:
             if st.button("❌ Cancelar"):
-                st.session_state.confirmar_eliminar = False
+                st.session_state.confirmar_eliminar_todo = False
                 st.rerun()
     
     st.markdown("---")
@@ -371,10 +414,7 @@ with tab2:
             key="filtro_mail"
         )
     
-    # CONTAR registros - CONSTRUIR CONSULTA DE FORMA SEGURA
-    # Para contar, usamos un enfoque diferente: primero filtramos por mail, luego por localidad si es necesario
-    
-    # PASO 1: Filtro por mail
+    # CONTAR registros
     if filtro_mail == "SI":
         query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
@@ -382,15 +422,10 @@ with tab2:
     else:
         query_total = supabase.table("padron_deuda_presunta").select("id", count="exact")
     
-    # PASO 2: Si hay localidad seleccionada y no es TODAS, aplicamos filtro adicional
     if localidad_seleccionada != "TODAS" and localidades_unicas:
-        # Necesitamos obtener los IDs que cumplen con el filtro de localidad
-        # Hacemos una consulta separada y luego combinamos
         ids_por_localidad = supabase.table("padron_deuda_presunta").select("id").eq("localidad", localidad_seleccionada).execute()
         ids_lista = [item['id'] for item in ids_por_localidad.data]
-        
         if ids_lista:
-            # Ahora filtramos por esos IDs
             query_total = supabase.table("padron_deuda_presunta").select("id", count="exact").in_("id", ids_lista)
             if filtro_mail == "SI":
                 query_total = query_total.eq("mail_enviado", "SI")
@@ -402,8 +437,6 @@ with tab2:
     
     with col_filtro3:
         st.metric("Total registros", total)
-    
-    st.write(f"**Total de registros con filtros:** {total}")
     
     if total > 0:
         registros_por_pagina = 300
@@ -420,7 +453,6 @@ with tab2:
             st.rerun()
         
         # Navegación
-        st.markdown("### 📄 Navegación")
         col_ant, col_num, col_sig = st.columns([1, 2, 1])
         
         with col_ant:
@@ -445,7 +477,7 @@ with tab2:
         
         offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
         
-        # OBTENER DATOS - construir consulta de forma segura
+        # OBTENER DATOS
         if filtro_mail == "SI":
             query_datos = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI")
         elif filtro_mail == "NO":
@@ -512,6 +544,7 @@ with tab2:
                 key=f"editor_{st.session_state.pagina_actual}"
             )
             
+            # Guardar IDs seleccionados
             ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
             st.session_state.ids_a_eliminar = ids_seleccionados
             
