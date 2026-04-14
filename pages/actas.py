@@ -26,6 +26,8 @@ st.markdown("""
     .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; }
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
+    .delete-btn button { background-color: #dc2626 !important; }
+    .delete-btn button:hover { background-color: #b91c1c !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -47,7 +49,6 @@ st.markdown("---")
 
 # ==================== FUNCIONES DE CONVERSIÓN ====================
 def fecha_para_mostrar(valor):
-    """Convierte fecha a DD/MM/YYYY para mostrar"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -67,7 +68,6 @@ def fecha_para_mostrar(valor):
         return str(valor) if valor else None
 
 def fecha_para_guardar(valor):
-    """Convierte fecha a YYYY-MM-DD para guardar en Supabase"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -88,7 +88,6 @@ def fecha_para_guardar(valor):
         return None
 
 def limpiar_numero_entero(valor):
-    """Convierte 1.0 a 1"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -100,7 +99,6 @@ def limpiar_numero_entero(valor):
         return None
 
 def convertir_fecha_excel_para_guardar(valor):
-    """Convierte número de Excel a YYYY-MM-DD"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -120,7 +118,6 @@ def convertir_fecha_excel_para_guardar(valor):
         return None
 
 def limpiar_para_json(valor):
-    """Convierte CUALQUIER valor a JSON serializable"""
     if valor is None:
         return None
     if pd.isna(valor):
@@ -307,14 +304,15 @@ with tab1:
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
-# ==================== TAB 2: EDITAR LEGAJOS Y VTOS (CON FILTRO POR LOCALIDAD) ====================
+# ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    col_accion1, col_accion2, col_accion3 = st.columns(3)
+    # Botones de acción rápidos
+    col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
     
     with col_accion1:
-        if st.button("🗑️ Eliminar ÚLTIMOS 100 registros"):
+        if st.button("🗑️ Eliminar ÚLTIMOS 100"):
             with st.spinner("Eliminando..."):
                 datos = supabase.table("padron_deuda_presunta").select("id").order("id", desc=True).limit(100).execute()
                 if datos.data:
@@ -324,15 +322,25 @@ with tab2:
                     st.rerun()
     
     with col_accion2:
-        if st.button("🗑️ Eliminar TODOS los registros"):
+        if st.button("🗑️ Eliminar TODOS"):
             st.session_state.confirmar_eliminar = True
     
     with col_accion3:
-        if st.button("🔄 Recargar datos"):
+        if st.button("🔄 Recargar"):
             st.rerun()
     
+    with col_accion4:
+        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+        if st.button("🗑️ Eliminar seleccionados", key="btn_eliminar_seleccionados"):
+            if st.session_state.get('ids_a_eliminar', []):
+                st.session_state.confirmar_eliminar_seleccionados = True
+            else:
+                st.warning("No hay registros seleccionados")
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Confirmación eliminar todos
     if st.session_state.get('confirmar_eliminar', False):
-        st.warning("⚠️ ¿Estás seguro? Esta acción no se puede deshacer.")
+        st.warning("⚠️ ¿Eliminar TODOS los registros? Esta acción no se puede deshacer.")
         col_si, col_no = st.columns(2)
         with col_si:
             if st.button("✅ SÍ, ELIMINAR TODO"):
@@ -345,14 +353,31 @@ with tab2:
                 st.session_state.confirmar_eliminar = False
                 st.rerun()
     
+    # Confirmación eliminar seleccionados
+    if st.session_state.get('confirmar_eliminar_seleccionados', False):
+        st.warning(f"⚠️ ¿Eliminar {len(st.session_state.get('ids_a_eliminar', []))} registros seleccionados?")
+        col_si, col_no = st.columns(2)
+        with col_si:
+            if st.button("✅ SÍ, ELIMINAR"):
+                with st.spinner("Eliminando..."):
+                    for id_reg in st.session_state.ids_a_eliminar:
+                        supabase.table("padron_deuda_presunta").delete().eq("id", id_reg).execute()
+                    st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
+                    st.session_state.confirmar_eliminar_seleccionados = False
+                    st.session_state.ids_a_eliminar = []
+                    st.rerun()
+        with col_no:
+            if st.button("❌ Cancelar"):
+                st.session_state.confirmar_eliminar_seleccionados = False
+                st.rerun()
+    
     st.markdown("---")
     
     try:
-        # Obtener todas las localidades disponibles
+        # Obtener localidades
         todas_localidades = supabase.table("padron_deuda_presunta").select("localidad").execute()
         localidades_unicas = sorted(set([l['localidad'] for l in todas_localidades.data if l.get('localidad')]))
         
-        # Mover MAR DEL PLATA al principio
         if 'MAR DEL PLATA' in localidades_unicas:
             localidades_unicas.remove('MAR DEL PLATA')
             localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
@@ -360,52 +385,62 @@ with tab2:
         if not localidades_unicas:
             localidades_unicas = ["TODAS"]
         
-        # Filtro de localidad
-        col_filtro1, col_filtro2 = st.columns([2, 1])
+        # Filtros
+        col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 1, 1])
+        
         with col_filtro1:
             localidad_seleccionada = st.selectbox(
-                "📌 Filtrar por LOCALIDAD:",
+                "📌 LOCALIDAD:",
                 options=["TODAS"] + localidades_unicas,
                 index=0,
                 key="filtro_localidad"
             )
         
-        # Contar registros por localidad
         with col_filtro2:
+            filtro_mail = st.selectbox(
+                "📧 MAIL ENVIADO:",
+                options=["AMBOS", "NO", "SI"],
+                index=0,
+                key="filtro_mail"
+            )
+        
+        with col_filtro3:
             if localidad_seleccionada != "TODAS":
                 count_localidad = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("localidad", localidad_seleccionada).execute()
-                st.metric("Registros en esta localidad", count_localidad.count)
+                st.metric("Registros", count_localidad.count)
         
         # Construir consulta base
-        if localidad_seleccionada == "TODAS":
-            total_registros = supabase.table("padron_deuda_presunta").select("id", count="exact").execute()
-            total = total_registros.count
-        else:
-            total_registros = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("localidad", localidad_seleccionada).execute()
-            total = total_registros.count
+        query = supabase.table("padron_deuda_presunta")
+        
+        if localidad_seleccionada != "TODAS":
+            query = query.eq("localidad", localidad_seleccionada)
+        
+        if filtro_mail == "SI":
+            query = query.eq("mail_enviado", "SI")
+        elif filtro_mail == "NO":
+            query = query.eq("mail_enviado", "NO")
+        
+        total_registros = query.select("id", count="exact").execute()
+        total = total_registros.count
         
         st.write(f"**Total de registros:** {total}")
         
         if total > 0:
-            # Configuración de paginación
             registros_por_pagina = 300
             paginas_totales = (total + registros_por_pagina - 1) // registros_por_pagina
             
-            # Inicializar página actual
             if 'pagina_actual_localidad' not in st.session_state:
                 st.session_state.pagina_actual_localidad = 1
-            if 'ultima_localidad_filtro' not in st.session_state:
-                st.session_state.ultima_localidad_filtro = localidad_seleccionada
+            if 'ultimo_filtro' not in st.session_state:
+                st.session_state.ultimo_filtro = (localidad_seleccionada, filtro_mail)
             
-            # Resetear página si cambió el filtro
-            if st.session_state.ultima_localidad_filtro != localidad_seleccionada:
+            if st.session_state.ultimo_filtro != (localidad_seleccionada, filtro_mail):
                 st.session_state.pagina_actual_localidad = 1
-                st.session_state.ultima_localidad_filtro = localidad_seleccionada
+                st.session_state.ultimo_filtro = (localidad_seleccionada, filtro_mail)
                 st.rerun()
             
             # Navegación
-            st.markdown("### 📄 Navegación de páginas")
-            
+            st.markdown("### 📄 Navegación")
             col_ant, col_num, col_sig = st.columns([1, 2, 1])
             
             with col_ant:
@@ -418,7 +453,7 @@ with tab2:
                     "Página",
                     options=list(range(1, paginas_totales + 1)),
                     index=st.session_state.pagina_actual_localidad - 1,
-                    key="pagina_select_localidad",
+                    key="pagina_select",
                     label_visibility="collapsed"
                 )
                 st.session_state.pagina_actual_localidad = pagina_actual
@@ -428,28 +463,31 @@ with tab2:
                     st.session_state.pagina_actual_localidad = min(paginas_totales, st.session_state.pagina_actual_localidad + 1)
                     st.rerun()
             
-            # Calcular offset
             offset = (st.session_state.pagina_actual_localidad - 1) * registros_por_pagina
             
-            # Obtener registros
-            if localidad_seleccionada == "TODAS":
-                datos = supabase.table("padron_deuda_presunta").select("*").range(offset, offset + registros_por_pagina - 1).execute()
-            else:
-                datos = supabase.table("padron_deuda_presunta").select("*").eq("localidad", localidad_seleccionada).range(offset, offset + registros_por_pagina - 1).execute()
+            # Obtener datos
+            query_data = supabase.table("padron_deuda_presunta")
+            if localidad_seleccionada != "TODAS":
+                query_data = query_data.eq("localidad", localidad_seleccionada)
+            if filtro_mail == "SI":
+                query_data = query_data.eq("mail_enviado", "SI")
+            elif filtro_mail == "NO":
+                query_data = query_data.eq("mail_enviado", "NO")
+            
+            datos = query_data.select("*").range(offset, offset + registros_por_pagina - 1).execute()
             
             if datos.data:
                 desde = offset + 1
                 hasta = min(offset + registros_por_pagina, total)
-                st.info(f"📝 Mostrando registros {desde} a {hasta} de {total} (Página {st.session_state.pagina_actual_localidad} de {paginas_totales})")
+                st.info(f"📝 Mostrando {desde} a {hasta} de {total} (Pág. {st.session_state.pagina_actual_localidad} de {paginas_totales})")
                 
                 df_datos = pd.DataFrame(datos.data)
                 
-                # Limpiar números enteros
+                # Limpiar datos
                 for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                     if col in df_datos.columns:
                         df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
                 
-                # Convertir fechas
                 for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto']:
                     if col in df_datos.columns:
                         df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
@@ -460,18 +498,33 @@ with tab2:
                 
                 df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
                 
+                # Agregar columna de selección para eliminar
+                df_mostrar.insert(0, "🗑️ SELECCIONAR", False)
+                
                 edited_df = st.data_editor(
                     df_mostrar,
                     use_container_width=True,
                     height=600,
+                    column_config={
+                        "🗑️ SELECCIONAR": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")
+                    },
                     disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
                               'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
                               'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
                               'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
-                    key=f"editor_localidad_{st.session_state.pagina_actual_localidad}"
+                    key=f"editor_{st.session_state.pagina_actual_localidad}"
                 )
                 
-                if st.button("💾 Guardar Cambios", type="primary"):
+                # Guardar IDs seleccionados
+                ids_seleccionados = edited_df[edited_df["🗑️ SELECCIONAR"]]["ID"].tolist()
+                st.session_state.ids_a_eliminar = ids_seleccionados
+                
+                if ids_seleccionados:
+                    st.caption(f"📌 {len(ids_seleccionados)} registro(s) seleccionado(s) para eliminar")
+                
+                st.markdown("---")
+                
+                if st.button("💾 Guardar Cambios (LEG, VTO, etc.)", type="primary"):
                     with st.spinner("Guardando..."):
                         inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
                         modificados = 0
@@ -528,7 +581,7 @@ with tab2:
                         st.success(f"✅ {modificados} registros actualizados")
                         st.rerun()
         else:
-            st.info("No hay datos cargados para esta localidad")
+            st.info("No hay datos con los filtros seleccionados")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
