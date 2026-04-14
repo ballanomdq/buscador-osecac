@@ -308,67 +308,20 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botones de acción rápidos
-    col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
+    # Botones de acción
+    col_accion1, col_accion2 = st.columns([1, 4])
     
     with col_accion1:
-        if st.button("🗑️ Eliminar ÚLTIMOS 100"):
-            st.session_state.confirmar_eliminar_ultimos = True
-    
-    with col_accion2:
-        if st.button("🗑️ Eliminar TODOS"):
-            st.session_state.confirmar_eliminar_todos = True
-    
-    with col_accion3:
-        if st.button("🔄 Recargar"):
-            st.rerun()
-    
-    with col_accion4:
         st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-        if st.button("🗑️ Eliminar seleccionados", key="btn_eliminar_seleccionados"):
+        if st.button("🗑️ Eliminar seleccionados", key="btn_eliminar"):
             if st.session_state.get('ids_a_eliminar', []):
-                st.session_state.confirmar_eliminar_seleccionados = True
+                st.session_state.confirmar_eliminar = True
             else:
                 st.warning("No hay registros seleccionados")
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Confirmación eliminar últimos 100
-    if st.session_state.get('confirmar_eliminar_ultimos', False):
-        st.warning("⚠️ ¿Eliminar los ÚLTIMOS 100 registros?")
-        col_si, col_no = st.columns(2)
-        with col_si:
-            if st.button("✅ SÍ"):
-                with st.spinner("Eliminando..."):
-                    datos = supabase.table("padron_deuda_presunta").select("id").order("id", desc=True).limit(100).execute()
-                    if datos.data:
-                        for reg in datos.data:
-                            supabase.table("padron_deuda_presunta").delete().eq("id", reg['id']).execute()
-                        st.success(f"✅ Se eliminaron {len(datos.data)} registros")
-                    st.session_state.confirmar_eliminar_ultimos = False
-                    st.rerun()
-        with col_no:
-            if st.button("❌ No"):
-                st.session_state.confirmar_eliminar_ultimos = False
-                st.rerun()
-    
-    # Confirmación eliminar todos
-    if st.session_state.get('confirmar_eliminar_todos', False):
-        st.warning("⚠️ ¿Eliminar TODOS los registros? Esta acción NO se puede deshacer.")
-        col_si, col_no = st.columns(2)
-        with col_si:
-            if st.button("✅ SÍ, ELIMINAR TODO"):
-                with st.spinner("Eliminando..."):
-                    supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
-                    st.success("✅ Todos los registros fueron eliminados")
-                    st.session_state.confirmar_eliminar_todos = False
-                    st.rerun()
-        with col_no:
-            if st.button("❌ Cancelar"):
-                st.session_state.confirmar_eliminar_todos = False
-                st.rerun()
-    
-    # Confirmación eliminar seleccionados
-    if st.session_state.get('confirmar_eliminar_seleccionados', False):
+    # Confirmación eliminar
+    if st.session_state.get('confirmar_eliminar', False):
         cantidad = len(st.session_state.get('ids_a_eliminar', []))
         st.warning(f"⚠️ ¿Eliminar los {cantidad} registros seleccionados?")
         col_si, col_no = st.columns(2)
@@ -378,12 +331,12 @@ with tab2:
                     for id_reg in st.session_state.ids_a_eliminar:
                         supabase.table("padron_deuda_presunta").delete().eq("id", id_reg).execute()
                     st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
-                    st.session_state.confirmar_eliminar_seleccionados = False
+                    st.session_state.confirmar_eliminar = False
                     st.session_state.ids_a_eliminar = []
                     st.rerun()
         with col_no:
             if st.button("❌ Cancelar"):
-                st.session_state.confirmar_eliminar_seleccionados = False
+                st.session_state.confirmar_eliminar = False
                 st.rerun()
     
     st.markdown("---")
@@ -423,12 +376,7 @@ with tab2:
                 key="filtro_mail"
             )
         
-        with col_filtro3:
-            if localidad_seleccionada != "TODAS" and localidades_unicas:
-                count_localidad = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("localidad", localidad_seleccionada).execute()
-                st.metric("Registros", count_localidad.count)
-        
-        # Construir consulta base para el TOTAL (para contar)
+        # Construir consulta base
         query_count = supabase.table("padron_deuda_presunta")
         
         if localidad_seleccionada != "TODAS" and localidades_unicas:
@@ -442,19 +390,22 @@ with tab2:
         total_registros = query_count.select("id", count="exact").execute()
         total = total_registros.count
         
-        st.write(f"**Total de registros:** {total}")
+        with col_filtro3:
+            st.metric("Total registros", total)
+        
+        st.write(f"**Total de registros con filtros:** {total}")
         
         if total > 0:
             registros_por_pagina = 300
             paginas_totales = (total + registros_por_pagina - 1) // registros_por_pagina
             
-            if 'pagina_actual_localidad' not in st.session_state:
-                st.session_state.pagina_actual_localidad = 1
+            if 'pagina_actual' not in st.session_state:
+                st.session_state.pagina_actual = 1
             if 'ultimo_filtro' not in st.session_state:
                 st.session_state.ultimo_filtro = (localidad_seleccionada, filtro_mail)
             
             if st.session_state.ultimo_filtro != (localidad_seleccionada, filtro_mail):
-                st.session_state.pagina_actual_localidad = 1
+                st.session_state.pagina_actual = 1
                 st.session_state.ultimo_filtro = (localidad_seleccionada, filtro_mail)
                 st.rerun()
             
@@ -463,28 +414,28 @@ with tab2:
             col_ant, col_num, col_sig = st.columns([1, 2, 1])
             
             with col_ant:
-                if st.button("◀ Anterior", disabled=(st.session_state.pagina_actual_localidad <= 1)):
-                    st.session_state.pagina_actual_localidad = max(1, st.session_state.pagina_actual_localidad - 1)
+                if st.button("◀ Anterior", disabled=(st.session_state.pagina_actual <= 1)):
+                    st.session_state.pagina_actual = max(1, st.session_state.pagina_actual - 1)
                     st.rerun()
             
             with col_num:
                 pagina_actual = st.selectbox(
                     "Página",
                     options=list(range(1, paginas_totales + 1)),
-                    index=st.session_state.pagina_actual_localidad - 1,
+                    index=st.session_state.pagina_actual - 1,
                     key="pagina_select",
                     label_visibility="collapsed"
                 )
-                st.session_state.pagina_actual_localidad = pagina_actual
+                st.session_state.pagina_actual = pagina_actual
             
             with col_sig:
-                if st.button("Siguiente ▶", disabled=(st.session_state.pagina_actual_localidad >= paginas_totales)):
-                    st.session_state.pagina_actual_localidad = min(paginas_totales, st.session_state.pagina_actual_localidad + 1)
+                if st.button("Siguiente ▶", disabled=(st.session_state.pagina_actual >= paginas_totales)):
+                    st.session_state.pagina_actual = min(paginas_totales, st.session_state.pagina_actual + 1)
                     st.rerun()
             
-            offset = (st.session_state.pagina_actual_localidad - 1) * registros_por_pagina
+            offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
             
-            # Obtener datos para la página actual
+            # Obtener datos
             query_data = supabase.table("padron_deuda_presunta")
             
             if localidad_seleccionada != "TODAS" and localidades_unicas:
@@ -500,7 +451,7 @@ with tab2:
             if datos.data:
                 desde = offset + 1
                 hasta = min(offset + registros_por_pagina, total)
-                st.info(f"📝 Mostrando {desde} a {hasta} de {total} (Pág. {st.session_state.pagina_actual_localidad} de {paginas_totales})")
+                st.info(f"📝 Mostrando {desde} a {hasta} de {total}")
                 
                 df_datos = pd.DataFrame(datos.data)
                 
@@ -519,88 +470,106 @@ with tab2:
                 
                 df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
                 
-                # Agregar columna de selección para eliminar
-                df_mostrar.insert(0, "🗑️ SELECCIONAR", False)
+                # Agregar columna de selección con checkbox "TODOS"
+                st.markdown("#### Seleccionar registros")
+                
+                col_check_all, col_check_info = st.columns([1, 4])
+                with col_check_all:
+                    seleccionar_todos = st.checkbox("✅ SELECCIONAR TODOS (página actual)", key="seleccionar_todos")
+                
+                # Agregar columna de selección
+                df_mostrar.insert(0, "🗑️", False)
+                
+                # Si se marcó "seleccionar todos", marcar todas las filas
+                if seleccionar_todos:
+                    df_mostrar["🗑️"] = True
                 
                 edited_df = st.data_editor(
                     df_mostrar,
                     use_container_width=True,
                     height=600,
                     column_config={
-                        "🗑️ SELECCIONAR": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")
+                        "🗑️": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")
                     },
                     disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
                               'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
                               'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
                               'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
-                    key=f"editor_{st.session_state.pagina_actual_localidad}"
+                    key=f"editor_{st.session_state.pagina_actual}"
                 )
                 
-                # Guardar IDs seleccionados
-                ids_seleccionados = edited_df[edited_df["🗑️ SELECCIONAR"]]["ID"].tolist()
+                # Guardar IDs seleccionados y actualizar cambios automáticamente
+                ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
                 st.session_state.ids_a_eliminar = ids_seleccionados
                 
                 if ids_seleccionados:
                     st.caption(f"📌 {len(ids_seleccionados)} registro(s) seleccionado(s) para eliminar")
                 
                 st.markdown("---")
+                st.markdown("#### Editar campos (LEG, VTO, ACTA, etc.)")
+                st.info("✏️ Los cambios se guardan AUTOMÁTICAMENTE al modificar una celda")
                 
-                if st.button("💾 Guardar Cambios (LEG, VTO, etc.)", type="primary"):
-                    with st.spinner("Guardando..."):
-                        inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
-                        modificados = 0
-                        
-                        for idx, row in edited_df.iterrows():
-                            original = df_mostrar.loc[idx]
-                            datos_update = {}
-                            
-                            nuevo_leg = row.get('LEG')
-                            viejo_leg = original.get('LEG')
-                            if pd.isna(nuevo_leg) or nuevo_leg == '':
-                                nuevo_leg = None
-                            if pd.isna(viejo_leg) or viejo_leg == '':
-                                viejo_leg = None
-                            if nuevo_leg != viejo_leg:
-                                datos_update['leg'] = nuevo_leg
-                            
-                            nuevo_vto = row.get('VTO')
-                            viejo_vto = original.get('VTO')
-                            if pd.isna(nuevo_vto) or nuevo_vto == '':
-                                nuevo_vto = None
-                            else:
-                                nuevo_vto = fecha_para_guardar(nuevo_vto)
-                            if pd.isna(viejo_vto) or viejo_vto == '':
-                                viejo_vto = None
-                            if nuevo_vto != viejo_vto:
-                                datos_update['vto'] = nuevo_vto
-                            
-                            nuevo_mail = row.get('MAIL ENVIADO')
-                            viejo_mail = original.get('MAIL ENVIADO')
-                            if pd.isna(nuevo_mail) or nuevo_mail == '':
-                                nuevo_mail = 'NO'
-                            if nuevo_mail != viejo_mail:
-                                datos_update['mail_enviado'] = nuevo_mail
-                            
-                            nuevo_acta = row.get('ACTA')
-                            viejo_acta = original.get('ACTA')
-                            if pd.isna(nuevo_acta) or nuevo_acta == '':
-                                nuevo_acta = None
-                            if nuevo_acta != viejo_acta:
-                                datos_update['acta'] = nuevo_acta
-                            
-                            nuevo_estado = row.get('ESTADO GESTION')
-                            viejo_estado = original.get('ESTADO GESTION')
-                            if pd.isna(nuevo_estado) or nuevo_estado == '':
-                                nuevo_estado = 'PENDIENTE'
-                            if nuevo_estado != viejo_estado:
-                                datos_update['estado_gestion'] = nuevo_estado
-                            
-                            if datos_update:
-                                supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
-                                modificados += 1
-                        
-                        st.success(f"✅ {modificados} registros actualizados")
-                        st.rerun()
+                # Guardar cambios automáticamente al editar
+                # Comparamos fila por fila con el original
+                for idx, row in edited_df.iterrows():
+                    original = df_mostrar.loc[idx]
+                    datos_update = {}
+                    
+                    # LEG
+                    nuevo_leg = row.get('LEG')
+                    viejo_leg = original.get('LEG')
+                    if pd.isna(nuevo_leg) or nuevo_leg == '':
+                        nuevo_leg = None
+                    if pd.isna(viejo_leg) or viejo_leg == '':
+                        viejo_leg = None
+                    if nuevo_leg != viejo_leg:
+                        datos_update['leg'] = nuevo_leg
+                    
+                    # VTO
+                    nuevo_vto = row.get('VTO')
+                    viejo_vto = original.get('VTO')
+                    if pd.isna(nuevo_vto) or nuevo_vto == '':
+                        nuevo_vto = None
+                    else:
+                        nuevo_vto = fecha_para_guardar(nuevo_vto)
+                    if pd.isna(viejo_vto) or viejo_vto == '':
+                        viejo_vto = None
+                    if nuevo_vto != viejo_vto:
+                        datos_update['vto'] = nuevo_vto
+                    
+                    # MAIL ENVIADO
+                    nuevo_mail = row.get('MAIL ENVIADO')
+                    viejo_mail = original.get('MAIL ENVIADO')
+                    if pd.isna(nuevo_mail) or nuevo_mail == '':
+                        nuevo_mail = 'NO'
+                    if nuevo_mail != viejo_mail:
+                        datos_update['mail_enviado'] = nuevo_mail
+                    
+                    # ACTA
+                    nuevo_acta = row.get('ACTA')
+                    viejo_acta = original.get('ACTA')
+                    if pd.isna(nuevo_acta) or nuevo_acta == '':
+                        nuevo_acta = None
+                    if nuevo_acta != viejo_acta:
+                        datos_update['acta'] = nuevo_acta
+                    
+                    # ESTADO GESTION
+                    nuevo_estado = row.get('ESTADO GESTION')
+                    viejo_estado = original.get('ESTADO GESTION')
+                    if pd.isna(nuevo_estado) or nuevo_estado == '':
+                        nuevo_estado = 'PENDIENTE'
+                    if nuevo_estado != viejo_estado:
+                        datos_update['estado_gestion'] = nuevo_estado
+                    
+                    if datos_update:
+                        supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
+                        # Mostrar mensaje de éxito solo si hay cambios
+                        if 'cambio_guardado' not in st.session_state:
+                            st.session_state.cambio_guardado = True
+                
+                if st.session_state.get('cambio_guardado', False):
+                    st.success("✅ Cambios guardados automáticamente")
+                    st.session_state.cambio_guardado = False
         else:
             st.info("No hay datos con los filtros seleccionados")
     except Exception as e:
