@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from datetime import datetime
+from datetime import datetime, date
 import math
 import numpy as np
+import re
 
 # Configuración de página
 st.set_page_config(
@@ -50,16 +51,16 @@ st.markdown("---")
 # ==================== FUNCIONES DE LIMPIEZA ====================
 def limpiar_valor(val):
     """Convierte cualquier valor no serializable a JSON en None o string limpio."""
-    # Floats problemáticos
+    if val is None:
+        return None
+    if pd.isna(val):
+        return None
     if isinstance(val, float):
         if math.isnan(val) or math.isinf(val):
             return None
-        # Convertir 1.0 → "1"
         if val == int(val):
             return str(int(val))
         return str(val)
-    
-    # numpy types (muy común con pandas)
     if isinstance(val, (np.integer,)):
         return int(val)
     if isinstance(val, (np.floating,)):
@@ -69,30 +70,29 @@ def limpiar_valor(val):
         return str(int(v)) if v == int(v) else str(v)
     if isinstance(val, np.bool_):
         return bool(val)
-    
-    # NaT de pandas
     if val is pd.NaT:
         return None
-    
-    # None y pd.isna
-    try:
-        if pd.isna(val):
+    if isinstance(val, (pd.Timestamp, datetime)):
+        return val.strftime('%Y-%m-%d')
+    if isinstance(val, str):
+        val = val.strip()
+        if val.lower() in ("nan", "none", "nat", ""):
             return None
-    except (TypeError, ValueError):
-        pass
-    
-    return val
+        return val
+    return str(val)
 
 def excel_serial_a_fecha(n):
-    """Convierte número serial de Excel a string DD/MM/YYYY."""
+    """Convierte número serial de Excel a string YYYY-MM-DD (sin hora)."""
     try:
         n = int(n)
-        fecha = datetime(1899, 12, 30) + pd.Timedelta(days=n)
-        return fecha.strftime("%d/%m/%Y")
+        fecha_base = datetime(1899, 12, 30)
+        fecha = fecha_base + pd.Timedelta(days=n)
+        return fecha.strftime("%Y-%m-%d")
     except Exception:
         return str(n)
 
 def fecha_para_mostrar(valor):
+    """Convierte fecha a DD/MM/YYYY para mostrar (sin hora)."""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -102,12 +102,15 @@ def fecha_para_mostrar(valor):
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 fecha = datetime.strptime(valor, '%Y-%m-%d')
                 return fecha.strftime('%d/%m/%Y')
+            if re.match(r'\d{2}/\d{2}/\d{4}', valor):
+                return valor
             return valor
         return str(valor)
     except:
         return str(valor) if valor else None
 
 def fecha_para_guardar(valor):
+    """Convierte fecha a YYYY-MM-DD para guardar en Supabase (sin hora)."""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -124,6 +127,7 @@ def fecha_para_guardar(valor):
         return None
 
 def limpiar_numero_entero(valor):
+    """Convierte 1.0 a 1"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -174,7 +178,7 @@ MAPA_COLUMNAS = {
 }
 
 # Columnas que pueden contener seriales de fecha Excel
-COLUMNAS_FECHA = {"fechareldependencia", "desde", "hasta", "detectado", "fecha_pago_obl"}
+COLUMNAS_FECHA = {"fechareldependencia", "desde", "hasta", "fecha_pago_obl"}
 
 # Títulos bonitos para mostrar
 TITULOS_MOSTRAR = {
@@ -278,7 +282,7 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
-            # Procesar Excel con la función de Claude
+            # Procesar Excel
             registros = procesar_excel(uploaded_file)
             total_registros = len(registros)
             
@@ -288,18 +292,37 @@ with tab1:
                 reg['vto'] = None
                 reg['mail_enviado'] = 'NO'
                 reg['acta'] = None
-                reg['fecha_carga'] = datetime.now().strftime('%Y-%m-%d')
+                reg['fecha_carga'] = date.today().isoformat()  # SOLO FECHA, sin hora
                 reg['estado_gestion'] = 'PENDIENTE'
             
             # ==================== DETECCIÓN DE DUPLICADOS ====================
-            # Obtener todos los pares (cuit, ultima_acta) existentes
-            existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
+            # Obtener TODOS los pares (cuit, ultima_acta) existentes (sin límite)
+            todos_existentes = []
+            offset = 0
+            batch_size = 1000
+            
+            while True:
+                batch = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").range(offset, offset + batch_size - 1).execute()
+                if not batch.data:
+                    break
+                todos_existentes.extend(batch.data)
+                offset += batch_size
+                if len(batch.data) < batch_size:
+                    break
+            
             existentes_set = set()
-            for reg in existentes.data:
+            for reg in todos_existentes:
                 cuit = str(reg.get('cuit') or '')
                 acta = str(reg.get('ultima_acta') or '*')
                 if cuit:
                     existentes_set.add((cuit, acta))
+            
+            # También obtener los que tienen ultima_acta = '*' (None en la BD)
+            batch_none = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").is_("ultima_acta", "null").execute()
+            for reg in batch_none.data:
+                cuit = str(reg.get('cuit') or '')
+                if cuit:
+                    existentes_set.add((cuit, '*'))
             
             # Filtrar registros nuevos
             nuevos_registros = []
@@ -523,8 +546,8 @@ with tab2:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
             
-            # Convertir fechas para mostrar
-            for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto']:
+            # Convertir fechas para mostrar (sin hora)
+            for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
             
