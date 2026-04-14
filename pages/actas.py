@@ -54,7 +54,6 @@ def fecha_para_mostrar(valor):
         if isinstance(valor, (pd.Timestamp, datetime)):
             return valor.strftime('%d/%m/%Y')
         if isinstance(valor, str):
-            # Si ya es string en formato YYYY-MM-DD, convertirlo
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 fecha = datetime.strptime(valor, '%Y-%m-%d')
                 return fecha.strftime('%d/%m/%Y')
@@ -75,11 +74,9 @@ def fecha_para_guardar(valor):
         if isinstance(valor, (pd.Timestamp, datetime)):
             return valor.strftime('%Y-%m-%d')
         if isinstance(valor, str):
-            # Si viene en formato DD/MM/YYYY
             if re.match(r'\d{2}/\d{2}/\d{4}', valor):
                 fecha = datetime.strptime(valor, '%d/%m/%Y')
                 return fecha.strftime('%Y-%m-%d')
-            # Si viene en formato YYYY-MM-DD
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 return valor
         if isinstance(valor, (int, float)):
@@ -242,7 +239,6 @@ with tab1:
                         if pd.isna(val):
                             valores.append(None)
                         else:
-                            # Columnas de números enteros (EMPL)
                             if col_tabla in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                                 try:
                                     num = float(val)
@@ -252,13 +248,9 @@ with tab1:
                                         valores.append(None)
                                 except:
                                     valores.append(None)
-                            
-                            # Columnas de fechas - guardar en formato ISO
                             elif col_tabla in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
                                 fecha_iso = convertir_fecha_excel_para_guardar(val)
                                 valores.append(fecha_iso)
-                            
-                            # Columnas de montos
                             elif col_tabla in ['deuda_presunta', 'detectado']:
                                 try:
                                     num = float(val)
@@ -267,8 +259,7 @@ with tab1:
                                     else:
                                         valores.append(f"${num:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                                 except:
-                                    valores.append(str(val) if str(val).strip() else None)
-                            
+                                    valores.append(str(val).strip() if str(val).strip() else None)
                             else:
                                 valores.append(str(val).strip() if str(val).strip() else None)
                     
@@ -277,7 +268,6 @@ with tab1:
                     st.error(f"Columna '{col_excel}' no encontrada")
                     st.stop()
             
-            # Agregar columnas extras
             df_final['leg'] = None
             df_final['vto'] = None
             df_final['mail_enviado'] = 'NO'
@@ -285,13 +275,11 @@ with tab1:
             df_final['fecha_carga'] = datetime.now().strftime('%Y-%m-%d')
             df_final['estado_gestion'] = 'PENDIENTE'
             
-            # Limpieza final
             for col in df_final.columns:
                 df_final[col] = df_final[col].apply(limpiar_para_json)
             
             st.success(f"✅ Archivo procesado: {len(df_final)} registros")
             
-            # Vista previa con fechas formateadas para mostrar
             df_preview = df_final.copy()
             for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
                 if col in df_preview.columns:
@@ -303,7 +291,6 @@ with tab1:
             if st.button("✅ Confirmar carga", type="primary"):
                 with st.spinner("Cargando datos..."):
                     registros = df_final.to_dict(orient='records')
-                    
                     for reg in registros:
                         for k, v in reg.items():
                             if pd.isna(v):
@@ -324,7 +311,6 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botones de acción
     col_accion1, col_accion2, col_accion3 = st.columns(3)
     
     with col_accion1:
@@ -369,20 +355,17 @@ with tab2:
             total_registros = len(df_datos)
             st.write(f"**Total de registros en la base:** {total_registros}")
             
-            # Limpiar números enteros en EMPL
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
             
-            # Convertir fechas a formato de visualización (DD/MM/YYYY)
             for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
             
-            # Mostrar TODOS los registros
             st.info(f"📝 Mostrando TODOS los {total_registros} registros")
-            
             df_mostrar = df_datos.copy()
+            
             if 'fecha_carga' in df_mostrar.columns:
                 df_mostrar = df_mostrar.drop(columns=['fecha_carga'])
             
@@ -408,7 +391,6 @@ with tab2:
                         original = df_mostrar.loc[idx]
                         datos_update = {}
                         
-                        # LEG
                         nuevo_leg = row.get('LEG')
                         viejo_leg = original.get('LEG')
                         if pd.isna(nuevo_leg) or nuevo_leg == '':
@@ -418,7 +400,6 @@ with tab2:
                         if nuevo_leg != viejo_leg:
                             datos_update['leg'] = nuevo_leg
                         
-                        # VTO - convertir a formato ISO para guardar
                         nuevo_vto = row.get('VTO')
                         viejo_vto = original.get('VTO')
                         if pd.isna(nuevo_vto) or nuevo_vto == '':
@@ -430,7 +411,6 @@ with tab2:
                         if nuevo_vto != viejo_vto:
                             datos_update['vto'] = nuevo_vto
                         
-                        # MAIL ENVIADO
                         nuevo_mail = row.get('MAIL ENVIADO')
                         viejo_mail = original.get('MAIL ENVIADO')
                         if pd.isna(nuevo_mail) or nuevo_mail == '':
@@ -438,7 +418,6 @@ with tab2:
                         if nuevo_mail != viejo_mail:
                             datos_update['mail_enviado'] = nuevo_mail
                         
-                        # ACTA
                         nuevo_acta = row.get('ACTA')
                         viejo_acta = original.get('ACTA')
                         if pd.isna(nuevo_acta) or nuevo_acta == '':
@@ -446,7 +425,6 @@ with tab2:
                         if nuevo_acta != viejo_acta:
                             datos_update['acta'] = nuevo_acta
                         
-                        # ESTADO GESTION
                         nuevo_estado = row.get('ESTADO GESTION')
                         viejo_estado = original.get('ESTADO GESTION')
                         if pd.isna(nuevo_estado) or nuevo_estado == '':
@@ -483,7 +461,6 @@ with tab3:
             
             if len(df_listos) > 0:
                 st.info(f"📧 {len(df_listos)} empresas listas para solicitar actas")
-                # Mostrar fechas en formato DD/MM/YYYY
                 df_mostrar = df_listos[['cuit', 'razon_social', 'leg', 'vto']].copy()
                 if 'vto' in df_mostrar.columns:
                     df_mostrar['vto'] = df_mostrar['vto'].apply(fecha_para_mostrar)
