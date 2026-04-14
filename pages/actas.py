@@ -2,10 +2,8 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
-import numpy as np
-import re
 import math
-import json
+import numpy as np
 
 # Configuración de página
 st.set_page_config(
@@ -50,38 +48,49 @@ with col_back:
 st.markdown("---")
 
 # ==================== FUNCIONES DE LIMPIEZA ====================
-def limpiar_valor_a_string(valor):
-    """Convierte CUALQUIER valor a string o None. NUNCA devuelve nan."""
-    if valor is None:
-        return None
-    if pd.isna(valor):
-        return None
-    if isinstance(valor, float):
-        if math.isnan(valor) or math.isinf(valor):
+def limpiar_valor(val):
+    """Convierte cualquier valor no serializable a JSON en None o string limpio."""
+    # Floats problemáticos
+    if isinstance(val, float):
+        if math.isnan(val) or math.isinf(val):
             return None
-        # Si es entero sin decimales, convertir a int sin .0
-        if valor.is_integer():
-            return str(int(valor))
-        return str(valor)
-    if isinstance(valor, (int, np.integer)):
-        return str(valor)
-    if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.strftime('%Y-%m-%d')
-    if isinstance(valor, str):
-        if valor.strip() == '' or valor.lower() in ['nan', 'none', 'null']:
+        # Convertir 1.0 → "1"
+        if val == int(val):
+            return str(int(val))
+        return str(val)
+    
+    # numpy types (muy común con pandas)
+    if isinstance(val, (np.integer,)):
+        return int(val)
+    if isinstance(val, (np.floating,)):
+        if math.isnan(float(val)) or math.isinf(float(val)):
             return None
-        return valor.strip()
-    return str(valor)
+        v = float(val)
+        return str(int(v)) if v == int(v) else str(v)
+    if isinstance(val, np.bool_):
+        return bool(val)
+    
+    # NaT de pandas
+    if val is pd.NaT:
+        return None
+    
+    # None y pd.isna
+    try:
+        if pd.isna(val):
+            return None
+    except (TypeError, ValueError):
+        pass
+    
+    return val
 
-def normalizar_ultima_acta(valor):
-    """Si ULTIMA ACTA está vacía, la reemplaza con '*'"""
-    if valor is None or pd.isna(valor):
-        return '*'
-    if isinstance(valor, str) and valor.strip() == '':
-        return '*'
-    if isinstance(valor, float) and math.isnan(valor):
-        return '*'
-    return str(valor).strip()
+def excel_serial_a_fecha(n):
+    """Convierte número serial de Excel a string DD/MM/YYYY."""
+    try:
+        n = int(n)
+        fecha = datetime(1899, 12, 30) + pd.Timedelta(days=n)
+        return fecha.strftime("%d/%m/%Y")
+    except Exception:
+        return str(n)
 
 def fecha_para_mostrar(valor):
     if valor is None or pd.isna(valor):
@@ -128,33 +137,44 @@ def limpiar_numero_entero(valor):
         return None
 
 # ==================== MAPEO DE COLUMNAS ====================
-MAPEO_EXCEL_A_TABLA = {
-    'DELEGACION': 'delegacion',
-    'LOCALIDAD': 'localidad',
-    'CUIT': 'cuit',
-    'RAZON SOCIAL': 'razon_social',
-    'DEUDA PRESUNTA': 'deuda_presunta',
-    'CP': 'cp',
-    'CALLE': 'calle',
-    'NUMERO': 'numero',
-    'PISO': 'piso',
-    'DPTO': 'dpto',
-    'FECHARELDEPENDENCIA': 'fechareldependencia',
-    'EMAIL': 'email',
-    'TEL_DOM_LEGAL': 'tel_dom_legal',
-    'TEL_DOM_REAL': 'tel_dom_real',
-    'ULTIMA ACTA': 'ultima_acta',
-    'DESDE': 'desde',
-    'HASTA': 'hasta',
-    'DETECTADO': 'detectado',
-    'ESTADO': 'estado',
-    'FECHA_PAGO_OBL': 'fecha_pago_obl',
-    'EMPL 10-2025': 'empl_10_2025',
-    'EMP 11-2025': 'emp_11_2025',
-    'EMPL 12-2025': 'empl_12_2025',
-    'ACTIVIDAD': 'actividad',
-    'SITUACION': 'situacion'
+COLUMNAS_EXCEL = [
+    "DELEGACION", "LOCALIDAD", "CUIT", "RAZON SOCIAL", "DEUDA PRESUNTA",
+    "CP", "CALLE", "NUMERO", "PISO", "DPTO", "FECHARELDEPENDENCIA",
+    "EMAIL", "TEL_DOM_LEGAL", "TEL_DOM_REAL", "ULTIMA ACTA", "DESDE",
+    "HASTA", "DETECTADO", "ESTADO", "FECHA_PAGO_OBL", "EMPL 10-2025",
+    "EMP 11-2025", "EMPL 12-2025", "ACTIVIDAD", "SITUACION"
+]
+
+MAPA_COLUMNAS = {
+    "DELEGACION": "delegacion",
+    "LOCALIDAD": "localidad",
+    "CUIT": "cuit",
+    "RAZON SOCIAL": "razon_social",
+    "DEUDA PRESUNTA": "deuda_presunta",
+    "CP": "cp",
+    "CALLE": "calle",
+    "NUMERO": "numero",
+    "PISO": "piso",
+    "DPTO": "dpto",
+    "FECHARELDEPENDENCIA": "fechareldependencia",
+    "EMAIL": "email",
+    "TEL_DOM_LEGAL": "tel_dom_legal",
+    "TEL_DOM_REAL": "tel_dom_real",
+    "ULTIMA ACTA": "ultima_acta",
+    "DESDE": "desde",
+    "HASTA": "hasta",
+    "DETECTADO": "detectado",
+    "ESTADO": "estado",
+    "FECHA_PAGO_OBL": "fecha_pago_obl",
+    "EMPL 10-2025": "empl_10_2025",
+    "EMP 11-2025": "emp_11_2025",
+    "EMPL 12-2025": "empl_12_2025",
+    "ACTIVIDAD": "actividad",
+    "SITUACION": "situacion"
 }
+
+# Columnas que pueden contener seriales de fecha Excel
+COLUMNAS_FECHA = {"fechareldependencia", "desde", "hasta", "detectado", "fecha_pago_obl"}
 
 # Títulos bonitos para mostrar
 TITULOS_MOSTRAR = {
@@ -191,6 +211,56 @@ TITULOS_MOSTRAR = {
     'estado_gestion': 'ESTADO GESTION'
 }
 
+# ==================== FUNCIÓN PARA PROCESAR EXCEL ====================
+def procesar_excel(archivo):
+    """Lee el Excel y devuelve una lista de dicts listos para Supabase."""
+    # Leer TODO como string primero
+    if archivo.name.endswith('.xls'):
+        df = pd.read_excel(archivo, engine='xlrd', dtype=str)
+    else:
+        df = pd.read_excel(archivo, engine='openpyxl', dtype=str)
+    
+    # Limpiar nombres de columnas
+    df.columns = [str(col).strip().upper() for col in df.columns]
+    
+    # Verificar columnas
+    faltantes = [c for c in COLUMNAS_EXCEL if c not in df.columns]
+    if faltantes:
+        raise ValueError(f"Columnas faltantes: {faltantes}")
+    
+    df = df[COLUMNAS_EXCEL].rename(columns=MAPA_COLUMNAS)
+    
+    registros_limpios = []
+    
+    for _, fila in df.iterrows():
+        registro = {}
+        
+        for col_db in MAPA_COLUMNAS.values():
+            val = fila.get(col_db)
+            val = limpiar_valor(val)
+            
+            # Si es string, limpiar espacios y "nan" literales
+            if isinstance(val, str):
+                val = val.strip()
+                if val.lower() in ("nan", "none", "nat", ""):
+                    val = None
+                # Limpiar números con formato: "1.0" → "1"
+                elif val.endswith(".0") and val[:-2].lstrip("-").isdigit():
+                    val = val[:-2]
+                # Convertir serial de fecha si corresponde
+                elif col_db in COLUMNAS_FECHA and val and val.isdigit():
+                    val = excel_serial_a_fecha(int(val))
+            
+            # ULTIMA ACTA vacía → "*"
+            if col_db == "ultima_acta" and not val:
+                val = "*"
+            
+            registro[col_db] = val
+        
+        registros_limpios.append(registro)
+    
+    return registros_limpios
+
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas"])
 
@@ -208,38 +278,18 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
-            # Leer Excel como string para evitar problemas
-            if uploaded_file.name.endswith('.xls'):
-                df_raw = pd.read_excel(uploaded_file, engine='xlrd', dtype=str)
-            else:
-                df_raw = pd.read_excel(uploaded_file, engine='openpyxl', dtype=str)
-            
-            # Limpiar nombres de columnas
-            df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
-            
-            # LIMPIEZA NUCLEAR: reemplazar TODOS los valores problemáticos
-            df_raw = df_raw.replace({np.nan: None, 'nan': None, 'NaN': None, '': None})
-            
-            df_final = pd.DataFrame()
-            for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
-                if col_excel in df_raw.columns:
-                    # Convertir cada valor a string o None
-                    valores = [limpiar_valor_a_string(val) for val in df_raw[col_excel]]
-                    df_final[col_tabla] = valores
-                else:
-                    st.error(f"Columna '{col_excel}' no encontrada")
-                    st.stop()
+            # Procesar Excel con la función de Claude
+            registros = procesar_excel(uploaded_file)
+            total_registros = len(registros)
             
             # Agregar columnas extras
-            df_final['leg'] = None
-            df_final['vto'] = None
-            df_final['mail_enviado'] = 'NO'
-            df_final['acta'] = None
-            df_final['fecha_carga'] = datetime.now().strftime('%Y-%m-%d')
-            df_final['estado_gestion'] = 'PENDIENTE'
-            
-            # NORMALIZAR ULTIMA ACTA: los valores vacíos se convierten en '*'
-            df_final['ultima_acta'] = df_final['ultima_acta'].apply(normalizar_ultima_acta)
+            for reg in registros:
+                reg['leg'] = None
+                reg['vto'] = None
+                reg['mail_enviado'] = 'NO'
+                reg['acta'] = None
+                reg['fecha_carga'] = datetime.now().strftime('%Y-%m-%d')
+                reg['estado_gestion'] = 'PENDIENTE'
             
             # ==================== DETECCIÓN DE DUPLICADOS ====================
             # Obtener todos los pares (cuit, ultima_acta) existentes
@@ -248,28 +298,21 @@ with tab1:
             for reg in existentes.data:
                 cuit = str(reg.get('cuit') or '')
                 acta = str(reg.get('ultima_acta') or '*')
-                if not acta or acta == '' or acta == 'None':
-                    acta = '*'
                 if cuit:
                     existentes_set.add((cuit, acta))
             
-            # Filtrar registros del Excel
-            registros = df_final.to_dict(orient='records')
+            # Filtrar registros nuevos
             nuevos_registros = []
             duplicados = 0
             
             for reg in registros:
                 cuit = str(reg.get('cuit') or '')
                 acta = str(reg.get('ultima_acta') or '*')
-                if not acta or acta == '' or acta == 'None':
-                    acta = '*'
-                
                 if (cuit, acta) not in existentes_set:
                     nuevos_registros.append(reg)
                 else:
                     duplicados += 1
             
-            total_registros = len(registros)
             nuevos_count = len(nuevos_registros)
             
             st.markdown(f"""
@@ -284,12 +327,11 @@ with tab1:
             
             # Vista previa
             if nuevos_registros:
-                df_preview = pd.DataFrame(nuevos_registros[:10])
-                for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
-                    if col in df_preview.columns:
-                        df_preview[col] = df_preview[col].apply(fecha_para_mostrar)
-                
-                with st.expander("Vista previa (SOLO registros nuevos)"):
+                with st.expander("Vista previa (primeros 10 registros nuevos)"):
+                    df_preview = pd.DataFrame(nuevos_registros[:10])
+                    for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
+                        if col in df_preview.columns:
+                            df_preview[col] = df_preview[col].apply(fecha_para_mostrar)
                     st.dataframe(df_preview, use_container_width=True)
             
             if nuevos_registros and st.button("✅ Confirmar carga", type="primary"):
@@ -297,17 +339,7 @@ with tab1:
                     total_insertados = 0
                     for i in range(0, len(nuevos_registros), 100):
                         lote = nuevos_registros[i:i+100]
-                        # Limpiar nuevamente cada registro para asegurar que no haya nan
-                        lote_limpio = []
-                        for reg in lote:
-                            reg_limpio = {}
-                            for k, v in reg.items():
-                                if pd.isna(v) or (isinstance(v, float) and math.isnan(v)):
-                                    reg_limpio[k] = None
-                                else:
-                                    reg_limpio[k] = v
-                            lote_limpio.append(reg_limpio)
-                        resultado = supabase.table("padron_deuda_presunta").insert(lote_limpio).execute()
+                        resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
                         total_insertados += len(resultado.data)
                     
                     st.success(f"✅ Carga completada: {total_insertados} registros nuevos insertados. Duplicados omitidos: {duplicados}")
@@ -316,7 +348,6 @@ with tab1:
                             
         except Exception as e:
             st.error(f"Error: {str(e)}")
-            st.info("Si el error persiste, verifica que el archivo Excel no tenga celdas con formatos especiales.")
 
 # ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
 with tab2:
