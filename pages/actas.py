@@ -376,18 +376,18 @@ with tab2:
                 key="filtro_mail"
             )
         
-        # Construir consulta base
-        query_count = supabase.table("padron_deuda_presunta")
+        # CONSTRUIR CONSULTA PARA CONTAR (usando variable separada)
+        query_total = supabase.table("padron_deuda_presunta")
         
         if localidad_seleccionada != "TODAS" and localidades_unicas:
-            query_count = query_count.eq("localidad", localidad_seleccionada)
+            query_total = query_total.eq("localidad", localidad_seleccionada)
         
         if filtro_mail == "SI":
-            query_count = query_count.eq("mail_enviado", "SI")
+            query_total = query_total.eq("mail_enviado", "SI")
         elif filtro_mail == "NO":
-            query_count = query_count.eq("mail_enviado", "NO")
+            query_total = query_total.eq("mail_enviado", "NO")
         
-        total_registros = query_count.select("id", count="exact").execute()
+        total_registros = query_total.select("id", count="exact").execute()
         total = total_registros.count
         
         with col_filtro3:
@@ -435,18 +435,18 @@ with tab2:
             
             offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
             
-            # Obtener datos
-            query_data = supabase.table("padron_deuda_presunta")
+            # Obtener datos para la página actual (usar NUEVA variable)
+            query_datos = supabase.table("padron_deuda_presunta")
             
             if localidad_seleccionada != "TODAS" and localidades_unicas:
-                query_data = query_data.eq("localidad", localidad_seleccionada)
+                query_datos = query_datos.eq("localidad", localidad_seleccionada)
             
             if filtro_mail == "SI":
-                query_data = query_data.eq("mail_enviado", "SI")
+                query_datos = query_datos.eq("mail_enviado", "SI")
             elif filtro_mail == "NO":
-                query_data = query_data.eq("mail_enviado", "NO")
+                query_datos = query_datos.eq("mail_enviado", "NO")
             
-            datos = query_data.select("*").range(offset, offset + registros_por_pagina - 1).execute()
+            datos = query_datos.select("*").range(offset, offset + registros_por_pagina - 1).execute()
             
             if datos.data:
                 desde = offset + 1
@@ -498,7 +498,7 @@ with tab2:
                     key=f"editor_{st.session_state.pagina_actual}"
                 )
                 
-                # Guardar IDs seleccionados y actualizar cambios automáticamente
+                # Guardar IDs seleccionados
                 ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
                 st.session_state.ids_a_eliminar = ids_seleccionados
                 
@@ -510,7 +510,7 @@ with tab2:
                 st.info("✏️ Los cambios se guardan AUTOMÁTICAMENTE al modificar una celda")
                 
                 # Guardar cambios automáticamente al editar
-                # Comparamos fila por fila con el original
+                hay_cambios = False
                 for idx, row in edited_df.iterrows():
                     original = df_mostrar.loc[idx]
                     datos_update = {}
@@ -563,13 +563,10 @@ with tab2:
                     
                     if datos_update:
                         supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
-                        # Mostrar mensaje de éxito solo si hay cambios
-                        if 'cambio_guardado' not in st.session_state:
-                            st.session_state.cambio_guardado = True
+                        hay_cambios = True
                 
-                if st.session_state.get('cambio_guardado', False):
+                if hay_cambios:
                     st.success("✅ Cambios guardados automáticamente")
-                    st.session_state.cambio_guardado = False
         else:
             st.info("No hay datos con los filtros seleccionados")
     except Exception as e:
