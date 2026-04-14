@@ -4,6 +4,7 @@ from supabase import create_client
 from datetime import datetime
 import numpy as np
 import re
+import math
 
 # Configuración de página
 st.set_page_config(
@@ -47,7 +48,30 @@ with col_back:
 
 st.markdown("---")
 
-# ==================== FUNCIONES DE CONVERSIÓN ====================
+# ==================== FUNCIONES DE LIMPIEZA EXTREMA ====================
+def limpiar_valor_nuclear(valor):
+    """Convierte CUALQUIER valor a None o string, sin excepciones"""
+    if valor is None:
+        return None
+    if pd.isna(valor):
+        return None
+    if isinstance(valor, float):
+        if math.isnan(valor) or math.isinf(valor):
+            return None
+        # Si es entero sin decimales, convertir a int y luego a string
+        if valor.is_integer():
+            return str(int(valor))
+        return str(valor)
+    if isinstance(valor, (int, np.integer)):
+        return str(valor)
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        return valor.strftime('%Y-%m-%d')
+    if isinstance(valor, str):
+        if valor.strip() == '' or valor.lower() in ['nan', 'none', 'null']:
+            return None
+        return valor.strip()
+    return str(valor)
+
 def fecha_para_mostrar(valor):
     if valor is None or pd.isna(valor):
         return None
@@ -59,10 +83,6 @@ def fecha_para_mostrar(valor):
                 fecha = datetime.strptime(valor, '%Y-%m-%d')
                 return fecha.strftime('%d/%m/%Y')
             return valor
-        if isinstance(valor, (int, float)):
-            fecha_base = datetime(1899, 12, 30)
-            fecha = fecha_base + pd.Timedelta(days=float(valor))
-            return fecha.strftime('%d/%m/%Y')
         return str(valor)
     except:
         return str(valor) if valor else None
@@ -79,10 +99,6 @@ def fecha_para_guardar(valor):
                 return fecha.strftime('%Y-%m-%d')
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 return valor
-        if isinstance(valor, (int, float)):
-            fecha_base = datetime(1899, 12, 30)
-            fecha = fecha_base + pd.Timedelta(days=float(valor))
-            return fecha.strftime('%Y-%m-%d')
         return None
     except:
         return None
@@ -91,54 +107,14 @@ def limpiar_numero_entero(valor):
     if valor is None or pd.isna(valor):
         return None
     try:
+        if isinstance(valor, str) and valor.isdigit():
+            return int(valor)
         num = float(valor)
         if num.is_integer():
             return int(num)
         return None
     except:
         return None
-
-def convertir_fecha_excel_para_guardar(valor):
-    if valor is None or pd.isna(valor):
-        return None
-    try:
-        if isinstance(valor, (int, float)) and valor > 30000:
-            fecha_base = datetime(1899, 12, 30)
-            fecha = fecha_base + pd.Timedelta(days=float(valor))
-            return fecha.strftime('%Y-%m-%d')
-        if isinstance(valor, (pd.Timestamp, datetime)):
-            return valor.strftime('%Y-%m-%d')
-        if isinstance(valor, str):
-            if re.match(r'\d{2}/\d{2}/\d{4}', valor):
-                fecha = datetime.strptime(valor, '%d/%m/%Y')
-                return fecha.strftime('%Y-%m-%d')
-            return valor
-        return None
-    except:
-        return None
-
-def limpiar_para_json(valor):
-    if valor is None:
-        return None
-    if pd.isna(valor):
-        return None
-    if isinstance(valor, float):
-        if np.isnan(valor) or np.isinf(valor):
-            return None
-        if valor.is_integer():
-            return int(valor)
-        return valor
-    if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.strftime('%Y-%m-%d')
-    if isinstance(valor, np.integer):
-        return int(valor)
-    if isinstance(valor, np.floating):
-        if np.isnan(valor):
-            return None
-        return float(valor)
-    if isinstance(valor, str) and valor.strip() == '':
-        return None
-    return valor
 
 # ==================== MAPEO DE COLUMNAS ====================
 MAPEO_EXCEL_A_TABLA = {
@@ -221,50 +197,29 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
+            # Leer Excel
             if uploaded_file.name.endswith('.xls'):
-                df_raw = pd.read_excel(uploaded_file, engine='xlrd')
+                df_raw = pd.read_excel(uploaded_file, engine='xlrd', dtype=str)
             else:
-                df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
+                df_raw = pd.read_excel(uploaded_file, engine='openpyxl', dtype=str)
             
+            # Limpiar nombres de columnas
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
+            
+            # LIMPIEZA NUCLEAR: reemplazar todos los NaN/None por None
+            df_raw = df_raw.replace({np.nan: None, 'nan': None, 'NaN': None, '': None})
             
             df_final = pd.DataFrame()
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
-                    valores = []
-                    for val in df_raw[col_excel]:
-                        if pd.isna(val):
-                            valores.append(None)
-                        else:
-                            if col_tabla in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
-                                try:
-                                    num = float(val)
-                                    if num.is_integer():
-                                        valores.append(int(num))
-                                    else:
-                                        valores.append(None)
-                                except:
-                                    valores.append(None)
-                            elif col_tabla in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
-                                fecha_iso = convertir_fecha_excel_para_guardar(val)
-                                valores.append(fecha_iso)
-                            elif col_tabla in ['deuda_presunta', 'detectado']:
-                                try:
-                                    num = float(val)
-                                    if num.is_integer():
-                                        valores.append(f"${int(num):,}".replace(",", "."))
-                                    else:
-                                        valores.append(f"${num:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                                except:
-                                    valores.append(str(val).strip() if str(val).strip() else None)
-                            else:
-                                valores.append(str(val).strip() if str(val).strip() else None)
-                    
+                    # Aplicar limpieza nuclear a cada valor
+                    valores = [limpiar_valor_nuclear(val) for val in df_raw[col_excel]]
                     df_final[col_tabla] = valores
                 else:
                     st.error(f"Columna '{col_excel}' no encontrada")
                     st.stop()
             
+            # Agregar columnas extras
             df_final['leg'] = None
             df_final['vto'] = None
             df_final['mail_enviado'] = 'NO'
@@ -272,11 +227,8 @@ with tab1:
             df_final['fecha_carga'] = datetime.now().strftime('%Y-%m-%d')
             df_final['estado_gestion'] = 'PENDIENTE'
             
-            for col in df_final.columns:
-                df_final[col] = df_final[col].apply(limpiar_para_json)
-            
             # ==================== DETECCIÓN DE DUPLICADOS ====================
-            # Obtener todos los pares (cuit, ultima_acta) existentes en la base
+            # Obtener todos los pares (cuit, ultima_acta) existentes
             existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
             existentes_set = set()
             for reg in existentes.data:
@@ -285,7 +237,7 @@ with tab1:
                 if cuit:
                     existentes_set.add((cuit, acta))
             
-            # Filtrar registros del Excel
+            # Filtrar registros
             registros = df_final.to_dict(orient='records')
             nuevos_registros = []
             duplicados = 0
@@ -310,7 +262,7 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
             
-            # Vista previa de los NUEVOS registros (no los duplicados)
+            # Vista previa
             if nuevos_registros:
                 df_preview = pd.DataFrame(nuevos_registros[:10])
                 for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
@@ -330,7 +282,7 @@ with tab1:
                     
                     st.success(f"✅ Carga completada: {total_insertados} registros nuevos insertados. Duplicados omitidos: {duplicados}")
             elif not nuevos_registros:
-                st.warning(f"⚠️ No hay registros nuevos para cargar. Los {total_registros} registros del archivo ya existen en la base de datos (mismo CUIT y misma ULTIMA ACTA).")
+                st.warning(f"⚠️ No hay registros nuevos para cargar. Los {total_registros} registros del archivo ya existen en la base de datos.")
                             
         except Exception as e:
             st.error(f"Error: {str(e)}")
@@ -504,11 +456,12 @@ with tab2:
             
             df_datos = pd.DataFrame(datos.data)
             
-            # Limpiar datos
+            # Limpiar números enteros en EMPL
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
             
+            # Convertir fechas para mostrar
             for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
