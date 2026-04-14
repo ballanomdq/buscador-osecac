@@ -3,7 +3,6 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime
 import numpy as np
-import re
 
 # Configuración de página
 st.set_page_config(
@@ -26,6 +25,8 @@ st.markdown("""
     .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; }
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
+    .delete-button button { background-color: #dc2626 !important; }
+    .delete-button button:hover { background-color: #b91c1c !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -46,48 +47,20 @@ with col_back:
 st.markdown("---")
 
 # ==================== FUNCIONES DE LIMPIEZA ====================
-def convertir_numero_excel(valor):
-    """Convierte números de Excel (1.0 -> 1)"""
-    if valor is None or pd.isna(valor):
-        return None
-    try:
-        # Si es float y termina en .0, convertirlo a entero
-        if isinstance(valor, float) and valor.is_integer():
-            return int(valor)
-        return valor
-    except:
-        return valor
-
 def convertir_fecha_excel(valor):
     """Convierte número de Excel a fecha (44854 -> 28/02/2019)"""
     if valor is None or pd.isna(valor):
         return None
     try:
-        # Si es número, convertirlo a fecha
         if isinstance(valor, (int, float)):
-            # Excel usa 30/12/1899 como base
             fecha_base = datetime(1899, 12, 30)
             fecha = fecha_base + pd.Timedelta(days=float(valor))
             return fecha.strftime('%d/%m/%Y')
-        # Si ya es string, devolverlo
         if isinstance(valor, str):
             return valor
         return None
     except:
         return str(valor) if valor else None
-
-def formatear_numero(valor):
-    """Formatea número con separadores de miles"""
-    if valor is None or pd.isna(valor):
-        return None
-    try:
-        num = float(valor)
-        # Si es entero, mostrar sin decimales
-        if num.is_integer():
-            return f"{int(num):,}".replace(",", ".")
-        return f"{num:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
-        return str(valor)
 
 # ==================== MAPEO DE COLUMNAS ====================
 MAPEO_EXCEL_A_TABLA = {
@@ -118,7 +91,7 @@ MAPEO_EXCEL_A_TABLA = {
     'SITUACION': 'situacion'
 }
 
-# Títulos bonitos para mostrar (sin fecha_carga)
+# Títulos bonitos para mostrar
 TITULOS_MOSTRAR = {
     'id': 'ID',
     'delegacion': 'DELEGACION',
@@ -170,7 +143,6 @@ with tab1:
         st.info(f"Archivo: {uploaded_file.name}")
         
         try:
-            # Leer Excel
             if uploaded_file.name.endswith('.xls'):
                 df_raw = pd.read_excel(uploaded_file, engine='xlrd')
             else:
@@ -178,7 +150,6 @@ with tab1:
             
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
-            # Crear DataFrame final
             df_final = pd.DataFrame()
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
@@ -187,10 +158,8 @@ with tab1:
                         if pd.isna(val):
                             valores.append(None)
                         else:
-                            # Limpiar cada valor según el tipo de columna
                             val_str = str(val).strip()
                             
-                            # Columnas de números enteros (EMPL)
                             if col_tabla in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                                 try:
                                     num = float(val)
@@ -201,20 +170,16 @@ with tab1:
                                 except:
                                     valores.append(val_str)
                             
-                            # Columnas de fechas
                             elif col_tabla in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
-                                # Convertir fecha de Excel
                                 if isinstance(val, (int, float)) and val > 30000:
                                     fecha = convertir_fecha_excel(val)
                                     valores.append(fecha)
                                 else:
                                     valores.append(val_str)
                             
-                            # Columnas de números con formato
                             elif col_tabla in ['deuda_presunta', 'detectado']:
                                 try:
                                     num = float(val)
-                                    # Formatear con $ y separadores
                                     if num.is_integer():
                                         valores.append(f"${int(num):,}".replace(",", "."))
                                     else:
@@ -230,7 +195,6 @@ with tab1:
                     st.error(f"Columna '{col_excel}' no encontrada")
                     st.stop()
             
-            # Agregar columnas extras (sin fecha_carga visible)
             df_final['leg'] = None
             df_final['vto'] = None
             df_final['mail_enviado'] = 'NO'
@@ -246,23 +210,71 @@ with tab1:
             if st.button("✅ Confirmar carga", type="primary"):
                 with st.spinner("Cargando datos..."):
                     registros = df_final.to_dict(orient='records')
-                    
-                    # Insertar directamente
                     total = 0
                     for i in range(0, len(registros), 100):
                         lote = registros[i:i+100]
                         resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
                         total += len(resultado.data)
-                    
                     st.success(f"✅ Carga completada: {total} registros insertados.")
                             
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
-# ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
+# ==================== TAB 2: EDITAR LEGAJOS Y VTOS (CON ELIMINACIÓN) ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
+    # Botones de acción en la parte superior
+    col_accion1, col_accion2, col_accion3 = st.columns(3)
+    
+    with col_accion1:
+        if st.button("🗑️ Eliminar ÚLTIMOS 100 registros", help="Elimina los 100 registros más recientes"):
+            with st.spinner("Eliminando..."):
+                # Obtener los últimos 100 IDs
+                datos = supabase.table("padron_deuda_presunta").select("id").order("id", desc=True).limit(100).execute()
+                if datos.data:
+                    ids_a_eliminar = [reg['id'] for reg in datos.data]
+                    for id_reg in ids_a_eliminar:
+                        supabase.table("padron_deuda_presunta").delete().eq("id", id_reg).execute()
+                    st.success(f"✅ Se eliminaron {len(ids_a_eliminar)} registros")
+                    st.rerun()
+                else:
+                    st.warning("No hay registros para eliminar")
+    
+    with col_accion2:
+        if st.button("🗑️ Eliminar TODOS los registros", help="¡CUIDADO! Elimina toda la base"):
+            st.session_state.confirmar_eliminar = True
+    
+    with col_accion3:
+        if st.button("🔄 Recargar datos", help="Actualiza la vista"):
+            st.rerun()
+    
+    # Confirmación de eliminación total
+    if st.session_state.get('confirmar_eliminar', False):
+        st.markdown("""
+        <div class="warning-box">
+            <strong>⚠️ ¡ATENCIÓN!</strong><br>
+            Estás por eliminar TODOS los registros de la base de datos.<br>
+            Esta acción no se puede deshacer.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col_confirm1, col_confirm2 = st.columns(2)
+        with col_confirm1:
+            if st.button("✅ SÍ, ELIMINAR TODO", key="confirmar_si"):
+                with st.spinner("Eliminando todos los registros..."):
+                    supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
+                    st.success("✅ Todos los registros fueron eliminados")
+                    st.session_state.confirmar_eliminar = False
+                    st.rerun()
+        with col_confirm2:
+            if st.button("❌ Cancelar", key="confirmar_no"):
+                st.session_state.confirmar_eliminar = False
+                st.rerun()
+    
+    st.markdown("---")
+    
+    # Mostrar datos
     try:
         datos = supabase.table("padron_deuda_presunta").select("*").execute()
         
@@ -271,16 +283,59 @@ with tab2:
             total_registros = len(df_datos)
             st.write(f"**Total de registros en la base:** {total_registros}")
             
-            # Mostrar TODOS los registros
-            st.info(f"📝 Mostrando todos los {total_registros} registros. Editá las celdas y presioná 'Guardar Cambios'")
+            # Selector de cuántos registros mostrar
+            opciones_mostrar = [100, 500, 1000, 5000, total_registros]
+            mostrar_seleccion = st.selectbox(
+                "¿Cuántos registros querés ver?",
+                options=opciones_mostrar,
+                index=min(3, len(opciones_mostrar)-1),
+                format_func=lambda x: f"Últimos {x}" if x != total_registros else f"Todos ({x})"
+            )
             
-            # Eliminar columna fecha_carga de la vista (no se muestra)
-            if 'fecha_carga' in df_datos.columns:
-                df_datos = df_datos.drop(columns=['fecha_carga'])
+            # Obtener los últimos N registros (o todos)
+            if mostrar_seleccion == total_registros:
+                df_mostrar = df_datos.copy()
+            else:
+                df_mostrar = df_datos.tail(mostrar_seleccion).copy()
             
-            # Renombrar columnas para mostrar títulos bonitos
-            df_mostrar = df_datos.copy()
+            # Eliminar columna fecha_carga de la vista
+            if 'fecha_carga' in df_mostrar.columns:
+                df_mostrar = df_mostrar.drop(columns=['fecha_carga'])
+            
+            # Renombrar columnas
             df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
+            
+            st.info(f"📝 Mostrando {len(df_mostrar)} registros. Editá las celdas y presioná 'Guardar Cambios'")
+            
+            # Checkbox para seleccionar filas a eliminar individualmente
+            with st.expander("🗑️ Eliminar registros específicos"):
+                st.warning("Seleccioná las filas que querés eliminar y presioná 'Eliminar seleccionados'")
+                
+                # Agregar columna de selección
+                df_con_seleccion = df_mostrar.copy()
+                df_con_seleccion.insert(0, "SELECCIONAR", False)
+                
+                df_seleccion = st.data_editor(
+                    df_con_seleccion,
+                    use_container_width=True,
+                    column_config={"SELECCIONAR": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")},
+                    disabled=df_con_seleccion.columns[2:].tolist(),
+                    key="selector_eliminar"
+                )
+                
+                if st.button("🗑️ Eliminar seleccionados", type="primary"):
+                    ids_a_eliminar = df_seleccion[df_seleccion["SELECCIONAR"]]["ID"].tolist()
+                    if ids_a_eliminar:
+                        with st.spinner(f"Eliminando {len(ids_a_eliminar)} registros..."):
+                            for id_reg in ids_a_eliminar:
+                                supabase.table("padron_deuda_presunta").delete().eq("id", id_reg).execute()
+                            st.success(f"✅ Se eliminaron {len(ids_a_eliminar)} registros")
+                            st.rerun()
+                    else:
+                        st.warning("No seleccionaste ningún registro")
+            
+            st.markdown("---")
+            st.markdown("### Editor de datos")
             
             edited_df = st.data_editor(
                 df_mostrar,
@@ -323,7 +378,7 @@ with tab2:
                     st.success(f"✅ {modificados} registros actualizados correctamente")
                     st.rerun()
         else:
-            st.info("No hay datos cargados")
+            st.info("No hay datos cargados. Cargue un padrón primero.")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
