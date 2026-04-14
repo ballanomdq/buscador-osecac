@@ -16,17 +16,23 @@ except:
     except:
         pass
 
+# ==================== CONEXIÓN CACHEADA A SUPABASE ====================
+@st.cache_resource
+def get_supabase():
+    """Crea una única conexión a Supabase (reutilizada en toda la sesión)"""
+    return create_client(
+        st.secrets["SUPABASE_URL_ACTAS"],
+        st.secrets["SUPABASE_KEY_ACTAS"]
+    )
+
+supabase = get_supabase()
+
 # Configuración de página
 st.set_page_config(
     page_title="Fiscalización - OSECAC",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# Conexión a Supabase
-SUPABASE_URL_ACTAS = st.secrets["SUPABASE_URL_ACTAS"]
-SUPABASE_KEY_ACTAS = st.secrets["SUPABASE_KEY_ACTAS"]
-supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
 
 # Estilo
 st.markdown("""
@@ -161,11 +167,9 @@ def fecha_para_guardar(valor):
             valor = valor.strip()
             if not valor:
                 return None
-            # Si viene en formato DD/MM/YYYY
             if re.match(r'\d{2}/\d{2}/\d{4}', valor):
                 fecha = datetime.strptime(valor, '%d/%m/%Y')
                 return fecha.strftime('%Y-%m-%d')
-            # Si viene en formato ISO con T o espacio
             if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 return valor[:10]
         return None
@@ -185,6 +189,57 @@ def limpiar_numero_entero(valor):
         return None
     except:
         return None
+
+# ==================== FUNCIONES CON CACHÉ PARA RENDIMIENTO ====================
+@st.cache_data(ttl=300)
+def obtener_localidades(_supabase):
+    """Obtiene localidades únicas (cacheado por 5 minutos)"""
+    todas = _supabase.table("padron_deuda_presunta").select("localidad").execute()
+    localidades = sorted(set([l['localidad'] for l in todas.data if l.get('localidad')]))
+    if 'MAR DEL PLATA' in localidades:
+        localidades.remove('MAR DEL PLATA')
+        localidades = ['MAR DEL PLATA'] + localidades
+    return localidades
+
+@st.cache_data(ttl=60)
+def obtener_pares_existentes(_supabase):
+    """Trae solo los pares (cuit, ultima_acta) de la tabla (cacheado 1 minuto)"""
+    todos = []
+    offset = 0
+    batch_size = 1000
+    while True:
+        batch = _supabase.table("padron_deuda_presunta")\
+            .select("cuit, ultima_acta")\
+            .range(offset, offset + batch_size - 1)\
+            .execute()
+        if not batch.data:
+            break
+        todos.extend(batch.data)
+        offset += batch_size
+        if len(batch.data) < batch_size:
+            break
+    # También obtener los que tienen ultima_acta = NULL
+    batch_none = _supabase.table("padron_deuda_presunta")\
+        .select("cuit, ultima_acta")\
+        .is_("ultima_acta", "null")\
+        .execute()
+    for reg in batch_none.data:
+        cuit = str(reg.get('cuit') or '')
+        if cuit:
+            todos.append({'cuit': cuit, 'ultima_acta': '*'})
+    return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
+
+@st.cache_data(ttl=60)
+def contar_registros(_supabase, localidad, filtro_mail):
+    """Cuenta registros con filtros (cacheado 1 minuto)"""
+    query = _supabase.table("padron_deuda_presunta").select("*", count="exact", head=True)
+    if localidad != "TODAS":
+        query = query.eq("localidad", localidad)
+    if filtro_mail == "SI":
+        query = query.eq("mail_enviado", "SI")
+    elif filtro_mail == "NO":
+        query = query.eq("mail_enviado", "NO")
+    return query.execute().count
 
 # ==================== MAPEO DE COLUMNAS ====================
 COLUMNAS_EXCEL = [
@@ -342,32 +397,8 @@ with tab1:
                 reg['fecha_carga'] = date.today().isoformat()
                 reg['estado_gestion'] = 'PENDIENTE'
             
-            # Detección de duplicados
-            todos_existentes = []
-            offset = 0
-            batch_size = 1000
-            
-            while True:
-                batch = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").range(offset, offset + batch_size - 1).execute()
-                if not batch.data:
-                    break
-                todos_existentes.extend(batch.data)
-                offset += batch_size
-                if len(batch.data) < batch_size:
-                    break
-            
-            existentes_set = set()
-            for reg in todos_existentes:
-                cuit = str(reg.get('cuit') or '')
-                acta = str(reg.get('ultima_acta') or '*')
-                if cuit:
-                    existentes_set.add((cuit, acta))
-            
-            batch_none = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").is_("ultima_acta", "null").execute()
-            for reg in batch_none.data:
-                cuit = str(reg.get('cuit') or '')
-                if cuit:
-                    existentes_set.add((cuit, '*'))
+            # Detección de duplicados usando caché
+            existentes_set = obtener_pares_existentes(supabase)
             
             nuevos_registros = []
             duplicados = 0
@@ -409,6 +440,10 @@ with tab1:
                         total_insertados += len(resultado.data)
                     
                     st.success(f"✅ Carga completada: {total_insertados} registros nuevos insertados. Duplicados omitidos: {duplicados}")
+                    # Limpiar caché después de cargar
+                    obtener_pares_existentes.clear()
+                    obtener_localidades.clear()
+                    contar_registros.clear()
             elif not nuevos_registros:
                 st.warning(f"⚠️ No hay registros nuevos para cargar. Los {total_registros} registros del archivo ya existen en la base de datos.")
                             
@@ -428,6 +463,9 @@ with tab2:
                 supabase.table("padron_deuda_presunta").delete().in_("id", st.session_state.ids_a_eliminar).execute()
                 st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
                 st.session_state.ids_a_eliminar = []
+                # Limpiar caché
+                obtener_localidades.clear()
+                contar_registros.clear()
                 st.rerun()
             else:
                 st.warning("No hay registros seleccionados")
@@ -453,6 +491,10 @@ with tab2:
                     st.success("✅ Todos los registros fueron eliminados")
                     st.session_state.confirmar_eliminar_todo = False
                     st.session_state.ids_a_eliminar = []
+                    # Limpiar caché
+                    obtener_localidades.clear()
+                    contar_registros.clear()
+                    obtener_pares_existentes.clear()
                     st.rerun()
         with col_no:
             if st.button("❌ Cancelar"):
@@ -461,12 +503,8 @@ with tab2:
     
     st.markdown("---")
     
-    todas_localidades = supabase.table("padron_deuda_presunta").select("localidad").execute()
-    localidades_unicas = sorted(set([l['localidad'] for l in todas_localidades.data if l.get('localidad')]))
-    
-    if 'MAR DEL PLATA' in localidades_unicas:
-        localidades_unicas.remove('MAR DEL PLATA')
-        localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
+    # Obtener localidades (usando caché)
+    localidades_unicas = obtener_localidades(supabase)
     
     col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 1, 1])
     
@@ -490,19 +528,8 @@ with tab2:
             key="filtro_mail"
         )
     
-    # ==================== CONTEO CORREGIDO ====================
-    # Usar head=True para obtener el count exacto sin traer todos los datos
-    query_total = supabase.table("padron_deuda_presunta").select("*", count="exact", head=True)
-    
-    if localidad_seleccionada != "TODAS" and localidades_unicas:
-        query_total = query_total.eq("localidad", localidad_seleccionada)
-    
-    if filtro_mail == "SI":
-        query_total = query_total.eq("mail_enviado", "SI")
-    elif filtro_mail == "NO":
-        query_total = query_total.eq("mail_enviado", "NO")
-    
-    total = query_total.execute().count
+    # CONTEO usando caché
+    total = contar_registros(supabase, localidad_seleccionada, filtro_mail)
     
     with col_filtro3:
         st.metric("Total registros", total)
@@ -545,7 +572,7 @@ with tab2:
         
         offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
         
-        # ==================== QUERY DE DATOS CORREGIDA ====================
+        # OBTENER DATOS
         query_datos = supabase.table("padron_deuda_presunta").select("*")
         
         if localidad_seleccionada != "TODAS" and localidades_unicas:
@@ -572,6 +599,9 @@ with tab2:
             for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
+            
+            # Guardar copia original para comparar cambios después
+            df_original = df_datos.copy()
             
             df_mostrar = df_datos.copy()
             if 'fecha_carga' in df_mostrar.columns:
@@ -617,12 +647,17 @@ with tab2:
                     inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
                     modificados = 0
                     
+                    # Solo iterar sobre las filas que realmente cambiaron
                     for idx, row in edited_df.iterrows():
-                        original = df_mostrar.loc[idx]
+                        original_row = df_original.loc[idx] if idx in df_original.index else None
+                        if original_row is None:
+                            continue
+                        
                         datos_update = {}
                         
+                        # LEG
                         nuevo_leg = row.get('LEG')
-                        viejo_leg = original.get('LEG')
+                        viejo_leg = original_row.get('leg')
                         if pd.isna(nuevo_leg) or nuevo_leg == '':
                             nuevo_leg = None
                         if pd.isna(viejo_leg) or viejo_leg == '':
@@ -630,8 +665,9 @@ with tab2:
                         if nuevo_leg != viejo_leg:
                             datos_update['leg'] = nuevo_leg
                         
+                        # VTO
                         nuevo_vto = row.get('VTO')
-                        viejo_vto = original.get('VTO')
+                        viejo_vto = original_row.get('vto')
                         if pd.isna(nuevo_vto) or nuevo_vto == '':
                             nuevo_vto = None
                         else:
@@ -641,22 +677,25 @@ with tab2:
                         if nuevo_vto != viejo_vto:
                             datos_update['vto'] = nuevo_vto
                         
+                        # MAIL ENVIADO
                         nuevo_mail = row.get('MAIL ENVIADO')
-                        viejo_mail = original.get('MAIL ENVIADO')
+                        viejo_mail = original_row.get('mail_enviado')
                         if pd.isna(nuevo_mail) or nuevo_mail == '':
                             nuevo_mail = 'NO'
                         if nuevo_mail != viejo_mail:
                             datos_update['mail_enviado'] = nuevo_mail
                         
+                        # ACTA
                         nuevo_acta = row.get('ACTA')
-                        viejo_acta = original.get('ACTA')
+                        viejo_acta = original_row.get('acta')
                         if pd.isna(nuevo_acta) or nuevo_acta == '':
                             nuevo_acta = None
                         if nuevo_acta != viejo_acta:
                             datos_update['acta'] = nuevo_acta
                         
+                        # ESTADO GESTION
                         nuevo_estado = row.get('ESTADO GESTION')
-                        viejo_estado = original.get('ESTADO GESTION')
+                        viejo_estado = original_row.get('estado_gestion')
                         if pd.isna(nuevo_estado) or nuevo_estado == '':
                             nuevo_estado = 'PENDIENTE'
                         if nuevo_estado != viejo_estado:
@@ -666,26 +705,31 @@ with tab2:
                             supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
                             modificados += 1
                     
-                    st.success(f"✅ {modificados} registros actualizados")
-                    st.rerun()
+                    if modificados > 0:
+                        st.success(f"✅ {modificados} registros actualizados")
+                        # Limpiar caché de conteo y localidades
+                        contar_registros.clear()
+                        st.rerun()
+                    else:
+                        st.info("No se detectaron cambios")
     else:
         st.info("No hay datos con los filtros seleccionados")
 
-# ==================== TAB 3: SOLICITAR ACTAS ====================
+# ==================== TAB 3: SOLICITAR ACTAS (OPTIMIZADA) ====================
 with tab3:
     st.markdown("### Solicitar Actas a Central")
     
     try:
-        datos = supabase.table("padron_deuda_presunta").select("*").execute()
+        # Filtrar directamente en Supabase (NO traer todos los registros)
+        datos = supabase.table("padron_deuda_presunta")\
+            .select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion")\
+            .eq("mail_enviado", "NO")\
+            .not_.is_("leg", "null")\
+            .not_.is_("vto", "null")\
+            .execute()
         
         if datos.data:
-            df_datos = pd.DataFrame(datos.data)
-            
-            df_listos = df_datos[
-                (df_datos['leg'].notna()) & 
-                (df_datos['vto'].notna()) &
-                (df_datos['mail_enviado'] != 'SI')
-            ]
+            df_listos = pd.DataFrame(datos.data)
             
             if len(df_listos) > 0:
                 st.info(f"📧 {len(df_listos)} empresas listas para solicitar actas")
@@ -701,6 +745,8 @@ with tab3:
                             "estado_gestion": "ACTA_SOLICITADA"
                         }).eq("id", row['id']).execute()
                     st.success(f"Solicitud registrada para {len(df_listos)} empresas")
+                    # Limpiar caché
+                    contar_registros.clear()
             else:
                 st.info("No hay registros listos")
         else:
