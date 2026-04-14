@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime
+import json
 import math
 
 # Configuración de página
@@ -105,21 +106,28 @@ MAPEO_EXCEL_A_TABLA = {
     'SITUACION': 'situacion'
 }
 
-# ==================== FUNCIÓN LIMPIAR VALORES ====================
+# ==================== FUNCIÓN LIMPIAR VALORES (VERSIÓN DEFINITIVA) ====================
 def limpiar_valor(valor):
+    """Convierte CUALQUIER valor a un tipo JSON serializable"""
+    # None o NaN
     if valor is None:
         return None
-    if pd.isna(valor) or (isinstance(valor, float) and math.isnan(valor)):
+    if pd.isna(valor):
         return None
-    if isinstance(valor, float) and math.isinf(valor):
-        return None
-    if isinstance(valor, (pd.Timestamp, datetime)):
-        return valor.isoformat() if hasattr(valor, 'isoformat') else str(valor)
-    if isinstance(valor, (int, float)):
+    if isinstance(valor, float):
+        if math.isnan(valor) or math.isinf(valor):
+            return None
+        # Si es float pero parece entero, convertirlo a int
+        if valor.is_integer():
+            return int(valor)
         return valor
-    if isinstance(valor, str):
-        return valor.strip() if valor.strip() else None
-    return str(valor) if valor else None
+    # Timestamp a string ISO
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        return valor.isoformat()
+    # Cualquier otro tipo a string
+    if not isinstance(valor, (str, int, float, bool, list, dict)):
+        return str(valor) if valor else None
+    return valor
 
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas"])
@@ -150,12 +158,14 @@ with tab1:
             else:
                 df_raw = pd.read_excel(uploaded_file, engine='openpyxl')
             
+            # Limpiar nombres de columnas
             df_raw.columns = [str(col).strip().upper() for col in df_raw.columns]
             
             # Crear DataFrame con las columnas mapeadas
             df_final = pd.DataFrame()
             for col_excel, col_tabla in MAPEO_EXCEL_A_TABLA.items():
                 if col_excel in df_raw.columns:
+                    # Aplicar limpieza a cada valor de la columna
                     df_final[col_tabla] = df_raw[col_excel].apply(limpiar_valor)
                 else:
                     st.error(f"Columna '{col_excel}' no encontrada en el archivo")
@@ -171,6 +181,10 @@ with tab1:
                 df_final['acta'] = None
                 df_final['fecha_carga'] = datetime.now().isoformat()
                 df_final['estado_gestion'] = 'PENDIENTE'
+                
+                # Limpieza FINAL de todo el DataFrame (por si quedó algo)
+                for col in df_final.columns:
+                    df_final[col] = df_final[col].apply(limpiar_valor)
                 
                 st.markdown(f"""
                 <div class="info-box">
@@ -190,16 +204,16 @@ with tab1:
                         existentes = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").execute()
                         existentes_set = set()
                         for reg in existentes.data:
-                            cuit = reg.get('cuit', '')
-                            acta = reg.get('ultima_acta', '')
+                            cuit = reg.get('cuit', '') or ''
+                            acta = reg.get('ultima_acta', '') or ''
                             if cuit:
-                                existentes_set.add((str(cuit), str(acta) if acta else ''))
+                                existentes_set.add((str(cuit), str(acta)))
                         
                         nuevos = []
                         duplicados = 0
                         for reg in registros:
-                            cuit = str(reg.get('cuit', ''))
-                            acta = str(reg.get('ultima_acta', ''))
+                            cuit = str(reg.get('cuit', '') or '')
+                            acta = str(reg.get('ultima_acta', '') or '')
                             if (cuit, acta) not in existentes_set:
                                 nuevos.append(reg)
                             else:
