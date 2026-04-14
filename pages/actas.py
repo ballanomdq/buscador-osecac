@@ -307,7 +307,7 @@ with tab1:
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
-# ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
+# ==================== TAB 2: EDITAR LEGAJOS Y VTOS (CON FILTRO POR LOCALIDAD) ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
@@ -348,98 +348,187 @@ with tab2:
     st.markdown("---")
     
     try:
-        datos = supabase.table("padron_deuda_presunta").select("*").execute()
+        # Obtener todas las localidades disponibles
+        todas_localidades = supabase.table("padron_deuda_presunta").select("localidad").execute()
+        localidades_unicas = sorted(set([l['localidad'] for l in todas_localidades.data if l.get('localidad')]))
         
-        if datos.data:
-            df_datos = pd.DataFrame(datos.data)
-            total_registros = len(df_datos)
-            st.write(f"**Total de registros en la base:** {total_registros}")
-            
-            for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
-                if col in df_datos.columns:
-                    df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
-            
-            for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto']:
-                if col in df_datos.columns:
-                    df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
-            
-            st.info(f"📝 Mostrando TODOS los {total_registros} registros")
-            df_mostrar = df_datos.copy()
-            
-            if 'fecha_carga' in df_mostrar.columns:
-                df_mostrar = df_mostrar.drop(columns=['fecha_carga'])
-            
-            df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
-            
-            edited_df = st.data_editor(
-                df_mostrar,
-                use_container_width=True,
-                height=700,
-                disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
-                          'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
-                          'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
-                          'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
-                key="editor"
+        # Mover MAR DEL PLATA al principio
+        if 'MAR DEL PLATA' in localidades_unicas:
+            localidades_unicas.remove('MAR DEL PLATA')
+            localidades_unicas = ['MAR DEL PLATA'] + localidades_unicas
+        
+        if not localidades_unicas:
+            localidades_unicas = ["TODAS"]
+        
+        # Filtro de localidad
+        col_filtro1, col_filtro2 = st.columns([2, 1])
+        with col_filtro1:
+            localidad_seleccionada = st.selectbox(
+                "📌 Filtrar por LOCALIDAD:",
+                options=["TODAS"] + localidades_unicas,
+                index=0,
+                key="filtro_localidad"
             )
-            
-            if st.button("💾 Guardar Cambios", type="primary"):
-                with st.spinner("Guardando..."):
-                    inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
-                    modificados = 0
-                    
-                    for idx, row in edited_df.iterrows():
-                        original = df_mostrar.loc[idx]
-                        datos_update = {}
-                        
-                        nuevo_leg = row.get('LEG')
-                        viejo_leg = original.get('LEG')
-                        if pd.isna(nuevo_leg) or nuevo_leg == '':
-                            nuevo_leg = None
-                        if pd.isna(viejo_leg) or viejo_leg == '':
-                            viejo_leg = None
-                        if nuevo_leg != viejo_leg:
-                            datos_update['leg'] = nuevo_leg
-                        
-                        nuevo_vto = row.get('VTO')
-                        viejo_vto = original.get('VTO')
-                        if pd.isna(nuevo_vto) or nuevo_vto == '':
-                            nuevo_vto = None
-                        else:
-                            nuevo_vto = fecha_para_guardar(nuevo_vto)
-                        if pd.isna(viejo_vto) or viejo_vto == '':
-                            viejo_vto = None
-                        if nuevo_vto != viejo_vto:
-                            datos_update['vto'] = nuevo_vto
-                        
-                        nuevo_mail = row.get('MAIL ENVIADO')
-                        viejo_mail = original.get('MAIL ENVIADO')
-                        if pd.isna(nuevo_mail) or nuevo_mail == '':
-                            nuevo_mail = 'NO'
-                        if nuevo_mail != viejo_mail:
-                            datos_update['mail_enviado'] = nuevo_mail
-                        
-                        nuevo_acta = row.get('ACTA')
-                        viejo_acta = original.get('ACTA')
-                        if pd.isna(nuevo_acta) or nuevo_acta == '':
-                            nuevo_acta = None
-                        if nuevo_acta != viejo_acta:
-                            datos_update['acta'] = nuevo_acta
-                        
-                        nuevo_estado = row.get('ESTADO GESTION')
-                        viejo_estado = original.get('ESTADO GESTION')
-                        if pd.isna(nuevo_estado) or nuevo_estado == '':
-                            nuevo_estado = 'PENDIENTE'
-                        if nuevo_estado != viejo_estado:
-                            datos_update['estado_gestion'] = nuevo_estado
-                        
-                        if datos_update:
-                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
-                            modificados += 1
-                    
-                    st.success(f"✅ {modificados} registros actualizados")
-                    st.rerun()
+        
+        # Contar registros por localidad
+        with col_filtro2:
+            if localidad_seleccionada != "TODAS":
+                count_localidad = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("localidad", localidad_seleccionada).execute()
+                st.metric("Registros en esta localidad", count_localidad.count)
+        
+        # Construir consulta base
+        if localidad_seleccionada == "TODAS":
+            total_registros = supabase.table("padron_deuda_presunta").select("id", count="exact").execute()
+            total = total_registros.count
         else:
-            st.info("No hay datos cargados")
+            total_registros = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("localidad", localidad_seleccionada).execute()
+            total = total_registros.count
+        
+        st.write(f"**Total de registros:** {total}")
+        
+        if total > 0:
+            # Configuración de paginación
+            registros_por_pagina = 300
+            paginas_totales = (total + registros_por_pagina - 1) // registros_por_pagina
+            
+            # Inicializar página actual
+            if 'pagina_actual_localidad' not in st.session_state:
+                st.session_state.pagina_actual_localidad = 1
+            if 'ultima_localidad_filtro' not in st.session_state:
+                st.session_state.ultima_localidad_filtro = localidad_seleccionada
+            
+            # Resetear página si cambió el filtro
+            if st.session_state.ultima_localidad_filtro != localidad_seleccionada:
+                st.session_state.pagina_actual_localidad = 1
+                st.session_state.ultima_localidad_filtro = localidad_seleccionada
+                st.rerun()
+            
+            # Navegación
+            st.markdown("### 📄 Navegación de páginas")
+            
+            col_ant, col_num, col_sig = st.columns([1, 2, 1])
+            
+            with col_ant:
+                if st.button("◀ Anterior", disabled=(st.session_state.pagina_actual_localidad <= 1)):
+                    st.session_state.pagina_actual_localidad = max(1, st.session_state.pagina_actual_localidad - 1)
+                    st.rerun()
+            
+            with col_num:
+                pagina_actual = st.selectbox(
+                    "Página",
+                    options=list(range(1, paginas_totales + 1)),
+                    index=st.session_state.pagina_actual_localidad - 1,
+                    key="pagina_select_localidad",
+                    label_visibility="collapsed"
+                )
+                st.session_state.pagina_actual_localidad = pagina_actual
+            
+            with col_sig:
+                if st.button("Siguiente ▶", disabled=(st.session_state.pagina_actual_localidad >= paginas_totales)):
+                    st.session_state.pagina_actual_localidad = min(paginas_totales, st.session_state.pagina_actual_localidad + 1)
+                    st.rerun()
+            
+            # Calcular offset
+            offset = (st.session_state.pagina_actual_localidad - 1) * registros_por_pagina
+            
+            # Obtener registros
+            if localidad_seleccionada == "TODAS":
+                datos = supabase.table("padron_deuda_presunta").select("*").range(offset, offset + registros_por_pagina - 1).execute()
+            else:
+                datos = supabase.table("padron_deuda_presunta").select("*").eq("localidad", localidad_seleccionada).range(offset, offset + registros_por_pagina - 1).execute()
+            
+            if datos.data:
+                desde = offset + 1
+                hasta = min(offset + registros_por_pagina, total)
+                st.info(f"📝 Mostrando registros {desde} a {hasta} de {total} (Página {st.session_state.pagina_actual_localidad} de {paginas_totales})")
+                
+                df_datos = pd.DataFrame(datos.data)
+                
+                # Limpiar números enteros
+                for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
+                    if col in df_datos.columns:
+                        df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
+                
+                # Convertir fechas
+                for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto']:
+                    if col in df_datos.columns:
+                        df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
+                
+                df_mostrar = df_datos.copy()
+                if 'fecha_carga' in df_mostrar.columns:
+                    df_mostrar = df_mostrar.drop(columns=['fecha_carga'])
+                
+                df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
+                
+                edited_df = st.data_editor(
+                    df_mostrar,
+                    use_container_width=True,
+                    height=600,
+                    disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
+                              'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
+                              'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
+                              'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
+                    key=f"editor_localidad_{st.session_state.pagina_actual_localidad}"
+                )
+                
+                if st.button("💾 Guardar Cambios", type="primary"):
+                    with st.spinner("Guardando..."):
+                        inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
+                        modificados = 0
+                        
+                        for idx, row in edited_df.iterrows():
+                            original = df_mostrar.loc[idx]
+                            datos_update = {}
+                            
+                            nuevo_leg = row.get('LEG')
+                            viejo_leg = original.get('LEG')
+                            if pd.isna(nuevo_leg) or nuevo_leg == '':
+                                nuevo_leg = None
+                            if pd.isna(viejo_leg) or viejo_leg == '':
+                                viejo_leg = None
+                            if nuevo_leg != viejo_leg:
+                                datos_update['leg'] = nuevo_leg
+                            
+                            nuevo_vto = row.get('VTO')
+                            viejo_vto = original.get('VTO')
+                            if pd.isna(nuevo_vto) or nuevo_vto == '':
+                                nuevo_vto = None
+                            else:
+                                nuevo_vto = fecha_para_guardar(nuevo_vto)
+                            if pd.isna(viejo_vto) or viejo_vto == '':
+                                viejo_vto = None
+                            if nuevo_vto != viejo_vto:
+                                datos_update['vto'] = nuevo_vto
+                            
+                            nuevo_mail = row.get('MAIL ENVIADO')
+                            viejo_mail = original.get('MAIL ENVIADO')
+                            if pd.isna(nuevo_mail) or nuevo_mail == '':
+                                nuevo_mail = 'NO'
+                            if nuevo_mail != viejo_mail:
+                                datos_update['mail_enviado'] = nuevo_mail
+                            
+                            nuevo_acta = row.get('ACTA')
+                            viejo_acta = original.get('ACTA')
+                            if pd.isna(nuevo_acta) or nuevo_acta == '':
+                                nuevo_acta = None
+                            if nuevo_acta != viejo_acta:
+                                datos_update['acta'] = nuevo_acta
+                            
+                            nuevo_estado = row.get('ESTADO GESTION')
+                            viejo_estado = original.get('ESTADO GESTION')
+                            if pd.isna(nuevo_estado) or nuevo_estado == '':
+                                nuevo_estado = 'PENDIENTE'
+                            if nuevo_estado != viejo_estado:
+                                datos_update['estado_gestion'] = nuevo_estado
+                            
+                            if datos_update:
+                                supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
+                                modificados += 1
+                        
+                        st.success(f"✅ {modificados} registros actualizados")
+                        st.rerun()
+        else:
+            st.info("No hay datos cargados para esta localidad")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
