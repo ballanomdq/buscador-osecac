@@ -141,19 +141,14 @@ def fecha_para_mostrar(valor):
             valor = valor.strip()
             if not valor:
                 return None
-            # Formato ISO con T
             if re.match(r'\d{4}-\d{2}-\d{2}T', valor):
                 return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-            # Formato ISO con espacio
             if re.match(r'\d{4}-\d{2}-\d{2} ', valor):
                 return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-            # Formato ISO puro
             if re.match(r'^\d{4}-\d{2}-\d{2}$', valor):
                 return datetime.strptime(valor, '%Y-%m-%d').strftime('%d/%m/%Y')
-            # Ya está en DD/MM/YYYY
             if re.match(r'^\d{2}/\d{2}/\d{4}$', valor):
                 return valor
-            # DD/MM/YYYY con barras
             if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', valor):
                 partes = valor.split('/')
                 if len(partes) == 3:
@@ -171,11 +166,9 @@ def normalizar_fecha_para_supabase(fecha_str):
     if not fecha_str:
         return None
     
-    # Ya está en formato ISO
     if re.match(r'^\d{4}-\d{2}-\d{2}$', fecha_str):
         return fecha_str
     
-    # Formato DD/MM/YYYY o D/M/YYYY
     if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', fecha_str):
         partes = fecha_str.split('/')
         if len(partes) == 3:
@@ -185,7 +178,6 @@ def normalizar_fecha_para_supabase(fecha_str):
             if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
                 return f"{año:04d}-{mes:02d}-{dia:02d}"
     
-    # Formato DD-MM-YYYY
     if re.match(r'^\d{1,2}-\d{1,2}-\d{4}$', fecha_str):
         partes = fecha_str.split('-')
         if len(partes) == 3:
@@ -195,39 +187,10 @@ def normalizar_fecha_para_supabase(fecha_str):
             if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
                 return f"{año:04d}-{mes:02d}-{dia:02d}"
     
-    # Formato DD.MM.YYYY
-    if re.match(r'^\d{1,2}\.\d{1,2}\.\d{4}$', fecha_str):
-        partes = fecha_str.split('.')
-        if len(partes) == 3:
-            dia = int(partes[0])
-            mes = int(partes[1])
-            año = int(partes[2])
-            if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
-                return f"{año:04d}-{mes:02d}-{dia:02d}"
-    
-    # Formato YYYY-MM-DD ya está
-    if re.match(r'^\d{4}-\d{1,2}-\d{1,2}$', fecha_str):
-        partes = fecha_str.split('-')
-        if len(partes) == 3:
-            return f"{partes[0]}-{int(partes[1]):02d}-{int(partes[2]):02d}"
-    
-    # Número de Excel
     if fecha_str.isdigit():
         return excel_serial_a_fecha(int(fecha_str))
     
     return None
-
-def fecha_para_guardar(valor):
-    if valor is None or pd.isna(valor):
-        return None
-    try:
-        if isinstance(valor, (pd.Timestamp, datetime)):
-            return valor.strftime('%Y-%m-%d')
-        if isinstance(valor, str):
-            return normalizar_fecha_para_supabase(valor)
-        return None
-    except:
-        return None
 
 def limpiar_numero_entero(valor):
     if valor is None or pd.isna(valor):
@@ -250,7 +213,6 @@ def limpiar_cuit_csv(valor):
         if 'E' in valor_str.upper():
             num = float(valor_str)
             return str(int(num))
-        # Limpiar puntos y guiones del CUIT
         valor_str = re.sub(r'[\.\-]', '', valor_str)
         if valor_str.isdigit():
             return valor_str
@@ -589,7 +551,8 @@ with tab2:
             localidad_seleccionada = st.selectbox("📌 LOCALIDAD:", options=["TODAS"] + localidades_unicas, index=0, key="filtro_localidad")
             st.session_state.localidad_seleccionada = localidad_seleccionada
         else:
-            localidad_seleccionada = "TODAS"
+            st.session_state.localidad_seleccionada = "TODAS"
+            st.selectbox("📌 LOCALIDAD:", options=["TODAS"], index=0, key="filtro_localidad", disabled=True)
     
     with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
@@ -624,7 +587,6 @@ with tab2:
             registros_por_pagina = 300
             paginas_totales = (total_filtrado + registros_por_pagina - 1) // registros_por_pagina
             
-            # Asegurar que página_actual esté dentro del rango
             if st.session_state.pagina_actual < 1:
                 st.session_state.pagina_actual = 1
             if st.session_state.pagina_actual > paginas_totales:
@@ -641,15 +603,14 @@ with tab2:
                         st.rerun()
             
             with col_num:
-                pagina_actual = st.selectbox(
+                st.selectbox(
                     "Página",
                     options=list(range(1, paginas_totales + 1)),
                     index=st.session_state.pagina_actual - 1,
                     key="pagina_select",
                     label_visibility="collapsed",
-                    on_change=lambda: st.session_state.update(pagina_actual=st.session_state.pagina_select)
+                    on_change=lambda: setattr(st.session_state, 'pagina_actual', st.session_state.pagina_select)
                 )
-                st.session_state.pagina_actual = pagina_actual
             
             with col_sig:
                 if st.button("Siguiente ▶", key="btn_siguiente"):
@@ -840,7 +801,6 @@ with tab4:
                         progress_bar = st.progress(0)
                         for i, item in enumerate(datos_csv):
                             try:
-                                # Buscar coincidencia por CUIT + LEG + VTO
                                 resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
                                 if resultado.data:
                                     for registro in resultado.data:
