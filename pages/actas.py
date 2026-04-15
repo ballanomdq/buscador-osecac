@@ -159,16 +159,13 @@ def fecha_para_mostrar(valor):
         return str(valor) if valor else None
 
 def normalizar_fecha_para_supabase(fecha_str):
-    """Convierte CUALQUIER formato de fecha a YYYY-MM-DD para Supabase"""
     if fecha_str is None or pd.isna(fecha_str):
         return None
     fecha_str = str(fecha_str).strip()
     if not fecha_str:
         return None
-    
     if re.match(r'^\d{4}-\d{2}-\d{2}$', fecha_str):
         return fecha_str
-    
     if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', fecha_str):
         partes = fecha_str.split('/')
         if len(partes) == 3:
@@ -177,7 +174,6 @@ def normalizar_fecha_para_supabase(fecha_str):
             año = int(partes[2])
             if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
                 return f"{año:04d}-{mes:02d}-{dia:02d}"
-    
     if re.match(r'^\d{1,2}-\d{1,2}-\d{4}$', fecha_str):
         partes = fecha_str.split('-')
         if len(partes) == 3:
@@ -186,10 +182,8 @@ def normalizar_fecha_para_supabase(fecha_str):
             año = int(partes[2])
             if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
                 return f"{año:04d}-{mes:02d}-{dia:02d}"
-    
     if fecha_str.isdigit():
         return excel_serial_a_fecha(int(fecha_str))
-    
     return None
 
 def limpiar_numero_entero(valor):
@@ -257,17 +251,6 @@ def obtener_pares_existentes(_supabase):
         if cuit:
             todos.append({'cuit': cuit, 'ultima_acta': '*'})
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
-
-@st.cache_data(ttl=60)
-def contar_registros(_supabase, localidad, filtro_mail):
-    query = _supabase.table("padron_deuda_presunta").select("*", count="exact", head=True)
-    if localidad != "TODAS":
-        query = query.eq("localidad", localidad)
-    if filtro_mail == "SI":
-        query = query.eq("mail_enviado", "SI")
-    elif filtro_mail == "NO":
-        query = query.eq("mail_enviado", "NO")
-    return query.execute().count
 
 # ==================== MAPEO DE COLUMNAS ====================
 COLUMNAS_EXCEL = [
@@ -387,18 +370,6 @@ def procesar_csv_actas_inteligente(archivo):
     except Exception as e:
         return []
 
-# ==================== INICIALIZAR SESSION STATE ====================
-if 'filtro_cuit' not in st.session_state:
-    st.session_state.filtro_cuit = ""
-if 'filtro_razon' not in st.session_state:
-    st.session_state.filtro_razon = ""
-if 'localidad_seleccionada' not in st.session_state:
-    st.session_state.localidad_seleccionada = "TODAS"
-if 'filtro_mail' not in st.session_state:
-    st.session_state.filtro_mail = "AMBOS"
-if 'pagina_actual' not in st.session_state:
-    st.session_state.pagina_actual = 1
-
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas", "📋 Subir Actas"])
 
@@ -470,7 +441,6 @@ with tab1:
                     st.success(f"✅ Carga completada: {total_insertados} registros insertados")
                     obtener_pares_existentes.clear()
                     obtener_localidades.clear()
-                    contar_registros.clear()
             elif not nuevos_registros:
                 st.warning(f"⚠️ No hay registros nuevos para cargar.")
         except Exception as e:
@@ -504,9 +474,10 @@ with tab2:
     with col_accion3:
         st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
         if st.button("🔄 Resetear filtros", key="btn_reset_filtros"):
-            st.session_state.filtro_cuit = ""
-            st.session_state.filtro_razon = ""
-            st.session_state.localidad_seleccionada = "TODAS"
+            # Limpiar valores de los widgets
+            st.session_state.input_filtro_cuit = ""
+            st.session_state.input_filtro_razon = ""
+            st.session_state.filtro_localidad = "TODAS"
             st.session_state.filtro_mail = "AMBOS"
             st.session_state.pagina_actual = 1
             st.rerun()
@@ -538,35 +509,31 @@ with tab2:
     col_filtro1, col_filtro2, col_filtro3, col_filtro4 = st.columns([1, 1, 1, 1])
     
     with col_filtro1:
-        filtro_cuit = st.text_input("🔍 Filtrar por CUIT", value=st.session_state.filtro_cuit, key="input_filtro_cuit", placeholder="Ej: 30707685243")
-        st.session_state.filtro_cuit = filtro_cuit
+        filtro_cuit = st.text_input("🔍 Filtrar por CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243")
     
     with col_filtro2:
-        filtro_razon = st.text_input("🔍 Filtrar por RAZON SOCIAL", value=st.session_state.filtro_razon, key="input_filtro_razon", placeholder="Ej: OMEGASUR")
-        st.session_state.filtro_razon = filtro_razon
+        filtro_razon = st.text_input("🔍 Filtrar por RAZON SOCIAL", key="input_filtro_razon", placeholder="Ej: OMEGASUR")
     
     with col_filtro3:
         localidades_unicas = obtener_localidades(supabase)
         if localidades_unicas:
             localidad_seleccionada = st.selectbox("📌 LOCALIDAD:", options=["TODAS"] + localidades_unicas, index=0, key="filtro_localidad")
-            st.session_state.localidad_seleccionada = localidad_seleccionada
         else:
-            st.session_state.localidad_seleccionada = "TODAS"
+            localidad_seleccionada = "TODAS"
             st.selectbox("📌 LOCALIDAD:", options=["TODAS"], index=0, key="filtro_localidad", disabled=True)
     
     with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
-        st.session_state.filtro_mail = filtro_mail
     
     # Obtener datos filtrados
     query = supabase.table("padron_deuda_presunta").select("*")
     
-    if st.session_state.localidad_seleccionada != "TODAS" and localidades_unicas:
-        query = query.eq("localidad", st.session_state.localidad_seleccionada)
+    if localidad_seleccionada != "TODAS" and localidades_unicas:
+        query = query.eq("localidad", localidad_seleccionada)
     
-    if st.session_state.filtro_mail == "SI":
+    if filtro_mail == "SI":
         query = query.eq("mail_enviado", "SI")
-    elif st.session_state.filtro_mail == "NO":
+    elif filtro_mail == "NO":
         query = query.eq("mail_enviado", "NO")
     
     datos_completos = query.execute()
@@ -575,10 +542,10 @@ with tab2:
         df_completo = pd.DataFrame(datos_completos.data)
         
         # Aplicar filtros de texto
-        if st.session_state.filtro_cuit:
-            df_completo = df_completo[df_completo['cuit'].astype(str).str.contains(st.session_state.filtro_cuit, na=False, case=False)]
-        if st.session_state.filtro_razon:
-            df_completo = df_completo[df_completo['razon_social'].astype(str).str.contains(st.session_state.filtro_razon, na=False, case=False)]
+        if filtro_cuit:
+            df_completo = df_completo[df_completo['cuit'].astype(str).str.contains(filtro_cuit, na=False, case=False)]
+        if filtro_razon:
+            df_completo = df_completo[df_completo['razon_social'].astype(str).str.contains(filtro_razon, na=False, case=False)]
         
         total_filtrado = len(df_completo)
         st.write(f"**Total de registros con filtros:** {total_filtrado}")
@@ -586,6 +553,9 @@ with tab2:
         if total_filtrado > 0:
             registros_por_pagina = 300
             paginas_totales = (total_filtrado + registros_por_pagina - 1) // registros_por_pagina
+            
+            if 'pagina_actual' not in st.session_state:
+                st.session_state.pagina_actual = 1
             
             if st.session_state.pagina_actual < 1:
                 st.session_state.pagina_actual = 1
@@ -758,7 +728,6 @@ with tab3:
                     for _, row in df_listos.iterrows():
                         supabase.table("padron_deuda_presunta").update({"mail_enviado": "SI", "estado_gestion": "ACTA_SOLICITADA"}).eq("id", row['id']).execute()
                     st.success(f"Solicitud registrada para {len(df_listos)} empresas")
-                    contar_registros.clear()
             else:
                 st.info("No hay registros listos")
         else:
@@ -812,6 +781,5 @@ with tab4:
                                 st.warning(f"Error: {str(e)}")
                             progress_bar.progress((i + 1) / len(datos_csv))
                         st.success(f"✅ {actualizados} actualizados, {no_encontrados} no encontrados")
-                        contar_registros.clear()
         except Exception as e:
             st.error(f"Error al leer el archivo: {str(e)}")
