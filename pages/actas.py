@@ -205,6 +205,12 @@ def normalizar_fecha_para_supabase(fecha_str):
             if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
                 return f"{año:04d}-{mes:02d}-{dia:02d}"
     
+    # Formato YYYY-MM-DD ya está
+    if re.match(r'^\d{4}-\d{1,2}-\d{1,2}$', fecha_str):
+        partes = fecha_str.split('-')
+        if len(partes) == 3:
+            return f"{partes[0]}-{int(partes[1]):02d}-{int(partes[2]):02d}"
+    
     # Número de Excel
     if fecha_str.isdigit():
         return excel_serial_a_fecha(int(fecha_str))
@@ -419,6 +425,18 @@ def procesar_csv_actas_inteligente(archivo):
     except Exception as e:
         return []
 
+# ==================== INICIALIZAR SESSION STATE ====================
+if 'filtro_cuit' not in st.session_state:
+    st.session_state.filtro_cuit = ""
+if 'filtro_razon' not in st.session_state:
+    st.session_state.filtro_razon = ""
+if 'localidad_seleccionada' not in st.session_state:
+    st.session_state.localidad_seleccionada = "TODAS"
+if 'filtro_mail' not in st.session_state:
+    st.session_state.filtro_mail = "AMBOS"
+if 'pagina_actual' not in st.session_state:
+    st.session_state.pagina_actual = 1
+
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas", "📋 Subir Actas"])
 
@@ -510,10 +528,6 @@ with tab2:
                 supabase.table("padron_deuda_presunta").delete().in_("id", st.session_state.ids_a_eliminar).execute()
                 st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
                 st.session_state.ids_a_eliminar = []
-                st.session_state.filtro_cuit = ""
-                st.session_state.filtro_razon = ""
-                obtener_localidades.clear()
-                contar_registros.clear()
                 st.rerun()
             else:
                 st.warning("No hay registros seleccionados")
@@ -530,6 +544,8 @@ with tab2:
         if st.button("🔄 Resetear filtros", key="btn_reset_filtros"):
             st.session_state.filtro_cuit = ""
             st.session_state.filtro_razon = ""
+            st.session_state.localidad_seleccionada = "TODAS"
+            st.session_state.filtro_mail = "AMBOS"
             st.session_state.pagina_actual = 1
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -548,11 +564,6 @@ with tab2:
                     st.success("✅ Todos los registros fueron eliminados")
                     st.session_state.confirmar_eliminar_todo = False
                     st.session_state.ids_a_eliminar = []
-                    st.session_state.filtro_cuit = ""
-                    st.session_state.filtro_razon = ""
-                    obtener_localidades.clear()
-                    contar_registros.clear()
-                    obtener_pares_existentes.clear()
                     st.rerun()
         with col_no:
             if st.button("❌ Cancelar"):
@@ -562,17 +573,13 @@ with tab2:
     st.markdown("---")
     
     # Filtros
-    col_filtro1, col_filtro2, col_filtro3 = st.columns([1, 1, 1])
+    col_filtro1, col_filtro2, col_filtro3, col_filtro4 = st.columns([1, 1, 1, 1])
     
     with col_filtro1:
-        if 'filtro_cuit' not in st.session_state:
-            st.session_state.filtro_cuit = ""
         filtro_cuit = st.text_input("🔍 Filtrar por CUIT", value=st.session_state.filtro_cuit, key="input_filtro_cuit", placeholder="Ej: 30707685243")
         st.session_state.filtro_cuit = filtro_cuit
     
     with col_filtro2:
-        if 'filtro_razon' not in st.session_state:
-            st.session_state.filtro_razon = ""
         filtro_razon = st.text_input("🔍 Filtrar por RAZON SOCIAL", value=st.session_state.filtro_razon, key="input_filtro_razon", placeholder="Ej: OMEGASUR")
         st.session_state.filtro_razon = filtro_razon
     
@@ -580,33 +587,35 @@ with tab2:
         localidades_unicas = obtener_localidades(supabase)
         if localidades_unicas:
             localidad_seleccionada = st.selectbox("📌 LOCALIDAD:", options=["TODAS"] + localidades_unicas, index=0, key="filtro_localidad")
+            st.session_state.localidad_seleccionada = localidad_seleccionada
         else:
             localidad_seleccionada = "TODAS"
-        
+    
+    with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
+        st.session_state.filtro_mail = filtro_mail
     
     # Obtener datos filtrados
     query = supabase.table("padron_deuda_presunta").select("*")
     
-    if localidad_seleccionada != "TODAS" and localidades_unicas:
-        query = query.eq("localidad", localidad_seleccionada)
+    if st.session_state.localidad_seleccionada != "TODAS" and localidades_unicas:
+        query = query.eq("localidad", st.session_state.localidad_seleccionada)
     
-    if filtro_mail == "SI":
+    if st.session_state.filtro_mail == "SI":
         query = query.eq("mail_enviado", "SI")
-    elif filtro_mail == "NO":
+    elif st.session_state.filtro_mail == "NO":
         query = query.eq("mail_enviado", "NO")
     
-    # Ejecutar query para obtener todos los datos (sin paginación aún)
     datos_completos = query.execute()
     
     if datos_completos.data:
         df_completo = pd.DataFrame(datos_completos.data)
         
         # Aplicar filtros de texto
-        if filtro_cuit:
-            df_completo = df_completo[df_completo['cuit'].astype(str).str.contains(filtro_cuit, na=False, case=False)]
-        if filtro_razon:
-            df_completo = df_completo[df_completo['razon_social'].astype(str).str.contains(filtro_razon, na=False, case=False)]
+        if st.session_state.filtro_cuit:
+            df_completo = df_completo[df_completo['cuit'].astype(str).str.contains(st.session_state.filtro_cuit, na=False, case=False)]
+        if st.session_state.filtro_razon:
+            df_completo = df_completo[df_completo['razon_social'].astype(str).str.contains(st.session_state.filtro_razon, na=False, case=False)]
         
         total_filtrado = len(df_completo)
         st.write(f"**Total de registros con filtros:** {total_filtrado}")
@@ -615,17 +624,21 @@ with tab2:
             registros_por_pagina = 300
             paginas_totales = (total_filtrado + registros_por_pagina - 1) // registros_por_pagina
             
-            if 'pagina_actual' not in st.session_state:
+            # Asegurar que página_actual esté dentro del rango
+            if st.session_state.pagina_actual < 1:
                 st.session_state.pagina_actual = 1
+            if st.session_state.pagina_actual > paginas_totales:
+                st.session_state.pagina_actual = paginas_totales
             
             # Navegación
             st.markdown("### 📄 Navegación")
             col_ant, col_num, col_sig = st.columns([1, 2, 1])
             
             with col_ant:
-                if st.button("◀ Anterior", disabled=(st.session_state.pagina_actual <= 1)):
-                    st.session_state.pagina_actual = max(1, st.session_state.pagina_actual - 1)
-                    st.rerun()
+                if st.button("◀ Anterior", key="btn_anterior"):
+                    if st.session_state.pagina_actual > 1:
+                        st.session_state.pagina_actual -= 1
+                        st.rerun()
             
             with col_num:
                 pagina_actual = st.selectbox(
@@ -633,14 +646,16 @@ with tab2:
                     options=list(range(1, paginas_totales + 1)),
                     index=st.session_state.pagina_actual - 1,
                     key="pagina_select",
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    on_change=lambda: st.session_state.update(pagina_actual=st.session_state.pagina_select)
                 )
                 st.session_state.pagina_actual = pagina_actual
             
             with col_sig:
-                if st.button("Siguiente ▶", disabled=(st.session_state.pagina_actual >= paginas_totales)):
-                    st.session_state.pagina_actual = min(paginas_totales, st.session_state.pagina_actual + 1)
-                    st.rerun()
+                if st.button("Siguiente ▶", key="btn_siguiente"):
+                    if st.session_state.pagina_actual < paginas_totales:
+                        st.session_state.pagina_actual += 1
+                        st.rerun()
             
             offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
             df_mostrar = df_completo.iloc[offset:offset + registros_por_pagina].copy()
@@ -751,7 +766,6 @@ with tab2:
                             modificados += 1
                     if modificados > 0:
                         st.success(f"✅ {modificados} registros actualizados")
-                        contar_registros.clear()
                         st.rerun()
                     else:
                         st.info("No se detectaron cambios")
@@ -826,6 +840,7 @@ with tab4:
                         progress_bar = st.progress(0)
                         for i, item in enumerate(datos_csv):
                             try:
+                                # Buscar coincidencia por CUIT + LEG + VTO
                                 resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
                                 if resultado.data:
                                     for registro in resultado.data:
@@ -839,4 +854,4 @@ with tab4:
                         st.success(f"✅ {actualizados} actualizados, {no_encontrados} no encontrados")
                         contar_registros.clear()
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Error al leer el archivo: {str(e)}")
