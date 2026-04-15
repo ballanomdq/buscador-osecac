@@ -373,7 +373,7 @@ def procesar_csv_actas(archivo):
                 col_nro_acta = col
         
         if not col_cuit or not col_legajo or not col_vto or not col_nro_acta:
-            st.error(f"No se encontraron columnas: CUIT={col_cuit}, LEGAJO={col_legajo}, VTO={col_vto}, NRO_ACTA={col_nro_acta}")
+            st.error(f"No se encontraron columnas necesarias")
             return []
         
         resultados = []
@@ -718,4 +718,13 @@ with tab2:
                         if pd.isna(nuevo_estado) or nuevo_estado == '':
                             nuevo_estado = 'PENDIENTE'
                         if nuevo_estado != viejo_estado:
-                            datos_update['estado_gestion'] =
+                            datos_update['estado_gestion'] = nuevo_estado
+                        
+                        if datos_update:
+                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
+                            modificados += 1
+                    
+                    if modificados > 0:
+                        st.success(f"✅ {modificados} registros actualizados")
+                        contar_registros.clear()
+                        st.rerun()
