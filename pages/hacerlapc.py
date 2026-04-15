@@ -25,9 +25,9 @@ if submit:
     
     session = requests.Session()
     
-    # 1. Primero obtener la cookie ASP.NET_SessionId
-    add_log("📝 Obteniendo cookie de sesión...")
-    login_url = "http://200.51.42.41:7980/Login.aspx?ReturnUrl=%2fdefault.aspx"
+    # 1. Obtener página de login
+    add_log("📝 Obteniendo página de login...")
+    login_url = "http://200.51.42.41:7980/Login.aspx"
     resp = session.get(login_url)
     
     # Extraer tokens
@@ -35,7 +35,7 @@ if submit:
     viewstate = soup.find('input', {'name': '__VIEWSTATE'})
     viewstategen = soup.find('input', {'name': '__VIEWSTATEGENERATOR'})
     
-    # Datos del login
+    # Datos del login (con el botón que ahora sé que existe)
     login_data = {
         '__VIEWSTATE': viewstate['value'] if viewstate else '',
         '__VIEWSTATEGENERATOR': viewstategen['value'] if viewstategen else '',
@@ -51,25 +51,32 @@ if submit:
         'ctl00$UcLogin1$btnIngresar': 'Ingresar'
     }
     
-    add_log(f"🔐 Enviando login para {usuario}...")
-    resp = session.post(login_url, data=login_data)
+    add_log(f"🔐 Enviando login...")
     
-    add_log(f"📍 Respuesta: {resp.status_code}")
+    # Enviar login SIN seguir redirecciones automáticas
+    resp = session.post(login_url, data=login_data, allow_redirects=False)
     
-    # Verificar si hay redirección a Default.aspx (login exitoso)
-    if "Default.aspx" in resp.text or resp.status_code == 302:
-        add_log("✅ Login exitoso!")
+    add_log(f"📍 Status: {resp.status_code}")
+    
+    # Verificar si hay redirección
+    if resp.status_code == 302:
+        add_log("✅ Redirección detectada (login exitoso)")
         
-        # Seguir la redirección si es necesario
-        if resp.status_code == 302:
-            redirect_url = resp.headers.get('Location', '')
-            if redirect_url:
-                resp = session.get(f"http://200.51.42.41:7980{redirect_url}")
+        # Seguir la redirección manualmente
+        location = resp.headers.get('Location', '')
+        add_log(f"📍 Redirigiendo a: {location}")
+        
+        resp = session.get(f"http://200.51.42.41:7980{location}")
+        
+        # También seguir a default.aspx si es necesario
+        if "default.aspx" in location.lower():
+            add_log("✅ Llegamos a default.aspx")
         
         # 2. Ir a página de actas
         add_log("📂 Navegando a actas...")
         actas_url = "http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx"
         resp = session.get(actas_url)
+        add_log(f"📄 Status actas: {resp.status_code}")
         
         # 3. Buscar por legajo
         add_log(f"🔢 Buscando legajo {legajo}...")
@@ -88,7 +95,11 @@ if submit:
         
         # 4. Extraer números de acta
         soup = BeautifulSoup(resp.text, 'html.parser')
-        tabla = soup.find('table', {'id': 'ctl00_cMain_gvActasSincronizadas'})
+        
+        # Buscar la tabla por ID o por clase
+        tabla = soup.find('table', {'id': re.compile(r'gvActasSincronizadas')})
+        if not tabla:
+            tabla = soup.find('table', {'class': re.compile(r'grilla', re.I)})
         
         if tabla:
             numeros_acta = []
@@ -96,14 +107,21 @@ if submit:
             for fila in filas:
                 celdas = fila.find_all('td')
                 if len(celdas) >= 2:
-                    texto = celdas[1].get_text().strip()
-                    if texto.isdigit():
-                        numeros_acta.append(texto)
+                    # Buscar números de acta (solo dígitos, longitud > 5)
+                    for celda in celdas:
+                        texto = celda.get_text().strip()
+                        if texto.isdigit() and len(texto) >= 6:
+                            numeros_acta.append(texto)
+                            break
+            
+            # Eliminar duplicados y ordenar
+            numeros_acta = list(dict.fromkeys(numeros_acta))
             
             add_log(f"📊 Encontradas {len(numeros_acta)} actas")
-            st.write(f"📄 Actas: {', '.join(numeros_acta[:20])}")
             
             if numeros_acta:
+                st.write(f"📄 Actas encontradas: {', '.join(numeros_acta[:20])}")
+                
                 # 5. Generar PDFs
                 pdfs = []
                 progress = st.progress(0)
@@ -116,14 +134,13 @@ if submit:
                     
                     add_log(f"🖨️ Generando PDF: actas {nros}")
                     
-                    # Usar la sesión con las cookies
-                    resp_pdf = session.get(pdf_url, stream=True)
+                    resp_pdf = session.get(pdf_url)
                     
                     if resp_pdf.status_code == 200 and len(resp_pdf.content) > 1000:
                         pdfs.append((f"actas_{nros}.pdf", resp_pdf.content))
-                        add_log(f"✅ OK: actas_{nros}.pdf")
+                        add_log(f"✅ OK: actas_{nros}.pdf ({len(resp_pdf.content)} bytes)")
                     else:
-                        add_log(f"❌ Error: {nros}")
+                        add_log(f"❌ Error: {nros} - status: {resp_pdf.status_code}")
                     
                     progress.progress(min((i+2)/len(numeros_acta), 1.0))
                     time.sleep(1)
@@ -147,8 +164,12 @@ if submit:
                     )
                 else:
                     st.error("❌ No se generó ningún PDF")
+            else:
+                st.warning("⚠️ No se encontraron números de acta")
         else:
             add_log("❌ No se encontró la tabla de actas")
+            st.error("No se encontró la tabla de actas. Mostrando HTML para debug:")
+            st.code(resp.text[:2000], language="html")
     else:
-        add_log("❌ Error de login")
-        st.error("Error de login. Verificá usuario y contraseña")
+        add_log(f"❌ Login fallido. Status: {resp.status_code}")
+        st.error(f"Error de login. Status code: {resp.status_code}")
