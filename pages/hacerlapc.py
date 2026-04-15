@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import time
-import re
 from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Robot OSECAC", layout="wide")
@@ -14,115 +13,142 @@ with st.form("datos_acceso"):
     submit = st.form_submit_button("🚀 INICIAR DESCARGA")
 
 if submit:
-    with st.spinner("Conectando a OSECAC..."):
+    log_area = st.empty()
+    logs = []
+    
+    def add_log(msg):
+        logs.append(msg)
+        log_area.code("\n".join(logs), language="text")
+    
+    add_log("🚀 Iniciando...")
+    
+    session = requests.Session()
+    
+    # 1. Obtener página de login con tokens
+    add_log("📝 Obteniendo página de login...")
+    login_url = "http://200.51.42.41:7980/Login.aspx?ReturnUrl=%2fdefault.aspx"
+    resp = session.get(login_url)
+    
+    # Extraer tokens
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    viewstate = soup.find('input', {'name': '__VIEWSTATE'})
+    viewstategen = soup.find('input', {'name': '__VIEWSTATEGENERATOR'})
+    
+    # Datos completos del formulario (sin botón)
+    login_data = {
+        '__VIEWSTATE': viewstate['value'] if viewstate else '',
+        '__VIEWSTATEGENERATOR': viewstategen['value'] if viewstategen else '',
+        '__SCROLLPOSITIONX': '0',
+        '__SCROLLPOSITIONY': '0',
+        '__EVENTTARGET': '',
+        '__EVENTARGUMENT': '',
+        'ctl00$hdnModulo': '',
+        'ctl00$hdnFunction': '',
+        'ctl00$hdnPermisos': '',
+        'ctl00$UcLogin1$txtUsuario': usuario,
+        'ctl00$UcLogin1$txtClave': password,
+    }
+    
+    add_log(f"🔐 Enviando login para {usuario}...")
+    
+    # Enviar el formulario (simula el Enter)
+    resp = session.post(login_url, data=login_data, headers={
+        'Content-Type': 'application/x-www-form-urlencoded'
+    })
+    
+    add_log(f"📍 Redirigido a: {resp.url}")
+    
+    # Verificar login exitoso (que no vuelva a login)
+    if "Login.aspx" not in resp.url:
+        add_log("✅ Login exitoso!")
         
-        # Crear sesión
-        session = requests.Session()
+        # Mostrar un poco del HTML para debug
+        add_log(f"📄 Título de página: {soup.title.string if soup.title else 'No title'}")
         
-        # 1. Obtener página de login y tokens
-        st.write("📝 1. Iniciando sesión...")
-        login_url = "http://200.51.42.41:7980/Login.aspx"
-        resp = session.get(login_url)
+        # 2. Ir a página de actas
+        add_log("📂 Navegando a actas...")
+        actas_url = "http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx"
+        resp = session.get(actas_url)
         
-        # Extraer tokens ASP.NET
+        # 3. Buscar por legajo
+        add_log(f"🔢 Buscando legajo {legajo}...")
         soup = BeautifulSoup(resp.text, 'html.parser')
         viewstate = soup.find('input', {'name': '__VIEWSTATE'})
         eventvalidation = soup.find('input', {'name': '__EVENTVALIDATION'})
         
-        # Datos de login
-        login_data = {
+        busqueda_data = {
             '__VIEWSTATE': viewstate['value'] if viewstate else '',
             '__EVENTVALIDATION': eventvalidation['value'] if eventvalidation else '',
-            'ctl00$uLogin1$txtUsuario': usuario,
-            'ctl00$uLogin1$txtClave': password,
-            'ctl00$uLogin1$btnIngresar': 'Ingresar'
+            'ctl00$cMain$gvActasSincronizadas$Legajo': legajo,
+            'ctl00$cMain$gvActasSincronizadas$btnBuscar': 'Buscar'
         }
         
-        # Enviar login
-        resp = session.post(login_url, data=login_data)
+        resp = session.post(actas_url, data=busqueda_data)
         
-        if "default.aspx" in resp.url or "Sincronizacion" in resp.url:
-            st.success("✅ Login exitoso!")
+        # 4. Extraer números de acta
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        tabla = soup.find('table', {'id': 'ctl00_cMain_gvActasSincronizadas'})
+        
+        if tabla:
+            numeros_acta = []
+            filas = tabla.find_all('tr')
+            for fila in filas:
+                celdas = fila.find_all('td')
+                if len(celdas) >= 2:
+                    texto = celdas[1].get_text().strip()
+                    if texto.isdigit():
+                        numeros_acta.append(texto)
             
-            # 2. Ir a página de actas
-            st.write("📝 2. Buscando actas...")
-            actas_url = "http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx"
-            resp = session.get(actas_url)
+            add_log(f"📊 Encontradas {len(numeros_acta)} actas")
+            st.write(f"📄 Actas encontradas: {', '.join(numeros_acta[:20])}...")
             
-            # 3. Buscar por legajo
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            viewstate = soup.find('input', {'name': '__VIEWSTATE'})
-            eventvalidation = soup.find('input', {'name': '__EVENTVALIDATION'})
-            
-            busqueda_data = {
-                '__VIEWSTATE': viewstate['value'] if viewstate else '',
-                '__EVENTVALIDATION': eventvalidation['value'] if eventvalidation else '',
-                'ctl00$cMain$gvActasSincronizadas$Legajo': legajo,
-                'ctl00$cMain$gvActasSincronizadas$btnBuscar': 'Buscar'
-            }
-            
-            resp = session.post(actas_url, data=busqueda_data)
-            
-            # 4. Extraer números de acta
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            
-            # Buscar todas las filas de la tabla
-            tabla = soup.find('table', {'id': 'ctl00_cMain_gvActasSincronizadas'})
-            if tabla:
-                filas = tabla.find_all('tr')
-                numeros_acta = []
-                
-                for fila in filas:
-                    celdas = fila.find_all('td')
-                    if len(celdas) > 1:
-                        # Buscar el número de acta (normalmente en la segunda columna)
-                        texto = celdas[1].get_text().strip() if len(celdas) > 1 else ""
-                        if texto.isdigit():
-                            numeros_acta.append(texto)
-                
-                st.write(f"📊 Se encontraron {len(numeros_acta)} actas")
-                st.write(f"📄 Números: {', '.join(numeros_acta[:10])}...")
-                
+            if numeros_acta:
                 # 5. Generar PDFs
-                st.write("📝 3. Generando PDFs...")
+                pdfs = []
+                progress = st.progress(0)
                 
-                pdfs_generados = []
                 for i in range(0, len(numeros_acta), 2):
                     grupo = numeros_acta[i:i+2]
                     nros = ','.join(grupo)
                     
-                    # URL de generación de PDF
                     pdf_url = f"http://200.51.42.41:7980/FiscaPDA/Sincronizacion/frmPrintMasivo.aspx?PrintNew=1&Usuario={usuario}&NrosActa={nros}&OrigCopy=0&ImpSinCiudad=1&Docs=A:1,V:1,I:1,P:1,L:1,D:1&HistorialActas=0"
                     
+                    add_log(f"🖨️ Generando PDF para actas: {nros}")
                     resp_pdf = session.get(pdf_url)
                     
-                    if resp_pdf.status_code == 200 and len(resp_pdf.content) > 1000:
-                        nombre = f"actas_{nros}.pdf"
-                        pdfs_generados.append((nombre, resp_pdf.content))
-                        st.write(f"✅ Descargado: {nombre}")
+                    if resp_pdf.status_code == 200 and len(resp_pdf.content) > 5000:
+                        pdfs.append((f"actas_{nros}.pdf", resp_pdf.content))
+                        add_log(f"✅ OK: actas_{nros}.pdf ({len(resp_pdf.content)} bytes)")
+                    else:
+                        add_log(f"❌ Error: {nros} - status: {resp_pdf.status_code}")
                     
-                    time.sleep(2)
+                    progress.progress(min((i+2)/len(numeros_acta), 1.0))
+                    time.sleep(1)
                 
-                # 6. Ofrecer descarga
-                if pdfs_generados:
+                # 6. ZIP
+                if pdfs:
                     import zipfile
                     import io
                     
                     zip_buffer = io.BytesIO()
-                    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-                        for nombre, contenido in pdfs_generados:
-                            zip_file.writestr(nombre, contenido)
+                    with zipfile.ZipFile(zip_buffer, 'w') as zipf:
+                        for nombre, contenido in pdfs:
+                            zipf.writestr(nombre, contenido)
                     
-                    st.success(f"✅ Se generaron {len(pdfs_generados)} PDFs")
+                    st.success(f"✅ {len(pdfs)} PDFs generados correctamente")
                     st.download_button(
-                        label="📥 DESCARGAR TODOS LOS PDFS (ZIP)",
+                        label="📥 DESCARGAR ZIP CON TODAS LAS ACTAS",
                         data=zip_buffer.getvalue(),
-                        file_name="actas_osecac.zip",
+                        file_name=f"actas_legajo_{legajo}.zip",
                         mime="application/zip"
                     )
                 else:
                     st.error("❌ No se pudo generar ningún PDF")
             else:
-                st.error("❌ No se encontró la tabla de actas")
+                st.warning("⚠️ No se encontraron números de acta para este legajo")
         else:
-            st.error("❌ Error de login. Verificá usuario y contraseña")
+            add_log("❌ No se encontró la tabla de actas")
+            st.error("No se encontró la tabla de actas. Verificá que el legajo tenga actas disponibles.")
+    else:
+        add_log("❌ Error de login. Usuario o contraseña incorrectos")
+        st.error("❌ Error de login. Verificá usuario y contraseña")
