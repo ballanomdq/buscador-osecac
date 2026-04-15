@@ -7,6 +7,7 @@ import numpy as np
 import re
 import locale
 import io
+import csv
 
 # Intentar configurar locale para formato argentino
 try:
@@ -70,7 +71,7 @@ with col_back:
 
 st.markdown("---")
 
-# ==================== FUNCIONES DE LIMPIEZA ROBUSTAS ====================
+# ==================== FUNCIONES DE LIMPIEZA ====================
 def limpiar_valor_str(valor):
     if valor is None or pd.isna(valor):
         return None
@@ -182,58 +183,6 @@ def detectar_columna_csv(df, posibles_nombres):
             if posible.upper() in col_upper or col_upper in posible.upper():
                 return col
     return None
-
-# ==================== PROCESAR CSV ULTRA ROBUSTO ====================
-def procesar_csv_actas_inteligente(archivo):
-    try:
-        contenido = archivo.getvalue().decode('latin-1', errors='replace')
-        
-        separadores = [None, ';', ',', '\t', ' ']
-        df = None
-        for sep in separadores:
-            try:
-                df_temp = pd.read_csv(io.StringIO(contenido), sep=sep, engine='python', on_bad_lines='skip', dtype=str)
-                if len(df_temp.columns) >= 5:
-                    df = df_temp
-                    break
-            except:
-                continue
-                
-        if df is None:
-            st.error("No se pudo leer el CSV correctamente.")
-            return []
-
-        df.columns = [str(col).strip().upper() for col in df.columns]
-
-        col_cuit = detectar_columna_csv(df, ['CUIT', 'CUIL', 'CUIT EMPRESA', 'NRO CUIT'])
-        col_leg  = detectar_columna_csv(df, ['LEGAJO', 'LEG', 'NRO LEGAJO'])
-        col_vto  = detectar_columna_csv(df, ['VTO', 'FECHA_VTO', 'FECHA VTO', 'VENCIMIENTO', 'FECHA VENCIMIENTO'])
-        col_acta = detectar_columna_csv(df, ['NRO_ACTA', 'ACTA', 'NUMERO ACTA', 'NRO ACTA'])
-
-        if not all([col_cuit, col_leg, col_vto, col_acta]):
-            st.error(f"Columnas detectadas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}")
-            return []
-
-        resultados = []
-        for _, row in df.iterrows():
-            cuit = limpiar_cuit_robusto(row.get(col_cuit))
-            leg = limpiar_valor_str(row.get(col_leg))
-            if leg:
-                leg = str(leg).strip()
-            vto = normalizar_fecha_para_supabase(row.get(col_vto))
-            nro_acta = limpiar_valor_str(row.get(col_acta))
-
-            if cuit and leg and vto and nro_acta:
-                resultados.append({
-                    'cuit': cuit,
-                    'leg': leg,
-                    'vto': vto,
-                    'nro_acta': nro_acta
-                })
-        return resultados
-    except Exception as e:
-        st.error(f"Error procesando CSV: {str(e)}")
-        return []
 
 # ==================== FUNCIONES CON CACHÉ ====================
 @st.cache_data(ttl=300)
@@ -709,9 +658,10 @@ with tab4:
     <div class="info-box">
         📌 <strong>Instrucciones:</strong><br>
         1. Subí el archivo CSV que te envía Central.<br>
-        2. El sistema detectará automáticamente las columnas.<br>
-        3. Buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
-        4. Solo actualizará registros con <strong>MAIL ENVIADO = SI</strong>.
+        2. El sistema HARÁ UN DIAGNÓSTICO COMPLETO del archivo.<br>
+        3. Verás exactamente qué caracteres tiene el archivo.<br>
+        4. Luego buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
+        5. Solo actualizará registros con <strong>MAIL ENVIADO = SI</strong>.
     </div>
     """, unsafe_allow_html=True)
     
@@ -719,41 +669,133 @@ with tab4:
     
     if uploaded_csv is not None:
         st.info(f"Archivo: {uploaded_csv.name}")
+        
+        # ==================== DIAGNÓSTICO COMPLETO ====================
+        st.subheader("🔬 DIAGNÓSTICO DEL ARCHIVO (muestra la verdad)")
+        contenido_bytes = uploaded_csv.getvalue()
+        
+        # 1. HEX DUMP
+        st.write("**HEX dump (primeros 100 bytes):**")
+        st.code(contenido_bytes[:100].hex(' '))
+        
+        if contenido_bytes.startswith(b'\xef\xbb\xbf'):
+            st.error("⚠️ ¡BOM UTF-8 detectado! El archivo tiene caracteres invisibles al inicio.")
+        elif contenido_bytes.startswith(b'\xff\xfe'):
+            st.error("⚠️ ¡BOM UTF-16 detectado!")
+        else:
+            st.success("✅ Sin BOM detectado.")
+        
+        # 2. Representación repr
         try:
-            contenido = uploaded_csv.getvalue().decode('latin-1', errors='replace')
-            df_preview = pd.read_csv(io.StringIO(contenido), sep=None, engine='python', on_bad_lines='skip')
-            st.write("**Vista previa del archivo CSV:**")
-            st.dataframe(df_preview.head(10), use_container_width=True)
+            texto = contenido_bytes[:500].decode('utf-8', errors='replace')
+            st.write("**repr() de los primeros 500 caracteres (muestra caracteres invisibles):**")
+            st.code(repr(texto))
         except:
             pass
         
+        # 3. Detectar separador
+        try:
+            sample = contenido_bytes[:4096].decode('utf-8-sig', errors='replace')
+            dialect = csv.Sniffer().sniff(sample, delimiters=',;|\t')
+            st.success(f"Separador detectado automáticamente: '{dialect.delimiter}'")
+        except Exception as e:
+            st.warning(f"No se pudo detectar separador: {e}")
+        
+        # 4. Probar separadores
+        st.write("**Prueba de separadores:**")
+        for sep in [',', ';', '\t', '|']:
+            try:
+                df_test = pd.read_csv(io.BytesIO(contenido_bytes), sep=sep, dtype=str, encoding='utf-8-sig', nrows=2)
+                st.success(f"✅ Separador '{sep}' funciona → {len(df_test.columns)} columnas")
+                st.dataframe(df_test.head(1))
+            except:
+                st.warning(f"❌ Separador '{sep}' falló")
+        
+        # 5. Vista previa con repr
+        try:
+            df_preview = pd.read_csv(io.BytesIO(contenido_bytes), sep=None, engine='python', on_bad_lines='skip', dtype=str)
+            st.write("**Vista previa (primeras 3 filas):**")
+            st.dataframe(df_preview.head(3), use_container_width=True)
+            
+            st.write("**Valores de la primera fila con repr() (para ver caracteres invisibles):**")
+            if len(df_preview) > 0:
+                for col in df_preview.columns:
+                    st.write(f"**{col}:** {repr(df_preview.iloc[0][col])}")
+        except:
+            pass
+        
+        # ==================== AUDITORÍA DE SUPABASE ====================
+        st.subheader("🔍 AUDITORÍA DE SUPABASE")
+        cuit_ejemplo = st.text_input("Ingresá un CUIT de ejemplo para buscar en Supabase:", value="30707685243")
+        if st.button("Buscar en Supabase"):
+            resultado = supabase.table("padron_deuda_presunta").select("CUIT, LEG, VTO, MAIL_ENVIADO").eq("CUIT", cuit_ejemplo).execute()
+            if resultado.data:
+                for col, val in resultado.data[0].items():
+                    st.write(f"**{col}:** '{val}' → repr: {repr(val)}")
+            else:
+                st.error(f"No se encontró CUIT {cuit_ejemplo} en la base de datos")
+        
+        # ==================== PROCESAMIENTO NORMAL ====================
+        st.subheader("📋 Procesamiento normal")
+        
         if st.button("📋 Procesar y actualizar actas", type="primary"):
             with st.spinner("Procesando archivo..."):
-                datos_csv = procesar_csv_actas_inteligente(uploaded_csv)
+                # Leer CSV correctamente según el diagnóstico
+                try:
+                    # Intentar con utf-8-sig (elimina BOM)
+                    df = pd.read_csv(io.BytesIO(contenido_bytes), dtype=str, encoding='utf-8-sig')
+                except:
+                    df = pd.read_csv(io.BytesIO(contenido_bytes), dtype=str, encoding='latin-1')
                 
-                if not datos_csv:
-                    st.warning("No se pudieron extraer datos del archivo.")
+                # Limpiar nombres de columnas
+                df.columns = [str(col).strip().upper() for col in df.columns]
+                
+                # Detectar columnas
+                col_cuit = None
+                col_leg = None
+                col_vto = None
+                
+                for col in df.columns:
+                    if 'CUIT' in col:
+                        col_cuit = col
+                    if 'LEG' in col or 'LEGAJO' in col:
+                        col_leg = col
+                    if 'VTO' in col or 'FECHA_VTO' in col or 'VENCIMIENTO' in col:
+                        col_vto = col
+                
+                if not col_cuit or not col_leg or not col_vto:
+                    st.error(f"No se detectaron columnas. CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}")
                 else:
-                    st.write(f"**Registros en CSV:** {len(datos_csv)}")
+                    st.success(f"Columnas detectadas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}")
+                    
                     actualizados = 0
                     no_encontrados = 0
                     progress_bar = st.progress(0)
                     
-                    for i, item in enumerate(datos_csv):
-                        try:
-                            resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
-                            
-                            if resultado.data:
-                                for registro in resultado.data:
-                                    supabase.table("padron_deuda_presunta").update({"acta": item['nro_acta'], "estado_gestion": "FINALIZADO"}).eq("id", registro['id']).execute()
-                                    actualizados += 1
-                            else:
-                                no_encontrados += 1
-                                if i < 5:
-                                    st.warning(f"No encontrado → CUIT: {item['cuit']} | LEG: {item['leg']} | VTO: {item['vto']}")
-                        except Exception as e:
-                            st.error(f"Error en registro {i}: {str(e)}")
+                    for i, row in df.iterrows():
+                        cuit_original = row[col_cuit]
+                        leg_original = row[col_leg]
+                        vto_original = row[col_vto]
                         
-                        progress_bar.progress((i + 1) / len(datos_csv))
+                        # Limpiar valores
+                        cuit_limpio = limpiar_cuit_robusto(cuit_original)
+                        leg_limpio = limpiar_valor_str(leg_original)
+                        vto_limpio = normalizar_fecha_para_supabase(vto_original)
+                        
+                        if cuit_limpio and leg_limpio and vto_limpio:
+                            try:
+                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("CUIT", cuit_limpio).eq("LEG", leg_limpio).eq("VTO", vto_limpio).eq("MAIL_ENVIADO", "SI").execute()
+                                if resultado.data:
+                                    for reg in resultado.data:
+                                        supabase.table("padron_deuda_presunta").update({"acta": "ACTUALIZADO", "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
+                                        actualizados += 1
+                                else:
+                                    no_encontrados += 1
+                                    if i < 5:
+                                        st.warning(f"No encontrado: CUIT={cuit_limpio}, LEG={leg_limpio}, VTO={vto_limpio}")
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+                        
+                        progress_bar.progress((i + 1) / len(df))
                     
                     st.success(f"✅ {actualizados} actualizados | {no_encontrados} no encontrados")
