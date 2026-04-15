@@ -428,7 +428,6 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botones de acción
     col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
     
     with col_accion1:
@@ -482,7 +481,6 @@ with tab2:
     
     st.markdown("---")
     
-    # Filtros
     col_filtro1, col_filtro2, col_filtro3, col_filtro4 = st.columns([1, 1, 1, 1])
     
     with col_filtro1:
@@ -502,7 +500,6 @@ with tab2:
     with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
     
-    # Obtener datos filtrados
     query = supabase.table("padron_deuda_presunta").select("*")
     
     if localidad_seleccionada != "TODAS" and localidades_unicas:
@@ -538,7 +535,6 @@ with tab2:
             if st.session_state.pagina_actual > paginas_totales:
                 st.session_state.pagina_actual = paginas_totales
             
-            # Navegación
             st.markdown("### 📄 Navegación")
             col_ant, col_num, col_sig = st.columns([1, 2, 1])
             
@@ -570,7 +566,6 @@ with tab2:
             hasta = min(offset + registros_por_pagina, total_filtrado)
             st.info(f"📝 Mostrando {desde} a {hasta} de {total_filtrado}")
             
-            # Limpiar datos para mostrar
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_mostrar.columns:
                     df_mostrar[col] = df_mostrar[col].apply(limpiar_numero_entero)
@@ -581,7 +576,6 @@ with tab2:
             
             df_original = df_mostrar.copy()
             
-            # Preparar para editar
             df_editable = df_mostrar.copy()
             if 'fecha_carga' in df_editable.columns:
                 df_editable = df_editable.drop(columns=['fecha_carga'])
@@ -685,4 +679,9 @@ with tab3:
         1. Esta pestaña muestra las empresas que ya tienen LEGAJO y VENCIMIENTO asignados.<br>
         2. Al enviar la solicitud, se actualizará el estado.
     </div>
-    """, unsafe_
+    """, unsafe_allow_html=True)
+    
+    try:
+        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion").eq("mail_enviado", "NO").not_.is_("leg", "null").not_.is_("vto", "null").execute()
+        if datos.data:
+            df_listos = pd.DataFrame
