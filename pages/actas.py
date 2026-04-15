@@ -20,7 +20,6 @@ except:
 # ==================== CONEXIÓN CACHEADA A SUPABASE ====================
 @st.cache_resource
 def get_supabase():
-    """Crea una única conexión a Supabase (reutilizada en toda la sesión)"""
     return create_client(
         st.secrets["SUPABASE_URL_ACTAS"],
         st.secrets["SUPABASE_KEY_ACTAS"]
@@ -67,7 +66,6 @@ st.markdown("---")
 
 # ==================== FUNCIONES DE LIMPIEZA ====================
 def formatear_numero_argentino(valor):
-    """Convierte un número a formato argentino: $1.234,56"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -83,7 +81,6 @@ def formatear_numero_argentino(valor):
         return str(valor) if valor else None
 
 def limpiar_valor(val):
-    """Convierte cualquier valor no serializable a JSON en None o string limpio."""
     if val is None:
         return None
     if pd.isna(val):
@@ -115,7 +112,6 @@ def limpiar_valor(val):
     return str(val)
 
 def excel_serial_a_fecha(n):
-    """Convierte número serial de Excel a string YYYY-MM-DD (sin hora)."""
     try:
         n = int(n)
         fecha_base = datetime(1899, 12, 30)
@@ -125,7 +121,6 @@ def excel_serial_a_fecha(n):
         return str(n)
 
 def fecha_para_mostrar(valor):
-    """Convierte fecha a DD/MM/YYYY para mostrar (sin hora)."""
     if valor is None:
         return None
     try:
@@ -154,7 +149,6 @@ def fecha_para_mostrar(valor):
         return str(valor) if valor else None
 
 def fecha_para_guardar(valor):
-    """Convierte fecha a YYYY-MM-DD para guardar en Supabase (sin hora)."""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -174,7 +168,6 @@ def fecha_para_guardar(valor):
         return None
 
 def limpiar_numero_entero(valor):
-    """Convierte 1.0 a 1"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -188,7 +181,6 @@ def limpiar_numero_entero(valor):
         return None
 
 def limpiar_cuit_csv(valor):
-    """Limpia el CUIT que viene en formato científico (3,0717E+10)"""
     if valor is None or pd.isna(valor):
         return None
     try:
@@ -202,10 +194,9 @@ def limpiar_cuit_csv(valor):
     except:
         return str(valor)
 
-# ==================== FUNCIONES CON CACHÉ PARA RENDIMIENTO ====================
+# ==================== FUNCIONES CON CACHÉ ====================
 @st.cache_data(ttl=300)
 def obtener_localidades(_supabase):
-    """Obtiene localidades únicas (cacheado por 5 minutos)"""
     todas = _supabase.table("padron_deuda_presunta").select("localidad").execute()
     localidades = sorted(set([l['localidad'] for l in todas.data if l.get('localidad')]))
     if 'MAR DEL PLATA' in localidades:
@@ -215,25 +206,18 @@ def obtener_localidades(_supabase):
 
 @st.cache_data(ttl=60)
 def obtener_pares_existentes(_supabase):
-    """Trae solo los pares (cuit, ultima_acta) de la tabla (cacheado 1 minuto)"""
     todos = []
     offset = 0
     batch_size = 1000
     while True:
-        batch = _supabase.table("padron_deuda_presunta")\
-            .select("cuit, ultima_acta")\
-            .range(offset, offset + batch_size - 1)\
-            .execute()
+        batch = _supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").range(offset, offset + batch_size - 1).execute()
         if not batch.data:
             break
         todos.extend(batch.data)
         offset += batch_size
         if len(batch.data) < batch_size:
             break
-    batch_none = _supabase.table("padron_deuda_presunta")\
-        .select("cuit, ultima_acta")\
-        .is_("ultima_acta", "null")\
-        .execute()
+    batch_none = _supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").is_("ultima_acta", "null").execute()
     for reg in batch_none.data:
         cuit = str(reg.get('cuit') or '')
         if cuit:
@@ -242,7 +226,6 @@ def obtener_pares_existentes(_supabase):
 
 @st.cache_data(ttl=60)
 def contar_registros(_supabase, localidad, filtro_mail):
-    """Cuenta registros con filtros (cacheado 1 minuto)"""
     query = _supabase.table("padron_deuda_presunta").select("*", count="exact", head=True)
     if localidad != "TODAS":
         query = query.eq("localidad", localidad)
@@ -262,31 +245,15 @@ COLUMNAS_EXCEL = [
 ]
 
 MAPA_COLUMNAS = {
-    "DELEGACION": "delegacion",
-    "LOCALIDAD": "localidad",
-    "CUIT": "cuit",
-    "RAZON SOCIAL": "razon_social",
-    "DEUDA PRESUNTA": "deuda_presunta",
-    "CP": "cp",
-    "CALLE": "calle",
-    "NUMERO": "numero",
-    "PISO": "piso",
-    "DPTO": "dpto",
-    "FECHARELDEPENDENCIA": "fechareldependencia",
-    "EMAIL": "email",
-    "TEL_DOM_LEGAL": "tel_dom_legal",
-    "TEL_DOM_REAL": "tel_dom_real",
-    "ULTIMA ACTA": "ultima_acta",
-    "DESDE": "desde",
-    "HASTA": "hasta",
-    "DETECTADO": "detectado",
-    "ESTADO": "estado",
-    "FECHA_PAGO_OBL": "fecha_pago_obl",
-    "EMPL 10-2025": "empl_10_2025",
-    "EMP 11-2025": "emp_11_2025",
-    "EMPL 12-2025": "empl_12_2025",
-    "ACTIVIDAD": "actividad",
-    "SITUACION": "situacion"
+    "DELEGACION": "delegacion", "LOCALIDAD": "localidad", "CUIT": "cuit",
+    "RAZON SOCIAL": "razon_social", "DEUDA PRESUNTA": "deuda_presunta",
+    "CP": "cp", "CALLE": "calle", "NUMERO": "numero", "PISO": "piso",
+    "DPTO": "dpto", "FECHARELDEPENDENCIA": "fechareldependencia",
+    "EMAIL": "email", "TEL_DOM_LEGAL": "tel_dom_legal", "TEL_DOM_REAL": "tel_dom_real",
+    "ULTIMA ACTA": "ultima_acta", "DESDE": "desde", "HASTA": "hasta",
+    "DETECTADO": "detectado", "ESTADO": "estado", "FECHA_PAGO_OBL": "fecha_pago_obl",
+    "EMPL 10-2025": "empl_10_2025", "EMP 11-2025": "emp_11_2025", "EMPL 12-2025": "empl_12_2025",
+    "ACTIVIDAD": "actividad", "SITUACION": "situacion"
 }
 
 COLUMNAS_MONEDA = {"deuda_presunta", "detectado"}
@@ -305,22 +272,19 @@ TITULOS_MOSTRAR = {
     'leg': 'LEG', 'vto': 'VTO', 'mail_enviado': 'MAIL ENVIADO', 'acta': 'ACTA', 'estado_gestion': 'ESTADO GESTION'
 }
 
-# ==================== FUNCIÓN PARA PROCESAR EXCEL ====================
+# ==================== FUNCIÓN PROCESAR EXCEL ====================
 def procesar_excel(archivo):
-    """Lee el Excel y devuelve una lista de dicts listos para Supabase."""
     if archivo.name.endswith('.xls'):
         df = pd.read_excel(archivo, engine='xlrd', dtype=str)
     else:
         df = pd.read_excel(archivo, engine='openpyxl', dtype=str)
     
     df.columns = [str(col).strip().upper() for col in df.columns]
-    
     faltantes = [c for c in COLUMNAS_EXCEL if c not in df.columns]
     if faltantes:
         raise ValueError(f"Columnas faltantes: {faltantes}")
     
     df = df[COLUMNAS_EXCEL].rename(columns=MAPA_COLUMNAS)
-    
     registros_limpios = []
     
     for _, fila in df.iterrows():
@@ -348,9 +312,8 @@ def procesar_excel(archivo):
         registros_limpios.append(registro)
     return registros_limpios
 
-# ==================== FUNCIÓN PARA PROCESAR CSV DE ACTAS ====================
+# ==================== FUNCIÓN PROCESAR CSV ACTAS ====================
 def procesar_csv_actas(archivo):
-    """Lee el CSV de actas y devuelve una lista de dicts con los datos relevantes"""
     try:
         contenido = archivo.getvalue().decode('latin-1')
         df = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
@@ -404,19 +367,13 @@ def procesar_csv_actas(archivo):
 # ==================== PESTAÑAS ====================
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas", "📋 Subir Actas"])
 
-# ==================== TAB 1: CARGAR PADRÓN ====================
+# ==================== TAB 1 ====================
 with tab1:
     st.markdown("### Cargar Padrón de Deuda Presunta")
-    
-    uploaded_file = st.file_uploader(
-        "Seleccionar archivo Excel",
-        type=["xls", "xlsx"],
-        key="upload_padron"
-    )
+    uploaded_file = st.file_uploader("Seleccionar archivo Excel", type=["xls", "xlsx"], key="upload_padron")
     
     if uploaded_file is not None:
         st.info(f"Archivo: {uploaded_file.name}")
-        
         try:
             registros = procesar_excel(uploaded_file)
             total_registros = len(registros)
@@ -430,7 +387,6 @@ with tab1:
                 reg['estado_gestion'] = 'PENDIENTE'
             
             existentes_set = obtener_pares_existentes(supabase)
-            
             nuevos_registros = []
             duplicados = 0
             
@@ -443,7 +399,6 @@ with tab1:
                     duplicados += 1
             
             nuevos_count = len(nuevos_registros)
-            
             st.markdown(f"""
             <div class="info-box">
                 <strong>📊 Resumen del archivo</strong><br>
@@ -469,18 +424,16 @@ with tab1:
                         lote = nuevos_registros[i:i+100]
                         resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
                         total_insertados += len(resultado.data)
-                    
                     st.success(f"✅ Carga completada: {total_insertados} registros nuevos insertados. Duplicados omitidos: {duplicados}")
                     obtener_pares_existentes.clear()
                     obtener_localidades.clear()
                     contar_registros.clear()
             elif not nuevos_registros:
                 st.warning(f"⚠️ No hay registros nuevos para cargar.")
-                            
         except Exception as e:
             st.error(f"Error: {str(e)}")
 
-# ==================== TAB 2: EDITAR LEGAJOS Y VTOS ====================
+# ==================== TAB 2 ====================
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
@@ -532,31 +485,19 @@ with tab2:
     st.markdown("---")
     
     localidades_unicas = obtener_localidades(supabase)
-    
     col_filtro1, col_filtro2, col_filtro3 = st.columns([2, 1, 1])
     
     with col_filtro1:
         if localidades_unicas:
-            localidad_seleccionada = st.selectbox(
-                "📌 LOCALIDAD:",
-                options=["TODAS"] + localidades_unicas,
-                index=0,
-                key="filtro_localidad"
-            )
+            localidad_seleccionada = st.selectbox("📌 LOCALIDAD:", options=["TODAS"] + localidades_unicas, index=0, key="filtro_localidad")
         else:
             localidad_seleccionada = "TODAS"
             st.selectbox("📌 LOCALIDAD:", options=["TODAS"], index=0, key="filtro_localidad", disabled=True)
     
     with col_filtro2:
-        filtro_mail = st.selectbox(
-            "📧 MAIL ENVIADO:",
-            options=["AMBOS", "NO", "SI"],
-            index=0,
-            key="filtro_mail"
-        )
+        filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
     
     total = contar_registros(supabase, localidad_seleccionada, filtro_mail)
-    
     with col_filtro3:
         st.metric("Total registros", total)
     
@@ -575,34 +516,22 @@ with tab2:
             st.rerun()
         
         col_ant, col_num, col_sig = st.columns([1, 2, 1])
-        
         with col_ant:
             if st.button("◀ Anterior", disabled=(st.session_state.pagina_actual <= 1)):
                 st.session_state.pagina_actual = max(1, st.session_state.pagina_actual - 1)
                 st.rerun()
-        
         with col_num:
-            pagina_actual = st.selectbox(
-                "Página",
-                options=list(range(1, paginas_totales + 1)),
-                index=st.session_state.pagina_actual - 1,
-                key="pagina_select",
-                label_visibility="collapsed"
-            )
+            pagina_actual = st.selectbox("Página", options=list(range(1, paginas_totales + 1)), index=st.session_state.pagina_actual - 1, key="pagina_select", label_visibility="collapsed")
             st.session_state.pagina_actual = pagina_actual
-        
         with col_sig:
             if st.button("Siguiente ▶", disabled=(st.session_state.pagina_actual >= paginas_totales)):
                 st.session_state.pagina_actual = min(paginas_totales, st.session_state.pagina_actual + 1)
                 st.rerun()
         
         offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
-        
         query_datos = supabase.table("padron_deuda_presunta").select("*")
-        
         if localidad_seleccionada != "TODAS" and localidades_unicas:
             query_datos = query_datos.eq("localidad", localidad_seleccionada)
-        
         if filtro_mail == "SI":
             query_datos = query_datos.eq("mail_enviado", "SI")
         elif filtro_mail == "NO":
@@ -616,21 +545,17 @@ with tab2:
             st.info(f"📝 Mostrando {desde} a {hasta} de {total}")
             
             df_datos = pd.DataFrame(datos.data)
-            
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(limpiar_numero_entero)
-            
             for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
                 if col in df_datos.columns:
                     df_datos[col] = df_datos[col].apply(fecha_para_mostrar)
             
             df_original = df_datos.copy()
-            
             df_mostrar = df_datos.copy()
             if 'fecha_carga' in df_mostrar.columns:
                 df_mostrar = df_mostrar.drop(columns=['fecha_carga'])
-            
             df_mostrar = df_mostrar.rename(columns=TITULOS_MOSTRAR)
             
             st.markdown("#### Seleccionar registros")
@@ -639,14 +564,11 @@ with tab2:
                 seleccionar_todos = st.checkbox("✅ SELECCIONAR TODOS (página actual)", key="seleccionar_todos")
             
             df_mostrar.insert(0, "🗑️", False)
-            
             if seleccionar_todos:
                 df_mostrar["🗑️"] = True
             
             edited_df = st.data_editor(
-                df_mostrar,
-                use_container_width=True,
-                height=600,
+                df_mostrar, use_container_width=True, height=600,
                 column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")},
                 disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
                           'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
@@ -657,7 +579,6 @@ with tab2:
             
             ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
             st.session_state.ids_a_eliminar = ids_seleccionados
-            
             if ids_seleccionados:
                 st.caption(f"📌 {len(ids_seleccionados)} registro(s) seleccionado(s) para eliminar")
             
@@ -668,14 +589,11 @@ with tab2:
                 with st.spinner("Guardando..."):
                     inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
                     modificados = 0
-                    
                     for idx, row in edited_df.iterrows():
                         original_row = df_original.loc[idx] if idx in df_original.index else None
                         if original_row is None:
                             continue
-                        
                         datos_update = {}
-                        
                         nuevo_leg = row.get('LEG')
                         viejo_leg = original_row.get('leg')
                         if pd.isna(nuevo_leg) or nuevo_leg == '':
@@ -684,7 +602,6 @@ with tab2:
                             viejo_leg = None
                         if nuevo_leg != viejo_leg:
                             datos_update['leg'] = nuevo_leg
-                        
                         nuevo_vto = row.get('VTO')
                         viejo_vto = original_row.get('vto')
                         if pd.isna(nuevo_vto) or nuevo_vto == '':
@@ -695,32 +612,27 @@ with tab2:
                             viejo_vto = None
                         if nuevo_vto != viejo_vto:
                             datos_update['vto'] = nuevo_vto
-                        
                         nuevo_mail = row.get('MAIL ENVIADO')
                         viejo_mail = original_row.get('mail_enviado')
                         if pd.isna(nuevo_mail) or nuevo_mail == '':
                             nuevo_mail = 'NO'
                         if nuevo_mail != viejo_mail:
                             datos_update['mail_enviado'] = nuevo_mail
-                        
                         nuevo_acta = row.get('ACTA')
                         viejo_acta = original_row.get('acta')
                         if pd.isna(nuevo_acta) or nuevo_acta == '':
                             nuevo_acta = None
                         if nuevo_acta != viejo_acta:
                             datos_update['acta'] = nuevo_acta
-                        
                         nuevo_estado = row.get('ESTADO GESTION')
                         viejo_estado = original_row.get('estado_gestion')
                         if pd.isna(nuevo_estado) or nuevo_estado == '':
                             nuevo_estado = 'PENDIENTE'
                         if nuevo_estado != viejo_estado:
                             datos_update['estado_gestion'] = nuevo_estado
-                        
                         if datos_update:
                             supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
                             modificados += 1
-                    
                     if modificados > 0:
                         st.success(f"✅ {modificados} registros actualizados")
                         contar_registros.clear()
@@ -728,4 +640,80 @@ with tab2:
                     else:
                         st.info("No se detectaron cambios")
     else:
-        st.info("No hay datos con
+        st.info("No hay datos con los filtros seleccionados")
+
+# ==================== TAB 3 ====================
+with tab3:
+    st.markdown("### Solicitar Actas a Central")
+    try:
+        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion").eq("mail_enviado", "NO").not_.is_("leg", "null").not_.is_("vto", "null").execute()
+        if datos.data:
+            df_listos = pd.DataFrame(datos.data)
+            if len(df_listos) > 0:
+                st.info(f"📧 {len(df_listos)} empresas listas para solicitar actas")
+                df_mostrar = df_listos[['cuit', 'razon_social', 'leg', 'vto']].copy()
+                if 'vto' in df_mostrar.columns:
+                    df_mostrar['vto'] = df_mostrar['vto'].apply(fecha_para_mostrar)
+                st.dataframe(df_mostrar, use_container_width=True)
+                if st.button("📧 Enviar solicitud", type="primary"):
+                    for _, row in df_listos.iterrows():
+                        supabase.table("padron_deuda_presunta").update({"mail_enviado": "SI", "estado_gestion": "ACTA_SOLICITADA"}).eq("id", row['id']).execute()
+                    st.success(f"Solicitud registrada para {len(df_listos)} empresas")
+                    contar_registros.clear()
+            else:
+                st.info("No hay registros listos")
+        else:
+            st.info("No hay datos cargados")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+# ==================== TAB 4: SUBIR ACTAS ====================
+with tab4:
+    st.markdown("### Subir Archivo de Actas (CSV)")
+    st.markdown("""
+    <div class="info-box">
+        <strong>📌 Instrucciones:</strong><br>
+        1. Subí el archivo CSV que te envía Central con los números de acta.<br>
+        2. El sistema buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
+        3. Solo actualizará registros que tengan <strong>MAIL ENVIADO = SI</strong>.<br>
+        4. Cuando encuentre una coincidencia, completará el campo <strong>ACTA</strong> y cambiará el estado a <strong>FINALIZADO</strong>.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_csv = st.file_uploader("Seleccionar archivo CSV", type=["csv"], key="upload_actas")
+    
+    if uploaded_csv is not None:
+        st.info(f"Archivo: {uploaded_csv.name}")
+        try:
+            contenido = uploaded_csv.getvalue().decode('latin-1')
+            df_preview = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
+            st.write("**Vista previa del archivo CSV:**")
+            st.dataframe(df_preview.head(10), use_container_width=True)
+            
+            if st.button("📋 Procesar y actualizar actas", type="primary"):
+                with st.spinner("Procesando archivo y buscando coincidencias..."):
+                    datos_csv = procesar_csv_actas(uploaded_csv)
+                    if not datos_csv:
+                        st.warning("No se pudieron extraer datos del archivo. Verificá que tenga las columnas necesarias.")
+                    else:
+                        st.write(f"**Registros encontrados en el CSV:** {len(datos_csv)}")
+                        actualizados = 0
+                        no_encontrados = 0
+                        progress_bar = st.progress(0)
+                        for i, item in enumerate(datos_csv):
+                            try:
+                                resultado = supabase.table("padron_deuda_presunta").select("id, cuit, leg, vto, mail_enviado, acta, estado_gestion").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
+                                if resultado.data:
+                                    for registro in resultado.data:
+                                        supabase.table("padron_deuda_presunta").update({"acta": item['nro_acta'], "estado_gestion": "FINALIZADO"}).eq("id", registro['id']).execute()
+                                        actualizados += 1
+                                else:
+                                    no_encontrados += 1
+                            except Exception as e:
+                                st.warning(f"Error procesando CUIT {item['cuit']}: {str(e)}")
+                            progress_bar.progress((i + 1) / len(datos_csv))
+                        st.success(f"✅ Proceso completado: {actualizados} registros actualizados, {no_encontrados} no encontrados")
+                        contar_registros.clear()
+                        obtener_localidades.clear()
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {str(e)}")
