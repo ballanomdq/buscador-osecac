@@ -651,17 +651,15 @@ with tab3:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== TAB 4 ====================
+# ==================== TAB 4 (CORREGIDA - COLUMNAS EN MINÚSCULAS) ====================
 with tab4:
     st.markdown("### Subir Archivo de Actas (CSV)")
     st.markdown("""
     <div class="info-box">
         📌 <strong>Instrucciones:</strong><br>
         1. Subí el archivo CSV que te envía Central.<br>
-        2. El sistema HARÁ UN DIAGNÓSTICO COMPLETO del archivo.<br>
-        3. Verás exactamente qué caracteres tiene el archivo.<br>
-        4. Luego buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
-        5. Solo actualizará registros con <strong>MAIL ENVIADO = SI</strong>.
+        2. El sistema buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
+        3. Solo actualizará registros con <strong>MAIL ENVIADO = SI</strong>.
     </div>
     """, unsafe_allow_html=True)
     
@@ -670,82 +668,20 @@ with tab4:
     if uploaded_csv is not None:
         st.info(f"Archivo: {uploaded_csv.name}")
         
-        # ==================== DIAGNÓSTICO COMPLETO ====================
-        st.subheader("🔬 DIAGNÓSTICO DEL ARCHIVO (muestra la verdad)")
-        contenido_bytes = uploaded_csv.getvalue()
-        
-        # 1. HEX DUMP
-        st.write("**HEX dump (primeros 100 bytes):**")
-        st.code(contenido_bytes[:100].hex(' '))
-        
-        if contenido_bytes.startswith(b'\xef\xbb\xbf'):
-            st.error("⚠️ ¡BOM UTF-8 detectado! El archivo tiene caracteres invisibles al inicio.")
-        elif contenido_bytes.startswith(b'\xff\xfe'):
-            st.error("⚠️ ¡BOM UTF-16 detectado!")
-        else:
-            st.success("✅ Sin BOM detectado.")
-        
-        # 2. Representación repr
+        # Mostrar vista previa
         try:
-            texto = contenido_bytes[:500].decode('utf-8', errors='replace')
-            st.write("**repr() de los primeros 500 caracteres (muestra caracteres invisibles):**")
-            st.code(repr(texto))
+            df_preview = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+            st.write("**Vista previa del archivo CSV:**")
+            st.dataframe(df_preview.head(5), use_container_width=True)
         except:
             pass
-        
-        # 3. Detectar separador
-        try:
-            sample = contenido_bytes[:4096].decode('utf-8-sig', errors='replace')
-            dialect = csv.Sniffer().sniff(sample, delimiters=',;|\t')
-            st.success(f"Separador detectado automáticamente: '{dialect.delimiter}'")
-        except Exception as e:
-            st.warning(f"No se pudo detectar separador: {e}")
-        
-        # 4. Probar separadores
-        st.write("**Prueba de separadores:**")
-        for sep in [',', ';', '\t', '|']:
-            try:
-                df_test = pd.read_csv(io.BytesIO(contenido_bytes), sep=sep, dtype=str, encoding='utf-8-sig', nrows=2)
-                st.success(f"✅ Separador '{sep}' funciona → {len(df_test.columns)} columnas")
-                st.dataframe(df_test.head(1))
-            except:
-                st.warning(f"❌ Separador '{sep}' falló")
-        
-        # 5. Vista previa con repr
-        try:
-            df_preview = pd.read_csv(io.BytesIO(contenido_bytes), sep=None, engine='python', on_bad_lines='skip', dtype=str)
-            st.write("**Vista previa (primeras 3 filas):**")
-            st.dataframe(df_preview.head(3), use_container_width=True)
-            
-            st.write("**Valores de la primera fila con repr() (para ver caracteres invisibles):**")
-            if len(df_preview) > 0:
-                for col in df_preview.columns:
-                    st.write(f"**{col}:** {repr(df_preview.iloc[0][col])}")
-        except:
-            pass
-        
-        # ==================== AUDITORÍA DE SUPABASE ====================
-        st.subheader("🔍 AUDITORÍA DE SUPABASE")
-        cuit_ejemplo = st.text_input("Ingresá un CUIT de ejemplo para buscar en Supabase:", value="30707685243")
-        if st.button("Buscar en Supabase"):
-            resultado = supabase.table("padron_deuda_presunta").select("CUIT, LEG, VTO, MAIL_ENVIADO").eq("CUIT", cuit_ejemplo).execute()
-            if resultado.data:
-                for col, val in resultado.data[0].items():
-                    st.write(f"**{col}:** '{val}' → repr: {repr(val)}")
-            else:
-                st.error(f"No se encontró CUIT {cuit_ejemplo} en la base de datos")
-        
-        # ==================== PROCESAMIENTO NORMAL ====================
-        st.subheader("📋 Procesamiento normal")
         
         if st.button("📋 Procesar y actualizar actas", type="primary"):
             with st.spinner("Procesando archivo..."):
-                # Leer CSV correctamente según el diagnóstico
                 try:
-                    # Intentar con utf-8-sig (elimina BOM)
-                    df = pd.read_csv(io.BytesIO(contenido_bytes), dtype=str, encoding='utf-8-sig')
+                    df = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
                 except:
-                    df = pd.read_csv(io.BytesIO(contenido_bytes), dtype=str, encoding='latin-1')
+                    df = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='latin-1')
                 
                 # Limpiar nombres de columnas
                 df.columns = [str(col).strip().upper() for col in df.columns]
@@ -754,14 +690,17 @@ with tab4:
                 col_cuit = None
                 col_leg = None
                 col_vto = None
+                col_acta = None
                 
                 for col in df.columns:
                     if 'CUIT' in col:
                         col_cuit = col
                     if 'LEG' in col or 'LEGAJO' in col:
                         col_leg = col
-                    if 'VTO' in col or 'FECHA_VTO' in col or 'VENCIMIENTO' in col:
+                    if 'VTO' in col or 'FECHA_VTO' in col:
                         col_vto = col
+                    if 'NRO_ACTA' in col or 'ACTA' in col:
+                        col_acta = col
                 
                 if not col_cuit or not col_leg or not col_vto:
                     st.error(f"No se detectaron columnas. CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}")
@@ -773,21 +712,18 @@ with tab4:
                     progress_bar = st.progress(0)
                     
                     for i, row in df.iterrows():
-                        cuit_original = row[col_cuit]
-                        leg_original = row[col_leg]
-                        vto_original = row[col_vto]
-                        
-                        # Limpiar valores
-                        cuit_limpio = limpiar_cuit_robusto(cuit_original)
-                        leg_limpio = limpiar_valor_str(leg_original)
-                        vto_limpio = normalizar_fecha_para_supabase(vto_original)
+                        cuit_limpio = limpiar_cuit_robusto(row[col_cuit])
+                        leg_limpio = limpiar_valor_str(row[col_leg])
+                        vto_limpio = normalizar_fecha_para_supabase(row[col_vto])
+                        acta_valor = str(row[col_acta]) if col_acta and pd.notna(row[col_acta]) else "ACTUALIZADO"
                         
                         if cuit_limpio and leg_limpio and vto_limpio:
                             try:
-                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("CUIT", cuit_limpio).eq("LEG", leg_limpio).eq("VTO", vto_limpio).eq("MAIL_ENVIADO", "SI").execute()
+                                # USAR MINÚSCULAS (como están en Supabase)
+                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit_limpio).eq("leg", leg_limpio).eq("vto", vto_limpio).eq("mail_enviado", "SI").execute()
                                 if resultado.data:
                                     for reg in resultado.data:
-                                        supabase.table("padron_deuda_presunta").update({"acta": "ACTUALIZADO", "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
+                                        supabase.table("padron_deuda_presunta").update({"acta": acta_valor, "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
                                         actualizados += 1
                                 else:
                                     no_encontrados += 1
