@@ -34,17 +34,21 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilo
+# Estilo mejorado para fondo oscuro (letras claras)
 st.markdown("""
 <style>
     .main-header { background-color: #1e293b; padding: 1.2rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6; }
-    .success-box { background-color: #064e3b; padding: 1rem; border-radius: 6px; border-left: 4px solid #10b981; margin: 1rem 0; }
-    .warning-box { background-color: #451a03; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 1rem 0; }
-    .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; }
+    .success-box { background-color: #064e3b; padding: 1rem; border-radius: 6px; border-left: 4px solid #10b981; margin: 1rem 0; color: #ffffff; }
+    .warning-box { background-color: #451a03; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 1rem 0; color: #ffffff; }
+    .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; color: #ffffff; }
+    .info-box strong, .info-box p, .info-box li { color: #ffffff !important; }
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
     .delete-btn button { background-color: #dc2626 !important; }
     .delete-btn button:hover { background-color: #b91c1c !important; }
+    .stDataFrame { background-color: #0f172a; }
+    .stSelectbox label, .stTextInput label { color: #ffffff !important; }
+    .stMetric label { color: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -194,6 +198,37 @@ def limpiar_cuit_csv(valor):
     except:
         return str(valor)
 
+def detectar_columna_csv(df, posibles_nombres):
+    """Detecta una columna en el CSV por similitud de nombre"""
+    for col in df.columns:
+        col_upper = col.upper().strip()
+        for posible in posibles_nombres:
+            if posible.upper() in col_upper or col_upper in posible.upper():
+                return col
+    return None
+
+def normalizar_fecha_csv(valor):
+    """Normaliza cualquier formato de fecha a YYYY-MM-DD"""
+    if valor is None or pd.isna(valor):
+        return None
+    valor_str = str(valor).strip()
+    # Ya está en formato ISO
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', valor_str):
+        return valor_str
+    # Formato DD/MM/YYYY
+    if re.match(r'^\d{2}/\d{2}/\d{4}$', valor_str):
+        partes = valor_str.split('/')
+        return f"{partes[2]}-{partes[1]}-{partes[0]}"
+    # Formato DD/MM/YY
+    if re.match(r'^\d{2}/\d{2}/\d{2}$', valor_str):
+        partes = valor_str.split('/')
+        año = 2000 + int(partes[2]) if int(partes[2]) < 30 else 1900 + int(partes[2])
+        return f"{año}-{partes[1]}-{partes[0]}"
+    # Número de Excel
+    if valor_str.isdigit():
+        return excel_serial_a_fecha(int(valor_str))
+    return valor_str
+
 # ==================== FUNCIONES CON CACHÉ ====================
 @st.cache_data(ttl=300)
 def obtener_localidades(_supabase):
@@ -312,56 +347,58 @@ def procesar_excel(archivo):
         registros_limpios.append(registro)
     return registros_limpios
 
-# ==================== FUNCIÓN PROCESAR CSV ACTAS ====================
-def procesar_csv_actas(archivo):
+# ==================== FUNCIÓN PROCESAR CSV ACTAS (INTELIGENTE) ====================
+def procesar_csv_actas_inteligente(archivo):
+    """Lee el CSV de actas y detecta automáticamente las columnas necesarias"""
     try:
         contenido = archivo.getvalue().decode('latin-1')
         df = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
-        df.columns = [str(col).strip().upper() for col in df.columns]
+        df.columns = [str(col).strip() for col in df.columns]
         
-        col_cuit = None
-        col_legajo = None
-        col_vto = None
-        col_nro_acta = None
+        # Detectar columnas por nombre (flexible)
+        col_cuit = detectar_columna_csv(df, ['CUIT', 'CUIL', 'CUIT EMPRESA', 'NRO CUIT'])
+        col_legajo = detectar_columna_csv(df, ['LEGAJO', 'LEG', 'NRO LEGAJO', 'INSPECTOR LEGAJO'])
+        col_vto = detectar_columna_csv(df, ['VTO', 'FECHA_VTO', 'FECHA VTO', 'VENCIMIENTO', 'FECHA VENCIMIENTO'])
+        col_nro_acta = detectar_columna_csv(df, ['NRO_ACTA', 'ACTA', 'NUMERO ACTA', 'NRO ACTA'])
         
-        for col in df.columns:
-            if 'CUIT' in col:
-                col_cuit = col
-            if 'LEGAJO' in col or col == 'LEG':
-                col_legajo = col
-            if 'VTO' in col or 'FECHA_VTO' in col:
-                col_vto = col
-            if 'NRO_ACTA' in col or col == 'ACTA':
-                col_nro_acta = col
+        # Si no se detectaron por nombre, buscar por posición (B, F, N como mencionaste)
+        if not col_cuit and len(df.columns) > 1:
+            col_cuit = df.columns[1]  # Columna B (índice 1)
+        if not col_legajo and len(df.columns) > 5:
+            col_legajo = df.columns[5]  # Columna F (índice 5)
+        if not col_vto and len(df.columns) > 13:
+            col_vto = df.columns[13]  # Columna N (índice 13)
         
         if not col_cuit or not col_legajo or not col_vto or not col_nro_acta:
+            st.error(f"⚠️ No se detectaron las columnas necesarias")
+            st.write("Columnas encontradas:", list(df.columns))
+            st.write(f"CUIT detectado en: {col_cuit}")
+            st.write(f"LEGAJO detectado en: {col_legajo}")
+            st.write(f"VTO detectado en: {col_vto}")
+            st.write(f"NRO ACTA detectado en: {col_nro_acta}")
             return []
+        
+        st.info(f"✅ Columnas detectadas: CUIT='{col_cuit}', LEGAJO='{col_legajo}', VTO='{col_vto}', NRO_ACTA='{col_nro_acta}'")
         
         resultados = []
         for _, row in df.iterrows():
             cuit = limpiar_cuit_csv(row[col_cuit])
             legajo = str(row[col_legajo]).strip() if pd.notna(row[col_legajo]) else None
-            vto = str(row[col_vto]).strip() if pd.notna(row[col_vto]) else None
+            vto_raw = str(row[col_vto]).strip() if pd.notna(row[col_vto]) else None
             nro_acta = str(row[col_nro_acta]).strip() if pd.notna(row[col_nro_acta]) else None
             
-            if cuit and legajo and vto and nro_acta:
-                if '/' in vto:
-                    partes = vto.split('/')
-                    if len(partes) == 3:
-                        vto_limpio = f"{partes[2]}-{partes[1]}-{partes[0]}"
-                    else:
-                        vto_limpio = vto
-                else:
-                    vto_limpio = vto
-                
+            if cuit and legajo and vto_raw and nro_acta:
+                vto_limpio = normalizar_fecha_csv(vto_raw)
                 resultados.append({
                     'cuit': cuit,
                     'leg': legajo,
                     'vto': vto_limpio,
                     'nro_acta': nro_acta
                 })
+        
         return resultados
     except Exception as e:
+        st.error(f"Error al leer el archivo: {str(e)}")
         return []
 
 # ==================== PESTAÑAS ====================
@@ -370,6 +407,15 @@ tab1, tab2, tab3, tab4 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos 
 # ==================== TAB 1 ====================
 with tab1:
     st.markdown("### Cargar Padrón de Deuda Presunta")
+    st.markdown("""
+    <div class="info-box">
+        📌 <strong>Instrucciones:</strong><br>
+        1. Seleccioná el archivo Excel del padrón de deuda presunta.<br>
+        2. El sistema detectará automáticamente los duplicados por CUIT + ULTIMA ACTA.<br>
+        3. Solo se cargarán los registros nuevos (los que no existen en la base).
+    </div>
+    """, unsafe_allow_html=True)
+    
     uploaded_file = st.file_uploader("Seleccionar archivo Excel", type=["xls", "xlsx"], key="upload_padron")
     
     if uploaded_file is not None:
@@ -645,6 +691,14 @@ with tab2:
 # ==================== TAB 3 ====================
 with tab3:
     st.markdown("### Solicitar Actas a Central")
+    st.markdown("""
+    <div class="info-box">
+        📌 <strong>Instrucciones:</strong><br>
+        1. Esta pestaña muestra las empresas que ya tienen LEGAJO y VENCIMIENTO asignados.<br>
+        2. Al enviar la solicitud, se actualizará el estado y se enviará el mail a Central.
+    </div>
+    """, unsafe_allow_html=True)
+    
     try:
         datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion").eq("mail_enviado", "NO").not_.is_("leg", "null").not_.is_("vto", "null").execute()
         if datos.data:
@@ -667,16 +721,17 @@ with tab3:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== TAB 4: SUBIR ACTAS ====================
+# ==================== TAB 4: SUBIR ACTAS (INTELIGENTE) ====================
 with tab4:
     st.markdown("### Subir Archivo de Actas (CSV)")
     st.markdown("""
     <div class="info-box">
-        <strong>📌 Instrucciones:</strong><br>
+        📌 <strong>Instrucciones:</strong><br>
         1. Subí el archivo CSV que te envía Central con los números de acta.<br>
-        2. El sistema buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
-        3. Solo actualizará registros que tengan <strong>MAIL ENVIADO = SI</strong>.<br>
-        4. Cuando encuentre una coincidencia, completará el campo <strong>ACTA</strong> y cambiará el estado a <strong>FINALIZADO</strong>.
+        2. El sistema DETECTARÁ AUTOMÁTICAMENTE las columnas (CUIT, LEGAJO, VTO, NRO ACTA).<br>
+        3. Buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
+        4. Solo actualizará registros que tengan <strong>MAIL ENVIADO = SI</strong>.<br>
+        5. Cuando encuentre una coincidencia, completará el campo <strong>ACTA</strong> y cambiará el estado a <strong>FINALIZADO</strong>.
     </div>
     """, unsafe_allow_html=True)
     
@@ -692,7 +747,7 @@ with tab4:
             
             if st.button("📋 Procesar y actualizar actas", type="primary"):
                 with st.spinner("Procesando archivo y buscando coincidencias..."):
-                    datos_csv = procesar_csv_actas(uploaded_csv)
+                    datos_csv = procesar_csv_actas_inteligente(uploaded_csv)
                     if not datos_csv:
                         st.warning("No se pudieron extraer datos del archivo. Verificá que tenga las columnas necesarias.")
                     else:
