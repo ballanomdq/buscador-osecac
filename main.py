@@ -13,7 +13,7 @@ from PIL import Image
 import io
 import json
 import base64
-import unicodedata  # <--- NUEVO: Para normalizar acentos
+import unicodedata
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -24,11 +24,9 @@ st.set_page_config(
 
 # --- FUNCIÓN PARA NORMALIZAR TEXTOS (elimina acentos y espacios) ---
 def normalizar_texto(texto):
-    """Elimina acentos, espacios extras y convierte a minúsculas para búsqueda robusta"""
     if pd.isna(texto):
         return ""
     texto = str(texto).lower().strip()
-    # Elimina acentos (ej: 'traumatología' -> 'traumatologia')
     texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII')
     return texto
 
@@ -205,7 +203,7 @@ df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
 df_especialistas = cargar_datos(URLs["especialistas"])
 
-# ================= HEADER CENTRADO (TÍTULO Y LOGO) =================
+# ================= HEADER CENTRADO =================
 st.markdown("""
 <div style="
     width: 100vw;
@@ -432,46 +430,47 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# ================= PRÁCTICAS Y ESPECIALISTAS (MEJORADO) =================
+# ================= PRÁCTICAS Y ESPECIALISTAS (CORREGIDO) =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas (no importan mayúsculas ni acentos)...", key="bus_p")
     
     if bus_p:
-        # Normalizamos el término de búsqueda (elimina acentos y espacios)
         busqueda_norm = normalizar_texto(bus_p)
         
-        # --- Búsqueda en PRÁCTICAS ---
+        # Búsqueda en PRÁCTICAS
         if not df_practicas.empty:
-            # Creamos un DataFrame normalizado para búsqueda (sin modificar el original)
-            df_practicas_norm = df_practicas.astype(str).applymap(normalizar_texto)
+            df_practicas_norm = df_practicas.astype(str).map(normalizar_texto)
             mascara_practicas = df_practicas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
             resultados_practicas = df_practicas[mascara_practicas]
             
             if not resultados_practicas.empty:
                 st.markdown("### 📋 PRÁCTICAS encontradas:")
-                for i, row in resultados_practicas.iterrows():
-                    # Mostrar solo columnas con datos no nulos
-                    datos_mostrar = [f"<b>{c}:</b> {v}" for c, v in row.items() if pd.notna(v) and str(v).strip()]
-                    if datos_mostrar:
-                        st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join(datos_mostrar)}</div>', unsafe_allow_html=True)
+                for _, row in resultados_practicas.iterrows():
+                    datos = [f"<b>{c}:</b> {v}" for c, v in row.items() if pd.notna(v) and str(v).strip()]
+                    if datos:
+                        st.markdown(f'<div class="ficha">📑 <b>PRÁCTICA:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # --- Búsqueda en ESPECIALISTAS ---
+        # Búsqueda en ESPECIALISTAS
         if not df_especialistas.empty:
-            df_especialistas_norm = df_especialistas.astype(str).applymap(normalizar_texto)
+            df_especialistas_norm = df_especialistas.astype(str).map(normalizar_texto)
             mascara_especialistas = df_especialistas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
             resultados_especialistas = df_especialistas[mascara_especialistas]
             
             if not resultados_especialistas.empty:
                 st.markdown("### 👨‍⚕️ ESPECIALISTAS encontrados:")
-                for i, row in resultados_especialistas.iterrows():
-                    datos_mostrar = [f"<b>{c}:</b> {v}" for c, v in row.items() if pd.notna(v) and str(v).strip()]
-                    if datos_mostrar:
-                        st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join(datos_mostrar)}</div>', unsafe_allow_html=True)
+                for _, row in resultados_especialistas.iterrows():
+                    datos = [f"<b>{c}:</b> {v}" for c, v in row.items() if pd.notna(v) and str(v).strip()]
+                    if datos:
+                        st.markdown(f'<div class="ficha">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # Si no se encontró nada en ninguna de las dos
-        if (df_practicas.empty or not resultados_practicas.empty) and (df_especialistas.empty or not resultados_especialistas.empty):
-            if (df_practicas.empty or mascara_practicas.sum() == 0) and (df_especialistas.empty or mascara_especialistas.sum() == 0):
-                st.warning(f"⚠️ No se encontraron resultados para '{bus_p}'. Verificá que esté bien escrito (los acentos no importan).")
+        # Mensaje si no hay resultados
+        encontrado = False
+        if not df_practicas.empty and 'resultados_practicas' in locals() and not resultados_practicas.empty:
+            encontrado = True
+        if not df_especialistas.empty and 'resultados_especialistas' in locals() and not resultados_especialistas.empty:
+            encontrado = True
+        if not encontrado:
+            st.warning(f"⚠️ No se encontraron resultados para '{bus_p}'")
 
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
@@ -515,7 +514,6 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
 # ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top: 0.2rem;">', unsafe_allow_html=True)
 
-# BOTÓN CORRESPONDENCIA
 popover_corresp = st.popover("📬 CORRESPONDENCIA")
 with popover_corresp:
     st.markdown("### 🔐 Acceso a Correspondencia")
@@ -545,7 +543,6 @@ popover_pc = st.popover("💻 HACER LA PC")
 popover_novedades = st.popover("✏️ Cargar Novedades")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# POPOVER HACER LA PC
 with popover_pc:
     st.markdown("### 🔐 Clave Acceso PC")
     if not st.session_state.pass_pc_valida:
@@ -567,7 +564,6 @@ with popover_pc:
             st.session_state.pass_pc_valida = False
             st.rerun()
 
-# POPOVER CARGAR NOVEDADES
 with popover_novedades:
     st.markdown("### 🔐 Clave Administración")
     if not st.session_state.pass_novedades_valida:
