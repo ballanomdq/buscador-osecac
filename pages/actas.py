@@ -684,4 +684,76 @@ with tab3:
     try:
         datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion").eq("mail_enviado", "NO").not_.is_("leg", "null").not_.is_("vto", "null").execute()
         if datos.data:
-            df_listos = pd.DataFrame
+            df_listos = pd.DataFrame(datos.data)
+            if len(df_listos) > 0:
+                st.info(f"📧 {len(df_listos)} empresas listas para solicitar actas")
+                df_mostrar = df_listos[['cuit', 'razon_social', 'leg', 'vto']].copy()
+                if 'vto' in df_mostrar.columns:
+                    df_mostrar['vto'] = df_mostrar['vto'].apply(fecha_para_mostrar)
+                st.dataframe(df_mostrar, use_container_width=True)
+                if st.button("📧 Enviar solicitud", type="primary"):
+                    for _, row in df_listos.iterrows():
+                        supabase.table("padron_deuda_presunta").update({"mail_enviado": "SI", "estado_gestion": "ACTA_SOLICITADA"}).eq("id", row['id']).execute()
+                    st.success(f"Solicitud registrada para {len(df_listos)} empresas")
+            else:
+                st.info("No hay registros listos")
+        else:
+            st.info("No hay datos cargados")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+# ==================== TAB 4 ====================
+with tab4:
+    st.markdown("### Subir Archivo de Actas (CSV)")
+    st.markdown("""
+    <div class="info-box">
+        📌 <strong>Instrucciones:</strong><br>
+        1. Subí el archivo CSV que te envía Central.<br>
+        2. El sistema detectará automáticamente las columnas.<br>
+        3. Buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
+        4. Solo actualizará registros con <strong>MAIL ENVIADO = SI</strong>.
+    </div>
+    """, unsafe_allow_html=True)
+    
+    uploaded_csv = st.file_uploader("Seleccionar archivo CSV", type=["csv"], key="upload_actas")
+    
+    if uploaded_csv is not None:
+        st.info(f"Archivo: {uploaded_csv.name}")
+        try:
+            contenido = uploaded_csv.getvalue().decode('latin-1', errors='replace')
+            df_preview = pd.read_csv(io.StringIO(contenido), sep=None, engine='python', on_bad_lines='skip')
+            st.write("**Vista previa del archivo CSV:**")
+            st.dataframe(df_preview.head(10), use_container_width=True)
+        except:
+            pass
+        
+        if st.button("📋 Procesar y actualizar actas", type="primary"):
+            with st.spinner("Procesando archivo..."):
+                datos_csv = procesar_csv_actas_inteligente(uploaded_csv)
+                
+                if not datos_csv:
+                    st.warning("No se pudieron extraer datos del archivo.")
+                else:
+                    st.write(f"**Registros en CSV:** {len(datos_csv)}")
+                    actualizados = 0
+                    no_encontrados = 0
+                    progress_bar = st.progress(0)
+                    
+                    for i, item in enumerate(datos_csv):
+                        try:
+                            resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
+                            
+                            if resultado.data:
+                                for registro in resultado.data:
+                                    supabase.table("padron_deuda_presunta").update({"acta": item['nro_acta'], "estado_gestion": "FINALIZADO"}).eq("id", registro['id']).execute()
+                                    actualizados += 1
+                            else:
+                                no_encontrados += 1
+                                if i < 5:
+                                    st.warning(f"No encontrado → CUIT: {item['cuit']} | LEG: {item['leg']} | VTO: {item['vto']}")
+                        except Exception as e:
+                            st.error(f"Error en registro {i}: {str(e)}")
+                        
+                        progress_bar.progress((i + 1) / len(datos_csv))
+                    
+                    st.success(f"✅ {actualizados} actualizados | {no_encontrados} no encontrados")
