@@ -372,19 +372,17 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for _, row in res.iterrows():
             st.markdown(f'<div class="ficha">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# ================= PRÁCTICAS Y ESPECIALISTAS (CORREGIDO - BUSCA EN AMBAS Y DIFERENCIA) =================
+# ================= PRÁCTICAS Y ESPECIALISTAS (CORREGIDO - VERSIÓN SIMPLE) =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
         busqueda_norm = normalizar_texto(bus_p)
         
-        # Variable para controlar si se encontró algo
         hay_resultados = False
         
-        # --- Búsqueda en PRÁCTICAS (SOLAPA 1) ---
+        # Búsqueda en PRÁCTICAS
         if not df_practicas.empty:
-            # Buscar en TODAS las columnas
-            mascara_practicas = df_practicas.astype(str).apply(lambda row: busqueda_norm in normalizar_texto(str(row)), axis=1)
+            mascara_practicas = df_practicas.apply(lambda row: any(busqueda_norm in normalizar_texto(str(cell)) for cell in row), axis=1)
             resultados_practicas = df_practicas[mascara_practicas]
             
             if not resultados_practicas.empty:
@@ -397,12 +395,11 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                             nombre_col = c.replace('_', ' ').title()
                             datos.append(f"<b>{nombre_col}:</b> {v}")
                     if datos:
-                        st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # --- Búsqueda en ESPECIALISTAS (SOLAPA 2) ---
+        # Búsqueda en ESPECIALISTAS
         if not df_especialistas.empty:
-            # Buscar en TODAS las columnas
-            mascara_especialistas = df_especialistas.astype(str).apply(lambda row: busqueda_norm in normalizar_texto(str(row)), axis=1)
+            mascara_especialistas = df_especialistas.apply(lambda row: any(busqueda_norm in normalizar_texto(str(cell)) for cell in row), axis=1)
             resultados_especialistas = df_especialistas[mascara_especialistas]
             
             if not resultados_especialistas.empty:
@@ -415,9 +412,8 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                             nombre_col = c.replace('_', ' ').title()
                             datos.append(f"<b>{nombre_col}:</b> {v}")
                     if datos:
-                        st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # Si no se encontró nada en ninguna
         if not hay_resultados:
             st.warning(f"⚠️ No se encontraron resultados para '{bus_p}' en ninguna de las dos solapas.")
 
