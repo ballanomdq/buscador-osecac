@@ -71,6 +71,62 @@ with col_back:
 st.markdown("---")
 
 # ==================== FUNCIONES DE LIMPIEZA ====================
+def limpiar_valor_str(valor):
+    """Limpieza agresiva para evitar espacios ocultos, saltos de línea, etc."""
+    if valor is None or pd.isna(valor):
+        return None
+    val = str(valor).strip()
+    val = re.sub(r'\s+', ' ', val)  # múltiples espacios → uno solo
+    val = val.replace('\n', '').replace('\r', '')
+    val = val.strip()
+    if val.lower() in ('', 'nan', 'none', 'null', 'nat'):
+        return None
+    return val
+
+def excel_serial_a_fecha(n):
+    try:
+        n = int(n)
+        fecha_base = datetime(1899, 12, 30)
+        fecha = fecha_base + pd.Timedelta(days=n)
+        return fecha.strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+def normalizar_fecha_para_supabase(fecha_str):
+    """Convierte cualquier formato común a YYYY-MM-DD o None"""
+    if not fecha_str:
+        return None
+    fecha_str = limpiar_valor_str(fecha_str)
+    if not fecha_str:
+        return None
+
+    # Ya está en formato YYYY-MM-DD
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', fecha_str):
+        return fecha_str
+
+    # Formatos comunes
+    formatos = [
+        '%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y',
+        '%m/%d/%Y', '%m-%d-%Y', '%Y/%m/%d', '%Y-%m-%d',
+        '%d.%m.%Y', '%d.%m.%y'
+    ]
+    
+    for fmt in formatos:
+        try:
+            dt = datetime.strptime(fecha_str, fmt)
+            return dt.strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+
+    # Si es número serial de Excel
+    if fecha_str.isdigit():
+        try:
+            return excel_serial_a_fecha(int(fecha_str))
+        except:
+            pass
+
+    return None
+
 def formatear_numero_argentino(valor):
     if valor is None or pd.isna(valor):
         return None
@@ -111,20 +167,8 @@ def limpiar_valor(val):
     if isinstance(val, (pd.Timestamp, datetime)):
         return val.strftime('%Y-%m-%d')
     if isinstance(val, str):
-        val = val.strip()
-        if val.lower() in ("nan", "none", "nat", ""):
-            return None
-        return val
+        return limpiar_valor_str(val)
     return str(val)
-
-def excel_serial_a_fecha(n):
-    try:
-        n = int(n)
-        fecha_base = datetime(1899, 12, 30)
-        fecha = fecha_base + pd.Timedelta(days=n)
-        return fecha.strftime("%Y-%m-%d")
-    except Exception:
-        return str(n)
 
 def fecha_para_mostrar(valor):
     if valor is None:
@@ -141,12 +185,8 @@ def fecha_para_mostrar(valor):
             valor = valor.strip()
             if not valor:
                 return None
-            if re.match(r'\d{4}-\d{2}-\d{2}T', valor):
+            if re.match(r'\d{4}-\d{2}-\d{2}', valor):
                 return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-            if re.match(r'\d{4}-\d{2}-\d{2} ', valor):
-                return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-            if re.match(r'^\d{4}-\d{2}-\d{2}$', valor):
-                return datetime.strptime(valor, '%Y-%m-%d').strftime('%d/%m/%Y')
             if re.match(r'^\d{2}/\d{2}/\d{4}$', valor):
                 return valor
             if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', valor):
@@ -157,34 +197,6 @@ def fecha_para_mostrar(valor):
         return str(valor)
     except:
         return str(valor) if valor else None
-
-def normalizar_fecha_para_supabase(fecha_str):
-    if fecha_str is None or pd.isna(fecha_str):
-        return None
-    fecha_str = str(fecha_str).strip()
-    if not fecha_str:
-        return None
-    if re.match(r'^\d{4}-\d{2}-\d{2}$', fecha_str):
-        return fecha_str
-    if re.match(r'^\d{1,2}/\d{1,2}/\d{4}$', fecha_str):
-        partes = fecha_str.split('/')
-        if len(partes) == 3:
-            dia = int(partes[0])
-            mes = int(partes[1])
-            año = int(partes[2])
-            if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
-                return f"{año:04d}-{mes:02d}-{dia:02d}"
-    if re.match(r'^\d{1,2}-\d{1,2}-\d{4}$', fecha_str):
-        partes = fecha_str.split('-')
-        if len(partes) == 3:
-            dia = int(partes[0])
-            mes = int(partes[1])
-            año = int(partes[2])
-            if año > 1900 and 1 <= mes <= 12 and 1 <= dia <= 31:
-                return f"{año:04d}-{mes:02d}-{dia:02d}"
-    if fecha_str.isdigit():
-        return excel_serial_a_fecha(int(fecha_str))
-    return None
 
 def limpiar_numero_entero(valor):
     if valor is None or pd.isna(valor):
@@ -203,7 +215,9 @@ def limpiar_cuit_csv(valor):
     if valor is None or pd.isna(valor):
         return None
     try:
-        valor_str = str(valor).strip()
+        valor_str = limpiar_valor_str(valor)
+        if not valor_str:
+            return None
         if 'E' in valor_str.upper():
             num = float(valor_str)
             return str(int(num))
@@ -212,7 +226,7 @@ def limpiar_cuit_csv(valor):
             return valor_str
         return valor_str
     except:
-        return str(valor)
+        return limpiar_valor_str(valor)
 
 def detectar_columna_csv(df, posibles_nombres):
     for col in df.columns:
@@ -316,7 +330,7 @@ def procesar_excel(archivo):
                 elif val.endswith(".0") and val[:-2].lstrip("-").isdigit():
                     val = val[:-2]
                 elif col_db in COLUMNAS_FECHA and val and val.isdigit():
-                    val = excel_serial_a_fecha(int(val))
+                    val = normalizar_fecha_para_supabase(int(val))
             if col_db in COLUMNAS_MONEDA and val and isinstance(val, (int, float, str)):
                 try:
                     num_val = float(val) if isinstance(val, str) else val
@@ -332,42 +346,43 @@ def procesar_excel(archivo):
 # ==================== FUNCIÓN PROCESAR CSV ACTAS ====================
 def procesar_csv_actas_inteligente(archivo):
     try:
-        contenido = archivo.getvalue().decode('latin-1')
-        df = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
-        df.columns = [str(col).strip() for col in df.columns]
+        contenido = archivo.getvalue().decode('latin-1', errors='replace')
+        df = pd.read_csv(io.StringIO(contenido), sep=None, engine='python', on_bad_lines='skip')
         
-        col_cuit = detectar_columna_csv(df, ['CUIT', 'CUIL', 'CUIT EMPRESA', 'NRO CUIT'])
-        col_legajo = detectar_columna_csv(df, ['LEGAJO', 'LEG', 'NRO LEGAJO', 'INSPECTOR LEGAJO'])
-        col_vto = detectar_columna_csv(df, ['VTO', 'FECHA_VTO', 'FECHA VTO', 'VENCIMIENTO', 'FECHA VENCIMIENTO'])
-        col_nro_acta = detectar_columna_csv(df, ['NRO_ACTA', 'ACTA', 'NUMERO ACTA', 'NRO ACTA', 'ANO_ACTA'])
-        
-        if not col_cuit and len(df.columns) > 1:
-            col_cuit = df.columns[1]
-        if not col_legajo and len(df.columns) > 5:
-            col_legajo = df.columns[5]
-        if not col_vto and len(df.columns) > 13:
-            col_vto = df.columns[13]
-        
-        if not col_cuit or not col_legajo or not col_vto or not col_nro_acta:
+        df.columns = [str(col).strip().upper() for col in df.columns]
+
+        col_cuit = detectar_columna_csv(df, ['CUIT', 'CUIL', 'CUIT EMPRESA', 'NRO CUIT', 'CUIT/CUIL'])
+        col_leg = detectar_columna_csv(df, ['LEGAJO', 'LEG', 'NRO LEGAJO', 'INSPECTOR LEGAJO', 'LEGajo'])
+        col_vto = detectar_columna_csv(df, ['VTO', 'FECHA_VTO', 'FECHA VTO', 'VENCIMIENTO', 'FECHA VENCIMIENTO', 'VENC'])
+        col_acta = detectar_columna_csv(df, ['NRO_ACTA', 'ACTA', 'NUMERO ACTA', 'NRO ACTA', 'ANO_ACTA', 'NRO. ACTA'])
+
+        if not all([col_cuit, col_leg, col_vto, col_acta]):
+            st.error(f"No se detectaron todas las columnas. CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}")
             return []
-        
+
         resultados = []
         for _, row in df.iterrows():
-            cuit = limpiar_cuit_csv(row[col_cuit])
-            legajo = str(row[col_legajo]).strip() if pd.notna(row[col_legajo]) else None
-            vto_raw = str(row[col_vto]).strip() if pd.notna(row[col_vto]) else None
-            nro_acta = str(row[col_nro_acta]).strip() if pd.notna(row[col_nro_acta]) else None
-            
-            if cuit and legajo and vto_raw and nro_acta:
-                vto_limpio = normalizar_fecha_para_supabase(vto_raw)
+            cuit_raw = row.get(col_cuit)
+            leg_raw = row.get(col_leg)
+            vto_raw = row.get(col_vto)
+            acta_raw = row.get(col_acta)
+
+            cuit = limpiar_cuit_csv(cuit_raw)
+            leg = limpiar_valor_str(leg_raw)
+            vto = normalizar_fecha_para_supabase(vto_raw)
+            nro_acta = limpiar_valor_str(acta_raw)
+
+            if cuit and leg and vto and nro_acta:
                 resultados.append({
                     'cuit': cuit,
-                    'leg': legajo,
-                    'vto': vto_limpio,
+                    'leg': leg,
+                    'vto': vto,
                     'nro_acta': nro_acta
                 })
+
         return resultados
     except Exception as e:
+        st.error(f"Error procesando CSV: {str(e)}")
         return []
 
 # ==================== PESTAÑAS ====================
@@ -450,7 +465,6 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botones de acción
     col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
     
     with col_accion1:
@@ -474,7 +488,6 @@ with tab2:
     with col_accion3:
         st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
         if st.button("🔄 Resetear filtros", key="btn_reset_filtros"):
-            # Limpiar valores de los widgets
             st.session_state.input_filtro_cuit = ""
             st.session_state.input_filtro_razon = ""
             st.session_state.filtro_localidad = "TODAS"
@@ -505,7 +518,6 @@ with tab2:
     
     st.markdown("---")
     
-    # Filtros
     col_filtro1, col_filtro2, col_filtro3, col_filtro4 = st.columns([1, 1, 1, 1])
     
     with col_filtro1:
@@ -525,7 +537,6 @@ with tab2:
     with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
     
-    # Obtener datos filtrados
     query = supabase.table("padron_deuda_presunta").select("*")
     
     if localidad_seleccionada != "TODAS" and localidades_unicas:
@@ -541,7 +552,6 @@ with tab2:
     if datos_completos.data:
         df_completo = pd.DataFrame(datos_completos.data)
         
-        # Aplicar filtros de texto
         if filtro_cuit:
             df_completo = df_completo[df_completo['cuit'].astype(str).str.contains(filtro_cuit, na=False, case=False)]
         if filtro_razon:
@@ -562,7 +572,6 @@ with tab2:
             if st.session_state.pagina_actual > paginas_totales:
                 st.session_state.pagina_actual = paginas_totales
             
-            # Navegación
             st.markdown("### 📄 Navegación")
             col_ant, col_num, col_sig = st.columns([1, 2, 1])
             
@@ -578,8 +587,7 @@ with tab2:
                     options=list(range(1, paginas_totales + 1)),
                     index=st.session_state.pagina_actual - 1,
                     key="pagina_select",
-                    label_visibility="collapsed",
-                    on_change=lambda: setattr(st.session_state, 'pagina_actual', st.session_state.pagina_select)
+                    label_visibility="collapsed"
                 )
             
             with col_sig:
@@ -595,7 +603,6 @@ with tab2:
             hasta = min(offset + registros_por_pagina, total_filtrado)
             st.info(f"📝 Mostrando {desde} a {hasta} de {total_filtrado}")
             
-            # Limpiar datos para mostrar
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_mostrar.columns:
                     df_mostrar[col] = df_mostrar[col].apply(limpiar_numero_entero)
@@ -606,7 +613,6 @@ with tab2:
             
             df_original = df_mostrar.copy()
             
-            # Preparar para editar
             df_editable = df_mostrar.copy()
             if 'fecha_carga' in df_editable.columns:
                 df_editable = df_editable.drop(columns=['fecha_carga'])
@@ -666,8 +672,6 @@ with tab2:
                             nuevo_vto = normalizar_fecha_para_supabase(nuevo_vto)
                         if pd.isna(viejo_vto) or viejo_vto == '':
                             viejo_vto = None
-                        else:
-                            viejo_vto = normalizar_fecha_para_supabase(viejo_vto)
                         if nuevo_vto != viejo_vto:
                             datos_update['vto'] = nuevo_vto
                         
@@ -753,14 +757,15 @@ with tab4:
     if uploaded_csv is not None:
         st.info(f"Archivo: {uploaded_csv.name}")
         try:
-            contenido = uploaded_csv.getvalue().decode('latin-1')
-            df_preview = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
+            contenido = uploaded_csv.getvalue().decode('latin-1', errors='replace')
+            df_preview = pd.read_csv(io.StringIO(contenido), sep=None, engine='python', on_bad_lines='skip')
             st.write("**Vista previa del archivo CSV:**")
             st.dataframe(df_preview.head(10), use_container_width=True)
             
             if st.button("📋 Procesar y actualizar actas", type="primary"):
                 with st.spinner("Procesando archivo..."):
                     datos_csv = procesar_csv_actas_inteligente(uploaded_csv)
+                    
                     if not datos_csv:
                         st.warning("No se pudieron extraer datos del archivo.")
                     else:
@@ -768,18 +773,24 @@ with tab4:
                         actualizados = 0
                         no_encontrados = 0
                         progress_bar = st.progress(0)
+                        
                         for i, item in enumerate(datos_csv):
                             try:
-                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
+                                resultado = supabase.table("padron_deuda_presunta").select("id, cuit, leg, vto, mail_enviado").eq("cuit", item['cuit']).eq("leg", item['leg']).eq("vto", item['vto']).eq("mail_enviado", "SI").execute()
+                                
                                 if resultado.data:
                                     for registro in resultado.data:
                                         supabase.table("padron_deuda_presunta").update({"acta": item['nro_acta'], "estado_gestion": "FINALIZADO"}).eq("id", registro['id']).execute()
                                         actualizados += 1
                                 else:
                                     no_encontrados += 1
+                                    if i < 5:
+                                        st.warning(f"No encontrado → CUIT: {item['cuit']} | LEG: {item['leg']} | VTO: {item['vto']}")
                             except Exception as e:
-                                st.warning(f"Error: {str(e)}")
+                                st.error(f"Error en registro {i}: {str(e)}")
+                            
                             progress_bar.progress((i + 1) / len(datos_csv))
-                        st.success(f"✅ {actualizados} actualizados, {no_encontrados} no encontrados")
+                        
+                        st.success(f"✅ {actualizados} actualizados | {no_encontrados} no encontrados")
         except Exception as e:
             st.error(f"Error al leer el archivo: {str(e)}")
