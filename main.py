@@ -12,7 +12,8 @@ import os
 from PIL import Image
 import io
 import json
-import base64  # Para codificar la imagen
+import base64
+import unicodedata  # <--- NUEVO: Para normalizar acentos
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
@@ -20,6 +21,16 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# --- FUNCIÓN PARA NORMALIZAR TEXTOS (elimina acentos y espacios) ---
+def normalizar_texto(texto):
+    """Elimina acentos, espacios extras y convierte a minúsculas para búsqueda robusta"""
+    if pd.isna(texto):
+        return ""
+    texto = str(texto).lower().strip()
+    # Elimina acentos (ej: 'traumatología' -> 'traumatologia')
+    texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII')
+    return texto
 
 # --- CONFIGURACIÓN DRIVE ---
 FOLDER_ID = "1IGtmxHWB3cWKzyCgx9hlvIGfKN2N136w"
@@ -51,10 +62,14 @@ if 'novedades_vistas' not in st.session_state:
     st.session_state.novedades_vistas = {st.session_state.historial_novedades[0]["id"]}
 if 'pass_novedades_valida' not in st.session_state:
     st.session_state.pass_novedades_valida = False
-if 'pass_f_valida' not in st.session_state: st.session_state.pass_f_valida = False
-if 'pass_o_valida' not in st.session_state: st.session_state.pass_o_valida = False
-if 'faba_check' not in st.session_state: st.session_state.faba_check = True
-if 'osecac_check' not in st.session_state: st.session_state.osecac_check = False
+if 'pass_f_valida' not in st.session_state: 
+    st.session_state.pass_f_valida = False
+if 'pass_o_valida' not in st.session_state: 
+    st.session_state.pass_o_valida = False
+if 'faba_check' not in st.session_state: 
+    st.session_state.faba_check = True
+if 'osecac_check' not in st.session_state: 
+    st.session_state.osecac_check = False
 if 'novedades_expandido' not in st.session_state:
     st.session_state.novedades_expandido = False
 if 'pass_pc_valida' not in st.session_state:
@@ -171,7 +186,8 @@ def cargar_datos(url):
     try:
         csv_url = url.split('/edit')[0] + '/export?format=csv' if '/edit' in url else url
         return pd.read_csv(csv_url, dtype=str)
-    except: return pd.DataFrame()
+    except: 
+        return pd.DataFrame()
 
 URLs = {
     "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit",
@@ -347,7 +363,6 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
     
-    # NUEVO BOTÓN PARA INFORME DE ÚTILES
     if st.button("📄 INFORME DE ÚTILES POR AGENCIA/SECTORES"):
         st.switch_page("pages/informe_utiles.py")
     
@@ -364,9 +379,7 @@ with st.expander("📝 2. PEDIDOS", expanded=False):
                 else:
                     st.error("❌ Clave incorrecta")
 
-# ================= PÁGINAS ÚTILES (CON NUEVOS ENLACES SIN TEXTO ADICIONAL) =================
 with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
-    # Enlaces originales
     cols = st.columns(2)
     with cols[0]:
         st.link_button("🏥 SSSALUD", "https://www.sssalud.gob.ar/consultas/")
@@ -377,7 +390,6 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         st.link_button("💻 OSECAC OFICIAL", "https://www.osecac.org.ar/")
         st.link_button("🧪 SISA", "https://sisa.msal.gov.ar/sisa/")
     
-    # Nuevos enlaces (sin ningún texto adicional ni separador)
     nuevos_enlaces = [
         ("🩺 sss beneficiario", "https://www.sssalud.gob.ar/index.php?b_publica=Acceso+P%C3%BAblico&user=GRAL&page=bus650"),
         ("📊 sss monotributo", "https://www.sssalud.gob.ar/?page=busmon"),
@@ -403,7 +415,6 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         ("📈 Cálculo de intereses resarcitorios", "https://serviciosweb.afip.gob.ar/genericos/calculointeres/resarcitorios.aspx")
     ]
     
-    # Dividir en dos columnas
     mitad = len(nuevos_enlaces) // 2 + (len(nuevos_enlaces) % 2)
     col_izq, col_der = st.columns(2)
     
@@ -421,15 +432,46 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for i, row in res.iterrows():
             st.markdown(f'<div class="ficha ficha-tramite">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
+# ================= PRÁCTICAS Y ESPECIALISTAS (MEJORADO) =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
-    bus_p = st.text_input("Buscá prácticas o especialistas...", key="bus_p")
+    bus_p = st.text_input("🔍 Buscá prácticas o especialistas (no importan mayúsculas ni acentos)...", key="bus_p")
+    
     if bus_p:
-        rp = df_practicas[df_practicas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
-        for i, row in rp.iterrows():
-            st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
-        re = df_especialistas[df_especialistas.astype(str).apply(lambda r: r.str.contains(bus_p, case=False, na=False).any(), axis=1)]
-        for i, row in re.iterrows():
-            st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join([f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)])}</div>', unsafe_allow_html=True)
+        # Normalizamos el término de búsqueda (elimina acentos y espacios)
+        busqueda_norm = normalizar_texto(bus_p)
+        
+        # --- Búsqueda en PRÁCTICAS ---
+        if not df_practicas.empty:
+            # Creamos un DataFrame normalizado para búsqueda (sin modificar el original)
+            df_practicas_norm = df_practicas.astype(str).applymap(normalizar_texto)
+            mascara_practicas = df_practicas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
+            resultados_practicas = df_practicas[mascara_practicas]
+            
+            if not resultados_practicas.empty:
+                st.markdown("### 📋 PRÁCTICAS encontradas:")
+                for i, row in resultados_practicas.iterrows():
+                    # Mostrar solo columnas con datos no nulos
+                    datos_mostrar = [f"<b>{c}:</b> {v}" for c, v in row.items() if pd.notna(v) and str(v).strip()]
+                    if datos_mostrar:
+                        st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA:</b><br>{"<br>".join(datos_mostrar)}</div>', unsafe_allow_html=True)
+        
+        # --- Búsqueda en ESPECIALISTAS ---
+        if not df_especialistas.empty:
+            df_especialistas_norm = df_especialistas.astype(str).applymap(normalizar_texto)
+            mascara_especialistas = df_especialistas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
+            resultados_especialistas = df_especialistas[mascara_especialistas]
+            
+            if not resultados_especialistas.empty:
+                st.markdown("### 👨‍⚕️ ESPECIALISTAS encontrados:")
+                for i, row in resultados_especialistas.iterrows():
+                    datos_mostrar = [f"<b>{c}:</b> {v}" for c, v in row.items() if pd.notna(v) and str(v).strip()]
+                    if datos_mostrar:
+                        st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join(datos_mostrar)}</div>', unsafe_allow_html=True)
+        
+        # Si no se encontró nada en ninguna de las dos
+        if (df_practicas.empty or not resultados_practicas.empty) and (df_especialistas.empty or not resultados_especialistas.empty):
+            if (df_practicas.empty or mascara_practicas.sum() == 0) and (df_especialistas.empty or mascara_especialistas.sum() == 0):
+                st.warning(f"⚠️ No se encontraron resultados para '{bus_p}'. Verificá que esté bien escrito (los acentos no importan).")
 
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
@@ -439,15 +481,12 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha ficha-agenda">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-# ========== NUEVO EXPANDER FISCALIZACIÓN ==========
 with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
     if st.button("📰 BOLETIN"):
         st.switch_page("pages/boletin.py")
     if st.button("📋 ACTAS"):
         st.switch_page("pages/actas.py")
-    # Aquí podrás agregar más botones en el futuro (ej: "OTRA HERRAMIENTA")
-# ==================================================
 
 with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
@@ -476,7 +515,7 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
 # ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top: 0.2rem;">', unsafe_allow_html=True)
 
-# ---- BOTÓN CORRESPONDENCIA (nuevo, va primero) ----
+# BOTÓN CORRESPONDENCIA
 popover_corresp = st.popover("📬 CORRESPONDENCIA")
 with popover_corresp:
     st.markdown("### 🔐 Acceso a Correspondencia")
@@ -500,7 +539,6 @@ with popover_corresp:
             st.session_state.pass_corresp_valida = False
             st.rerun()
 
-# ---- Resto de botones finales (igual que antes) ----
 st.link_button("📢 RECLAMOS/CONSULTAS", "https://docs.google.com/spreadsheets/d/1qJ4A_RKMSTfxZgksXN9F4Ize89jt6z1eohivWlS8l2w/edit?usp=sharing")
 st.link_button("🧠 SEC IA", "https://notebooklm.google.com/notebook/77747b79-8512-42dd-b306-d802274bd164/preview")
 popover_pc = st.popover("💻 HACER LA PC")
