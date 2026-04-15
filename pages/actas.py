@@ -6,6 +6,7 @@ import math
 import numpy as np
 import re
 import locale
+import io
 
 # Intentar configurar locale para formato argentino
 try:
@@ -190,6 +191,25 @@ def limpiar_numero_entero(valor):
     except:
         return None
 
+def limpiar_cuit_csv(valor):
+    """Limpia el CUIT que viene en formato científico (3,0717E+10)"""
+    if valor is None or pd.isna(valor):
+        return None
+    try:
+        # Convertir a string
+        valor_str = str(valor).strip()
+        # Si tiene formato científico (E+)
+        if 'E' in valor_str.upper():
+            # Convertir a número y luego a entero
+            num = float(valor_str)
+            return str(int(num))
+        # Si es número normal
+        if valor_str.isdigit():
+            return valor_str
+        return valor_str
+    except:
+        return str(valor)
+
 # ==================== FUNCIONES CON CACHÉ PARA RENDIMIENTO ====================
 @st.cache_data(ttl=300)
 def obtener_localidades(_supabase):
@@ -369,8 +389,71 @@ def procesar_excel(archivo):
     
     return registros_limpios
 
+# ==================== FUNCIÓN PARA PROCESAR CSV DE ACTAS ====================
+def procesar_csv_actas(archivo):
+    """Lee el CSV de actas y devuelve una lista de dicts con los datos relevantes"""
+    try:
+        # Leer CSV con diferentes separadores posibles
+        contenido = archivo.getvalue().decode('latin-1')
+        df = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
+        
+        # Limpiar nombres de columnas
+        df.columns = [str(col).strip().upper() for col in df.columns]
+        
+        # Buscar las columnas que necesitamos (pueden tener nombres ligeramente diferentes)
+        col_cuit = None
+        col_legajo = None
+        col_vto = None
+        col_nro_acta = None
+        
+        for col in df.columns:
+            if 'CUIT' in col:
+                col_cuit = col
+            if 'LEGAJO' in col or 'LEG' in col:
+                col_legajo = col
+            if 'VTO' in col or 'FECHA_VTO' in col:
+                col_vto = col
+            if 'NRO_ACTA' in col or 'ACTA' in col:
+                col_nro_acta = col
+        
+        if not col_cuit or not col_legajo or not col_vto or not col_nro_acta:
+            st.error("No se encontraron las columnas necesarias en el archivo")
+            st.write("Columnas encontradas:", list(df.columns))
+            return []
+        
+        # Extraer solo los datos que nos interesan
+        resultados = []
+        for _, row in df.iterrows():
+            cuit = limpiar_cuit_csv(row[col_cuit])
+            legajo = str(row[col_legajo]).strip() if pd.notna(row[col_legajo]) else None
+            vto = str(row[col_vto]).strip() if pd.notna(row[col_vto]) else None
+            nro_acta = str(row[col_nro_acta]).strip() if pd.notna(row[col_nro_acta]) else None
+            
+            if cuit and legajo and vto and nro_acta:
+                # Limpiar fecha de vencimiento
+                if '/' in vto:
+                    partes = vto.split('/')
+                    if len(partes) == 3:
+                        vto_limpio = f"{partes[2]}-{partes[1]}-{partes[0]}"
+                    else:
+                        vto_limpio = vto
+                else:
+                    vto_limpio = vto
+                
+                resultados.append({
+                    'cuit': cuit,
+                    'leg': legajo,
+                    'vto': vto_limpio,
+                    'nro_acta': nro_acta
+                })
+        
+        return resultados
+    except Exception as e:
+        st.error(f"Error al leer el archivo CSV: {str(e)}")
+        return []
+
 # ==================== PESTAÑAS ====================
-tab1, tab2, tab3 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas", "📋 Subir Actas"])
 
 # ==================== TAB 1: CARGAR PADRÓN ====================
 with tab1:
@@ -638,118 +721,3 @@ with tab2:
             
             if ids_seleccionados:
                 st.caption(f"📌 {len(ids_seleccionados)} registro(s) seleccionado(s) para eliminar")
-            
-            st.markdown("---")
-            st.markdown("#### Editar campos (LEG, VTO, ACTA, etc.)")
-            
-            if st.button("💾 Guardar Cambios", type="primary"):
-                with st.spinner("Guardando..."):
-                    inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
-                    modificados = 0
-                    
-                    # Solo iterar sobre las filas que realmente cambiaron
-                    for idx, row in edited_df.iterrows():
-                        original_row = df_original.loc[idx] if idx in df_original.index else None
-                        if original_row is None:
-                            continue
-                        
-                        datos_update = {}
-                        
-                        # LEG
-                        nuevo_leg = row.get('LEG')
-                        viejo_leg = original_row.get('leg')
-                        if pd.isna(nuevo_leg) or nuevo_leg == '':
-                            nuevo_leg = None
-                        if pd.isna(viejo_leg) or viejo_leg == '':
-                            viejo_leg = None
-                        if nuevo_leg != viejo_leg:
-                            datos_update['leg'] = nuevo_leg
-                        
-                        # VTO
-                        nuevo_vto = row.get('VTO')
-                        viejo_vto = original_row.get('vto')
-                        if pd.isna(nuevo_vto) or nuevo_vto == '':
-                            nuevo_vto = None
-                        else:
-                            nuevo_vto = fecha_para_guardar(nuevo_vto)
-                        if pd.isna(viejo_vto) or viejo_vto == '':
-                            viejo_vto = None
-                        if nuevo_vto != viejo_vto:
-                            datos_update['vto'] = nuevo_vto
-                        
-                        # MAIL ENVIADO
-                        nuevo_mail = row.get('MAIL ENVIADO')
-                        viejo_mail = original_row.get('mail_enviado')
-                        if pd.isna(nuevo_mail) or nuevo_mail == '':
-                            nuevo_mail = 'NO'
-                        if nuevo_mail != viejo_mail:
-                            datos_update['mail_enviado'] = nuevo_mail
-                        
-                        # ACTA
-                        nuevo_acta = row.get('ACTA')
-                        viejo_acta = original_row.get('acta')
-                        if pd.isna(nuevo_acta) or nuevo_acta == '':
-                            nuevo_acta = None
-                        if nuevo_acta != viejo_acta:
-                            datos_update['acta'] = nuevo_acta
-                        
-                        # ESTADO GESTION
-                        nuevo_estado = row.get('ESTADO GESTION')
-                        viejo_estado = original_row.get('estado_gestion')
-                        if pd.isna(nuevo_estado) or nuevo_estado == '':
-                            nuevo_estado = 'PENDIENTE'
-                        if nuevo_estado != viejo_estado:
-                            datos_update['estado_gestion'] = nuevo_estado
-                        
-                        if datos_update:
-                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
-                            modificados += 1
-                    
-                    if modificados > 0:
-                        st.success(f"✅ {modificados} registros actualizados")
-                        # Limpiar caché de conteo y localidades
-                        contar_registros.clear()
-                        st.rerun()
-                    else:
-                        st.info("No se detectaron cambios")
-    else:
-        st.info("No hay datos con los filtros seleccionados")
-
-# ==================== TAB 3: SOLICITAR ACTAS (OPTIMIZADA) ====================
-with tab3:
-    st.markdown("### Solicitar Actas a Central")
-    
-    try:
-        # Filtrar directamente en Supabase (NO traer todos los registros)
-        datos = supabase.table("padron_deuda_presunta")\
-            .select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion")\
-            .eq("mail_enviado", "NO")\
-            .not_.is_("leg", "null")\
-            .not_.is_("vto", "null")\
-            .execute()
-        
-        if datos.data:
-            df_listos = pd.DataFrame(datos.data)
-            
-            if len(df_listos) > 0:
-                st.info(f"📧 {len(df_listos)} empresas listas para solicitar actas")
-                df_mostrar = df_listos[['cuit', 'razon_social', 'leg', 'vto']].copy()
-                if 'vto' in df_mostrar.columns:
-                    df_mostrar['vto'] = df_mostrar['vto'].apply(fecha_para_mostrar)
-                st.dataframe(df_mostrar, use_container_width=True)
-                
-                if st.button("📧 Enviar solicitud", type="primary"):
-                    for _, row in df_listos.iterrows():
-                        supabase.table("padron_deuda_presunta").update({
-                            "mail_enviado": "SI",
-                            "estado_gestion": "ACTA_SOLICITADA"
-                        }).eq("id", row['id']).execute()
-                    st.success(f"Solicitud registrada para {len(df_listos)} empresas")
-                    # Limpiar caché
-                    contar_registros.clear()
-            else:
-                st.info("No hay registros listos")
-        else:
-            st.info("No hay datos cargados")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
