@@ -370,13 +370,12 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for _, row in res.iterrows():
             st.markdown(f'<div class="ficha">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# ================= PRÁCTICAS Y ESPECIALISTAS (CORREGIDO - MUESTRA TODAS LAS COLUMNAS) =================
+# ================= PRÁCTICAS Y ESPECIALISTAS =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
         busqueda_norm = normalizar_texto(bus_p)
         
-        # Búsqueda en PRÁCTICAS
         if not df_practicas.empty:
             df_practicas_norm = df_practicas.astype(str).map(normalizar_texto)
             mascara_practicas = df_practicas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
@@ -384,17 +383,14 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
             if not resultados_practicas.empty:
                 st.markdown("### 📋 PRÁCTICAS encontradas:")
                 for _, row in resultados_practicas.iterrows():
-                    # Mostrar TODAS las columnas con datos
                     datos = []
                     for c, v in row.items():
                         if pd.notna(v) and str(v).strip():
-                            # Si el nombre de la columna es muy largo, lo formateamos
                             nombre_col = c.replace('_', ' ').title()
                             datos.append(f"<b>{nombre_col}:</b> {v}")
                     if datos:
                         st.markdown(f'<div class="ficha">📑 <b>PRÁCTICA:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # Búsqueda en ESPECIALISTAS
         if not df_especialistas.empty:
             df_especialistas_norm = df_especialistas.astype(str).map(normalizar_texto)
             mascara_especialistas = df_especialistas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
@@ -402,7 +398,6 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
             if not resultados_especialistas.empty:
                 st.markdown("### 👨‍⚕️ ESPECIALISTAS encontrados:")
                 for _, row in resultados_especialistas.iterrows():
-                    # Mostrar TODAS las columnas con datos
                     datos = []
                     for c, v in row.items():
                         if pd.notna(v) and str(v).strip():
@@ -411,7 +406,6 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                     if datos:
                         st.markdown(f'<div class="ficha">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        # Mensaje si no hay resultados
         encontro = False
         if not df_practicas.empty and 'resultados_practicas' in locals() and not resultados_practicas.empty:
             encontro = True
@@ -472,7 +466,7 @@ with popover_corresp:
     else:
         st.success("✅ Acceso concedido")
         st.link_button("📬 Abrir Sistema de Correspondencia", "https://script.google.com/macros/s/AKfycbxcyT_xPdvPpw90-1CBVRrSXUJ4o622zWyB-rJOc7MaNSIkPZ58wxjFHBz-f0Wv7_TUWA/exec")
-        if st.button("🔒 Cerrar sesión"):
+        if st.button("🔒 Cerrar sesión", key="cerrar_corresp"):
             st.session_state.pass_corresp_valida = False
             st.rerun()
 
@@ -495,7 +489,7 @@ with popover_pc:
         st.success("✅ Acceso concedido")
         if st.button("🚀 Ir a HACER LA PC"):
             st.switch_page("pages/hacerlapc.py")
-        if st.button("Cerrar sesión"):
+        if st.button("Cerrar sesión", key="cerrar_pc"):
             st.session_state.pass_pc_valida = False
             st.rerun()
 
@@ -528,12 +522,33 @@ with popover_novedades:
                             with open(temp_path, "wb") as f:
                                 f.write(uf.getbuffer())
                             link = subir_a_drive(temp_path, uf.name)
-                            os.remove(temp_path)
+                            if os.path.exists(temp_path):
+                                os.remove(temp_path)
                             if link:
                                 drive_links.append(link)
                         st.session_state.historial_novedades.insert(0, {"id": str(time.time()), "mensaje": m, "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), "archivo_links": drive_links})
                         st.session_state.novedades_vistas = set()
                         st.success("✅ Publicado!")
+                        time.sleep(1)
                         st.rerun()
         elif accion == "✏️ Editar existente":
-            if st.session_state
+            if st.session_state.historial_novedades:
+                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}" for n in st.session_state.historial_novedades]
+                idx = st.selectbox("Seleccionar:", range(len(opciones)), format_func=lambda x: opciones[x])
+                nuevo_msg = st.text_area("Editar:", value=st.session_state.historial_novedades[idx]['mensaje'])
+                if st.form_submit_button("💾 Guardar"):
+                    st.session_state.historial_novedades[idx]['mensaje'] = nuevo_msg
+                    st.success("Actualizado!")
+                    time.sleep(1)
+                    st.rerun()
+        elif accion == "🗑️ Eliminar":
+            if st.session_state.historial_novedades:
+                opciones = [f"{n['fecha']} - {n['mensaje'][:50]}" for n in st.session_state.historial_novedades]
+                idx = st.selectbox("Seleccionar a eliminar:", range(len(opciones)), format_func=lambda x: opciones[x])
+                if st.button("🗑️ ELIMINAR"):
+                    st.session_state.historial_novedades.pop(idx)
+                    st.success("Eliminado!")
+                    time.sleep(1)
+                    st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
