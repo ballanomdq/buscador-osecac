@@ -1,22 +1,3 @@
-import streamlit as st
-import time
-from selenium import webdriver
-from selenium.webdriver.edge.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import io
-import zipfile
-
-st.set_page_config(page_title="Robot OSECAC", layout="wide")
-st.title("🤖 Robot OSECAC - Descarga Masiva de Actas (IE Mode)")
-
-with st.form("datos_acceso"):
-    usuario = st.text_input("👤 Usuario OSECAC", value="FBOVONE")
-    password = st.text_input("🔒 Contraseña", type="password", value="FBOVONE")
-    legajo = st.text_input("📋 Número de Legajo", value="7713")
-    submit = st.form_submit_button("🚀 INICIAR DESCARGA")
-
 if submit:
     log_area = st.empty()
     logs = []
@@ -25,87 +6,118 @@ if submit:
         logs.append(msg)
         log_area.code("\n".join(logs[-30:]), language="text")
 
-    add_log("🚀 Iniciando navegador en modo Internet Explorer...")
-
-    # Configuración de Edge en modo IE (Compatibility Mode)
-    edge_options = Options()
-    edge_options.use_chromium = True
-    edge_options.add_argument("--ie-mode")                    # Fuerza IE Mode
-    edge_options.add_argument("--inprivate")                  # Opcional
-    # edge_options.add_argument("--headless")                 # Descomenta si quieres sin ventana (puede fallar en IE Mode)
-
-    # Ruta al driver de Edge (msedgedriver). Debe coincidir con tu versión de Edge.
-    driver_path = "msedgedriver.exe"   # ← Cambia por la ruta completa si es necesario
+    add_log("🚀 Iniciando navegador en modo Internet Explorer (IE Mode)...")
 
     try:
-        driver = webdriver.Edge(options=edge_options, executable_path=driver_path)
-        wait = WebDriverWait(driver, 20)
+        from selenium import webdriver
+        from selenium.webdriver.ie.service import Service as IEService
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        import time
 
-        add_log("🌐 Abriendo página de login...")
+        # ================== CONFIGURACIÓN ==================
+        # Cambia esta ruta por la ubicación real de tu IEDriverServer.exe
+        ie_driver_path = r"C:\ruta\a\tu\IEDriverServer.exe"   # ←←← AJUSTA ESTO
+
+        # Ruta al ejecutable de Microsoft Edge (normalmente esta)
+        edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+
+        # Configuración para IE Mode
+        ie_options = webdriver.IeOptions()
+        ie_options.attach_to_edge_chrome = True
+        ie_options.edge_executable_path = edge_path
+        
+        # Opcionales recomendadas para IE Mode
+        ie_options.ignore_zoom_level = True
+        ie_options.require_window_focus = True   # ayuda con popups y foco
+
+        # Crear servicio
+        service = IEService(executable_path=ie_driver_path)
+
+        # Iniciar driver en IE Mode
+        driver = webdriver.Ie(service=service, options=ie_options)
+        wait = WebDriverWait(driver, 25)
+
+        add_log("🌐 Navegador IE Mode iniciado correctamente")
+
+        # ================== LOGIN ==================
+        add_log("📝 Abriendo página de login...")
         driver.get("http://200.51.42.41:7980/Login.aspx")
 
-        # Login
         wait.until(EC.presence_of_element_located((By.ID, "ctl00_UcLogin1_txtUsuario")))
+        driver.find_element(By.ID, "ctl00_UcLogin1_txtUsuario").clear()
         driver.find_element(By.ID, "ctl00_UcLogin1_txtUsuario").send_keys(usuario)
+        driver.find_element(By.ID, "ctl00_UcLogin1_txtClave").clear()
         driver.find_element(By.ID, "ctl00_UcLogin1_txtClave").send_keys(password)
         driver.find_element(By.ID, "ctl00_UcLogin1_btnIngresar").click()
 
-        add_log("🔐 Login enviado...")
-
-        # Esperar redirección y ir a la página de actas
-        time.sleep(4)
-        driver.get("http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx")
-
-        add_log(f"🔍 Buscando legajo {legajo}...")
-
-        # Buscar por legajo (ajusta los IDs si cambian)
-        wait.until(EC.presence_of_element_located((By.ID, "ctl00_cMain_gvActasSincronizadas_Legajo")))
-        driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_Legajo").send_keys(legajo)
-        driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_btnBuscar").click()
-
+        add_log("🔐 Login enviado... esperando redirección")
         time.sleep(5)
 
-        # Aquí puedes agregar lógica para seleccionar las actas (tildar checkboxes)
-        # Ejemplo simple: tildar las primeras 2 checkboxes de la grilla
+        # ================== IR A ACTAS ==================
+        add_log("📂 Navegando a la página de actas...")
+        driver.get("http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx")
+        time.sleep(4)
+
+        # ================== BUSCAR POR LEGAJO ==================
+        add_log(f"🔍 Buscando legajo {legajo}...")
+        wait.until(EC.presence_of_element_located((By.ID, "ctl00_cMain_gvActasSincronizadas_Legajo")))
+        
+        legajo_field = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_Legajo")
+        legajo_field.clear()
+        legajo_field.send_keys(legajo)
+        
+        driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_btnBuscar").click()
+        time.sleep(6)
+
+        # ================== SELECCIONAR ACTAS (ejemplo: primeras 2) ==================
+        add_log("☑️ Seleccionando actas...")
         checkboxes = driver.find_elements(By.CSS_SELECTOR, "input[type='checkbox'][id*='gvActasSincronizadas']")
-        for cb in checkboxes[:2]:   # primeras 2
+        seleccionadas = 0
+        for cb in checkboxes:
             if not cb.is_selected():
                 cb.click()
+                seleccionadas += 1
+            if seleccionadas >= 2:
+                break
 
-        add_log("✅ Actas seleccionadas")
+        add_log(f"✅ {seleccionadas} actas seleccionadas")
 
-        # Clic en el botón que abre el modal de impresión (ajusta el ID)
-        btn_imprimir = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_6")  # el mismo que usabas antes
+        # ================== ABRIR MODAL DE IMPRESIÓN ==================
+        add_log("🖨️ Abriendo ventana/modal de impresión...")
+        btn_imprimir = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_6")
         btn_imprimir.click()
 
-        add_log("🖨️ Abriendo modal de impresión...")
+        time.sleep(4)   # espera crítica para que aparezca el modal/popup
 
-        # Esperar al modal y automatizar "Imprimir S/Ciudad" + Imprimir
-        time.sleep(3)   # espera a que aparezca el popup/modal
+        # ================== AUTOMATIZAR DENTRO DEL MODAL ==================
+        add_log("🔧 Intentando activar 'Imprimir S/Ciudad' y clic en Imprimir...")
 
-        # Buscar checkbox "Imprimir S/Ciudad" (ajusta según el texto o ID exacto)
         try:
-            chk_sin_ciudad = driver.find_element(By.XPATH, "//label[contains(text(),'Imprimir S/Ciudad')]/preceding-sibling::input[@type='checkbox']")
+            # Buscar checkbox por texto (funciona bien en IE)
+            chk_sin_ciudad = wait.until(
+                EC.presence_of_element_located((By.XPATH, "//input[@type='checkbox'][following-sibling::label[contains(text(),'Imprimir S/Ciudad')]]"))
+            )
             if not chk_sin_ciudad.is_selected():
                 chk_sin_ciudad.click()
-            add_log("☑️ Checkbox 'Imprimir S/Ciudad' activado")
+            add_log("✅ Checkbox 'Imprimir S/Ciudad' activado")
         except:
-            add_log("⚠️ No se encontró checkbox S/Ciudad (puede estar en popup)")
+            add_log("⚠️ No se encontró el checkbox S/Ciudad automáticamente")
 
-        # Clic en link "Imprimir"
         try:
-            imprimir_link = driver.find_element(By.XPATH, "//a[contains(text(),'Imprimir')]")
-            imprimir_link.click()
-            add_log("✅ Clic en Imprimir ejecutado")
+            # Clic en el link "Imprimir"
+            link_imprimir = driver.find_element(By.XPATH, "//a[contains(text(),'Imprimir') or contains(.,'Imprimir')]")
+            link_imprimir.click()
+            add_log("✅ Clic en 'Imprimir' ejecutado - La descarga debería comenzar")
         except:
             add_log("❌ No se encontró el link 'Imprimir'")
 
-        st.success("Proceso completado. Revisa la ventana del navegador.")
-        add_log("🎉 Proceso finalizado. Descarga debería iniciarse en el navegador.")
+        st.success("🚀 Proceso lanzado en el navegador. Revisa la ventana de Edge (IE Mode) para ver si se descargan los PDFs.")
 
     except Exception as e:
         add_log(f"❌ Error: {str(e)}")
-        st.error("Ocurrió un error durante la automatización.")
+        st.error(f"Ocurrió un error: {str(e)}")
     finally:
-        # driver.quit()   # Descomenta si quieres cerrar automáticamente (mejor dejar abierto para ver qué pasa)
+        # No hacemos driver.quit() para que puedas ver qué pasa en el navegador
         pass
