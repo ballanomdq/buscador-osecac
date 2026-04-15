@@ -1,86 +1,101 @@
-import pyautogui
+import streamlit as st
+from selenium import webdriver
+from selenium.webdriver.edge.service import Service
+from selenium.webdriver.edge.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.microsoft import EdgeChromiumDriverManager
 import time
-import os
 
-# --- CONFIGURACIÓN DE SEGURIDAD ---
-pyautogui.FAILSAFE = True  # Si movés el mouse a una esquina de la pantalla, el robot se apaga (por si se vuelve loco)
+def ejecutar_robot_osecac():
+    # Contenedor para el informe en tiempo real en la página
+    status = st.empty()
+    log_area = st.empty()
+    informe = []
 
-class RobotOsecac:
-    def __init__(self):
-        self.tandas_exitosas = 0
-        self.errores = []
+    def actualizar_informe(mensaje):
+        informe.append(f"[{time.strftime('%H:%M:%S')}] {mensaje}")
+        log_area.code("\n".join(informe))
 
-    def informe(self, mensaje):
-        print(f"[{time.strftime('%H:%M:%S')}] 🤖 {mensaje}")
+    # Configuración de Edge
+    options = Options()
+    # options.add_argument("--headless") # Descomenta esto si querés que no se vea la ventana del robot
+    
+    try:
+        actualizar_informe("Iniciando navegador Edge...")
+        service = Service(EdgeChromiumDriverManager().install())
+        driver = webdriver.Edge(service=service, options=options)
+        wait = WebDriverWait(driver, 15)
+        
+        actualizar_informe("Accediendo al Portal OSECAC...")
+        driver.get("http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx")
+        driver.maximize_window()
 
-    def esperar_y_cerrar_cartel(self):
-        self.informe("Buscando el cartel de seguridad amarillo...")
-        # Intentamos cerrar con teclado primero (es más rápido)
-        time.sleep(2)
-        pyautogui.press('esc')
-        time.sleep(1)
-        pyautogui.press('enter')
-        self.informe("Comando de cierre enviado. Verificando...")
+        while True:
+            # Buscar checkboxes pendientes
+            xpath = "//input[contains(@id, 'gvActasSincronizadas') and @type='checkbox' and not(@checked)]"
+            checkboxes = driver.find_elements(By.XPATH, xpath)
 
-    def procesar_impresion(self):
-        self.informe("Localizando botones de la ventana modal...")
-        # Navegación ciega pero efectiva por TAB (ya que el modal tiene el foco)
-        # TAB 1: Cantidad de copias
-        # TAB 2: Checkbox S/Ciudad
-        # TAB 3: Link Imprimir
-        try:
-            time.sleep(2)
-            for _ in range(3):
-                pyautogui.press('tab')
-                time.sleep(0.3)
+            if not checkboxes:
+                actualizar_informe(">>> FIN DEL PROCESO: No quedan actas pendientes.")
+                break
+
+            actualizar_informe(f"Procesando tanda de {min(2, len(checkboxes))} actas...")
             
-            pyautogui.press('space') # Tilda 'S/Ciudad'
-            self.informe("✓ Checkbox S/Ciudad tildado")
-            
-            time.sleep(0.5)
-            pyautogui.press('enter') # Ejecuta Imprimir
-            self.informe("✓ Botón Imprimir presionado")
-            return True
-        except Exception as e:
-            self.errores.append(f"Falla en controles: {str(e)}")
-            return False
+            # Marcar 2 actas
+            for i in range(min(2, len(checkboxes))):
+                actualizar_informe(f"Marcando acta fila {i+1}...")
+                checkboxes[i].click()
+                time.sleep(0.5)
 
-    def ejecutar(self, cantidad_tandas=5):
-        self.informe("¡INICIANDO OPERACIÓN RESCATE!")
-        self.informe("Tenés 5 segundos para poner Edge al frente...")
-        time.sleep(5)
+            # Click en Imprimir Masivo
+            ventana_principal = driver.current_window_handle
+            btn_masivo = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_6")
+            btn_masivo.click()
 
-        for i in range(cantidad_tandas):
-            self.informe(f"--- INICIANDO TANDA {i+1} ---")
-            
-            # Paso 1: Ejecutar tu Favorito (Botón Mágico)
-            # Asumimos que el mouse está sobre el botón o lo apretás vos la primera vez
-            # Si querés que el robot haga clic en el favorito, pasame la coordenada
-            
-            # Paso 2: El bloqueo de seguridad
-            self.esperar_y_cerrar_cartel()
+            # Manejo de la ventana flotante
+            actualizar_informe("Esperando ventana de impresión...")
+            wait.until(lambda d: len(d.window_handles) > 1)
 
-            # Paso 3: Operar la ventana
-            if self.procesar_impresion():
-                self.tandas_exitosas += 1
-                self.informe(f"Tanda {i+1} completada. Esperando descarga...")
-            else:
-                self.informe(f"Hubo un problema en la tanda {i+1}")
-            
-            time.sleep(10) # Tiempo para que el servidor de OSECAC respire
+            for handle in driver.window_handles:
+                if handle != ventana_principal:
+                    driver.switch_to.window(handle)
+                    break
 
-        self.mostrar_resumen()
+            # --- ACCIONES DENTRO DE LA VENTANA ---
+            try:
+                # Tildar S/Ciudad
+                chk_ciudad = wait.until(EC.element_to_be_clickable((By.ID, "chkImpSCiudad")))
+                if not chk_ciudad.is_selected():
+                    chk_ciudad.click()
+                    actualizar_informe("✓ Casillero 'S/Ciudad' tildado.")
 
-    def mostrar_resumen(self):
-        print("\n" + "="*30)
-        print("      RESUMEN DEL ROBOT")
-        print("="*30)
-        print(f"Actas procesadas (aprox): {self.tandas_exitosas * 2}")
-        print(f"Errores encontrados: {len(self.errores)}")
-        for err in self.errores:
-            print(f"- {err}")
-        print("="*30)
+                # Click en Imprimir (lbGrabar)
+                btn_imprimir = driver.find_element(By.ID, "lbGrabar")
+                btn_imprimir.click()
+                actualizar_informe("✓ Orden de impresión enviada.")
+                
+                time.sleep(6) # Espera para que inicie la descarga
+                driver.close()
+            except Exception as e:
+                actualizar_informe(f"⚠️ Error en ventana: {str(e)}")
+                if len(driver.window_handles) > 1: driver.close()
 
-if __name__ == "__main__":
-    bot = RobotOsecac()
-    bot.ejecutar(cantidad_tandas=10) # Cambiá este número según cuántas actas tengas
+            driver.switch_to.window(ventana_principal)
+            actualizar_informe("Esperando 3 segundos para la siguiente tanda...")
+            time.sleep(3)
+
+    except Exception as e:
+        st.error(f"Error crítico: {e}")
+        actualizar_informe(f"❌ ERROR: {str(e)}")
+    finally:
+        actualizar_informe("Cerrando navegador...")
+        driver.quit()
+
+# --- INTERFAZ DE STREAMLIT ---
+st.title("🤖 Automatizador de Actas OSECAC")
+st.info("Este robot marcará de a 2 actas, tildará 'S/Ciudad' y descargará los archivos automáticamente.")
+
+if st.button("🚀 INICIAR DESCARGA MASIVA"):
+    ejecutar_robot_osecac()
