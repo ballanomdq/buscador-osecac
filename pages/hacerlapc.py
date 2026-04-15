@@ -1,18 +1,15 @@
 import streamlit as st
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import asyncio
 import time
 import os
 import zipfile
 from pathlib import Path
+from playwright.async_api import async_playwright
 
 st.set_page_config(page_title="Robot OSECAC", layout="wide")
 st.title("🤖 Robot OSECAC - Descarga Masiva de Actas")
 
-# Crear carpeta de descargas
+# Carpeta de descargas
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "descargas_osecac")
 Path(DOWNLOAD_DIR).mkdir(exist_ok=True)
 
@@ -25,201 +22,166 @@ with st.form("datos_acceso"):
         password = st.text_input("🔒 Contraseña", type="password", value="FBOVONE")
         ver_impresas = st.checkbox("✅ Ver Actas ya Impresas", value=True)
     
-    col3, col4, col5 = st.columns([1,1,1])
-    with col3:
-        submit = st.form_submit_button("🚀 INICIAR DESCARGA MASIVA", use_container_width=True)
+    submit = st.form_submit_button("🚀 INICIAR DESCARGA MASIVA", use_container_width=True)
 
 if submit:
     if not usuario or not password:
         st.error("❌ Completá usuario y contraseña")
     else:
-        # Barra de progreso
-        progress_bar = st.progress(0)
         status_text = st.empty()
         log_area = st.empty()
         logs = []
         
         def add_log(msg):
             logs.append(f"[{time.strftime('%H:%M:%S')}] {msg}")
-            log_area.code("\n".join(logs[-20:]), language="text")
+            log_area.code("\n".join(logs[-25:]), language="text")
         
-        add_log("🚀 Iniciando robot...")
-        
-        # Configurar Edge
-        options = webdriver.EdgeOptions()
-        options.add_argument("--disable-notifications")
-        options.add_experimental_option("prefs", {
-            "download.default_directory": DOWNLOAD_DIR,
-            "download.prompt_for_download": False,
-            "download.directory_upgrade": True,
-            "safebrowsing.enabled": True,
-            "profile.default_content_setting_values.automatic_downloads": 1
-        })
-        
-        driver = None
+        add_log("🚀 Iniciando robot en la nube...")
         
         try:
-            add_log("🌐 Abriendo navegador...")
-            driver = webdriver.Edge(options=options)
-            driver.maximize_window()
-            
-            # 1. Login
-            add_log("🔐 Accediendo a página de login...")
-            driver.get("http://200.51.42.41:7980/Login.aspx")
-            time.sleep(2)
-            
-            add_log(f"📝 Escribiendo usuario: {usuario}")
-            campo_usuario = driver.find_element(By.ID, "ctl00_uLogin1_txtUsuario")
-            campo_usuario.clear()
-            campo_usuario.send_keys(usuario)
-            
-            add_log("📝 Escribiendo clave...")
-            campo_clave = driver.find_element(By.ID, "ctl00_uLogin1_txtClave")
-            campo_clave.clear()
-            campo_clave.send_keys(password)
-            campo_clave.send_keys(Keys.ENTER)
-            
-            add_log("⏳ Esperando ingreso al sistema...")
-            time.sleep(5)
-            
-            # 2. Navegar a la página de actas
-            add_log("📂 Navegando a sincronización...")
-            driver.get("http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx")
-            time.sleep(3)
-            
-            # 3. Completar legajo
-            add_log(f"🔢 Ingresando legajo: {legajo}")
-            campo_legajo = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, "ctl00_cMain_gvActasSincronizadas_Legajo"))
-            )
-            campo_legajo.clear()
-            campo_legajo.send_keys(legajo)
-            
-            # 4. Tildar "Ver Actas ya Impresas" (si existe)
-            if ver_impresas:
-                try:
-                    add_log("☑️ Activando 'Ver Actas ya Impresas'...")
-                    chk_impresas = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_VerImpresas")
-                    if not chk_impresas.is_selected():
-                        chk_impresas.click()
-                except:
-                    add_log("⚠️ No se encontró el checkbox 'Ver Actas ya Impresas'")
-            
-            # 5. Buscar actas
-            add_log("🔍 Buscando actas...")
-            btn_buscar = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_btnBuscar")
-            btn_buscar.click()
-            time.sleep(5)
-            
-            # 6. Función para obtener actas
-            def obtener_actas():
-                tabla = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas")
-                checkboxes = tabla.find_elements(By.CSS_SELECTOR, "input[type='checkbox']")
-                actas = []
-                for cb in checkboxes:
-                    if cb.is_enabled():
-                        actas.append(cb)
-                return actas
-            
-            # 7. Función para procesar lote
-            def procesar_lote(inicio, total):
-                status_text.text(f"📄 Procesando actas {inicio+1} a {min(inicio+2, total)} de {total}")
-                progress_bar.progress((inicio+2)/total if inicio+2 <= total else 1.0)
-                
-                # Seleccionar 2 actas
-                actas = obtener_actas()
-                for i, cb in enumerate(actas):
-                    if i < inicio or i >= inicio+2:
-                        if cb.is_selected():
-                            cb.click()
-                    else:
-                        if not cb.is_selected():
-                            cb.click()
-                
-                time.sleep(1)
-                
-                # Click en imprimir
-                btn_imprimir = driver.find_element(By.ID, "ctl00_cMain_gvActasSincronizadas_6")
-                btn_imprimir.click()
-                add_log(f"🖨️ Abriendo impresión para actas {inicio+1}-{inicio+2}")
-                
-                time.sleep(4)
-                
-                # Cambiar a la ventana modal
-                ventanas = driver.window_handles
-                if len(ventanas) > 1:
-                    driver.switch_to.window(ventanas[1])
-                    add_log("🪟 Cambiando a ventana modal...")
+            async def ejecutar_robot():
+                add_log("🌐 Lanzando navegador headless...")
+                async with async_playwright() as p:
+                    browser = await p.chromium.launch(headless=True)
+                    context = await browser.new_context(accept_downloads=True)
+                    page = await context.new_page()
                     
-                    time.sleep(2)
+                    # 1. Login
+                    add_log("🔐 Accediendo a login...")
+                    await page.goto("http://200.51.42.41:7980/Login.aspx")
+                    await page.wait_for_timeout(2000)
                     
-                    # Tildar "Imprimir S/Ciudad"
-                    try:
-                        chk_ciudad = driver.find_element(By.ID, "chkImpSCiudad")
-                        if not chk_ciudad.is_selected():
-                            chk_ciudad.click()
-                            add_log("☑️ Marcando 'Imprimir S/Ciudad'")
-                    except:
-                        add_log("⚠️ No se encontró 'chkImpSCiudad'")
+                    add_log(f"📝 Escribiendo usuario...")
+                    await page.fill("#ctl00_uLogin1_txtUsuario", usuario)
+                    await page.fill("#ctl00_uLogin1_txtClave", password)
+                    await page.keyboard.press("Enter")
                     
-                    time.sleep(1)
+                    add_log("⏳ Esperando ingreso...")
+                    await page.wait_for_timeout(5000)
                     
-                    # Click en Imprimir
-                    try:
-                        btn_imprimir_modal = driver.find_element(By.ID, "lbGrabar")
-                        btn_imprimir_modal.click()
-                        add_log("🖨️ Click en 'Imprimir' dentro del modal")
-                    except:
-                        add_log("⚠️ No se encontró 'lbGrabar', intentando __doPostBack")
-                        driver.execute_script("__doPostBack('lbGrabar','');")
+                    # 2. Ir a sincronización
+                    add_log("📂 Navegando a actas...")
+                    await page.goto("http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx")
+                    await page.wait_for_timeout(3000)
                     
-                    time.sleep(5)
+                    # 3. Completar legajo
+                    add_log(f"🔢 Legajo: {legajo}")
+                    await page.fill("#ctl00_cMain_gvActasSincronizadas_Legajo", legajo)
                     
-                    # Volver a la ventana principal
-                    driver.close()
-                    driver.switch_to.window(ventanas[0])
-                    add_log("↩️ Volviendo a ventana principal")
-                
-                time.sleep(3)
+                    # 4. Ver actas impresas
+                    if ver_impresas:
+                        try:
+                            await page.check("#ctl00_cMain_gvActasSincronizadas_VerImpresas")
+                            add_log("☑️ Activado 'Ver Actas ya Impresas'")
+                        except:
+                            pass
+                    
+                    # 5. Buscar
+                    add_log("🔍 Buscando actas...")
+                    await page.click("#ctl00_cMain_gvActasSincronizadas_btnBuscar")
+                    await page.wait_for_timeout(5000)
+                    
+                    # 6. Obtener actas
+                    await page.wait_for_selector("#ctl00_cMain_gvActasSincronizadas", timeout=10000)
+                    checkboxes = await page.query_selector_all("#ctl00_cMain_gvActasSincronizadas input[type='checkbox']")
+                    
+                    habilitados = []
+                    for cb in checkboxes:
+                        if await cb.is_enabled():
+                            habilitados.append(cb)
+                    
+                    total_actas = len(habilitados)
+                    add_log(f"📊 Total actas encontradas: {total_actas}")
+                    
+                    if total_actas == 0:
+                        st.warning("⚠️ No se encontraron actas. Verificá el legajo.")
+                        return
+                    
+                    # 7. Procesar de a 2
+                    for i in range(0, total_actas, 2):
+                        status_text.text(f"📄 Procesando actas {i+1}-{min(i+2, total_actas)} de {total_actas}")
+                        
+                        # Seleccionar/deseleccionar
+                        for j, cb in enumerate(habilitados):
+                            if j >= i and j < i+2:
+                                if not await cb.is_checked():
+                                    await cb.click()
+                            else:
+                                if await cb.is_checked():
+                                    await cb.click()
+                        
+                        await page.wait_for_timeout(1000)
+                        
+                        # Click imprimir
+                        add_log(f"🖨️ Abriendo lote {i//2 + 1}")
+                        await page.click("#ctl00_cMain_gvActasSincronizadas_6")
+                        await page.wait_for_timeout(4000)
+                        
+                        # Esperar nueva ventana
+                        try:
+                            async with context.expect_page() as nueva:
+                                pass
+                            modal = await nueva.value
+                            await modal.wait_for_load_state()
+                            
+                            add_log("🪟 Ventana modal detectada")
+                            await page.wait_for_timeout(2000)
+                            
+                            # Marcar S/Ciudad
+                            try:
+                                await modal.check("#chkImpSCiudad")
+                                add_log("☑️ Marcado 'Imprimir S/Ciudad'")
+                            except:
+                                add_log("⚠️ No se encontró checkbox de ciudad")
+                            
+                            await page.wait_for_timeout(1000)
+                            
+                            # Click Imprimir y descargar
+                            try:
+                                async with modal.expect_download() as descarga_info:
+                                    await modal.click("#lbGrabar")
+                                descarga = await descarga_info.value
+                                
+                                nombre_archivo = f"acta_{i+1}_{i+2}_{time.strftime('%Y%m%d_%H%M%S')}.pdf"
+                                ruta_descarga = os.path.join(DOWNLOAD_DIR, nombre_archivo)
+                                await descarga.save_as(ruta_descarga)
+                                add_log(f"💾 Descargado: {nombre_archivo}")
+                            except Exception as e:
+                                add_log(f"⚠️ Error en descarga: {str(e)[:50]}")
+                            
+                            await modal.close()
+                            add_log("↩️ Modal cerrado")
+                            
+                        except Exception as e:
+                            add_log(f"⚠️ Error con ventana modal: {str(e)[:50]}")
+                        
+                        await page.wait_for_timeout(3000)
+                    
+                    add_log("✅ PROCESO COMPLETADO!")
+                    status_text.text(f"✅ {total_actas} actas descargadas correctamente")
+                    
+                    # Crear ZIP
+                    add_log("📦 Creando archivo ZIP...")
+                    zip_path = os.path.join(DOWNLOAD_DIR, "actas_osecac.zip")
+                    with zipfile.ZipFile(zip_path, 'w') as zipf:
+                        for archivo in os.listdir(DOWNLOAD_DIR):
+                            if archivo.endswith('.pdf'):
+                                zipf.write(os.path.join(DOWNLOAD_DIR, archivo), archivo)
+                    
+                    with open(zip_path, "rb") as f:
+                        st.download_button(
+                            label="📥 DESCARGAR TODAS LAS ACTAS (ZIP)",
+                            data=f,
+                            file_name="actas_osecac.zip",
+                            mime="application/zip"
+                        )
+                    
+                    await browser.close()
+                    return "OK"
             
-            # 8. Obtener todas las actas y procesar
-            actas = obtener_actas()
-            total_actas = len(actas)
-            add_log(f"📊 Total de actas encontradas: {total_actas}")
+            # Ejecutar el robot
+            asyncio.run(ejecutar_robot())
             
-            if total_actas == 0:
-                st.warning("⚠️ No se encontraron actas. Verificá el legajo y los filtros.")
-            else:
-                status_text.text(f"📊 Se encontraron {total_actas} actas para descargar")
-                
-                for inicio in range(0, total_actas, 2):
-                    procesar_lote(inicio, total_actas)
-                
-                add_log("✅ PROCESO COMPLETADO!")
-                status_text.text(f"✅ Descarga completada. {total_actas} actas procesadas.")
-                progress_bar.progress(1.0)
-                
-                # Crear ZIP con todas las descargas
-                add_log("📦 Creando archivo ZIP...")
-                zip_path = os.path.join(DOWNLOAD_DIR, "actas_osecac.zip")
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for archivo in os.listdir(DOWNLOAD_DIR):
-                        if archivo.endswith('.pdf'):
-                            zipf.write(os.path.join(DOWNLOAD_DIR, archivo), archivo)
-                
-                with open(zip_path, "rb") as f:
-                    st.download_button(
-                        label="📥 DESCARGAR TODAS LAS ACTAS (ZIP)",
-                        data=f,
-                        file_name="actas_osecac.zip",
-                        mime="application/zip"
-                    )
-                
         except Exception as e:
             add_log(f"❌ ERROR: {str(e)}")
             st.error(f"Error: {str(e)}")
-        
-        finally:
-            if driver:
-                add_log("👋 Cerrando navegador...")
-                driver.quit()
