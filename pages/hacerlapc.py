@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import time
+import re
 from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Robot OSECAC", layout="wide")
@@ -18,14 +19,14 @@ if submit:
     
     def add_log(msg):
         logs.append(msg)
-        log_area.code("\n".join(logs), language="text")
+        log_area.code("\n".join(logs[-20:]), language="text")
     
     add_log("🚀 Iniciando...")
     
     session = requests.Session()
     
-    # 1. Obtener página de login con tokens
-    add_log("📝 Obteniendo página de login...")
+    # 1. Primero obtener la cookie ASP.NET_SessionId
+    add_log("📝 Obteniendo cookie de sesión...")
     login_url = "http://200.51.42.41:7980/Login.aspx?ReturnUrl=%2fdefault.aspx"
     resp = session.get(login_url)
     
@@ -34,7 +35,7 @@ if submit:
     viewstate = soup.find('input', {'name': '__VIEWSTATE'})
     viewstategen = soup.find('input', {'name': '__VIEWSTATEGENERATOR'})
     
-    # Datos completos del formulario (sin botón)
+    # Datos del login
     login_data = {
         '__VIEWSTATE': viewstate['value'] if viewstate else '',
         '__VIEWSTATEGENERATOR': viewstategen['value'] if viewstategen else '',
@@ -47,23 +48,23 @@ if submit:
         'ctl00$hdnPermisos': '',
         'ctl00$UcLogin1$txtUsuario': usuario,
         'ctl00$UcLogin1$txtClave': password,
+        'ctl00$UcLogin1$btnIngresar': 'Ingresar'
     }
     
     add_log(f"🔐 Enviando login para {usuario}...")
+    resp = session.post(login_url, data=login_data)
     
-    # Enviar el formulario (simula el Enter)
-    resp = session.post(login_url, data=login_data, headers={
-        'Content-Type': 'application/x-www-form-urlencoded'
-    })
+    add_log(f"📍 Respuesta: {resp.status_code}")
     
-    add_log(f"📍 Redirigido a: {resp.url}")
-    
-    # Verificar login exitoso (que no vuelva a login)
-    if "Login.aspx" not in resp.url:
+    # Verificar si hay redirección a Default.aspx (login exitoso)
+    if "Default.aspx" in resp.text or resp.status_code == 302:
         add_log("✅ Login exitoso!")
         
-        # Mostrar un poco del HTML para debug
-        add_log(f"📄 Título de página: {soup.title.string if soup.title else 'No title'}")
+        # Seguir la redirección si es necesario
+        if resp.status_code == 302:
+            redirect_url = resp.headers.get('Location', '')
+            if redirect_url:
+                resp = session.get(f"http://200.51.42.41:7980{redirect_url}")
         
         # 2. Ir a página de actas
         add_log("📂 Navegando a actas...")
@@ -100,7 +101,7 @@ if submit:
                         numeros_acta.append(texto)
             
             add_log(f"📊 Encontradas {len(numeros_acta)} actas")
-            st.write(f"📄 Actas encontradas: {', '.join(numeros_acta[:20])}...")
+            st.write(f"📄 Actas: {', '.join(numeros_acta[:20])}")
             
             if numeros_acta:
                 # 5. Generar PDFs
@@ -113,19 +114,21 @@ if submit:
                     
                     pdf_url = f"http://200.51.42.41:7980/FiscaPDA/Sincronizacion/frmPrintMasivo.aspx?PrintNew=1&Usuario={usuario}&NrosActa={nros}&OrigCopy=0&ImpSinCiudad=1&Docs=A:1,V:1,I:1,P:1,L:1,D:1&HistorialActas=0"
                     
-                    add_log(f"🖨️ Generando PDF para actas: {nros}")
-                    resp_pdf = session.get(pdf_url)
+                    add_log(f"🖨️ Generando PDF: actas {nros}")
                     
-                    if resp_pdf.status_code == 200 and len(resp_pdf.content) > 5000:
+                    # Usar la sesión con las cookies
+                    resp_pdf = session.get(pdf_url, stream=True)
+                    
+                    if resp_pdf.status_code == 200 and len(resp_pdf.content) > 1000:
                         pdfs.append((f"actas_{nros}.pdf", resp_pdf.content))
-                        add_log(f"✅ OK: actas_{nros}.pdf ({len(resp_pdf.content)} bytes)")
+                        add_log(f"✅ OK: actas_{nros}.pdf")
                     else:
-                        add_log(f"❌ Error: {nros} - status: {resp_pdf.status_code}")
+                        add_log(f"❌ Error: {nros}")
                     
                     progress.progress(min((i+2)/len(numeros_acta), 1.0))
                     time.sleep(1)
                 
-                # 6. ZIP
+                # 6. Crear ZIP
                 if pdfs:
                     import zipfile
                     import io
@@ -135,20 +138,17 @@ if submit:
                         for nombre, contenido in pdfs:
                             zipf.writestr(nombre, contenido)
                     
-                    st.success(f"✅ {len(pdfs)} PDFs generados correctamente")
+                    st.success(f"✅ {len(pdfs)} PDFs generados")
                     st.download_button(
-                        label="📥 DESCARGAR ZIP CON TODAS LAS ACTAS",
+                        label="📥 DESCARGAR ZIP",
                         data=zip_buffer.getvalue(),
                         file_name=f"actas_legajo_{legajo}.zip",
                         mime="application/zip"
                     )
                 else:
-                    st.error("❌ No se pudo generar ningún PDF")
-            else:
-                st.warning("⚠️ No se encontraron números de acta para este legajo")
+                    st.error("❌ No se generó ningún PDF")
         else:
             add_log("❌ No se encontró la tabla de actas")
-            st.error("No se encontró la tabla de actas. Verificá que el legajo tenga actas disponibles.")
     else:
-        add_log("❌ Error de login. Usuario o contraseña incorrectos")
-        st.error("❌ Error de login. Verificá usuario y contraseña")
+        add_log("❌ Error de login")
+        st.error("Error de login. Verificá usuario y contraseña")
