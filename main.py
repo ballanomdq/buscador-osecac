@@ -99,6 +99,8 @@ st.markdown("""
 div[data-testid="stExpander"] details summary { background-color: rgba(30, 41, 59, 0.9) !important; color: #ffffff !important; border-radius: 14px !important; border: 2px solid rgba(56, 189, 248, 0.4) !important; padding: 14px 18px !important; font-weight: 600 !important; }
 div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b !important; box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important; }
 .ficha { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important; }
+.ficha-practica { border-left: 6px solid #38bdf8; }
+.ficha-especialista { border-left: 6px solid #ff4b4b; }
 .stLinkButton a { background-color: rgba(30, 41, 59, 0.8) !important; color: #ffffff !important; border: 1px solid rgba(56,189,248,0.5) !important; border-radius: 10px !important; }
 .stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
@@ -370,49 +372,54 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for _, row in res.iterrows():
             st.markdown(f'<div class="ficha">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# ================= PRÁCTICAS Y ESPECIALISTAS =================
+# ================= PRÁCTICAS Y ESPECIALISTAS (CORREGIDO - BUSCA EN AMBAS Y DIFERENCIA) =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas...", key="bus_p")
     if bus_p:
         busqueda_norm = normalizar_texto(bus_p)
         
+        # Variable para controlar si se encontró algo
+        hay_resultados = False
+        
+        # --- Búsqueda en PRÁCTICAS (SOLAPA 1) ---
         if not df_practicas.empty:
-            df_practicas_norm = df_practicas.astype(str).map(normalizar_texto)
-            mascara_practicas = df_practicas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
+            # Buscar en TODAS las columnas
+            mascara_practicas = df_practicas.astype(str).apply(lambda row: busqueda_norm in normalizar_texto(str(row)), axis=1)
             resultados_practicas = df_practicas[mascara_practicas]
+            
             if not resultados_practicas.empty:
-                st.markdown("### 📋 PRÁCTICAS encontradas:")
-                for _, row in resultados_practicas.iterrows():
+                hay_resultados = True
+                st.markdown("### 📋 RESULTADOS DE LA SOLAPA: PRÁCTICAS")
+                for idx, row in resultados_practicas.iterrows():
                     datos = []
                     for c, v in row.items():
                         if pd.notna(v) and str(v).strip():
                             nombre_col = c.replace('_', ' ').title()
                             datos.append(f"<b>{nombre_col}:</b> {v}")
                     if datos:
-                        st.markdown(f'<div class="ficha">📑 <b>PRÁCTICA:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
+        # --- Búsqueda en ESPECIALISTAS (SOLAPA 2) ---
         if not df_especialistas.empty:
-            df_especialistas_norm = df_especialistas.astype(str).map(normalizar_texto)
-            mascara_especialistas = df_especialistas_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
+            # Buscar en TODAS las columnas
+            mascara_especialistas = df_especialistas.astype(str).apply(lambda row: busqueda_norm in normalizar_texto(str(row)), axis=1)
             resultados_especialistas = df_especialistas[mascara_especialistas]
+            
             if not resultados_especialistas.empty:
-                st.markdown("### 👨‍⚕️ ESPECIALISTAS encontrados:")
-                for _, row in resultados_especialistas.iterrows():
+                hay_resultados = True
+                st.markdown("### 👨‍⚕️ RESULTADOS DE LA SOLAPA: ESPECIALISTAS")
+                for idx, row in resultados_especialistas.iterrows():
                     datos = []
                     for c, v in row.items():
                         if pd.notna(v) and str(v).strip():
                             nombre_col = c.replace('_', ' ').title()
                             datos.append(f"<b>{nombre_col}:</b> {v}")
                     if datos:
-                        st.markdown(f'<div class="ficha">👨‍⚕️ <b>ESPECIALISTA:</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
         
-        encontro = False
-        if not df_practicas.empty and 'resultados_practicas' in locals() and not resultados_practicas.empty:
-            encontro = True
-        if not df_especialistas.empty and 'resultados_especialistas' in locals() and not resultados_especialistas.empty:
-            encontro = True
-        if not encontro:
-            st.warning(f"⚠️ No se encontraron resultados para '{bus_p}'")
+        # Si no se encontró nada en ninguna
+        if not hay_resultados:
+            st.warning(f"⚠️ No se encontraron resultados para '{bus_p}' en ninguna de las dos solapas.")
 
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
