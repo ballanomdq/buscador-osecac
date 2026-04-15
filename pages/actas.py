@@ -356,7 +356,6 @@ def procesar_csv_actas(archivo):
         df = pd.read_csv(io.StringIO(contenido), sep=None, engine='python')
         df.columns = [str(col).strip().upper() for col in df.columns]
         
-        # Buscar columnas necesarias
         col_cuit = None
         col_legajo = None
         col_vto = None
@@ -373,7 +372,6 @@ def procesar_csv_actas(archivo):
                 col_nro_acta = col
         
         if not col_cuit or not col_legajo or not col_vto or not col_nro_acta:
-            st.error(f"No se encontraron columnas necesarias")
             return []
         
         resultados = []
@@ -401,7 +399,6 @@ def procesar_csv_actas(archivo):
                 })
         return resultados
     except Exception as e:
-        st.error(f"Error al leer el archivo CSV: {str(e)}")
         return []
 
 # ==================== PESTAÑAS ====================
@@ -728,3 +725,7 @@ with tab2:
                         st.success(f"✅ {modificados} registros actualizados")
                         contar_registros.clear()
                         st.rerun()
+                    else:
+                        st.info("No se detectaron cambios")
+    else:
+        st.info("No hay datos con
