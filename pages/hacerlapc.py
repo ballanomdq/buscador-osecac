@@ -1,187 +1,128 @@
 import streamlit as st
-import asyncio
+import requests
 import time
-import os
-import zipfile
-from pathlib import Path
-from playwright.async_api import async_playwright
+import re
+from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="Robot OSECAC", layout="wide")
 st.title("🤖 Robot OSECAC - Descarga Masiva de Actas")
 
-# Carpeta de descargas
-DOWNLOAD_DIR = os.path.join(os.getcwd(), "descargas_osecac")
-Path(DOWNLOAD_DIR).mkdir(exist_ok=True)
-
 with st.form("datos_acceso"):
-    col1, col2 = st.columns(2)
-    with col1:
-        usuario = st.text_input("👤 Usuario OSECAC", value="FBOVONE")
-        legajo = st.text_input("📋 Número de Legajo", value="7713")
-    with col2:
-        password = st.text_input("🔒 Contraseña", type="password", value="FBOVONE")
-        ver_impresas = st.checkbox("✅ Ver Actas ya Impresas", value=True)
-    
-    submit = st.form_submit_button("🚀 INICIAR DESCARGA MASIVA", use_container_width=True)
+    usuario = st.text_input("👤 Usuario OSECAC", value="FBOVONE")
+    password = st.text_input("🔒 Contraseña", type="password", value="FBOVONE")
+    legajo = st.text_input("📋 Número de Legajo", value="7713")
+    submit = st.form_submit_button("🚀 INICIAR DESCARGA")
 
 if submit:
-    if not usuario or not password:
-        st.error("❌ Completá usuario y contraseña")
-    else:
-        status_text = st.empty()
-        log_area = st.empty()
-        logs = []
+    with st.spinner("Conectando a OSECAC..."):
         
-        def add_log(msg):
-            logs.append(f"[{time.strftime('%H:%M:%S')}] {msg}")
-            log_area.code("\n".join(logs[-25:]), language="text")
+        # Crear sesión
+        session = requests.Session()
         
-        add_log("🚀 Iniciando robot en la nube...")
+        # 1. Obtener página de login y tokens
+        st.write("📝 1. Iniciando sesión...")
+        login_url = "http://200.51.42.41:7980/Login.aspx"
+        resp = session.get(login_url)
         
-        try:
-            async def ejecutar_robot():
-                add_log("🌐 Lanzando navegador headless...")
-                async with async_playwright() as p:
-                    browser = await p.chromium.launch(headless=True)
-                    context = await browser.new_context(accept_downloads=True)
-                    page = await context.new_page()
-                    
-                    # 1. Login
-                    add_log("🔐 Accediendo a login...")
-                    await page.goto("http://200.51.42.41:7980/Login.aspx")
-                    await page.wait_for_timeout(2000)
-                    
-                    add_log(f"📝 Escribiendo usuario...")
-                    await page.fill("#ctl00_uLogin1_txtUsuario", usuario)
-                    await page.fill("#ctl00_uLogin1_txtClave", password)
-                    await page.keyboard.press("Enter")
-                    
-                    add_log("⏳ Esperando ingreso...")
-                    await page.wait_for_timeout(5000)
-                    
-                    # 2. Ir a sincronización
-                    add_log("📂 Navegando a actas...")
-                    await page.goto("http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx")
-                    await page.wait_for_timeout(3000)
-                    
-                    # 3. Completar legajo
-                    add_log(f"🔢 Legajo: {legajo}")
-                    await page.fill("#ctl00_cMain_gvActasSincronizadas_Legajo", legajo)
-                    
-                    # 4. Ver actas impresas
-                    if ver_impresas:
-                        try:
-                            await page.check("#ctl00_cMain_gvActasSincronizadas_VerImpresas")
-                            add_log("☑️ Activado 'Ver Actas ya Impresas'")
-                        except:
-                            pass
-                    
-                    # 5. Buscar
-                    add_log("🔍 Buscando actas...")
-                    await page.click("#ctl00_cMain_gvActasSincronizadas_btnBuscar")
-                    await page.wait_for_timeout(5000)
-                    
-                    # 6. Obtener actas
-                    await page.wait_for_selector("#ctl00_cMain_gvActasSincronizadas", timeout=10000)
-                    checkboxes = await page.query_selector_all("#ctl00_cMain_gvActasSincronizadas input[type='checkbox']")
-                    
-                    habilitados = []
-                    for cb in checkboxes:
-                        if await cb.is_enabled():
-                            habilitados.append(cb)
-                    
-                    total_actas = len(habilitados)
-                    add_log(f"📊 Total actas encontradas: {total_actas}")
-                    
-                    if total_actas == 0:
-                        st.warning("⚠️ No se encontraron actas. Verificá el legajo.")
-                        return
-                    
-                    # 7. Procesar de a 2
-                    for i in range(0, total_actas, 2):
-                        status_text.text(f"📄 Procesando actas {i+1}-{min(i+2, total_actas)} de {total_actas}")
-                        
-                        # Seleccionar/deseleccionar
-                        for j, cb in enumerate(habilitados):
-                            if j >= i and j < i+2:
-                                if not await cb.is_checked():
-                                    await cb.click()
-                            else:
-                                if await cb.is_checked():
-                                    await cb.click()
-                        
-                        await page.wait_for_timeout(1000)
-                        
-                        # Click imprimir
-                        add_log(f"🖨️ Abriendo lote {i//2 + 1}")
-                        await page.click("#ctl00_cMain_gvActasSincronizadas_6")
-                        await page.wait_for_timeout(4000)
-                        
-                        # Esperar nueva ventana
-                        try:
-                            async with context.expect_page() as nueva:
-                                pass
-                            modal = await nueva.value
-                            await modal.wait_for_load_state()
-                            
-                            add_log("🪟 Ventana modal detectada")
-                            await page.wait_for_timeout(2000)
-                            
-                            # Marcar S/Ciudad
-                            try:
-                                await modal.check("#chkImpSCiudad")
-                                add_log("☑️ Marcado 'Imprimir S/Ciudad'")
-                            except:
-                                add_log("⚠️ No se encontró checkbox de ciudad")
-                            
-                            await page.wait_for_timeout(1000)
-                            
-                            # Click Imprimir y descargar
-                            try:
-                                async with modal.expect_download() as descarga_info:
-                                    await modal.click("#lbGrabar")
-                                descarga = await descarga_info.value
-                                
-                                nombre_archivo = f"acta_{i+1}_{i+2}_{time.strftime('%Y%m%d_%H%M%S')}.pdf"
-                                ruta_descarga = os.path.join(DOWNLOAD_DIR, nombre_archivo)
-                                await descarga.save_as(ruta_descarga)
-                                add_log(f"💾 Descargado: {nombre_archivo}")
-                            except Exception as e:
-                                add_log(f"⚠️ Error en descarga: {str(e)[:50]}")
-                            
-                            await modal.close()
-                            add_log("↩️ Modal cerrado")
-                            
-                        except Exception as e:
-                            add_log(f"⚠️ Error con ventana modal: {str(e)[:50]}")
-                        
-                        await page.wait_for_timeout(3000)
-                    
-                    add_log("✅ PROCESO COMPLETADO!")
-                    status_text.text(f"✅ {total_actas} actas descargadas correctamente")
-                    
-                    # Crear ZIP
-                    add_log("📦 Creando archivo ZIP...")
-                    zip_path = os.path.join(DOWNLOAD_DIR, "actas_osecac.zip")
-                    with zipfile.ZipFile(zip_path, 'w') as zipf:
-                        for archivo in os.listdir(DOWNLOAD_DIR):
-                            if archivo.endswith('.pdf'):
-                                zipf.write(os.path.join(DOWNLOAD_DIR, archivo), archivo)
-                    
-                    with open(zip_path, "rb") as f:
-                        st.download_button(
-                            label="📥 DESCARGAR TODAS LAS ACTAS (ZIP)",
-                            data=f,
-                            file_name="actas_osecac.zip",
-                            mime="application/zip"
-                        )
-                    
-                    await browser.close()
-                    return "OK"
+        # Extraer tokens ASP.NET
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        viewstate = soup.find('input', {'name': '__VIEWSTATE'})
+        eventvalidation = soup.find('input', {'name': '__EVENTVALIDATION'})
+        
+        # Datos de login
+        login_data = {
+            '__VIEWSTATE': viewstate['value'] if viewstate else '',
+            '__EVENTVALIDATION': eventvalidation['value'] if eventvalidation else '',
+            'ctl00$uLogin1$txtUsuario': usuario,
+            'ctl00$uLogin1$txtClave': password,
+            'ctl00$uLogin1$btnIngresar': 'Ingresar'
+        }
+        
+        # Enviar login
+        resp = session.post(login_url, data=login_data)
+        
+        if "default.aspx" in resp.url or "Sincronizacion" in resp.url:
+            st.success("✅ Login exitoso!")
             
-            # Ejecutar el robot
-            asyncio.run(ejecutar_robot())
+            # 2. Ir a página de actas
+            st.write("📝 2. Buscando actas...")
+            actas_url = "http://200.51.42.41:7980/FiscaPDA/Sincronizacion/default.aspx"
+            resp = session.get(actas_url)
             
-        except Exception as e:
-            add_log(f"❌ ERROR: {str(e)}")
-            st.error(f"Error: {str(e)}")
+            # 3. Buscar por legajo
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            viewstate = soup.find('input', {'name': '__VIEWSTATE'})
+            eventvalidation = soup.find('input', {'name': '__EVENTVALIDATION'})
+            
+            busqueda_data = {
+                '__VIEWSTATE': viewstate['value'] if viewstate else '',
+                '__EVENTVALIDATION': eventvalidation['value'] if eventvalidation else '',
+                'ctl00$cMain$gvActasSincronizadas$Legajo': legajo,
+                'ctl00$cMain$gvActasSincronizadas$btnBuscar': 'Buscar'
+            }
+            
+            resp = session.post(actas_url, data=busqueda_data)
+            
+            # 4. Extraer números de acta
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            # Buscar todas las filas de la tabla
+            tabla = soup.find('table', {'id': 'ctl00_cMain_gvActasSincronizadas'})
+            if tabla:
+                filas = tabla.find_all('tr')
+                numeros_acta = []
+                
+                for fila in filas:
+                    celdas = fila.find_all('td')
+                    if len(celdas) > 1:
+                        # Buscar el número de acta (normalmente en la segunda columna)
+                        texto = celdas[1].get_text().strip() if len(celdas) > 1 else ""
+                        if texto.isdigit():
+                            numeros_acta.append(texto)
+                
+                st.write(f"📊 Se encontraron {len(numeros_acta)} actas")
+                st.write(f"📄 Números: {', '.join(numeros_acta[:10])}...")
+                
+                # 5. Generar PDFs
+                st.write("📝 3. Generando PDFs...")
+                
+                pdfs_generados = []
+                for i in range(0, len(numeros_acta), 2):
+                    grupo = numeros_acta[i:i+2]
+                    nros = ','.join(grupo)
+                    
+                    # URL de generación de PDF
+                    pdf_url = f"http://200.51.42.41:7980/FiscaPDA/Sincronizacion/frmPrintMasivo.aspx?PrintNew=1&Usuario={usuario}&NrosActa={nros}&OrigCopy=0&ImpSinCiudad=1&Docs=A:1,V:1,I:1,P:1,L:1,D:1&HistorialActas=0"
+                    
+                    resp_pdf = session.get(pdf_url)
+                    
+                    if resp_pdf.status_code == 200 and len(resp_pdf.content) > 1000:
+                        nombre = f"actas_{nros}.pdf"
+                        pdfs_generados.append((nombre, resp_pdf.content))
+                        st.write(f"✅ Descargado: {nombre}")
+                    
+                    time.sleep(2)
+                
+                # 6. Ofrecer descarga
+                if pdfs_generados:
+                    import zipfile
+                    import io
+                    
+                    zip_buffer = io.BytesIO()
+                    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+                        for nombre, contenido in pdfs_generados:
+                            zip_file.writestr(nombre, contenido)
+                    
+                    st.success(f"✅ Se generaron {len(pdfs_generados)} PDFs")
+                    st.download_button(
+                        label="📥 DESCARGAR TODOS LOS PDFS (ZIP)",
+                        data=zip_buffer.getvalue(),
+                        file_name="actas_osecac.zip",
+                        mime="application/zip"
+                    )
+                else:
+                    st.error("❌ No se pudo generar ningún PDF")
+            else:
+                st.error("❌ No se encontró la tabla de actas")
+        else:
+            st.error("❌ Error de login. Verificá usuario y contraseña")
