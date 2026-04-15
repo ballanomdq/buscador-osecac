@@ -99,8 +99,6 @@ st.markdown("""
 div[data-testid="stExpander"] details summary { background-color: rgba(30, 41, 59, 0.9) !important; color: #ffffff !important; border-radius: 14px !important; border: 2px solid rgba(56, 189, 248, 0.4) !important; padding: 14px 18px !important; font-weight: 600 !important; }
 div[data-testid="stExpander"] details[open] summary { border: 2px solid #ff4b4b !important; box-shadow: 0 0 12px rgba(255, 75, 75, 0.6) !important; }
 .ficha { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px; margin-bottom: 12px; color: #ffffff !important; }
-.ficha-practica { border-left: 6px solid #38bdf8; }
-.ficha-especialista { border-left: 6px solid #ff4b4b; }
 .stLinkButton a { background-color: rgba(30, 41, 59, 0.8) !important; color: #ffffff !important; border: 1px solid rgba(56,189,248,0.5) !important; border-radius: 10px !important; }
 .stLinkButton a:hover { background-color: #38bdf8 !important; color: #000000 !important; }
 div[data-baseweb="input"] { background-color: #ffffff !important; border: 2px solid #38bdf8 !important; border-radius: 10px !important; }
@@ -180,7 +178,6 @@ URLs = {
     "agendas": "https://docs.google.com/spreadsheets/d/1zhaeWLjoz2iIRj8WufTT1y0dCUAw2-TqIOV33vYT_mg/edit",
     "tramites": "https://docs.google.com/spreadsheets/d/1dyGnXrqr_9jSUGgWpxqiby-QpwAtcvQifutKrSj4lO0/edit",
     "practicas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=0",
-    "especialistas": "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=1119565576",
 }
 
 df_faba = cargar_datos(URLs["faba"])
@@ -188,7 +185,6 @@ df_osecac_busq = cargar_datos(URLs["osecac"])
 df_agendas = cargar_datos(URLs["agendas"])
 df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
-df_especialistas = cargar_datos(URLs["especialistas"])
 
 # ================= HEADER =================
 st.markdown("""
@@ -372,54 +368,34 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for _, row in res.iterrows():
             st.markdown(f'<div class="ficha">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# ================= PRÁCTICAS Y ESPECIALISTAS (VERSIÓN CORREGIDA - SIN MEZCLAR) =================
+# ================= PRÁCTICAS Y ESPECIALISTAS (UNA SOLA SOLAPA) =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas (ignora acentos y mayúsculas)...", key="bus_p")
     
     if bus_p:
         busqueda_norm = normalizar_texto(bus_p)
         
-        # Función para buscar en un DataFrame
-        def buscar_en_df(df, termino_norm):
-            if df.empty:
-                return pd.DataFrame()
-            # Normalizar todas las celdas del DataFrame
-            df_norm = df.astype(str).applymap(normalizar_texto)
+        if not df_practicas.empty:
+            # Normalizar todas las celdas para búsqueda
+            df_norm = df_practicas.astype(str).map(normalizar_texto)
             # Buscar en todas las celdas de cada fila
-            mask = df_norm.apply(lambda row: row.str.contains(termino_norm, na=False).any(), axis=1)
-            return df[mask].reset_index(drop=True)
-        
-        # Buscar en ambas solapas por SEPARADO
-        resultados_practicas = buscar_en_df(df_practicas, busqueda_norm)
-        resultados_especialistas = buscar_en_df(df_especialistas, busqueda_norm)
-        
-        # Mostrar resultados de PRÁCTICAS
-        if not resultados_practicas.empty:
-            st.markdown("### 📋 RESULTADOS DE LA SOLAPA: PRÁCTICAS")
-            for idx, row in resultados_practicas.iterrows():
-                datos = []
-                for c, v in row.items():
-                    if pd.notna(v) and str(v).strip():
-                        nombre_col = c.replace('_', ' ').title()
-                        datos.append(f"<b>{nombre_col}:</b> {v}")
-                if datos:
-                    st.markdown(f'<div class="ficha ficha-practica">📑 <b>PRÁCTICA #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
-        
-        # Mostrar resultados de ESPECIALISTAS
-        if not resultados_especialistas.empty:
-            st.markdown("### 👨‍⚕️ RESULTADOS DE LA SOLAPA: ESPECIALISTAS")
-            for idx, row in resultados_especialistas.iterrows():
-                datos = []
-                for c, v in row.items():
-                    if pd.notna(v) and str(v).strip():
-                        nombre_col = c.replace('_', ' ').title()
-                        datos.append(f"<b>{nombre_col}:</b> {v}")
-                if datos:
-                    st.markdown(f'<div class="ficha ficha-especialista">👨‍⚕️ <b>ESPECIALISTA #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
-        
-        # Mensaje si no hay resultados
-        if resultados_practicas.empty and resultados_especialistas.empty:
-            st.warning(f"⚠️ No se encontraron resultados para '{bus_p}' en ninguna de las dos solapas.")
+            mascara = df_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
+            resultados = df_practicas[mascara].reset_index(drop=True)
+            
+            if not resultados.empty:
+                st.markdown(f"### 📋 RESULTADOS ENCONTRADOS ({len(resultados)} coincidencias):")
+                for idx, row in resultados.iterrows():
+                    datos = []
+                    for c, v in row.items():
+                        if pd.notna(v) and str(v).strip():
+                            nombre_col = c.replace('_', ' ').title()
+                            datos.append(f"<b>{nombre_col}:</b> {v}")
+                    if datos:
+                        st.markdown(f'<div class="ficha">📌 <b>REGISTRO #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+            else:
+                st.warning(f"⚠️ No se encontraron resultados para '{bus_p}'")
+        else:
+            st.error("No se pudo cargar la base de datos de prácticas.")
 
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
