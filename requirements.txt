@@ -18,3 +18,4 @@ matplotlib
 reportlab
 xlrd>=2.0.1
 openpyxl
+playwright
