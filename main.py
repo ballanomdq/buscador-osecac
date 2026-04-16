@@ -53,6 +53,69 @@ def subir_a_drive(file_path, file_name):
         st.error(f"Error técnico permanente: {str(e)}")
         return None
 
+# --- FUNCIONES PARA EDITAR GOOGLE SHEETS (Prácticas) ---
+@st.cache_resource
+def conectar_gsheets():
+    try:
+        creds_info = st.secrets["gcp_service_account"]
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds = service_account.Credentials.from_service_account_info(creds_info, scopes=scope)
+        client = gspread.authorize(creds)
+        return client
+    except Exception as e:
+        st.error(f"Error de conexión: {e}")
+        return None
+
+def obtener_worksheet(url, sheet_name=None):
+    """Obtiene la hoja de cálculo desde la URL"""
+    client = conectar_gsheets()
+    if not client:
+        return None
+    try:
+        # Extraer el ID de la URL
+        if '/d/' in url:
+            sheet_id = url.split('/d/')[1].split('/')[0]
+        elif 'spreadsheets/d/' in url:
+            sheet_id = url.split('spreadsheets/d/')[1].split('/')[0]
+        else:
+            sheet_id = url.split('/edit')[0].split('/')[-1]
+        
+        sh = client.open_by_key(sheet_id)
+        if sheet_name:
+            return sh.worksheet(sheet_name)
+        else:
+            return sh.sheet1  # Primera hoja
+    except Exception as e:
+        st.error(f"Error al abrir la hoja: {e}")
+        return None
+
+def actualizar_celda(worksheet, fila, columna, valor):
+    """Actualiza una celda específica"""
+    try:
+        worksheet.update_cell(fila + 2, columna + 1, valor)  # +2 por índice 0 y encabezado
+        return True
+    except Exception as e:
+        st.error(f"Error al actualizar: {e}")
+        return False
+
+def eliminar_fila(worksheet, fila):
+    """Elimina una fila completa (índice 0 = primera fila de datos)"""
+    try:
+        worksheet.delete_rows(fila + 2)  # +2 por índice 0 y encabezado
+        return True
+    except Exception as e:
+        st.error(f"Error al eliminar: {e}")
+        return False
+
+def agregar_fila(worksheet, datos):
+    """Agrega una nueva fila con los datos"""
+    try:
+        worksheet.append_row(datos)
+        return True
+    except Exception as e:
+        st.error(f"Error al agregar: {e}")
+        return False
+
 # --- INICIALIZACIÓN DE SESIÓN ---
 if 'historial_novedades' not in st.session_state:
     st.session_state.historial_novedades = [{"id": "0", "mensaje": "Bienvenidos al portal oficial de Agencias OSECAC MDP.", "fecha": "22/02/2026 00:00", "archivo_links": []}]
@@ -74,6 +137,13 @@ if 'pass_pc_valida' not in st.session_state:
     st.session_state.pass_pc_valida = False
 if 'pass_corresp_valida' not in st.session_state:
     st.session_state.pass_corresp_valida = False
+# Variables para edición de prácticas
+if 'editando_practica_idx' not in st.session_state:
+    st.session_state.editando_practica_idx = None
+if 'editando_practica_data' not in st.session_state:
+    st.session_state.editando_practica_data = None
+if 'eliminar_practica_idx' not in st.session_state:
+    st.session_state.eliminar_practica_idx = None
 
 def toggle_faba():
     if st.session_state.faba_check:
@@ -160,6 +230,19 @@ div[data-testid="stPopover"] button:hover {
     background-color: #3CB371 !important;
     color: black !important;
 }
+/* Estilos para botones de edición en prácticas */
+.boton-editar {
+    background: linear-gradient(145deg, #f59e0b, #d97706) !important;
+    border: 2px solid #f59e0b !important;
+}
+.boton-eliminar {
+    background: linear-gradient(145deg, #ef4444, #dc2626) !important;
+    border: 2px solid #ef4444 !important;
+}
+.boton-agregar {
+    background: linear-gradient(145deg, #10b981, #059669) !important;
+    border: 2px solid #10b981 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -172,6 +255,7 @@ def cargar_datos(url):
     except: 
         return pd.DataFrame()
 
+# Cargar datos desde URLs (sin cambios)
 URLs = {
     "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit",
     "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit",
@@ -185,6 +269,9 @@ df_osecac_busq = cargar_datos(URLs["osecac"])
 df_agendas = cargar_datos(URLs["agendas"])
 df_tramites = cargar_datos(URLs["tramites"])
 df_practicas = cargar_datos(URLs["practicas"])
+
+# Conectar a la hoja de prácticas para edición
+worksheet_practicas = obtener_worksheet(URLs["practicas"])
 
 # ================= HEADER =================
 st.markdown("""
@@ -279,11 +366,7 @@ with st.expander("📂 1. NOMENCLADORES", expanded=False):
                             c_edit = st.selectbox("Columna:", row.index, key=f"sel_{i}")
                             v_edit = st.text_input("Nuevo valor:", value=row[c_edit], key=f"val_{i}")
                             if st.button("Guardar Cambios", key=f"btn_{i}"):
-                                try:
-                                    if editar_celda_google_sheets(url_u, i, c_edit, v_edit):
-                                        st.success("✅ ¡Sincronizado!"); st.cache_data.clear(); st.rerun()
-                                except NameError:
-                                    st.error("Función de edición no configurada.")
+                                st.warning("La edición directa requiere configuración adicional.")
         else:
             st.info("Escriba algo en el buscador.")
     if not edicion_habilitada:
@@ -368,34 +451,124 @@ with st.expander("📂 4. GESTIONES / DATOS", expanded=False):
         for _, row in res.iterrows():
             st.markdown(f'<div class="ficha">📋 <b>{row["TRAMITE"]}</b><br>{row["DESCRIPCIÓN Y REQUISITOS"]}</div>', unsafe_allow_html=True)
 
-# ================= PRÁCTICAS Y ESPECIALISTAS (UNA SOLA SOLAPA) =================
+# ================= PRÁCTICAS Y ESPECIALISTAS (CON EDICIÓN) =================
 with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
+    
+    # === BÚSQUEDA ===
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas (ignora acentos y mayúsculas)...", key="bus_p")
     
+    # === BOTÓN PARA AGREGAR NUEVO (si hay conexión a la hoja) ===
+    if worksheet_practicas:
+        with st.expander("➕ AGREGAR NUEVA PRÁCTICA/ESPECIALISTA", expanded=False):
+            with st.form("form_nueva_practica"):
+                st.markdown("### 📝 Completar los datos:")
+                nueva_fila = []
+                for col in df_practicas.columns:
+                    valor = st.text_input(f"{col}", key=f"new_{col}")
+                    nueva_fila.append(valor)
+                if st.form_submit_button("💾 GUARDAR NUEVO", use_container_width=True):
+                    if any(nueva_fila):
+                        if agregar_fila(worksheet_practicas, nueva_fila):
+                            st.success("✅ Registro agregado correctamente")
+                            time.sleep(1)
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Error al guardar")
+                    else:
+                        st.warning("Completá al menos un campo")
+    
+    # === BÚSQUEDA Y RESULTADOS ===
     if bus_p:
         busqueda_norm = normalizar_texto(bus_p)
         
         if not df_practicas.empty:
-            # Normalizar todas las celdas para búsqueda
             df_norm = df_practicas.astype(str).map(normalizar_texto)
-            # Buscar en todas las celdas de cada fila
             mascara = df_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
             resultados = df_practicas[mascara].reset_index(drop=True)
+            # Guardar índice original para edición
+            indices_originales = df_practicas[mascara].index
             
             if not resultados.empty:
                 st.markdown(f"### 📋 RESULTADOS ENCONTRADOS ({len(resultados)} coincidencias):")
-                for idx, row in resultados.iterrows():
+                for idx, (_, row) in enumerate(resultados.iterrows()):
+                    # Mostrar la ficha con los datos
                     datos = []
                     for c, v in row.items():
                         if pd.notna(v) and str(v).strip():
                             nombre_col = c.replace('_', ' ').title()
                             datos.append(f"<b>{nombre_col}:</b> {v}")
+                    
                     if datos:
-                        st.markdown(f'<div class="ficha">📌 <b>REGISTRO #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="ficha" id="ficha_{idx}">📌 <b>REGISTRO #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
+                        
+                        # Botones de edición/eliminación (si hay conexión a la hoja)
+                        if worksheet_practicas:
+                            col_editar, col_eliminar = st.columns(2)
+                            with col_editar:
+                                if st.button(f"✏️ Editar registro #{idx+1}", key=f"edit_{idx}"):
+                                    st.session_state.editando_practica_idx = indices_originales[idx]
+                                    st.session_state.editando_practica_data = row.to_dict()
+                                    st.rerun()
+                            with col_eliminar:
+                                if st.button(f"🗑️ Eliminar registro #{idx+1}", key=f"del_{idx}"):
+                                    st.session_state.eliminar_practica_idx = indices_originales[idx]
+                                    st.rerun()
+                            
+                            # Formulario de edición
+                            if st.session_state.get('editando_practica_idx') == indices_originales[idx]:
+                                st.markdown("---")
+                                st.markdown(f"### ✏️ Editando registro #{idx+1}")
+                                with st.form(f"form_edit_{idx}"):
+                                    nuevos_valores = []
+                                    for i_col, col in enumerate(df_practicas.columns):
+                                        valor_actual = st.session_state.editando_practica_data.get(col, "")
+                                        nuevo_valor = st.text_input(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}")
+                                        nuevos_valores.append(nuevo_valor)
+                                    
+                                    col_guardar, col_cancelar = st.columns(2)
+                                    with col_guardar:
+                                        if st.form_submit_button("💾 GUARDAR CAMBIOS", use_container_width=True):
+                                            for i_col, nuevo_valor in enumerate(nuevos_valores):
+                                                if nuevo_valor != st.session_state.editando_practica_data.get(df_practicas.columns[i_col], ""):
+                                                    if not actualizar_celda(worksheet_practicas, indices_originales[idx], i_col, nuevo_valor):
+                                                        st.error(f"Error al guardar en columna {df_practicas.columns[i_col]}")
+                                            st.success("✅ Cambios guardados")
+                                            del st.session_state.editando_practica_idx
+                                            del st.session_state.editando_practica_data
+                                            st.cache_data.clear()
+                                            time.sleep(1)
+                                            st.rerun()
+                                    with col_cancelar:
+                                        if st.button("❌ Cancelar edición", key=f"cancel_edit_{idx}", use_container_width=True):
+                                            del st.session_state.editando_practica_idx
+                                            del st.session_state.editando_practica_data
+                                            st.rerun()
+                            
+                            # Confirmación de eliminación
+                            if st.session_state.get('eliminar_practica_idx') == indices_originales[idx]:
+                                st.warning(f"⚠️ ¿Estás seguro de eliminar el registro #{idx+1}?")
+                                col_confirmar, col_cancelar = st.columns(2)
+                                with col_confirmar:
+                                    if st.button("✅ Sí, eliminar", key=f"confirm_del_{idx}", use_container_width=True):
+                                        if eliminar_fila(worksheet_practicas, indices_originales[idx]):
+                                            st.success("🗑️ Registro eliminado")
+                                            del st.session_state.eliminar_practica_idx
+                                            st.cache_data.clear()
+                                            time.sleep(1)
+                                            st.rerun()
+                                        else:
+                                            st.error("Error al eliminar")
+                                with col_cancelar:
+                                    if st.button("❌ No, cancelar", key=f"cancel_del_{idx}", use_container_width=True):
+                                        del st.session_state.eliminar_practica_idx
+                                        st.rerun()
             else:
                 st.warning(f"⚠️ No se encontraron resultados para '{bus_p}'")
         else:
             st.error("No se pudo cargar la base de datos de prácticas.")
+    else:
+        st.info("🔍 Escribí un término de búsqueda para comenzar")
 
 with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
