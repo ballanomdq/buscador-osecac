@@ -52,6 +52,16 @@ st.markdown("""
     .stDataFrame { background-color: #0f172a; }
     .stSelectbox label, .stTextInput label { color: #ffffff !important; }
     .stMetric label { color: #ffffff !important; }
+    .aviso-cambios {
+        background-color: #dc2626;
+        color: white;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        text-align: center;
+        font-weight: bold;
+        border-left: 4px solid #fbbf24;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -377,6 +387,7 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
+    # Botones de acción
     col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
     
     with col_accion1:
@@ -449,15 +460,18 @@ with tab2:
     with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
     
+    # Obtener datos filtrados
     query = supabase.table("padron_deuda_presunta").select("*")
     
     if localidad_seleccionada != "TODAS" and localidades_unicas:
         query = query.eq("localidad", localidad_seleccionada)
     
+    # MODIFICACIÓN 1: "AMBOS" muestra TODO sin filtrar por mail_enviado
     if filtro_mail == "SI":
         query = query.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
         query = query.eq("mail_enviado", "NO")
+    # AMBOS: no se agrega filtro
     
     datos_completos = query.execute()
     
@@ -515,6 +529,7 @@ with tab2:
             hasta = min(offset + registros_por_pagina, total_filtrado)
             st.info(f"📝 Mostrando {desde} a {hasta} de {total_filtrado}")
             
+            # Limpiar datos para mostrar
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_mostrar.columns:
                     df_mostrar[col] = df_mostrar[col].apply(limpiar_numero_entero)
@@ -523,8 +538,10 @@ with tab2:
                 if col in df_mostrar.columns:
                     df_mostrar[col] = df_mostrar[col].apply(fecha_para_mostrar)
             
+            # Guardar copia original para detectar cambios
             df_original = df_mostrar.copy()
             
+            # Preparar para editar
             df_editable = df_mostrar.copy()
             if 'fecha_carga' in df_editable.columns:
                 df_editable = df_editable.drop(columns=['fecha_carga'])
@@ -556,6 +573,39 @@ with tab2:
             
             st.markdown("---")
             st.markdown("#### Editar campos (LEG, VTO, ACTA, etc.)")
+            
+            # MODIFICACIÓN 2: Aviso de cambios sin guardar
+            # Detectar si hay cambios
+            hay_cambios = False
+            for idx, row in edited_df.iterrows():
+                original_row = df_original.loc[idx] if idx in df_original.index else None
+                if original_row is None:
+                    continue
+                
+                # Comparar solo las columnas editables
+                if str(row.get('LEG', '')) != str(original_row.get('leg', '')):
+                    hay_cambios = True
+                    break
+                if str(row.get('VTO', '')) != str(original_row.get('vto', '')):
+                    hay_cambios = True
+                    break
+                if str(row.get('MAIL ENVIADO', '')) != str(original_row.get('mail_enviado', '')):
+                    hay_cambios = True
+                    break
+                if str(row.get('ACTA', '')) != str(original_row.get('acta', '')):
+                    hay_cambios = True
+                    break
+                if str(row.get('ESTADO GESTION', '')) != str(original_row.get('estado_gestion', '')):
+                    hay_cambios = True
+                    break
+            
+            # Mostrar aviso si hay cambios sin guardar
+            if hay_cambios:
+                st.markdown("""
+                <div class="aviso-cambios">
+                    ⚠️ Hay cambios sin guardar. Presioná "Guardar Cambios" para guardarlos.
+                </div>
+                """, unsafe_allow_html=True)
             
             if st.button("💾 Guardar Cambios", type="primary"):
                 with st.spinner("Guardando..."):
@@ -591,6 +641,9 @@ with tab2:
                         viejo_mail = original_row.get('mail_enviado')
                         if pd.isna(nuevo_mail) or nuevo_mail == '':
                             nuevo_mail = 'NO'
+                        # Validar que solo sea SI o NO
+                        if nuevo_mail not in ["SI", "NO"]:
+                            nuevo_mail = "NO"
                         if nuevo_mail != viejo_mail:
                             datos_update['mail_enviado'] = nuevo_mail
                         
@@ -651,7 +704,7 @@ with tab3:
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-# ==================== TAB 4 (CORREGIDA - COLUMNAS EN MINÚSCULAS) ====================
+# ==================== TAB 4 ====================
 with tab4:
     st.markdown("### Subir Archivo de Actas (CSV)")
     st.markdown("""
@@ -719,7 +772,6 @@ with tab4:
                         
                         if cuit_limpio and leg_limpio and vto_limpio:
                             try:
-                                # USAR MINÚSCULAS (como están en Supabase)
                                 resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit_limpio).eq("leg", leg_limpio).eq("vto", vto_limpio).eq("mail_enviado", "SI").execute()
                                 if resultado.data:
                                     for reg in resultado.data:
