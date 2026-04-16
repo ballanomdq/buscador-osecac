@@ -2,23 +2,10 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime, date
-import math
-import numpy as np
 import re
-import locale
 import io
-import csv
 
-# Intentar configurar locale para formato argentino
-try:
-    locale.setlocale(locale.LC_ALL, 'es_AR.UTF-8')
-except:
-    try:
-        locale.setlocale(locale.LC_ALL, 'spanish')
-    except:
-        pass
-
-# ==================== CONEXIÓN CACHEADA A SUPABASE ====================
+# ── Conexión ──────────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_supabase():
     return create_client(
@@ -28,710 +15,625 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# Configuración de página
-st.set_page_config(
-    page_title="Fiscalización - OSECAC",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide", initial_sidebar_state="collapsed")
 
-# Estilo
 st.markdown("""
 <style>
-    .main-header { background-color: #1e293b; padding: 1.2rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6; }
-    .success-box { background-color: #064e3b; padding: 1rem; border-radius: 6px; border-left: 4px solid #10b981; margin: 1rem 0; color: #ffffff; }
-    .warning-box { background-color: #451a03; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 1rem 0; color: #ffffff; }
-    .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; color: #ffffff; }
-    .info-box strong, .info-box p, .info-box li { color: #ffffff !important; }
-    div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
-    div[data-testid="stButton"] button:hover { background-color: #2563eb; }
-    .delete-btn button { background-color: #dc2626 !important; }
-    .delete-btn button:hover { background-color: #b91c1c !important; }
-    .reset-btn button { background-color: #64748b !important; }
-    .reset-btn button:hover { background-color: #475569 !important; }
-    .stDataFrame { background-color: #0f172a; }
-    .stSelectbox label, .stTextInput label { color: #ffffff !important; }
-    .stMetric label { color: #ffffff !important; }
+/* Reset tamaños globales */
+html, body, [class*="css"] { font-size: 13px !important; }
+
+/* Header compacto */
+.app-header { padding: 0.6rem 1rem; background: #1e293b; border-left: 3px solid #3b82f6;
+              border-radius: 6px; margin-bottom: 0.8rem; }
+.app-header h3 { color: #fff; margin: 0; font-size: 1rem; font-weight: 500; }
+.app-header p  { color: #94a3b8; margin: 0; font-size: 0.75rem; }
+
+/* Botones chicos y discretos — anulan el estilo gigante de Streamlit */
+div[data-testid="stButton"] > button {
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.78rem !important;
+    font-weight: 400 !important;
+    background: #334155 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #475569 !important;
+    border-radius: 4px !important;
+    min-height: 0 !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+}
+div[data-testid="stButton"] > button:hover { background: #475569 !important; }
+
+/* Botón primario (confirmar / guardar) */
+div[data-testid="stButton"] > button[kind="primary"] {
+    background: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: #fff !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8 !important; }
+
+/* Botón rojo (eliminar) */
+.btn-danger div[data-testid="stButton"] > button {
+    background: #7f1d1d !important;
+    border-color: #991b1b !important;
+    color: #fca5a5 !important;
+}
+
+/* Ocultar elementos innecesarios */
+#MainMenu, footer, header { display: none !important; }
+
+/* Inputs y selects más compactos */
+div[data-testid="stTextInput"] input,
+div[data-testid="stSelectbox"] > div { font-size: 0.8rem !important; padding: 0.2rem 0.5rem !important; }
+
+/* Caja info compacta */
+.msg { padding: 0.5rem 0.75rem; border-radius: 4px; font-size: 0.78rem;
+       border-left: 3px solid; margin: 0.4rem 0; line-height: 1.5; }
+.msg-info    { background: #1e293b; border-color: #3b82f6; color: #cbd5e1; }
+.msg-success { background: #064e3b; border-color: #10b981; color: #6ee7b7; }
+.msg-warning { background: #451a03; border-color: #f59e0b; color: #fcd34d; }
+
+/* Tabla más compacta */
+.stDataFrame { font-size: 0.78rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
 st.markdown("""
-<div class="main-header">
-    <h2 style="color: #ffffff; margin: 0; font-weight: 500;">Fiscalización - Deuda Presunta</h2>
-    <p style="color: #94a3b8; margin: 0.3rem 0 0 0; font-size: 0.85rem;">Sistema de gestión y seguimiento</p>
+<div class="app-header">
+  <h3>Fiscalización — Deuda Presunta</h3>
+  <p>Sistema de gestión y seguimiento</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Botón volver
-col_back, _ = st.columns([1, 5])
+col_back, _ = st.columns([1, 11])
 with col_back:
-    if st.button("← Volver", key="btn_volver"):
+    if st.button("← Volver"):
         st.switch_page("main.py")
 
-st.markdown("---")
+# ── Utilidades de limpieza ────────────────────────────────────────────────────
+def limpiar_str(v):
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    s = re.sub(r'\s+', ' ', str(v)).strip()
+    return None if s.lower() in ('', 'nan', 'none', 'null', 'nat') else s
 
-# ==================== FUNCIONES DE LIMPIEZA ====================
-def limpiar_valor_str(valor):
-    if valor is None or pd.isna(valor):
+def limpiar_cuit(v):
+    if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
-    val = str(valor).strip()
-    val = re.sub(r'\s+', ' ', val).strip()
-    if val.lower() in ('', 'nan', 'none', 'null', 'nat'):
-        return None
-    return val
-
-def limpiar_cuit_robusto(valor):
-    if valor is None or pd.isna(valor):
-        return None
-    val = str(valor).strip()
-    if 'E' in val.upper():
+    s = str(v).strip()
+    if 'E' in s.upper():
         try:
-            return str(int(float(val)))
-        except:
+            return str(int(float(s)))
+        except Exception:
             pass
-    val = re.sub(r'[\.\-,]', '', val)
-    return val if val.isdigit() else val
+    return re.sub(r'[\.\-,\s]', '', s)
 
-def excel_serial_a_fecha(n):
+def excel_serial_fecha(n):
     try:
-        n = int(n)
-        fecha_base = datetime(1899, 12, 30)
-        fecha = fecha_base + pd.Timedelta(days=n)
-        return fecha.strftime("%Y-%m-%d")
-    except:
+        return (datetime(1899, 12, 30) + pd.Timedelta(days=int(n))).strftime("%Y-%m-%d")
+    except Exception:
         return None
 
-def normalizar_fecha_para_supabase(fecha_str):
-    if not fecha_str:
+def norm_fecha(v):
+    """Cualquier formato → YYYY-MM-DD para Supabase."""
+    if not v:
         return None
-    fecha_str = limpiar_valor_str(fecha_str)
-    if not fecha_str:
+    s = limpiar_str(v)
+    if not s:
         return None
-    if re.match(r'^\d{4}-\d{2}-\d{2}$', fecha_str):
-        return fecha_str
-    formatos = ['%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y', '%m/%d/%Y', '%Y-%m-%d']
-    for fmt in formatos:
+    if re.match(r'^\d{4}-\d{2}-\d{2}$', s):
+        return s
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y', '%m/%d/%Y'):
         try:
-            dt = datetime.strptime(fecha_str, fmt)
-            return dt.strftime('%Y-%m-%d')
+            return datetime.strptime(s, fmt).strftime('%Y-%m-%d')
         except ValueError:
             continue
-    if fecha_str.isdigit():
-        try:
-            return excel_serial_a_fecha(int(fecha_str))
-        except:
-            pass
-    return None
+    if s.isdigit():
+        return excel_serial_fecha(s)
+    try:
+        return pd.to_datetime(s, dayfirst=True).strftime('%Y-%m-%d')
+    except Exception:
+        return None
 
-def formatear_numero_argentino(valor):
-    if valor is None or pd.isna(valor):
+def fmt_fecha(v):
+    """YYYY-MM-DD → DD/MM/YYYY para mostrar."""
+    if not v:
         return None
     try:
-        num = float(valor)
-        if num.is_integer():
-            return f"${int(num):,}".replace(",", ".")
-        else:
-            entero = int(num)
-            decimal = int(round((num - entero) * 100))
-            entero_formateado = f"{entero:,}".replace(",", ".")
-            return f"${entero_formateado},{decimal:02d}"
-    except:
-        return str(valor) if valor else None
-
-def fecha_para_mostrar(valor):
-    if valor is None:
-        return None
-    try:
-        if pd.isna(valor):
+        if pd.isna(v):
             return None
-    except (TypeError, ValueError):
+    except TypeError:
         pass
     try:
-        if isinstance(valor, (pd.Timestamp, datetime)):
-            return valor.strftime('%d/%m/%Y')
-        if isinstance(valor, str):
-            valor = valor.strip()
-            if not valor:
-                return None
-            if re.match(r'\d{4}-\d{2}-\d{2}', valor):
-                return datetime.strptime(valor[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
-            if re.match(r'^\d{2}/\d{2}/\d{4}$', valor):
-                return valor
-            return valor
-        return str(valor)
-    except:
-        return str(valor) if valor else None
+        if isinstance(v, (pd.Timestamp, datetime)):
+            return v.strftime('%d/%m/%Y')
+        s = str(v).strip()
+        if re.match(r'\d{4}-\d{2}-\d{2}', s):
+            return datetime.strptime(s[:10], '%Y-%m-%d').strftime('%d/%m/%Y')
+        return s
+    except Exception:
+        return str(v) if v else None
 
-def limpiar_numero_entero(valor):
-    if valor is None or pd.isna(valor):
+def fmt_moneda(v):
+    if not v or (isinstance(v, float) and pd.isna(v)):
         return None
     try:
-        if isinstance(valor, str) and valor.isdigit():
-            return int(valor)
-        num = float(valor)
-        if num.is_integer():
-            return int(num)
+        n = float(v)
+        if n.is_integer():
+            return "${:,.0f}".format(n).replace(",", ".")
+        e, d = int(n), int(round((n - int(n)) * 100))
+        return "${},{:02d}".format("{:,}".format(e).replace(",", "."), d)
+    except Exception:
+        return str(v)
+
+def limpiar_entero(v):
+    if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
-    except:
+    try:
+        n = float(v)
+        return int(n) if n == int(n) else None
+    except Exception:
         return None
 
-def detectar_columna_csv(df, posibles_nombres):
-    for col in df.columns:
-        col_upper = str(col).upper().strip()
-        for posible in posibles_nombres:
-            if posible.upper() in col_upper or col_upper in posible.upper():
-                return col
-    return None
-
-# ==================== FUNCIONES CON CACHÉ ====================
+# ── Datos cacheados ───────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
-def obtener_localidades(_supabase):
-    todas = _supabase.table("padron_deuda_presunta").select("localidad").execute()
-    localidades = sorted(set([l['localidad'] for l in todas.data if l.get('localidad')]))
-    if 'MAR DEL PLATA' in localidades:
-        localidades.remove('MAR DEL PLATA')
-        localidades = ['MAR DEL PLATA'] + localidades
-    return localidades
+def get_localidades(_sb):
+    r = _sb.table("padron_deuda_presunta").select("localidad").execute()
+    locs = sorted({x['localidad'] for x in r.data if x.get('localidad')})
+    if 'MAR DEL PLATA' in locs:
+        locs.remove('MAR DEL PLATA')
+        locs = ['MAR DEL PLATA'] + locs
+    return locs
 
 @st.cache_data(ttl=60)
-def obtener_pares_existentes(_supabase):
-    todos = []
-    offset = 0
-    batch_size = 1000
+def get_pares_existentes(_sb):
+    """Trae solo CUIT + ultima_acta para deduplicar — mucho más rápido que traer todo."""
+    todos, offset = [], 0
     while True:
-        batch = _supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").range(offset, offset + batch_size - 1).execute()
+        batch = _sb.table("padron_deuda_presunta") \
+                   .select("cuit, ultima_acta") \
+                   .range(offset, offset + 999).execute()
         if not batch.data:
             break
         todos.extend(batch.data)
-        offset += batch_size
-        if len(batch.data) < batch_size:
+        offset += 1000
+        if len(batch.data) < 1000:
             break
-    batch_none = _supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").is_("ultima_acta", "null").execute()
-    for reg in batch_none.data:
-        cuit = str(reg.get('cuit') or '')
-        if cuit:
-            todos.append({'cuit': cuit, 'ultima_acta': '*'})
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
 
-# ==================== MAPEO DE COLUMNAS ====================
-COLUMNAS_EXCEL = [
-    "DELEGACION", "LOCALIDAD", "CUIT", "RAZON SOCIAL", "DEUDA PRESUNTA",
-    "CP", "CALLE", "NUMERO", "PISO", "DPTO", "FECHARELDEPENDENCIA",
-    "EMAIL", "TEL_DOM_LEGAL", "TEL_DOM_REAL", "ULTIMA ACTA", "DESDE",
-    "HASTA", "DETECTADO", "ESTADO", "FECHA_PAGO_OBL", "EMPL 10-2025",
-    "EMP 11-2025", "EMPL 12-2025", "ACTIVIDAD", "SITUACION"
+# ── Mapeo columnas Excel ──────────────────────────────────────────────────────
+COLS_EXCEL = [
+    "DELEGACION","LOCALIDAD","CUIT","RAZON SOCIAL","DEUDA PRESUNTA",
+    "CP","CALLE","NUMERO","PISO","DPTO","FECHARELDEPENDENCIA",
+    "EMAIL","TEL_DOM_LEGAL","TEL_DOM_REAL","ULTIMA ACTA","DESDE",
+    "HASTA","DETECTADO","ESTADO","FECHA_PAGO_OBL",
+    "EMPL 10-2025","EMP 11-2025","EMPL 12-2025","ACTIVIDAD","SITUACION",
+]
+MAPA = {
+    "DELEGACION":"delegacion","LOCALIDAD":"localidad","CUIT":"cuit",
+    "RAZON SOCIAL":"razon_social","DEUDA PRESUNTA":"deuda_presunta",
+    "CP":"cp","CALLE":"calle","NUMERO":"numero","PISO":"piso","DPTO":"dpto",
+    "FECHARELDEPENDENCIA":"fechareldependencia","EMAIL":"email",
+    "TEL_DOM_LEGAL":"tel_dom_legal","TEL_DOM_REAL":"tel_dom_real",
+    "ULTIMA ACTA":"ultima_acta","DESDE":"desde","HASTA":"hasta",
+    "DETECTADO":"detectado","ESTADO":"estado","FECHA_PAGO_OBL":"fecha_pago_obl",
+    "EMPL 10-2025":"empl_10_2025","EMP 11-2025":"emp_11_2025","EMPL 12-2025":"empl_12_2025",
+    "ACTIVIDAD":"actividad","SITUACION":"situacion",
+}
+COLS_FECHA  = {"fechareldependencia","desde","hasta","fecha_pago_obl"}
+COLS_MONEDA = {"deuda_presunta","detectado"}
+TITULOS = {
+    'id':'ID','delegacion':'DELEGACION','localidad':'LOCALIDAD','cuit':'CUIT',
+    'razon_social':'RAZON SOCIAL','deuda_presunta':'DEUDA PRESUNTA','cp':'CP',
+    'calle':'CALLE','numero':'NUMERO','piso':'PISO','dpto':'DPTO',
+    'fechareldependencia':'FECHARELDEPENDENCIA','email':'EMAIL',
+    'tel_dom_legal':'TEL_DOM_LEGAL','tel_dom_real':'TEL_DOM_REAL',
+    'ultima_acta':'ULTIMA ACTA','desde':'DESDE','hasta':'HASTA',
+    'detectado':'DETECTADO','estado':'ESTADO','fecha_pago_obl':'FECHA PAGO OBL',
+    'empl_10_2025':'EMPL 10-2025','emp_11_2025':'EMP 11-2025','empl_12_2025':'EMPL 12-2025',
+    'actividad':'ACTIVIDAD','situacion':'SITUACION',
+    'leg':'LEG','vto':'VTO','mail_enviado':'MAIL ENVIADO',
+    'acta':'ACTA','estado_gestion':'ESTADO GESTION',
+}
+COLS_DISABLED = [
+    'ID','CUIT','RAZON SOCIAL','DEUDA PRESUNTA','CP','CALLE','NUMERO','PISO','DPTO',
+    'FECHARELDEPENDENCIA','EMAIL','TEL_DOM_LEGAL','TEL_DOM_REAL','ULTIMA ACTA',
+    'DESDE','HASTA','DETECTADO','ESTADO','FECHA PAGO OBL',
+    'EMPL 10-2025','EMP 11-2025','EMPL 12-2025','ACTIVIDAD','SITUACION',
 ]
 
-MAPA_COLUMNAS = {
-    "DELEGACION": "delegacion", "LOCALIDAD": "localidad", "CUIT": "cuit",
-    "RAZON SOCIAL": "razon_social", "DEUDA PRESUNTA": "deuda_presunta",
-    "CP": "cp", "CALLE": "calle", "NUMERO": "numero", "PISO": "piso",
-    "DPTO": "dpto", "FECHARELDEPENDENCIA": "fechareldependencia",
-    "EMAIL": "email", "TEL_DOM_LEGAL": "tel_dom_legal", "TEL_DOM_REAL": "tel_dom_real",
-    "ULTIMA ACTA": "ultima_acta", "DESDE": "desde", "HASTA": "hasta",
-    "DETECTADO": "detectado", "ESTADO": "estado", "FECHA_PAGO_OBL": "fecha_pago_obl",
-    "EMPL 10-2025": "empl_10_2025", "EMP 11-2025": "emp_11_2025", "EMPL 12-2025": "empl_12_2025",
-    "ACTIVIDAD": "actividad", "SITUACION": "situacion"
-}
-
-COLUMNAS_MONEDA = {"deuda_presunta", "detectado"}
-COLUMNAS_FECHA = {"fechareldependencia", "desde", "hasta", "fecha_pago_obl"}
-
-TITULOS_MOSTRAR = {
-    'id': 'ID', 'delegacion': 'DELEGACION', 'localidad': 'LOCALIDAD',
-    'cuit': 'CUIT', 'razon_social': 'RAZON SOCIAL', 'deuda_presunta': 'DEUDA PRESUNTA',
-    'cp': 'CP', 'calle': 'CALLE', 'numero': 'NUMERO', 'piso': 'PISO', 'dpto': 'DPTO',
-    'fechareldependencia': 'FECHARELDEPENDENCIA', 'email': 'EMAIL',
-    'tel_dom_legal': 'TEL_DOM_LEGAL', 'tel_dom_real': 'TEL_DOM_REAL',
-    'ultima_acta': 'ULTIMA ACTA', 'desde': 'DESDE', 'hasta': 'HASTA',
-    'detectado': 'DETECTADO', 'estado': 'ESTADO', 'fecha_pago_obl': 'FECHA PAGO OBL',
-    'empl_10_2025': 'EMPL 10-2025', 'emp_11_2025': 'EMP 11-2025', 'empl_12_2025': 'EMPL 12-2025',
-    'actividad': 'ACTIVIDAD', 'situacion': 'SITUACION',
-    'leg': 'LEG', 'vto': 'VTO', 'mail_enviado': 'MAIL ENVIADO', 'acta': 'ACTA', 'estado_gestion': 'ESTADO GESTION'
-}
-
-# ==================== PROCESAR EXCEL ====================
 def procesar_excel(archivo):
-    if archivo.name.endswith('.xls'):
-        df = pd.read_excel(archivo, engine='xlrd', dtype=str)
-    else:
-        df = pd.read_excel(archivo, engine='openpyxl', dtype=str)
-    
-    df.columns = [str(col).strip().upper() for col in df.columns]
-    faltantes = [c for c in COLUMNAS_EXCEL if c not in df.columns]
+    engine = 'xlrd' if archivo.name.endswith('.xls') else 'openpyxl'
+    df = pd.read_excel(archivo, engine=engine, dtype=str)
+    df.columns = [str(c).strip().upper() for c in df.columns]
+    faltantes = [c for c in COLS_EXCEL if c not in df.columns]
     if faltantes:
         raise ValueError(f"Columnas faltantes: {faltantes}")
-    
-    df = df[COLUMNAS_EXCEL].rename(columns=MAPA_COLUMNAS)
-    registros_limpios = []
-    
+    df = df[COLS_EXCEL].rename(columns=MAPA)
+    out = []
     for _, fila in df.iterrows():
-        registro = {}
-        for col_db in MAPA_COLUMNAS.values():
-            val = fila.get(col_db)
-            if pd.isna(val):
-                val = None
-            elif isinstance(val, str):
-                val = limpiar_valor_str(val)
-            
-            if col_db in COLUMNAS_FECHA and val and isinstance(val, (int, float, str)):
-                if isinstance(val, (int, float)):
-                    val = excel_serial_a_fecha(int(val))
-                elif val.isdigit():
-                    val = excel_serial_a_fecha(int(val))
-                else:
-                    val = normalizar_fecha_para_supabase(val)
-            
-            if col_db in COLUMNAS_MONEDA and val:
+        r = {}
+        for col in MAPA.values():
+            v = fila.get(col)
+            v = None if pd.isna(v) else limpiar_str(v)
+            if col in COLS_FECHA and v:
+                v = excel_serial_fecha(v) if v.isdigit() else norm_fecha(v)
+            if col in COLS_MONEDA and v:
                 try:
-                    num_val = float(val) if isinstance(val, str) else val
-                    val = formatear_numero_argentino(num_val)
-                except:
+                    v = fmt_moneda(float(v))
+                except Exception:
                     pass
-            
-            if col_db == "ultima_acta" and not val:
-                val = "*"
-            
-            registro[col_db] = val
-        registros_limpios.append(registro)
-    return registros_limpios
+            if col == "ultima_acta" and not v:
+                v = "*"
+            r[col] = v
+        out.append(r)
+    return out
 
-# ==================== PESTAÑAS ====================
-tab1, tab2, tab3, tab4 = st.tabs(["📊 Cargar Padrón", "✏️ Editar Legajos y Vtos", "📧 Solicitar Actas", "📋 Subir Actas"])
+# ── Pestañas ──────────────────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Cargar Padrón",
+    "✏️ Editar Legajos y Vtos",
+    "📧 Solicitar Actas",
+    "📋 Subir Actas",
+])
 
-# ==================== TAB 1 ====================
+# ══════════════════════════════════════════════════════════════════
+# TAB 1 — Cargar Padrón
+# ══════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown("### Cargar Padrón de Deuda Presunta")
-    st.markdown("""
-    <div class="info-box">
-        📌 <strong>Instrucciones:</strong><br>
-        1. Seleccioná el archivo Excel del padrón de deuda presunta.<br>
-        2. El sistema detectará automáticamente los duplicados por CUIT + ULTIMA ACTA.<br>
-        3. Solo se cargarán los registros nuevos.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    uploaded_file = st.file_uploader("Seleccionar archivo Excel", type=["xls", "xlsx"], key="upload_padron")
-    
-    if uploaded_file is not None:
-        st.info(f"Archivo: {uploaded_file.name}")
-        try:
-            registros = procesar_excel(uploaded_file)
-            total_registros = len(registros)
-            
-            for reg in registros:
-                reg['leg'] = None
-                reg['vto'] = None
-                reg['mail_enviado'] = 'NO'
-                reg['acta'] = None
-                reg['fecha_carga'] = date.today().isoformat()
-                reg['estado_gestion'] = 'PENDIENTE'
-            
-            existentes_set = obtener_pares_existentes(supabase)
-            nuevos_registros = []
-            duplicados = 0
-            
-            for reg in registros:
-                cuit = str(reg.get('cuit') or '')
-                acta = str(reg.get('ultima_acta') or '*')
-                if (cuit, acta) not in existentes_set:
-                    nuevos_registros.append(reg)
-                else:
-                    duplicados += 1
-            
-            nuevos_count = len(nuevos_registros)
-            st.markdown(f"""
-            <div class="info-box">
-                <strong>📊 Resumen del archivo</strong><br>
-                Total de registros: {total_registros}<br>
-                Registros NUEVOS: {nuevos_count}<br>
-                Registros DUPLICADOS: {duplicados}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if nuevos_registros:
-                with st.expander("Vista previa"):
-                    df_preview = pd.DataFrame(nuevos_registros[:10])
-                    for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
-                        if col in df_preview.columns:
-                            df_preview[col] = df_preview[col].apply(fecha_para_mostrar)
-                    st.dataframe(df_preview, use_container_width=True)
-            
-            if nuevos_registros and st.button("✅ Confirmar carga", type="primary"):
-                with st.spinner("Cargando datos..."):
-                    total_insertados = 0
-                    for i in range(0, len(nuevos_registros), 100):
-                        lote = nuevos_registros[i:i+100]
-                        resultado = supabase.table("padron_deuda_presunta").insert(lote).execute()
-                        total_insertados += len(resultado.data)
-                    st.success(f"✅ Carga completada: {total_insertados} registros insertados")
-                    obtener_pares_existentes.clear()
-                    obtener_localidades.clear()
-            elif not nuevos_registros:
-                st.warning(f"⚠️ No hay registros nuevos para cargar.")
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
+    st.markdown("#### Cargar Padrón de Deuda Presunta")
+    st.markdown("""<div class="msg msg-info">
+    Seleccioná el Excel del padrón. El sistema filtra duplicados por <strong>CUIT + ULTIMA ACTA</strong>
+    y solo inserta registros nuevos.
+    </div>""", unsafe_allow_html=True)
 
-# ==================== TAB 2 ====================
+    archivo = st.file_uploader("Archivo Excel", type=["xls","xlsx"], key="upload_padron")
+
+    if archivo:
+        st.caption(f"Archivo: **{archivo.name}**")
+        try:
+            registros = procesar_excel(archivo)
+            hoy = date.today().isoformat()
+            for r in registros:
+                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None,
+                           'fecha_carga':hoy,'estado_gestion':'PENDIENTE'})
+
+            pares = get_pares_existentes(supabase)
+            nuevos = [r for r in registros
+                      if (str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) not in pares]
+            dupl   = len(registros) - len(nuevos)
+
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Total", len(registros))
+            c2.metric("Nuevos", len(nuevos))
+            c3.metric("Duplicados", dupl)
+
+            if nuevos:
+                with st.expander("Vista previa (10 primeros)"):
+                    df_prev = pd.DataFrame(nuevos[:10])
+                    for col in ['fechareldependencia','desde','hasta','fecha_pago_obl','vto','fecha_carga']:
+                        if col in df_prev.columns:
+                            df_prev[col] = df_prev[col].apply(fmt_fecha)
+                    st.dataframe(df_prev, use_container_width=True, height=250)
+
+                if st.button("✅ Confirmar carga", type="primary"):
+                    with st.spinner("Insertando..."):
+                        n = 0
+                        for i in range(0, len(nuevos), 100):
+                            res = supabase.table("padron_deuda_presunta").insert(nuevos[i:i+100]).execute()
+                            n += len(res.data)
+                    st.markdown(f'<div class="msg msg-success">✅ {n} registros insertados.</div>', unsafe_allow_html=True)
+                    get_pares_existentes.clear()
+                    get_localidades.clear()
+            else:
+                st.markdown('<div class="msg msg-warning">⚠️ No hay registros nuevos.</div>', unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(str(e))
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 2 — Editar Legajos y Vtos
+# ══════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("### Editar Legajos y Fechas de Vencimiento")
-    
-    col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
-    
-    with col_accion1:
-        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-        if st.button("🗑️ Eliminar seleccionados", key="btn_eliminar_seleccionados"):
-            if st.session_state.get('ids_a_eliminar', []):
-                supabase.table("padron_deuda_presunta").delete().in_("id", st.session_state.ids_a_eliminar).execute()
-                st.success(f"✅ Se eliminaron {len(st.session_state.ids_a_eliminar)} registros")
+    st.markdown("#### Editar Legajos y Fechas de Vencimiento")
+
+    # ── Barra de acciones compacta ────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+        if st.button("🗑 Eliminar seleccionados", key="btn_del_sel"):
+            ids = st.session_state.get('ids_a_eliminar', [])
+            if ids:
+                supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
                 st.session_state.ids_a_eliminar = []
                 st.rerun()
             else:
-                st.warning("No hay registros seleccionados")
+                st.warning("Nada seleccionado.")
         st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col_accion2:
-        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-        if st.button("🗑️ Eliminar TODO", key="btn_eliminar_todo"):
-            st.session_state.confirmar_eliminar_todo = True
+    with c2:
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+        if st.button("🗑 Eliminar TODO", key="btn_del_todo"):
+            st.session_state.confirmar_del_todo = True
         st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col_accion3:
-        st.markdown('<div class="reset-btn">', unsafe_allow_html=True)
-        if st.button("🔄 Resetear filtros", key="btn_reset_filtros"):
-            st.session_state.input_filtro_cuit = ""
-            st.session_state.input_filtro_razon = ""
-            st.session_state.filtro_localidad = "TODAS"
-            st.session_state.filtro_mail = "AMBOS"
-            st.session_state.pagina_actual = 1
+    with c3:
+        if st.button("↺ Resetear filtros", key="btn_reset"):
+            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
+                      'filtro_mail','pagina_actual']:
+                st.session_state.pop(k, None)
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col_accion4:
-        if st.button("🔄 Recargar", key="btn_recargar"):
+    with c4:
+        if st.button("⟳ Recargar", key="btn_reload"):
             st.rerun()
-    
-    if st.session_state.get('confirmar_eliminar_todo', False):
-        st.warning("⚠️ ¿Estás SEGURO? Esta acción eliminará TODOS los registros.")
-        col_si, col_no = st.columns(2)
-        with col_si:
-            if st.button("✅ SÍ, ELIMINAR TODO"):
-                with st.spinner("Eliminando..."):
-                    supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
-                    st.success("✅ Todos los registros fueron eliminados")
-                    st.session_state.confirmar_eliminar_todo = False
-                    st.session_state.ids_a_eliminar = []
-                    st.rerun()
-        with col_no:
-            if st.button("❌ Cancelar"):
-                st.session_state.confirmar_eliminar_todo = False
+
+    # Confirmación eliminar todo
+    if st.session_state.get('confirmar_del_todo'):
+        st.warning("⚠️ Esta acción eliminará **TODOS** los registros. ¿Confirmar?")
+        ca, cb = st.columns(2)
+        with ca:
+            if st.button("Sí, eliminar todo", type="primary"):
+                supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
+                st.session_state.confirmar_del_todo = False
+                st.session_state.ids_a_eliminar = []
                 st.rerun()
-    
+        with cb:
+            if st.button("Cancelar"):
+                st.session_state.confirmar_del_todo = False
+                st.rerun()
+
     st.markdown("---")
-    
-    col_filtro1, col_filtro2, col_filtro3, col_filtro4 = st.columns([1, 1, 1, 1])
-    
-    with col_filtro1:
-        filtro_cuit = st.text_input("🔍 Filtrar por CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243")
-    
-    with col_filtro2:
-        filtro_razon = st.text_input("🔍 Filtrar por RAZON SOCIAL", key="input_filtro_razon", placeholder="Ej: OMEGASUR")
-    
-    with col_filtro3:
-        localidades_unicas = obtener_localidades(supabase)
-        if localidades_unicas:
-            localidad_seleccionada = st.selectbox("📌 LOCALIDAD:", options=["TODAS"] + localidades_unicas, index=0, key="filtro_localidad")
-        else:
-            localidad_seleccionada = "TODAS"
-            st.selectbox("📌 LOCALIDAD:", options=["TODAS"], index=0, key="filtro_localidad", disabled=True)
-    
-    with col_filtro4:
-        filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
-    
-    query = supabase.table("padron_deuda_presunta").select("*")
-    
-    if localidad_seleccionada != "TODAS" and localidades_unicas:
-        query = query.eq("localidad", localidad_seleccionada)
-    
+
+    # ── Filtros en una sola fila ──────────────────────────────────
+    f1, f2, f3, f4 = st.columns([2, 2, 2, 1])
+    with f1:
+        filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
+    with f2:
+        filtro_razon = st.text_input("Razón social", key="input_filtro_razon", placeholder="Razón social", label_visibility="collapsed")
+    with f3:
+        locs = get_localidades(supabase)
+        localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
+    with f4:
+        filtro_mail = st.selectbox("Mail", ["AMBOS","NO","SI"], key="filtro_mail", label_visibility="collapsed")
+
+    # ── Consulta Supabase ─────────────────────────────────────────
+    q = supabase.table("padron_deuda_presunta").select("*")
+    if localidad != "TODAS":
+        q = q.eq("localidad", localidad)
     if filtro_mail == "SI":
-        query = query.eq("mail_enviado", "SI")
+        q = q.eq("mail_enviado","SI")
     elif filtro_mail == "NO":
-        query = query.eq("mail_enviado", "NO")
-    
-    datos_completos = query.execute()
-    
-    if datos_completos.data:
-        df_completo = pd.DataFrame(datos_completos.data)
-        
-        if filtro_cuit:
-            df_completo = df_completo[df_completo['cuit'].astype(str).str.contains(filtro_cuit, na=False, case=False)]
-        if filtro_razon:
-            df_completo = df_completo[df_completo['razon_social'].astype(str).str.contains(filtro_razon, na=False, case=False)]
-        
-        total_filtrado = len(df_completo)
-        st.write(f"**Total de registros con filtros:** {total_filtrado}")
-        
-        if total_filtrado > 0:
-            registros_por_pagina = 300
-            paginas_totales = (total_filtrado + registros_por_pagina - 1) // registros_por_pagina
-            
-            if 'pagina_actual' not in st.session_state:
-                st.session_state.pagina_actual = 1
-            
-            if st.session_state.pagina_actual < 1:
-                st.session_state.pagina_actual = 1
-            if st.session_state.pagina_actual > paginas_totales:
-                st.session_state.pagina_actual = paginas_totales
-            
-            st.markdown("### 📄 Navegación")
-            col_ant, col_num, col_sig = st.columns([1, 2, 1])
-            
-            with col_ant:
-                if st.button("◀ Anterior", key="btn_anterior"):
-                    if st.session_state.pagina_actual > 1:
-                        st.session_state.pagina_actual -= 1
-                        st.rerun()
-            
-            with col_num:
-                st.selectbox(
-                    "Página",
-                    options=list(range(1, paginas_totales + 1)),
-                    index=st.session_state.pagina_actual - 1,
-                    key="pagina_select",
-                    label_visibility="collapsed"
-                )
-            
-            with col_sig:
-                if st.button("Siguiente ▶", key="btn_siguiente"):
-                    if st.session_state.pagina_actual < paginas_totales:
-                        st.session_state.pagina_actual += 1
-                        st.rerun()
-            
-            offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
-            df_mostrar = df_completo.iloc[offset:offset + registros_por_pagina].copy()
-            
-            # ELIMINAR LA COLUMNA DE ÍNDICE (reset_index para que no aparezca)
-            df_mostrar = df_mostrar.reset_index(drop=True)
-            
-            desde = offset + 1
-            hasta = min(offset + registros_por_pagina, total_filtrado)
-            st.info(f"📝 Mostrando {desde} a {hasta} de {total_filtrado}")
-            
-            for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
-                if col in df_mostrar.columns:
-                    df_mostrar[col] = df_mostrar[col].apply(limpiar_numero_entero)
-            
-            for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
-                if col in df_mostrar.columns:
-                    df_mostrar[col] = df_mostrar[col].apply(fecha_para_mostrar)
-            
-            df_original = df_mostrar.copy()
-            
-            df_editable = df_mostrar.copy()
-            if 'fecha_carga' in df_editable.columns:
-                df_editable = df_editable.drop(columns=['fecha_carga'])
-            df_editable = df_editable.rename(columns=TITULOS_MOSTRAR)
-            
-            st.markdown("#### Seleccionar registros")
-            col_check_all, _ = st.columns([1, 4])
-            with col_check_all:
-                seleccionar_todos = st.checkbox("✅ SELECCIONAR TODOS (página actual)", key="seleccionar_todos")
-            
-            df_editable.insert(0, "🗑️", False)
-            if seleccionar_todos:
-                df_editable["🗑️"] = True
-            
-            edited_df = st.data_editor(
-                df_editable, use_container_width=True, height=600,
-                column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")},
-                disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
-                          'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
-                          'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
-                          'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
-                key=f"editor_{st.session_state.pagina_actual}"
-            )
-            
-            ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
-            st.session_state.ids_a_eliminar = ids_seleccionados
-            if ids_seleccionados:
-                st.caption(f"📌 {len(ids_seleccionados)} registro(s) seleccionado(s) para eliminar")
-            
-            st.markdown("---")
-            st.markdown("#### Editar campos (LEG, VTO, ACTA, etc.)")
-            
-            if st.button("💾 Guardar Cambios", type="primary"):
-                with st.spinner("Guardando..."):
-                    inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
-                    modificados = 0
-                    for idx, row in edited_df.iterrows():
-                        original_row = df_original.iloc[idx] if idx < len(df_original) else None
-                        if original_row is None:
-                            continue
-                        datos_update = {}
-                        
-                        nuevo_leg = row.get('LEG')
-                        viejo_leg = original_row.get('leg')
-                        if pd.isna(nuevo_leg) or nuevo_leg == '':
-                            nuevo_leg = None
-                        if pd.isna(viejo_leg) or viejo_leg == '':
-                            viejo_leg = None
-                        if nuevo_leg != viejo_leg:
-                            datos_update['leg'] = nuevo_leg
-                        
-                        nuevo_vto = row.get('VTO')
-                        viejo_vto = original_row.get('vto')
-                        if pd.isna(nuevo_vto) or nuevo_vto == '':
-                            nuevo_vto = None
-                        else:
-                            nuevo_vto = normalizar_fecha_para_supabase(nuevo_vto)
-                        if pd.isna(viejo_vto) or viejo_vto == '':
-                            viejo_vto = None
-                        if nuevo_vto != viejo_vto:
-                            datos_update['vto'] = nuevo_vto
-                        
-                        nuevo_mail = row.get('MAIL ENVIADO')
-                        viejo_mail = original_row.get('mail_enviado')
-                        if pd.isna(nuevo_mail) or nuevo_mail == '':
-                            nuevo_mail = 'NO'
-                        if nuevo_mail not in ["SI", "NO"]:
-                            nuevo_mail = "NO"
-                        if nuevo_mail != viejo_mail:
-                            datos_update['mail_enviado'] = nuevo_mail
-                        
-                        nuevo_acta = row.get('ACTA')
-                        viejo_acta = original_row.get('acta')
-                        if pd.isna(nuevo_acta) or nuevo_acta == '':
-                            nuevo_acta = None
-                        if nuevo_acta != viejo_acta:
-                            datos_update['acta'] = nuevo_acta
-                        
-                        nuevo_estado = row.get('ESTADO GESTION')
-                        viejo_estado = original_row.get('estado_gestion')
-                        if pd.isna(nuevo_estado) or nuevo_estado == '':
-                            nuevo_estado = 'PENDIENTE'
-                        if nuevo_estado != viejo_estado:
-                            datos_update['estado_gestion'] = nuevo_estado
-                        
-                        if datos_update:
-                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
-                            modificados += 1
-                    if modificados > 0:
-                        st.success(f"✅ {modificados} registros actualizados")
-                        st.rerun()
-                    else:
-                        st.info("No se detectaron cambios")
+        q = q.eq("mail_enviado","NO")
+
+    datos = q.execute()
+
+    if not datos.data:
+        st.info("Sin datos.")
     else:
-        st.info("No hay datos cargados")
+        df = pd.DataFrame(datos.data)
 
-# ==================== TAB 3 ====================
-with tab3:
-    st.markdown("### Solicitar Actas a Central")
-    st.markdown("""
-    <div class="info-box">
-        📌 <strong>Instrucciones:</strong><br>
-        1. Esta pestaña muestra las empresas que ya tienen LEGAJO y VENCIMIENTO asignados.<br>
-        2. Al enviar la solicitud, se actualizará el estado.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    try:
-        datos = supabase.table("padron_deuda_presunta").select("id, cuit, razon_social, leg, vto, mail_enviado, estado_gestion").eq("mail_enviado", "NO").not_.is_("leg", "null").not_.is_("vto", "null").execute()
-        if datos.data:
-            df_listos = pd.DataFrame(datos.data)
-            if len(df_listos) > 0:
-                st.info(f"📧 {len(df_listos)} empresas listas para solicitar actas")
-                df_mostrar = df_listos[['cuit', 'razon_social', 'leg', 'vto']].copy()
-                if 'vto' in df_mostrar.columns:
-                    df_mostrar['vto'] = df_mostrar['vto'].apply(fecha_para_mostrar)
-                st.dataframe(df_mostrar, use_container_width=True)
-                if st.button("📧 Enviar solicitud", type="primary"):
-                    for _, row in df_listos.iterrows():
-                        supabase.table("padron_deuda_presunta").update({"mail_enviado": "SI", "estado_gestion": "ACTA_SOLICITADA"}).eq("id", row['id']).execute()
-                    st.success(f"Solicitud registrada para {len(df_listos)} empresas")
+        if filtro_cuit:
+            df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
+        if filtro_razon:
+            df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
+
+        total = len(df)
+        RPP   = 300
+        pages = max(1, (total + RPP - 1) // RPP)
+
+        if 'pagina_actual' not in st.session_state:
+            st.session_state.pagina_actual = 1
+        st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
+
+        # Paginación compacta
+        pa, pn, ps = st.columns([1, 3, 1])
+        with pa:
+            if st.button("◀", key="btn_prev") and st.session_state.pagina_actual > 1:
+                st.session_state.pagina_actual -= 1
+                st.rerun()
+        with pn:
+            st.caption(f"Página {st.session_state.pagina_actual} / {pages}  |  {total} registros")
+        with ps:
+            if st.button("▶", key="btn_next") and st.session_state.pagina_actual < pages:
+                st.session_state.pagina_actual += 1
+                st.rerun()
+
+        off = (st.session_state.pagina_actual - 1) * RPP
+        df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
+
+        # Formatear para mostrar
+        for col in ['empl_10_2025','emp_11_2025','empl_12_2025']:
+            if col in df_p.columns:
+                df_p[col] = df_p[col].apply(limpiar_entero)
+        for col in ['fechareldependencia','desde','hasta','fecha_pago_obl','vto','fecha_carga']:
+            if col in df_p.columns:
+                df_p[col] = df_p[col].apply(fmt_fecha)
+
+        df_orig = df_p.copy()
+        df_ed   = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns=TITULOS)
+        df_ed.insert(0, "🗑️", False)
+
+        sel_todos = st.checkbox("Seleccionar todos (página actual)", key="sel_todos")
+        if sel_todos:
+            df_ed["🗑️"] = True
+
+        edited = st.data_editor(
+            df_ed, use_container_width=True, height=550,
+            column_config={"🗑️": st.column_config.CheckboxColumn("Elim.", help="Marcar para eliminar")},
+            disabled=COLS_DISABLED,
+            key=f"editor_{st.session_state.pagina_actual}",
+        )
+
+        ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
+        st.session_state.ids_a_eliminar = ids_sel
+        if ids_sel:
+            st.caption(f"📌 {len(ids_sel)} seleccionado(s) para eliminar.")
+
+        st.markdown("---")
+
+        if st.button("💾 Guardar cambios", type="primary", key="btn_save"):
+            inverso = {v: k for k, v in TITULOS.items()}
+            mods = 0
+            with st.spinner("Guardando..."):
+                for idx, row in edited.iterrows():
+                    if idx >= len(df_orig):
+                        continue
+                    orig = df_orig.iloc[idx]
+                    upd  = {}
+
+                    # LEG
+                    nv = row.get('LEG'); ov = orig.get('leg')
+                    nv = None if pd.isna(nv) or nv == '' else nv
+                    ov = None if pd.isna(ov) or ov == '' else ov
+                    if nv != ov: upd['leg'] = nv
+
+                    # VTO
+                    nv = row.get('VTO'); ov = orig.get('vto')
+                    nv = None if pd.isna(nv) or nv == '' else norm_fecha(nv)
+                    ov = None if pd.isna(ov) or ov == '' else ov
+                    if nv != ov: upd['vto'] = nv
+
+                    # MAIL ENVIADO
+                    nv = row.get('MAIL ENVIADO') or 'NO'
+                    if nv not in ('SI','NO'): nv = 'NO'
+                    if nv != orig.get('mail_enviado'): upd['mail_enviado'] = nv
+
+                    # ACTA
+                    nv = row.get('ACTA'); ov = orig.get('acta')
+                    nv = None if pd.isna(nv) or nv == '' else nv
+                    ov = None if pd.isna(ov) or ov == '' else ov
+                    if nv != ov: upd['acta'] = nv
+
+                    # ESTADO GESTION
+                    nv = row.get('ESTADO GESTION') or 'PENDIENTE'
+                    if nv != orig.get('estado_gestion'): upd['estado_gestion'] = nv
+
+                    if upd:
+                        supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
+                        mods += 1
+
+            if mods:
+                st.markdown(f'<div class="msg msg-success">✅ {mods} registros actualizados.</div>', unsafe_allow_html=True)
+                st.rerun()
             else:
-                st.info("No hay registros listos")
-        else:
-            st.info("No hay datos cargados")
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+                st.info("Sin cambios detectados.")
 
-# ==================== TAB 4 ====================
+# ══════════════════════════════════════════════════════════════════
+# TAB 3 — Solicitar Actas
+# ══════════════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("#### Solicitar Actas a Central")
+    st.markdown("""<div class="msg msg-info">
+    Muestra empresas con <strong>LEG + VTO asignados</strong> y <strong>MAIL ENVIADO = NO</strong>.
+    Al confirmar se registra la solicitud.
+    </div>""", unsafe_allow_html=True)
+
+    try:
+        datos3 = (supabase.table("padron_deuda_presunta")
+                  .select("id,cuit,razon_social,leg,vto,mail_enviado,estado_gestion")
+                  .eq("mail_enviado","NO")
+                  .not_.is_("leg","null")
+                  .not_.is_("vto","null")
+                  .execute())
+
+        if datos3.data:
+            df3 = pd.DataFrame(datos3.data)
+            st.caption(f"📧 {len(df3)} empresas listas para solicitar actas.")
+            dm = df3[['cuit','razon_social','leg','vto']].copy()
+            dm['vto'] = dm['vto'].apply(fmt_fecha)
+            st.dataframe(dm, use_container_width=True, height=400)
+
+            if st.button("📧 Confirmar solicitud", type="primary"):
+                with st.spinner("Actualizando..."):
+                    for _, r in df3.iterrows():
+                        supabase.table("padron_deuda_presunta") \
+                            .update({"mail_enviado":"SI","estado_gestion":"ACTA_SOLICITADA"}) \
+                            .eq("id", r['id']).execute()
+                st.markdown(f'<div class="msg msg-success">✅ Solicitud registrada para {len(df3)} empresas.</div>', unsafe_allow_html=True)
+        else:
+            st.info("No hay registros listos.")
+    except Exception as e:
+        st.error(str(e))
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 4 — Subir Actas
+# ══════════════════════════════════════════════════════════════════
 with tab4:
-    st.markdown("### Subir Archivo de Actas (CSV)")
-    st.markdown("""
-    <div class="info-box">
-        📌 <strong>Instrucciones:</strong><br>
-        1. Subí el archivo CSV que te envía Central.<br>
-        2. El sistema buscará coincidencias por <strong>CUIT + LEGAJO + FECHA VENCIMIENTO</strong>.<br>
-        3. Solo actualizará registros con <strong>MAIL ENVIADO = SI</strong>.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    uploaded_csv = st.file_uploader("Seleccionar archivo CSV", type=["csv"], key="upload_actas")
-    
-    if uploaded_csv is not None:
-        st.info(f"Archivo: {uploaded_csv.name}")
+    st.markdown("#### Subir Archivo de Actas (CSV)")
+    st.markdown("""<div class="msg msg-info">
+    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
+    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
+    </div>""", unsafe_allow_html=True)
+
+    csv_file = st.file_uploader("Archivo CSV", type=["csv"], key="upload_actas")
+
+    if csv_file:
+        st.caption(f"Archivo: **{csv_file.name}**")
+
+        # Vista previa
         try:
-            df_preview = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-            st.write("**Vista previa del archivo CSV:**")
-            st.dataframe(df_preview.head(5), use_container_width=True)
-        except:
+            df_prev4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+            with st.expander("Vista previa (5 primeras filas)"):
+                st.dataframe(df_prev4.head(5), use_container_width=True, height=200)
+        except Exception:
             pass
-        
+
         if st.button("📋 Procesar y actualizar actas", type="primary"):
-            with st.spinner("Procesando archivo..."):
+            with st.spinner("Procesando..."):
                 try:
-                    df = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-                except:
-                    df = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='latin-1')
-                
-                df.columns = [str(col).strip().upper() for col in df.columns]
-                
-                col_cuit = None
-                col_leg = None
-                col_vto = None
-                col_acta = None
-                
-                for col in df.columns:
-                    if 'CUIT' in col:
-                        col_cuit = col
-                    if 'LEG' in col or 'LEGAJO' in col:
-                        col_leg = col
-                    if 'VTO' in col or 'FECHA_VTO' in col:
-                        col_vto = col
-                    if 'NRO_ACTA' in col or 'ACTA' in col:
-                        col_acta = col
-                
-                if not col_cuit or not col_leg or not col_vto:
-                    st.error(f"No se detectaron columnas. CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}")
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+                except Exception:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
+
+                df4.columns = [str(c).strip().upper() for c in df4.columns]
+
+                # Detectar columnas flexiblemente
+                col_cuit = col_leg = col_vto = col_acta = None
+                for c in df4.columns:
+                    cu = c.upper()
+                    if 'CUIT' in cu and not col_cuit:         col_cuit = c
+                    if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
+                    if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
+                    if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
+
+                if not all([col_cuit, col_leg, col_vto]):
+                    st.error(f"Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
                 else:
-                    st.success(f"Columnas detectadas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}")
-                    
-                    actualizados = 0
-                    no_encontrados = 0
-                    progress_bar = st.progress(0)
-                    
-                    for i, row in df.iterrows():
-                        cuit_limpio = limpiar_cuit_robusto(row[col_cuit])
-                        leg_limpio = limpiar_valor_str(row[col_leg])
-                        vto_limpio = normalizar_fecha_para_supabase(row[col_vto])
-                        acta_valor = str(row[col_acta]) if col_acta and pd.notna(row[col_acta]) else "ACTUALIZADO"
-                        
-                        if cuit_limpio and leg_limpio and vto_limpio:
+                    st.caption(f"Columnas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                    actualizados = no_enc = 0
+                    bar = st.progress(0)
+
+                    for i, row in df4.iterrows():
+                        cuit = limpiar_cuit(row[col_cuit])
+                        leg  = limpiar_str(row[col_leg])
+                        vto  = norm_fecha(row[col_vto])
+                        acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+
+                        if cuit and leg and vto:
                             try:
-                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit_limpio).eq("leg", leg_limpio).eq("vto", vto_limpio).eq("mail_enviado", "SI").execute()
-                                if resultado.data:
-                                    for reg in resultado.data:
-                                        supabase.table("padron_deuda_presunta").update({"acta": acta_valor, "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
-                                        actualizados += 1
+                                res = (supabase.table("padron_deuda_presunta")
+                                       .select("id")
+                                       .eq("cuit", cuit)
+                                       .eq("leg",  leg)
+                                       .eq("vto",  vto)
+                                       .eq("mail_enviado","SI")
+                                       .execute())
+                                if res.data:
+                                    for reg in res.data:
+                                        supabase.table("padron_deuda_presunta") \
+                                            .update({"acta": acta, "estado_gestion":"FINALIZADO"}) \
+                                            .eq("id", reg['id']).execute()
+                                    actualizados += len(res.data)
                                 else:
-                                    no_encontrados += 1
-                                    if i < 5:
-                                        st.warning(f"No encontrado: CUIT={cuit_limpio}, LEG={leg_limpio}, VTO={vto_limpio}")
+                                    no_enc += 1
                             except Exception as e:
-                                st.error(f"Error: {e}")
-                        
-                        progress_bar.progress((i + 1) / len(df))
-                    
-                    st.success(f"✅ {actualizados} actualizados | {no_encontrados} no encontrados")
+                                st.error(f"Error fila {i}: {e}")
+
+                        bar.progress((i + 1) / len(df4))
+
+                    bar.empty()
+                    ca4, cb4 = st.columns(2)
+                    ca4.metric("✅ Actualizados", actualizados)
+                    cb4.metric("❌ No encontrados", no_enc)
+
+                    if no_enc:
+                        st.markdown(f'<div class="msg msg-warning">⚠️ {no_enc} filas sin coincidencia. '
+                                     'Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado.</div>',
+                                     unsafe_allow_html=True)
