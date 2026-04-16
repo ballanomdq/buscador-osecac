@@ -408,7 +408,6 @@ with tab1:
 with tab2:
     st.markdown("### Editar Legajos y Fechas de Vencimiento")
     
-    # Botones de acción
     col_accion1, col_accion2, col_accion3, col_accion4 = st.columns(4)
     
     with col_accion1:
@@ -481,7 +480,6 @@ with tab2:
     with col_filtro4:
         filtro_mail = st.selectbox("📧 MAIL ENVIADO:", options=["AMBOS", "NO", "SI"], index=0, key="filtro_mail")
     
-    # Obtener datos filtrados
     query = supabase.table("padron_deuda_presunta").select("*")
     
     if localidad_seleccionada != "TODAS" and localidades_unicas:
@@ -548,7 +546,6 @@ with tab2:
             hasta = min(offset + registros_por_pagina, total_filtrado)
             st.info(f"📝 Mostrando {desde} a {hasta} de {total_filtrado}")
             
-            # Limpiar datos para mostrar
             for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
                 if col in df_mostrar.columns:
                     df_mostrar[col] = df_mostrar[col].apply(limpiar_numero_entero)
@@ -557,24 +554,17 @@ with tab2:
                 if col in df_mostrar.columns:
                     df_mostrar[col] = df_mostrar[col].apply(fecha_para_mostrar)
             
-            # Guardar copia original para detectar cambios
             df_original = df_mostrar.copy()
             
-            # Preparar para editar (sin columna de índice)
             df_mostrar = df_mostrar.reset_index(drop=True)
             df_original = df_original.reset_index(drop=True)
             
-            # Renombrar columnas para mostrar
             df_editable = df_mostrar.rename(columns=TITULOS_MOSTRAR)
-            
-            # Insertar columna de selección al principio
             df_editable.insert(0, "🗑️", False)
             
-            # Reordenar columnas de forma segura (solo las que existen)
             columnas_prioritarias = ['ID', '🗑️', 'CUIT', 'RAZON SOCIAL']
             columnas_extra = ['CALLE', 'NUMERO']
             
-            # Construir orden final solo con columnas que existen
             orden_final = []
             for col in columnas_prioritarias:
                 if col in df_editable.columns:
@@ -588,33 +578,28 @@ with tab2:
             
             df_editable = df_editable[orden_final]
             
-            # Configuración de columnas fijas
             column_config = {
                 "🗑️": st.column_config.CheckboxColumn("", help="Marcar para eliminar", width="small"),
                 "ID": st.column_config.TextColumn("ID", width="small", help="Identificador único"),
-                "CUIT": st.column_config.TextColumn("CUIT", width="medium", help="CUIT de la empresa", sticky="left"),
-                "RAZON SOCIAL": st.column_config.TextColumn("RAZON SOCIAL", width="large", help="Razón social", sticky="left"),
+                "CUIT": st.column_config.TextColumn("CUIT", width="medium", help="CUIT de la empresa"),
+                "RAZON SOCIAL": st.column_config.TextColumn("RAZON SOCIAL", width="large", help="Razón social"),
             }
             
-            # Si existen CALLE y NUMERO, agregarlas como fijas
             if 'CALLE' in df_editable.columns:
-                column_config["CALLE"] = st.column_config.TextColumn("CALLE", width="medium", help="Calle", sticky="left")
+                column_config["CALLE"] = st.column_config.TextColumn("CALLE", width="medium", help="Calle")
             if 'NUMERO' in df_editable.columns:
-                column_config["NUMERO"] = st.column_config.TextColumn("NÚMERO", width="small", help="Número", sticky="left")
+                column_config["NUMERO"] = st.column_config.TextColumn("NÚMERO", width="small", help="Número")
             
-            # Configurar columnas editables
             columnas_editables = ['LEG', 'VTO', 'MAIL ENVIADO', 'ACTA', 'ESTADO GESTION']
             for col in columnas_editables:
                 if col in df_editable.columns:
                     column_config[col] = st.column_config.TextColumn(col, help=f"Editar {col}")
             
-            # Aviso de cambios sin guardar (arriba de la tabla)
             hay_cambios = False
             for idx, row in df_editable.iterrows():
                 original_row = df_original.iloc[idx] if idx < len(df_original) else None
                 if original_row is None:
                     continue
-                
                 for col in columnas_editables:
                     if col in df_editable.columns:
                         col_original = None
@@ -636,7 +621,6 @@ with tab2:
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Editor de datos
             edited_df = st.data_editor(
                 df_editable,
                 use_container_width=True,
@@ -646,7 +630,6 @@ with tab2:
                 key=f"editor_{st.session_state.pagina_actual}"
             )
             
-            # Guardar IDs seleccionados
             ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
             st.session_state.ids_a_eliminar = ids_seleccionados
             if ids_seleccionados:
@@ -654,21 +637,17 @@ with tab2:
             
             st.markdown("---")
             
-            # Botón guardar
             col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
             with col_btn2:
                 if st.button("💾 Guardar Cambios", type="primary", use_container_width=True):
                     with st.spinner("Guardando..."):
                         modificados = 0
-                        inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
-                        
                         for idx, row in edited_df.iterrows():
                             original_row = df_original.iloc[idx] if idx < len(df_original) else None
                             if original_row is None:
                                 continue
                             datos_update = {}
                             
-                            # LEG
                             nuevo_leg = row.get('LEG')
                             viejo_leg = original_row.get('leg')
                             if pd.isna(nuevo_leg) or nuevo_leg == '':
@@ -678,7 +657,6 @@ with tab2:
                             if nuevo_leg != viejo_leg:
                                 datos_update['leg'] = nuevo_leg
                             
-                            # VTO
                             nuevo_vto = row.get('VTO')
                             viejo_vto = original_row.get('vto')
                             if pd.isna(nuevo_vto) or nuevo_vto == '':
@@ -690,7 +668,6 @@ with tab2:
                             if nuevo_vto != viejo_vto:
                                 datos_update['vto'] = nuevo_vto
                             
-                            # MAIL ENVIADO
                             nuevo_mail = row.get('MAIL ENVIADO')
                             viejo_mail = original_row.get('mail_enviado')
                             if pd.isna(nuevo_mail) or nuevo_mail == '':
@@ -700,7 +677,6 @@ with tab2:
                             if nuevo_mail != viejo_mail:
                                 datos_update['mail_enviado'] = nuevo_mail
                             
-                            # ACTA
                             nuevo_acta = row.get('ACTA')
                             viejo_acta = original_row.get('acta')
                             if pd.isna(nuevo_acta) or nuevo_acta == '':
@@ -708,7 +684,6 @@ with tab2:
                             if nuevo_acta != viejo_acta:
                                 datos_update['acta'] = nuevo_acta
                             
-                            # ESTADO GESTION
                             nuevo_estado = row.get('ESTADO GESTION')
                             viejo_estado = original_row.get('estado_gestion')
                             if pd.isna(nuevo_estado) or nuevo_estado == '':
@@ -777,7 +752,6 @@ with tab4:
     if uploaded_csv is not None:
         st.info(f"Archivo: {uploaded_csv.name}")
         
-        # Mostrar vista previa
         try:
             df_preview = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
             st.write("**Vista previa del archivo CSV:**")
@@ -792,10 +766,8 @@ with tab4:
                 except:
                     df = pd.read_csv(io.BytesIO(uploaded_csv.getvalue()), sep=';', dtype=str, encoding='latin-1')
                 
-                # Limpiar nombres de columnas
                 df.columns = [str(col).strip().upper() for col in df.columns]
                 
-                # Detectar columnas
                 col_cuit = None
                 col_leg = None
                 col_vto = None
