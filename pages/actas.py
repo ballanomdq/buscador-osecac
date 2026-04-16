@@ -55,12 +55,12 @@ st.markdown("""
     .aviso-cambios {
         background-color: #dc2626;
         color: white;
-        padding: 0.75rem;
-        border-radius: 8px;
+        padding: 0.5rem;
+        border-radius: 6px;
         margin-bottom: 1rem;
         text-align: center;
-        font-weight: bold;
-        border-left: 4px solid #fbbf24;
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -249,16 +249,37 @@ COLUMNAS_MONEDA = {"deuda_presunta", "detectado"}
 COLUMNAS_FECHA = {"fechareldependencia", "desde", "hasta", "fecha_pago_obl"}
 
 TITULOS_MOSTRAR = {
-    'id': 'ID', 'delegacion': 'DELEGACION', 'localidad': 'LOCALIDAD',
-    'cuit': 'CUIT', 'razon_social': 'RAZON SOCIAL', 'deuda_presunta': 'DEUDA PRESUNTA',
-    'cp': 'CP', 'calle': 'CALLE', 'numero': 'NUMERO', 'piso': 'PISO', 'dpto': 'DPTO',
-    'fechareldependencia': 'FECHARELDEPENDENCIA', 'email': 'EMAIL',
-    'tel_dom_legal': 'TEL_DOM_LEGAL', 'tel_dom_real': 'TEL_DOM_REAL',
-    'ultima_acta': 'ULTIMA ACTA', 'desde': 'DESDE', 'hasta': 'HASTA',
-    'detectado': 'DETECTADO', 'estado': 'ESTADO', 'fecha_pago_obl': 'FECHA PAGO OBL',
-    'empl_10_2025': 'EMPL 10-2025', 'emp_11_2025': 'EMP 11-2025', 'empl_12_2025': 'EMPL 12-2025',
-    'actividad': 'ACTIVIDAD', 'situacion': 'SITUACION',
-    'leg': 'LEG', 'vto': 'VTO', 'mail_enviado': 'MAIL ENVIADO', 'acta': 'ACTA', 'estado_gestion': 'ESTADO GESTION'
+    'id': 'ID',
+    'cuit': 'CUIT',
+    'razon_social': 'RAZON SOCIAL',
+    'calle': 'CALLE',
+    'numero': 'NUMERO',
+    'delegacion': 'DELEGACION',
+    'localidad': 'LOCALIDAD',
+    'deuda_presunta': 'DEUDA PRESUNTA',
+    'cp': 'CP',
+    'piso': 'PISO',
+    'dpto': 'DPTO',
+    'fechareldependencia': 'FECHARELDEPENDENCIA',
+    'email': 'EMAIL',
+    'tel_dom_legal': 'TEL_DOM_LEGAL',
+    'tel_dom_real': 'TEL_DOM_REAL',
+    'ultima_acta': 'ULTIMA ACTA',
+    'desde': 'DESDE',
+    'hasta': 'HASTA',
+    'detectado': 'DETECTADO',
+    'estado': 'ESTADO',
+    'fecha_pago_obl': 'FECHA PAGO OBL',
+    'empl_10_2025': 'EMPL 10-2025',
+    'emp_11_2025': 'EMP 11-2025',
+    'empl_12_2025': 'EMPL 12-2025',
+    'actividad': 'ACTIVIDAD',
+    'situacion': 'SITUACION',
+    'leg': 'LEG',
+    'vto': 'VTO',
+    'mail_enviado': 'MAIL ENVIADO',
+    'acta': 'ACTA',
+    'estado_gestion': 'ESTADO GESTION'
 }
 
 # ==================== PROCESAR EXCEL ====================
@@ -466,12 +487,10 @@ with tab2:
     if localidad_seleccionada != "TODAS" and localidades_unicas:
         query = query.eq("localidad", localidad_seleccionada)
     
-    # MODIFICACIÓN 1: "AMBOS" muestra TODO sin filtrar por mail_enviado
     if filtro_mail == "SI":
         query = query.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
         query = query.eq("mail_enviado", "NO")
-    # AMBOS: no se agrega filtro
     
     datos_completos = query.execute()
     
@@ -541,134 +560,146 @@ with tab2:
             # Guardar copia original para detectar cambios
             df_original = df_mostrar.copy()
             
-            # Preparar para editar
-            df_editable = df_mostrar.copy()
-            if 'fecha_carga' in df_editable.columns:
-                df_editable = df_editable.drop(columns=['fecha_carga'])
-            df_editable = df_editable.rename(columns=TITULOS_MOSTRAR)
+            # Preparar para editar (sin columna de índice)
+            df_mostrar = df_mostrar.reset_index(drop=True)
+            df_original = df_original.reset_index(drop=True)
             
-            st.markdown("#### Seleccionar registros")
-            col_check_all, _ = st.columns([1, 4])
-            with col_check_all:
-                seleccionar_todos = st.checkbox("✅ SELECCIONAR TODOS (página actual)", key="seleccionar_todos")
+            # Renombrar columnas para mostrar
+            df_editable = df_mostrar.rename(columns=TITULOS_MOSTRAR)
             
-            df_editable.insert(0, "🗑️", False)
-            if seleccionar_todos:
-                df_editable["🗑️"] = True
+            # Reordenar columnas: poner ID, 🗑️, CUIT, RAZON SOCIAL, CALLE, NUMERO, luego el resto
+            columnas_orden = ['ID', '🗑️', 'CUIT', 'RAZON SOCIAL', 'CALLE', 'NUMERO']
+            resto = [col for col in df_editable.columns if col not in columnas_orden and col != 'ID' and col != '🗑️']
+            df_editable = df_editable[columnas_orden + resto]
             
+            # Configuración de columnas fijas y colores
+            column_config = {
+                "🗑️": st.column_config.CheckboxColumn("", help="Marcar para eliminar", width="small"),
+                "ID": st.column_config.TextColumn("ID", width="small", help="Identificador único"),
+                "CUIT": st.column_config.TextColumn("CUIT", width="medium", help="CUIT de la empresa", sticky="left"),
+                "RAZON SOCIAL": st.column_config.TextColumn("RAZON SOCIAL", width="large", help="Razón social", sticky="left"),
+                "CALLE": st.column_config.TextColumn("CALLE", width="medium", help="Calle", sticky="left"),
+                "NUMERO": st.column_config.TextColumn("NÚMERO", width="small", help="Número", sticky="left"),
+            }
+            
+            # Configurar columnas editables con fondo gris
+            columnas_editables = ['LEG', 'VTO', 'MAIL ENVIADO', 'ACTA', 'ESTADO GESTION']
+            for col in columnas_editables:
+                if col in df_editable.columns:
+                    column_config[col] = st.column_config.TextColumn(col, help=f"Editar {col}")
+            
+            # Aviso de cambios sin guardar (arriba de la tabla)
+            hay_cambios = False
+            for idx, row in df_editable.iterrows():
+                original_row = df_original.iloc[idx] if idx < len(df_original) else None
+                if original_row is None:
+                    continue
+                
+                # Comparar solo las columnas editables
+                for col in columnas_editables:
+                    if col in df_editable.columns:
+                        if str(row.get(col, '')) != str(original_row.get(TITULOS_MOSTRAR.get(col, col), '')):
+                            hay_cambios = True
+                            break
+                if hay_cambios:
+                    break
+            
+            if hay_cambios:
+                st.markdown("""
+                <div class="aviso-cambios">
+                    ⚠️ Hay cambios sin guardar. Presioná "💾 Guardar Cambios" para guardarlos.
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Editor de datos
             edited_df = st.data_editor(
-                df_editable, use_container_width=True, height=600,
-                column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar", help="Marcar para eliminar")},
-                disabled=['ID', 'CUIT', 'RAZON SOCIAL', 'DEUDA PRESUNTA', 'CP', 'CALLE', 'NUMERO', 
-                          'PISO', 'DPTO', 'FECHARELDEPENDENCIA', 'EMAIL', 'TEL_DOM_LEGAL', 'TEL_DOM_REAL',
-                          'ULTIMA ACTA', 'DESDE', 'HASTA', 'DETECTADO', 'ESTADO', 'FECHA PAGO OBL',
-                          'EMPL 10-2025', 'EMP 11-2025', 'EMPL 12-2025', 'ACTIVIDAD', 'SITUACION'],
+                df_editable,
+                use_container_width=True,
+                height=600,
+                column_config=column_config,
+                disabled=[col for col in df_editable.columns if col not in columnas_editables],
                 key=f"editor_{st.session_state.pagina_actual}"
             )
             
+            # Guardar IDs seleccionados
             ids_seleccionados = edited_df[edited_df["🗑️"]]["ID"].tolist()
             st.session_state.ids_a_eliminar = ids_seleccionados
             if ids_seleccionados:
                 st.caption(f"📌 {len(ids_seleccionados)} registro(s) seleccionado(s) para eliminar")
             
             st.markdown("---")
-            st.markdown("#### Editar campos (LEG, VTO, ACTA, etc.)")
             
-            # MODIFICACIÓN 2: Aviso de cambios sin guardar
-            # Detectar si hay cambios
-            hay_cambios = False
-            for idx, row in edited_df.iterrows():
-                original_row = df_original.loc[idx] if idx in df_original.index else None
-                if original_row is None:
-                    continue
-                
-                # Comparar solo las columnas editables
-                if str(row.get('LEG', '')) != str(original_row.get('leg', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('VTO', '')) != str(original_row.get('vto', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('MAIL ENVIADO', '')) != str(original_row.get('mail_enviado', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('ACTA', '')) != str(original_row.get('acta', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('ESTADO GESTION', '')) != str(original_row.get('estado_gestion', '')):
-                    hay_cambios = True
-                    break
-            
-            # Mostrar aviso si hay cambios sin guardar
-            if hay_cambios:
-                st.markdown("""
-                <div class="aviso-cambios">
-                    ⚠️ Hay cambios sin guardar. Presioná "Guardar Cambios" para guardarlos.
-                </div>
-                """, unsafe_allow_html=True)
-            
-            if st.button("💾 Guardar Cambios", type="primary"):
-                with st.spinner("Guardando..."):
-                    inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
-                    modificados = 0
-                    for idx, row in edited_df.iterrows():
-                        original_row = df_original.loc[idx] if idx in df_original.index else None
-                        if original_row is None:
-                            continue
-                        datos_update = {}
+            # Botón guardar
+            col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+            with col_btn2:
+                if st.button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                    with st.spinner("Guardando..."):
+                        modificados = 0
+                        inverso = {v: k for k, v in TITULOS_MOSTRAR.items()}
                         
-                        nuevo_leg = row.get('LEG')
-                        viejo_leg = original_row.get('leg')
-                        if pd.isna(nuevo_leg) or nuevo_leg == '':
-                            nuevo_leg = None
-                        if pd.isna(viejo_leg) or viejo_leg == '':
-                            viejo_leg = None
-                        if nuevo_leg != viejo_leg:
-                            datos_update['leg'] = nuevo_leg
+                        for idx, row in edited_df.iterrows():
+                            original_row = df_original.iloc[idx] if idx < len(df_original) else None
+                            if original_row is None:
+                                continue
+                            datos_update = {}
+                            
+                            # LEG
+                            nuevo_leg = row.get('LEG')
+                            viejo_leg = original_row.get('leg')
+                            if pd.isna(nuevo_leg) or nuevo_leg == '':
+                                nuevo_leg = None
+                            if pd.isna(viejo_leg) or viejo_leg == '':
+                                viejo_leg = None
+                            if nuevo_leg != viejo_leg:
+                                datos_update['leg'] = nuevo_leg
+                            
+                            # VTO
+                            nuevo_vto = row.get('VTO')
+                            viejo_vto = original_row.get('vto')
+                            if pd.isna(nuevo_vto) or nuevo_vto == '':
+                                nuevo_vto = None
+                            else:
+                                nuevo_vto = normalizar_fecha_para_supabase(nuevo_vto)
+                            if pd.isna(viejo_vto) or viejo_vto == '':
+                                viejo_vto = None
+                            if nuevo_vto != viejo_vto:
+                                datos_update['vto'] = nuevo_vto
+                            
+                            # MAIL ENVIADO
+                            nuevo_mail = row.get('MAIL ENVIADO')
+                            viejo_mail = original_row.get('mail_enviado')
+                            if pd.isna(nuevo_mail) or nuevo_mail == '':
+                                nuevo_mail = 'NO'
+                            if nuevo_mail not in ["SI", "NO"]:
+                                nuevo_mail = "NO"
+                            if nuevo_mail != viejo_mail:
+                                datos_update['mail_enviado'] = nuevo_mail
+                            
+                            # ACTA
+                            nuevo_acta = row.get('ACTA')
+                            viejo_acta = original_row.get('acta')
+                            if pd.isna(nuevo_acta) or nuevo_acta == '':
+                                nuevo_acta = None
+                            if nuevo_acta != viejo_acta:
+                                datos_update['acta'] = nuevo_acta
+                            
+                            # ESTADO GESTION
+                            nuevo_estado = row.get('ESTADO GESTION')
+                            viejo_estado = original_row.get('estado_gestion')
+                            if pd.isna(nuevo_estado) or nuevo_estado == '':
+                                nuevo_estado = 'PENDIENTE'
+                            if nuevo_estado != viejo_estado:
+                                datos_update['estado_gestion'] = nuevo_estado
+                            
+                            if datos_update:
+                                supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
+                                modificados += 1
                         
-                        nuevo_vto = row.get('VTO')
-                        viejo_vto = original_row.get('vto')
-                        if pd.isna(nuevo_vto) or nuevo_vto == '':
-                            nuevo_vto = None
+                        if modificados > 0:
+                            st.success(f"✅ {modificados} registros actualizados")
+                            st.rerun()
                         else:
-                            nuevo_vto = normalizar_fecha_para_supabase(nuevo_vto)
-                        if pd.isna(viejo_vto) or viejo_vto == '':
-                            viejo_vto = None
-                        if nuevo_vto != viejo_vto:
-                            datos_update['vto'] = nuevo_vto
-                        
-                        nuevo_mail = row.get('MAIL ENVIADO')
-                        viejo_mail = original_row.get('mail_enviado')
-                        if pd.isna(nuevo_mail) or nuevo_mail == '':
-                            nuevo_mail = 'NO'
-                        # Validar que solo sea SI o NO
-                        if nuevo_mail not in ["SI", "NO"]:
-                            nuevo_mail = "NO"
-                        if nuevo_mail != viejo_mail:
-                            datos_update['mail_enviado'] = nuevo_mail
-                        
-                        nuevo_acta = row.get('ACTA')
-                        viejo_acta = original_row.get('acta')
-                        if pd.isna(nuevo_acta) or nuevo_acta == '':
-                            nuevo_acta = None
-                        if nuevo_acta != viejo_acta:
-                            datos_update['acta'] = nuevo_acta
-                        
-                        nuevo_estado = row.get('ESTADO GESTION')
-                        viejo_estado = original_row.get('estado_gestion')
-                        if pd.isna(nuevo_estado) or nuevo_estado == '':
-                            nuevo_estado = 'PENDIENTE'
-                        if nuevo_estado != viejo_estado:
-                            datos_update['estado_gestion'] = nuevo_estado
-                        
-                        if datos_update:
-                            supabase.table("padron_deuda_presunta").update(datos_update).eq("id", row['ID']).execute()
-                            modificados += 1
-                    if modificados > 0:
-                        st.success(f"✅ {modificados} registros actualizados")
-                        st.rerun()
-                    else:
-                        st.info("No se detectaron cambios")
+                            st.info("No se detectaron cambios")
     else:
         st.info("No hay datos cargados")
 
