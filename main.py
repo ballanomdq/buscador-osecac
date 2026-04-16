@@ -92,7 +92,7 @@ def obtener_worksheet(url, sheet_name=None):
 def actualizar_celda(worksheet, fila, columna, valor):
     """Actualiza una celda específica"""
     try:
-        worksheet.update_cell(fila + 2, columna + 1, valor)  # +2 por índice 0 y encabezado
+        worksheet.update_cell(fila + 2, columna + 1, valor)
         return True
     except Exception as e:
         st.error(f"Error al actualizar: {e}")
@@ -101,7 +101,7 @@ def actualizar_celda(worksheet, fila, columna, valor):
 def eliminar_fila(worksheet, fila):
     """Elimina una fila completa (índice 0 = primera fila de datos)"""
     try:
-        worksheet.delete_rows(fila + 2)  # +2 por índice 0 y encabezado
+        worksheet.delete_rows(fila + 2)
         return True
     except Exception as e:
         st.error(f"Error al eliminar: {e}")
@@ -245,7 +245,7 @@ div[data-testid="stPopover"] button:hover {
 }
 /* Área de texto más grande */
 .stTextArea textarea {
-    min-height: 150px !important;
+    min-height: 120px !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -259,7 +259,7 @@ def cargar_datos(url):
     except: 
         return pd.DataFrame()
 
-# Cargar datos desde URLs (sin cambios)
+# Cargar datos desde URLs
 URLs = {
     "faba": "https://docs.google.com/spreadsheets/d/1GyMKYmZt_w3_1GNO-aYQZiQgIK4Bv9_N4KCnWHq7ak0/edit",
     "osecac": "https://docs.google.com/spreadsheets/d/1yUhuOyvnuLXQSzCGxEjDwCwiGE1RewoZjJWshZv-Kr0/edit",
@@ -461,7 +461,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     # === BÚSQUEDA ===
     bus_p = st.text_input("🔍 Buscá prácticas o especialistas (ignora acentos y mayúsculas)...", key="bus_p")
     
-    # === BOTÓN PARA AGREGAR NUEVO (si hay conexión a la hoja) ===
+    # === BOTÓN PARA AGREGAR NUEVO ===
     if worksheet_practicas:
         with st.expander("➕ AGREGAR NUEVA PRÁCTICA/ESPECIALISTA", expanded=False):
             with st.form("form_nueva_practica"):
@@ -469,7 +469,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                 nueva_fila = []
                 columnas = list(df_practicas.columns)
                 for i, col in enumerate(columnas):
-                    if i == 1:  # Segundo campo (índice 1) - área de texto grande
+                    if i == 1:
                         valor = st.text_area(f"{col}", key=f"new_{col}", height=120)
                     else:
                         valor = st.text_input(f"{col}", key=f"new_{col}")
@@ -494,13 +494,11 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
             df_norm = df_practicas.astype(str).map(normalizar_texto)
             mascara = df_norm.apply(lambda row: row.str.contains(busqueda_norm, na=False).any(), axis=1)
             resultados = df_practicas[mascara].reset_index(drop=True)
-            # Guardar índice original para edición
             indices_originales = df_practicas[mascara].index
             
             if not resultados.empty:
                 st.markdown(f"### 📋 RESULTADOS ENCONTRADOS ({len(resultados)} coincidencias):")
                 for idx, (_, row) in enumerate(resultados.iterrows()):
-                    # Mostrar la ficha con los datos
                     datos = []
                     for c, v in row.items():
                         if pd.notna(v) and str(v).strip():
@@ -510,7 +508,6 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                     if datos:
                         st.markdown(f'<div class="ficha" id="ficha_{idx}">📌 <b>REGISTRO #{idx+1}</b><br>{"<br>".join(datos)}</div>', unsafe_allow_html=True)
                         
-                        # Botones de edición/eliminación (si hay conexión a la hoja)
                         if worksheet_practicas:
                             col_editar, col_eliminar = st.columns(2)
                             with col_editar:
@@ -523,7 +520,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                                     st.session_state.eliminar_practica_idx = indices_originales[idx]
                                     st.rerun()
                             
-                            # Formulario de edición
+                            # Formulario de edición (sin botones dentro del form)
                             if st.session_state.get('editando_practica_idx') == indices_originales[idx]:
                                 st.markdown("---")
                                 st.markdown(f"### ✏️ Editando registro #{idx+1}")
@@ -531,30 +528,35 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                                     nuevos_valores = []
                                     for i_col, col in enumerate(df_practicas.columns):
                                         valor_actual = st.session_state.editando_practica_data.get(col, "")
-                                        if i_col == 1:  # Segundo campo - área de texto grande
+                                        if i_col == 1:
                                             nuevo_valor = st.text_area(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}", height=120)
                                         else:
                                             nuevo_valor = st.text_input(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}")
                                         nuevos_valores.append(nuevo_valor)
                                     
+                                    # Botones dentro del formulario
                                     col_guardar, col_cancelar = st.columns(2)
                                     with col_guardar:
-                                        if st.form_submit_button("💾 GUARDAR CAMBIOS", use_container_width=True):
-                                            for i_col, nuevo_valor in enumerate(nuevos_valores):
-                                                if nuevo_valor != st.session_state.editando_practica_data.get(df_practicas.columns[i_col], ""):
-                                                    if not actualizar_celda(worksheet_practicas, indices_originales[idx], i_col, nuevo_valor):
-                                                        st.error(f"Error al guardar en columna {df_practicas.columns[i_col]}")
-                                            st.success("✅ Cambios guardados")
-                                            del st.session_state.editando_practica_idx
-                                            del st.session_state.editando_practica_data
-                                            st.cache_data.clear()
-                                            time.sleep(1)
-                                            st.rerun()
+                                        guardar_clicked = st.form_submit_button("💾 GUARDAR CAMBIOS", use_container_width=True)
                                     with col_cancelar:
-                                        if st.button("❌ Cancelar edición", key=f"cancel_edit_{idx}", use_container_width=True):
-                                            del st.session_state.editando_practica_idx
-                                            del st.session_state.editando_practica_data
-                                            st.rerun()
+                                        cancelar_clicked = st.form_submit_button("❌ Cancelar edición", use_container_width=True)
+                                    
+                                    if guardar_clicked:
+                                        for i_col, nuevo_valor in enumerate(nuevos_valores):
+                                            if nuevo_valor != st.session_state.editando_practica_data.get(df_practicas.columns[i_col], ""):
+                                                if not actualizar_celda(worksheet_practicas, indices_originales[idx], i_col, nuevo_valor):
+                                                    st.error(f"Error al guardar en columna {df_practicas.columns[i_col]}")
+                                        st.success("✅ Cambios guardados")
+                                        del st.session_state.editando_practica_idx
+                                        del st.session_state.editando_practica_data
+                                        st.cache_data.clear()
+                                        time.sleep(1)
+                                        st.rerun()
+                                    
+                                    if cancelar_clicked:
+                                        del st.session_state.editando_practica_idx
+                                        del st.session_state.editando_practica_data
+                                        st.rerun()
                             
                             # Confirmación de eliminación
                             if st.session_state.get('eliminar_practica_idx') == indices_originales[idx]:
