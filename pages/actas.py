@@ -52,16 +52,6 @@ st.markdown("""
     .stDataFrame { background-color: #0f172a; }
     .stSelectbox label, .stTextInput label { color: #ffffff !important; }
     .stMetric label { color: #ffffff !important; }
-    .aviso-cambios {
-        background-color: #dc2626;
-        color: white;
-        padding: 0.5rem;
-        border-radius: 6px;
-        margin-bottom: 1rem;
-        text-align: center;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -521,6 +511,9 @@ with tab2:
             offset = (st.session_state.pagina_actual - 1) * registros_por_pagina
             df_mostrar = df_completo.iloc[offset:offset + registros_por_pagina].copy()
             
+            # ELIMINAR LA COLUMNA DE ÍNDICE (reset_index para que no aparezca)
+            df_mostrar = df_mostrar.reset_index(drop=True)
+            
             desde = offset + 1
             hasta = min(offset + registros_por_pagina, total_filtrado)
             st.info(f"📝 Mostrando {desde} a {hasta} de {total_filtrado}")
@@ -548,36 +541,6 @@ with tab2:
             df_editable.insert(0, "🗑️", False)
             if seleccionar_todos:
                 df_editable["🗑️"] = True
-            
-            # AVISO DE CAMBIOS SIN GUARDAR (ARRIBA DE LA TABLA)
-            hay_cambios = False
-            for idx, row in df_editable.iterrows():
-                original_row = df_original.iloc[idx] if idx < len(df_original) else None
-                if original_row is None:
-                    continue
-                
-                if str(row.get('LEG', '')) != str(original_row.get('leg', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('VTO', '')) != str(original_row.get('vto', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('MAIL ENVIADO', '')) != str(original_row.get('mail_enviado', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('ACTA', '')) != str(original_row.get('acta', '')):
-                    hay_cambios = True
-                    break
-                if str(row.get('ESTADO GESTION', '')) != str(original_row.get('estado_gestion', '')):
-                    hay_cambios = True
-                    break
-            
-            if hay_cambios:
-                st.markdown("""
-                <div class="aviso-cambios">
-                    ⚠️ Hay cambios sin guardar. Presioná "Guardar Cambios" para guardarlos.
-                </div>
-                """, unsafe_allow_html=True)
             
             edited_df = st.data_editor(
                 df_editable, use_container_width=True, height=600,
