@@ -243,6 +243,10 @@ div[data-testid="stPopover"] button:hover {
     background: linear-gradient(145deg, #10b981, #059669) !important;
     border: 2px solid #10b981 !important;
 }
+/* Área de texto más grande */
+.stTextArea textarea {
+    min-height: 150px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -463,8 +467,12 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
             with st.form("form_nueva_practica"):
                 st.markdown("### 📝 Completar los datos:")
                 nueva_fila = []
-                for col in df_practicas.columns:
-                    valor = st.text_input(f"{col}", key=f"new_{col}")
+                columnas = list(df_practicas.columns)
+                for i, col in enumerate(columnas):
+                    if i == 1:  # Segundo campo (índice 1) - área de texto grande
+                        valor = st.text_area(f"{col}", key=f"new_{col}", height=120)
+                    else:
+                        valor = st.text_input(f"{col}", key=f"new_{col}")
                     nueva_fila.append(valor)
                 if st.form_submit_button("💾 GUARDAR NUEVO", use_container_width=True):
                     if any(nueva_fila):
@@ -506,12 +514,12 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                         if worksheet_practicas:
                             col_editar, col_eliminar = st.columns(2)
                             with col_editar:
-                                if st.button(f"✏️ Editar registro #{idx+1}", key=f"edit_{idx}"):
+                                if st.button(f"✏️ Editar", key=f"edit_{idx}"):
                                     st.session_state.editando_practica_idx = indices_originales[idx]
                                     st.session_state.editando_practica_data = row.to_dict()
                                     st.rerun()
                             with col_eliminar:
-                                if st.button(f"🗑️ Eliminar registro #{idx+1}", key=f"del_{idx}"):
+                                if st.button(f"🗑️ Eliminar", key=f"del_{idx}"):
                                     st.session_state.eliminar_practica_idx = indices_originales[idx]
                                     st.rerun()
                             
@@ -523,7 +531,10 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                                     nuevos_valores = []
                                     for i_col, col in enumerate(df_practicas.columns):
                                         valor_actual = st.session_state.editando_practica_data.get(col, "")
-                                        nuevo_valor = st.text_input(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}")
+                                        if i_col == 1:  # Segundo campo - área de texto grande
+                                            nuevo_valor = st.text_area(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}", height=120)
+                                        else:
+                                            nuevo_valor = st.text_input(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}")
                                         nuevos_valores.append(nuevo_valor)
                                     
                                     col_guardar, col_cancelar = st.columns(2)
@@ -547,7 +558,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                             
                             # Confirmación de eliminación
                             if st.session_state.get('eliminar_practica_idx') == indices_originales[idx]:
-                                st.warning(f"⚠️ ¿Estás seguro de eliminar el registro #{idx+1}?")
+                                st.warning(f"⚠️ ¿Estás seguro de eliminar este registro?")
                                 col_confirmar, col_cancelar = st.columns(2)
                                 with col_confirmar:
                                     if st.button("✅ Sí, eliminar", key=f"confirm_del_{idx}", use_container_width=True):
