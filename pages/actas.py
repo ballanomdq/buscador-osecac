@@ -567,22 +567,42 @@ with tab2:
             # Renombrar columnas para mostrar
             df_editable = df_mostrar.rename(columns=TITULOS_MOSTRAR)
             
-            # Reordenar columnas: poner ID, 🗑️, CUIT, RAZON SOCIAL, CALLE, NUMERO, luego el resto
-            columnas_orden = ['ID', '🗑️', 'CUIT', 'RAZON SOCIAL', 'CALLE', 'NUMERO']
-            resto = [col for col in df_editable.columns if col not in columnas_orden and col != 'ID' and col != '🗑️']
-            df_editable = df_editable[columnas_orden + resto]
+            # Insertar columna de selección al principio
+            df_editable.insert(0, "🗑️", False)
             
-            # Configuración de columnas fijas y colores
+            # Reordenar columnas de forma segura (solo las que existen)
+            columnas_prioritarias = ['ID', '🗑️', 'CUIT', 'RAZON SOCIAL']
+            columnas_extra = ['CALLE', 'NUMERO']
+            
+            # Construir orden final solo con columnas que existen
+            orden_final = []
+            for col in columnas_prioritarias:
+                if col in df_editable.columns:
+                    orden_final.append(col)
+            for col in columnas_extra:
+                if col in df_editable.columns:
+                    orden_final.append(col)
+            for col in df_editable.columns:
+                if col not in orden_final:
+                    orden_final.append(col)
+            
+            df_editable = df_editable[orden_final]
+            
+            # Configuración de columnas fijas
             column_config = {
                 "🗑️": st.column_config.CheckboxColumn("", help="Marcar para eliminar", width="small"),
                 "ID": st.column_config.TextColumn("ID", width="small", help="Identificador único"),
                 "CUIT": st.column_config.TextColumn("CUIT", width="medium", help="CUIT de la empresa", sticky="left"),
                 "RAZON SOCIAL": st.column_config.TextColumn("RAZON SOCIAL", width="large", help="Razón social", sticky="left"),
-                "CALLE": st.column_config.TextColumn("CALLE", width="medium", help="Calle", sticky="left"),
-                "NUMERO": st.column_config.TextColumn("NÚMERO", width="small", help="Número", sticky="left"),
             }
             
-            # Configurar columnas editables con fondo gris
+            # Si existen CALLE y NUMERO, agregarlas como fijas
+            if 'CALLE' in df_editable.columns:
+                column_config["CALLE"] = st.column_config.TextColumn("CALLE", width="medium", help="Calle", sticky="left")
+            if 'NUMERO' in df_editable.columns:
+                column_config["NUMERO"] = st.column_config.TextColumn("NÚMERO", width="small", help="Número", sticky="left")
+            
+            # Configurar columnas editables
             columnas_editables = ['LEG', 'VTO', 'MAIL ENVIADO', 'ACTA', 'ESTADO GESTION']
             for col in columnas_editables:
                 if col in df_editable.columns:
@@ -595,12 +615,17 @@ with tab2:
                 if original_row is None:
                     continue
                 
-                # Comparar solo las columnas editables
                 for col in columnas_editables:
                     if col in df_editable.columns:
-                        if str(row.get(col, '')) != str(original_row.get(TITULOS_MOSTRAR.get(col, col), '')):
-                            hay_cambios = True
-                            break
+                        col_original = None
+                        for k, v in TITULOS_MOSTRAR.items():
+                            if v == col:
+                                col_original = k
+                                break
+                        if col_original:
+                            if str(row.get(col, '')) != str(original_row.get(col_original, '')):
+                                hay_cambios = True
+                                break
                 if hay_cambios:
                     break
             
