@@ -3,45 +3,38 @@ import folium
 from streamlit_folium import st_folium
 
 st.set_page_config(layout="wide")
+st.title("📍 Mapa de Jurisdicciones - VISTA SATELITAL")
 
-st.title("📍 Mapa Jurisdicciones OSECAC: MDP - MIRAMAR (Corregido)")
-
-# PUNTOS DE CONTROL CALIBRADOS
+# PUNTOS CLAVE
 P_LURO_COSTA = [-38.0009, -57.5416]
 P_LURO_CHAMP = [-37.9802, -57.5825]
 P_JBJUSTO_COSTA = [-38.0407, -57.5423]
 P_JBJUSTO_VIGNOLO = [-38.0003, -57.5958]
-P_ENTRADA_MIRAMAR = [-38.2650, -57.8400]
+P_MIRAMAR = [-38.2650, -57.8400]
+
+# Usamos Google Satellite para que las calles se vean perfectas
+m = folium.Map(
+    location=[-38.120, -57.680], 
+    zoom_start=11, 
+    tiles='https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    attr='Google'
+)
 
 zonas = [
-    {
-        "nombre": "RODRÍGUEZ", "color": "#00BFFF", # Celeste
-        "puntos": [[-37.9650, -57.6000], [-37.9550, -57.5400], P_LURO_COSTA, P_LURO_CHAMP]
-    },
-    {
-        "nombre": "CARBAYO", "color": "#DC143C", # Rosa
-        "puntos": [P_LURO_CHAMP, P_LURO_COSTA, P_JBJUSTO_COSTA, P_JBJUSTO_VIGNOLO]
-    },
-    {
-        "nombre": "LÓPEZ", "color": "#FFD700", # Amarillo
-        "puntos": [P_LURO_CHAMP, [-37.9800, -57.7500], [-38.0600, -57.7500], P_JBJUSTO_VIGNOLO]
-    },
-    {
-        "nombre": "GARCÍA", "color": "#FF8C00", # Naranja
-        "puntos": [P_JBJUSTO_VIGNOLO, P_JBJUSTO_COSTA, [-38.0800, -57.5200], [-38.1200, -57.5500], P_ENTRADA_MIRAMAR, [-38.1500, -57.7500]]
-    }
+    {"n": "RODRÍGUEZ", "c": "#00BFFF", "p": [[-37.9500, -57.6000], [-37.9500, -57.5300], P_LURO_COSTA, P_LURO_CHAMP]},
+    {"n": "CARBAYO", "c": "#DC143C", "p": [P_LURO_CHAMP, P_LURO_COSTA, P_JBJUSTO_COSTA, P_JBJUSTO_VIGNOLO]},
+    {"n": "LÓPEZ", "c": "#FFD700", "p": [P_LURO_CHAMP, [-37.9500, -57.8000], [-38.1000, -57.8000], P_JBJUSTO_VIGNOLO]},
+    {"n": "GARCÍA", "c": "#FF8C00", "p": [P_JBJUSTO_VIGNOLO, P_JBJUSTO_COSTA, [-38.1000, -57.5200], P_MIRAMAR, [-38.2000, -57.8000]]}
 ]
 
-# Creamos el mapa centrado entre MDP y Miramar
-m = folium.Map(location=[-38.120, -57.680], zoom_start=11, tiles="CartoDB positron")
-
-# Añadir cada zona al mapa
 for z in zonas:
     folium.Polygon(
-        locations=z["puntos"],
-        color="black", weight=2,
-        fill=True, fill_color=z["color"], fill_opacity=0.4,
-        tooltip=z["nombre"]
+        locations=z["p"],
+        color="white", # Borde blanco para que resalte en el satélite
+        weight=3,
+        fill=True,
+        fill_color=z["c"],
+        fill_opacity=0.3 # Bien clarito para ver las calles abajo
     ).add_to(m)
 
-st_folium(m, width="100%", height=700, returned_objects=[])
+st_folium(m, width="100%", height=750)
