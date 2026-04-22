@@ -2,51 +2,40 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
-st.set_page_config(layout="wide", page_title="OSECAC MDP - Final")
-st.title("📍 Mapa de Jurisdicciones Calibrado")
+st.set_page_config(layout="wide")
+st.title("📍 Mapa Final OSECAC - MDP / MIRAMAR")
 
-# 1. TUS PUNTOS DE REFERENCIA (Exactos según tus coordenadas)
-P_LURO_COSTA = [-38.0009, -57.5416] 
-P_LURO_CHAMP = [-37.9802, -57.5825] 
+# 1. PUNTOS MAESTROS (Tus referencias)
+P_LURO_COSTA = [-38.0009, -57.5416]
+P_LURO_CHAMP = [-37.9802, -57.5825]
 P_JBJUSTO_COSTA = [-38.0407, -57.5423]
-P_JBJUSTO_CHAMP = [-38.0250, -57.5950] # Ajustado para cerrar el cuadro
+P_JBJUSTO_VIGNOLO = [-38.0003, -57.5958]
+P_MIRAMAR = [-38.2650, -57.8400] # Punto de estiramiento para García
 
 zonas = [
     {
         "nombre": "RODRÍGUEZ (Norte)",
-        "color": "#00BFFF", # Celeste
-        "puntos": [
-            [-37.9750, -57.5450], [-37.9650, -57.5950], 
-            P_LURO_CHAMP, P_LURO_COSTA
-        ]
+        "color": "#00BFFF",
+        "puntos": [[-37.9650, -57.6000], [-37.9600, -57.5450], P_LURO_COSTA, P_LURO_CHAMP]
     },
     {
         "nombre": "CARBAYO (Centro)",
-        "color": "#DC143C", # Rosa
-        "puntos": [
-            P_LURO_COSTA, P_LURO_CHAMP, 
-            P_JBJUSTO_CHAMP, P_JBJUSTO_COSTA
-        ]
+        "color": "#DC143C",
+        "puntos": [P_LURO_CHAMP, P_LURO_COSTA, P_JBJUSTO_COSTA, P_JBJUSTO_VIGNOLO]
     },
     {
         "nombre": "LÓPEZ (Oeste)",
-        "color": "#FFD700", # Amarillo
-        "puntos": [
-            P_LURO_CHAMP, [-37.9850, -57.6800], 
-            [-38.0300, -57.6800], P_JBJUSTO_CHAMP
-        ]
+        "color": "#FFD700",
+        "puntos": [P_LURO_CHAMP, [-37.9800, -57.7500], [-38.0500, -57.7500], P_JBJUSTO_VIGNOLO]
     },
     {
-        "nombre": "GARCÍA (Sur/Puerto)",
-        "color": "#FF8C00", # Naranja
-        "puntos": [
-            P_JBJUSTO_COSTA, P_JBJUSTO_CHAMP, 
-            [-38.0800, -57.5800], [-38.1200, -57.5500], [-38.0500, -57.5300]
-        ]
+        "nombre": "GARCÍA (Sur hasta Miramar)",
+        "color": "#FF8C00",
+        "puntos": [P_LURO_COSTA, P_JBJUSTO_COSTA, P_MIRAMAR, [-38.3000, -57.8000], [-38.1000, -57.5200]]
     }
 ]
 
-m = folium.Map(location=[-38.005, -57.56], zoom_start=13, tiles="CartoDB positron")
+m = folium.Map(location=[-38.100, -57.650], zoom_start=11, tiles="CartoDB positron")
 
 for z in zonas:
     folium.Polygon(
