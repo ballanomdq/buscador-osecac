@@ -610,12 +610,15 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         st.session_state.novedades_expandido = False
         st.rerun()
 
+# ================= EXPANDER 8. FISCALIZACIÓN =================
 with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
     if st.button("📰 BOLETIN"):
         st.switch_page("pages/boletin.py")
     if st.button("📋 ACTAS"):
         st.switch_page("pages/actas.py")
+    if st.button("🗺️ ZONA DE INSPECTORES"):
+        st.switch_page("pages/zonas.py")
 
 # ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:0.2rem;">', unsafe_allow_html=True)
