@@ -2,59 +2,55 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
-st.set_page_config(layout="wide", page_title="Sistema de Zonas OSECAC MDP")
+# --- COORDENADAS MAESTRAS (Intersecciones Reales de MDP) ---
+# Estas coordenadas obligan al mapa a seguir la inclinación de las avenidas
+P_LURO_COSTA = [-38.0001, -57.5372]
+P_LURO_CHAMPAGNAT = [-38.0062, -57.6119]
+P_CONST_CHAMPAGNAT = [-37.9758, -57.6019]
+P_CONST_COSTA = [-37.9691, -57.5422]
+P_COLON_INDEP = [-37.9995, -57.5459]
+P_COLON_JARA = [-38.0061, -57.5818]
+P_JBJUSTO_INDEP = [-38.0355, -57.5501]
+P_JBJUSTO_JARA = [-38.0418, -57.5862]
 
-st.title("📍 Mapa de Jurisdicciones Calibrado (Ajuste por Avenida)")
-st.markdown("---")
+def main():
+    st.set_page_config(layout="wide", page_title="Zonas OSECAC MDP")
+    st.title("🗺️ Mapa de Inspección Calibrado")
+    st.caption("Polígonos alineados a la cuadrícula real (Avenidas)")
 
-# 1. REFERENCIA DE COLORES Y TÍTULOS (Leyenda)
-col1, col2, col3, col4 = st.columns(4)
-with col1: st.info("🔵 **RODRÍGUEZ** (Leg. 7713) - Norte")
-with col2: st.error("🔴 **CARBAYO** (Leg. 9220) - Macrocentro")
-with col3: st.warning("🟡 **LÓPEZ** (Leg. 9983) - Oeste")
-with col4: st.success("🟠 **GARCÍA** (Leg. 7952) - Sur/Puerto")
+    # Crear el mapa centrado en MDP
+    m = folium.Map(location=[-38.005, -57.56], zoom_start=13, tiles="CartoDB positron")
 
-# 2. CONFIGURACIÓN DEL MAPA BASE
-# Centrado exacto en la cuadrícula de Mar del Plata
-m = folium.Map(location=[-38.0055, -57.5426], zoom_start=13)
+    # 1. ZONA RODRÍGUEZ (Celeste) - Entre Constitución y Luro
+    folium.Polygon(
+        locations=[P_CONST_CHAMPAGNAT, P_CONST_COSTA, P_LURO_COSTA, P_LURO_CHAMPAGNAT],
+        color="blue", weight=2, fill=True, fill_opacity=0.3,
+        tooltip="ZONA RODRÍGUEZ (Norte)"
+    ).add_to(m)
 
-# --- COORDINADAS CALIBRADAS PARA SEGUIR LA TRAZA URBANA ---
+    # 2. ZONA CARBAYO (Rojo) - Entre Colón y J.B. Justo (Centro)
+    # Usamos P_COLON_JARA y P_JBJUSTO_JARA para que pegue perfecto con LÓPEZ
+    folium.Polygon(
+        locations=[P_COLON_INDEP, P_COLON_JARA, P_JBJUSTO_JARA, P_JBJUSTO_INDEP],
+        color="red", weight=2, fill=True, fill_opacity=0.3,
+        tooltip="ZONA CARBAYO (Centro)"
+    ).add_to(m)
 
-# RODRÍGUEZ (Norte: De Constitución a Luro)
-zona_rodriguez = [
-    [-37.9750, -57.5450], [-37.9980, -57.5450], # Costa desde Constitución a Luro
-    [-37.9980, -57.6050], [-37.9750, -57.6050]  # Por Champagnat (Límite Oeste)
-]
+    # 3. ZONA LÓPEZ (Amarillo) - De Av. Jara hacia el Oeste
+    folium.Polygon(
+        locations=[P_COLON_JARA, [-38.015, -57.680], [-38.055, -57.675], P_JBJUSTO_JARA],
+        color="orange", weight=2, fill=True, fill_opacity=0.3,
+        tooltip="ZONA LÓPEZ (Oeste)"
+    ).add_to(m)
 
-# CARBAYO (Macrocentro: Cuadrante entre Colón, J.B. Justo, Independencia y Jara)
-zona_carbayo = [
-    [-38.0120, -57.5520], [-38.0380, -57.5520], # Baja por Av. Independencia
-    [-38.0380, -57.5850], [-38.0120, -57.5850]  # Vuelve por Av. Jara (Límite Oeste)
-]
+    # 4. ZONA GARCÍA (Naranja) - Sur y Puerto
+    folium.Polygon(
+        locations=[P_COLON_INDEP, P_JBJUSTO_INDEP, [-38.100, -57.540], [-38.100, -57.580]],
+        color="darkorange", weight=2, fill=True, fill_opacity=0.3,
+        tooltip="ZONA GARCÍA (Sur)"
+    ).add_to(m)
 
-# LÓPEZ (Oeste: De Av. Jara hacia el fondo)
-# Estos puntos están alineados con Carbayo para no encimarse
-zona_lopez = [
-    [-38.0120, -57.5850], [-38.0380, -57.5850], # Límite CRÍTICO con Carbayo (Av. Jara)
-    [-38.0380, -57.6500], [-38.0120, -57.6500]  # Hacia el fondo (Campo)
-]
+    st_folium(m, width="100%", height=600)
 
-# GARCÍA (Sur/Costa: Puerto hasta Las Brusquitas)
-# Sigue la curva de la costa y dobla en las avenidas
-zona_garcia = [
-    [-38.0000, -57.5350], [-38.0120, -57.5350], # Borde Colón/Costa
-    [-38.0120, -57.5520], [-38.0380, -57.5520], # Dobla en Independencia/J.B. Justo
-    [-38.0380, -57.5400], [-38.0600, -57.5450], # Puerto
-    [-38.1500, -57.6300], [-38.2200, -57.7500], # Camino a Miramar
-    [-38.2300, -57.7000], [-38.0000, -57.5300]  # Cierre por costa
-]
-
-# 3. DIBUJAR LOS POLÍGONOS CON ALTA OPACIDAD
-# Usamos weight=1 y fill_opacity=0.3 para que se lean las calles debajo
-folium.Polygon(zona_rodriguez, color="blue", weight=1, fill=True, fill_opacity=0.3).add_to(m)
-folium.Polygon(zona_carbayo, color="red", weight=1, fill=True, fill_opacity=0.3).add_to(m)
-folium.Polygon(zona_lopez, color="yellow", weight=1, fill=True, fill_opacity=0.3).add_to(m)
-folium.Polygon(zona_garcia, color="orange", weight=1, fill=True, fill_opacity=0.3).add_to(m)
-
-# 4. MOSTRAR EL MAPA
-st_folium(m, width=1300, height=650)
+if __name__ == "__main__":
+    main()
