@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 st.set_page_config(layout="wide")
 st.title("📍 Mapa Jurisdicciones OSECAC: MDP - MIRAMAR")
 
-# PUNTOS DE CONTROL (Tus coordenadas)
+# PUNTOS DE CONTROL CALIBRADOS
 P_LURO_COSTA = [-38.0009, -57.5416]
 P_LURO_CHAMP = [-37.9802, -57.5825]
 P_JBJUSTO_COSTA = [-38.0407, -57.5423]
@@ -16,7 +16,7 @@ zonas = [
     {
         "nombre": "RODRÍGUEZ",
         "color": "#00BFFF", # Celeste
-        "puntos": [[-37.9650, -57.6000], [-37.9600, -57.5450], P_LURO_COSTA, P_LURO_CHAMP]
+        "puntos": [[-37.9650, -57.6000], [-37.9550, -57.5400], P_LURO_COSTA, P_LURO_CHAMP]
     },
     {
         "nombre": "CARBAYO",
@@ -26,12 +26,12 @@ zonas = [
     {
         "nombre": "LÓPEZ",
         "color": "#FFD700", # Amarillo
-        "puntos": [P_LURO_CHAMP, [-37.9800, -57.7500], [-38.0700, -57.7500], P_JBJUSTO_VIGNOLO]
+        "puntos": [P_LURO_CHAMP, [-37.9600, -57.7200], [-38.0600, -57.7200], P_JBJUSTO_VIGNOLO]
     },
     {
         "nombre": "GARCÍA",
         "color": "#FF8C00", # Naranja
-        "puntos": [P_JBJUSTO_COSTA, [-38.0500, -57.5200], [-38.2500, -57.7800], P_ENTRADA_MIRAMAR, P_JBJUSTO_VIGNOLO]
+        "puntos": [P_JBJUSTO_COSTA, [-38.0500, -57.5200], [-38.2300, -57.7800], P_ENTRADA_MIRAMAR, [-38.1000, -57.7000], P_JBJUSTO_VIGNOLO]
     }
 ]
 
