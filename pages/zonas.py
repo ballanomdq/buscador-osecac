@@ -1,54 +1,40 @@
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
+import json
 
-# --- COORDENADAS MAESTRAS (Intersecciones Reales de MDP) ---
-# Estas coordenadas obligan al mapa a seguir la inclinación de las avenidas
-P_LURO_COSTA = [-38.0001, -57.5372]
-P_LURO_CHAMPAGNAT = [-38.0062, -57.6119]
-P_CONST_CHAMPAGNAT = [-37.9758, -57.6019]
-P_CONST_COSTA = [-37.9691, -57.5422]
-P_COLON_INDEP = [-37.9995, -57.5459]
-P_COLON_JARA = [-38.0061, -57.5818]
-P_JBJUSTO_INDEP = [-38.0355, -57.5501]
-P_JBJUSTO_JARA = [-38.0418, -57.5862]
+# REGLA DE ORO: Si el punto A es el final de una zona, 
+# DEBE ser el inicio de la siguiente. 
 
 def main():
-    st.set_page_config(layout="wide", page_title="Zonas OSECAC MDP")
-    st.title("🗺️ Mapa de Inspección Calibrado")
-    st.caption("Polígonos alineados a la cuadrícula real (Avenidas)")
+    st.set_page_config(layout="wide", page_title="OSECAC MDP - Mapa Maestro")
+    
+    # 1. Definición de Nodos (Esquinas exactas de Google Maps)
+    # Estos puntos son los "clavos" donde se enganchan los hilos del mapa
+    NUDO_COLON_INDEP = [-37.9995, -57.5459]
+    NUDO_COLON_JARA  = [-38.0061, -57.5818]
+    NUDO_LURO_COSTA   = [-38.0001, -57.5372]
+    NUDO_LURO_CHAMP   = [-38.0062, -57.6119]
+    
+    m = folium.Map(location=[-38.005, -57.56], zoom_start=13, tiles="OpenStreetMap")
 
-    # Crear el mapa centrado en MDP
-    m = folium.Map(location=[-38.005, -57.56], zoom_start=13, tiles="CartoDB positron")
+    # ESTRATEGIA RADICAL: Crear una función que dibuje para evitar errores de tipeo
+    def dibujar_zona(puntos, color, nombre):
+        folium.Polygon(
+            locations=puntos,
+            color=color,
+            fill=True,
+            fill_opacity=0.4,
+            weight=3,
+            tooltip=nombre
+        ).add_to(m)
 
-    # 1. ZONA RODRÍGUEZ (Celeste) - Entre Constitución y Luro
-    folium.Polygon(
-        locations=[P_CONST_CHAMPAGNAT, P_CONST_COSTA, P_LURO_COSTA, P_LURO_CHAMPAGNAT],
-        color="blue", weight=2, fill=True, fill_opacity=0.3,
-        tooltip="ZONA RODRÍGUEZ (Norte)"
-    ).add_to(m)
-
-    # 2. ZONA CARBAYO (Rojo) - Entre Colón y J.B. Justo (Centro)
-    # Usamos P_COLON_JARA y P_JBJUSTO_JARA para que pegue perfecto con LÓPEZ
-    folium.Polygon(
-        locations=[P_COLON_INDEP, P_COLON_JARA, P_JBJUSTO_JARA, P_JBJUSTO_INDEP],
-        color="red", weight=2, fill=True, fill_opacity=0.3,
-        tooltip="ZONA CARBAYO (Centro)"
-    ).add_to(m)
-
-    # 3. ZONA LÓPEZ (Amarillo) - De Av. Jara hacia el Oeste
-    folium.Polygon(
-        locations=[P_COLON_JARA, [-38.015, -57.680], [-38.055, -57.675], P_JBJUSTO_JARA],
-        color="orange", weight=2, fill=True, fill_opacity=0.3,
-        tooltip="ZONA LÓPEZ (Oeste)"
-    ).add_to(m)
-
-    # 4. ZONA GARCÍA (Naranja) - Sur y Puerto
-    folium.Polygon(
-        locations=[P_COLON_INDEP, P_JBJUSTO_INDEP, [-38.100, -57.540], [-38.100, -57.580]],
-        color="darkorange", weight=2, fill=True, fill_opacity=0.3,
-        tooltip="ZONA GARCÍA (Sur)"
-    ).add_to(m)
+    # Dibujamos usando los NUDOS compartidos
+    # ZONA 1
+    dibujar_zona([[-37.969, -57.542], NUDO_LURO_COSTA, NUDO_LURO_CHAMP, [-37.975, -57.601]], "blue", "RODRÍGUEZ")
+    
+    # ZONA 2 (Usa los mismos nudos que la 1 para el borde norte)
+    dibujar_zona([NUDO_COLON_INDEP, NUDO_COLON_JARA, [-38.041, -57.586], [-38.035, -57.550]], "red", "CARBAYO")
 
     st_folium(m, width="100%", height=600)
 
