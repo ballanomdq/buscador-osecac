@@ -1,9 +1,38 @@
-{
-  "type": "FeatureCollection",
-  "features": [
-    {"type": "Feature", "properties": {"nombre": "RODRÍGUEZ", "color": "#00BFFF"}, "geometry": {"type": "Polygon", "coordinates": [[[-57.6019, -37.9758], [-57.5422, -37.9691], [-57.5372, -38.0001], [-57.6119, -38.0062], [-57.6019, -37.9758]]]}},
-    {"type": "Feature", "properties": {"nombre": "CARBAYO", "color": "#DC143C"}, "geometry": {"type": "Polygon", "coordinates": [[[-57.5459, -37.9995], [-57.5818, -38.0061], [-57.5862, -38.0418], [-57.5501, -38.0355], [-57.5459, -37.9995]]]}},
-    {"type": "Feature", "properties": {"nombre": "LÓPEZ", "color": "#FFD700"}, "geometry": {"type": "Polygon", "coordinates": [[[-57.5818, -38.0061], [-57.6800, -38.0150], [-57.6750, -38.0550], [-57.5862, -38.0418], [-57.5818, -38.0061]]]}},
-    {"type": "Feature", "properties": {"nombre": "GARCÍA", "color": "#FF8C00"}, "geometry": {"type": "Polygon", "coordinates": [[[-57.5459, -37.9995], [-57.5372, -38.0001], [-57.5312, -38.0305], [-57.5400, -38.0850], [-57.5348, -38.2215], [-57.5900, -38.1800], [-57.5501, -38.0355], [-57.5459, -37.9995]]]}}
-  ]
-}
+import streamlit as st
+import folium
+from streamlit_folium import st_folium
+import json
+
+# Configuración de página ancha para que el mapa se vea grande
+st.set_page_config(layout="wide", page_title="Mapa de Zonas OSECAC")
+
+st.title("📍 Mapa de Jurisdicciones - Mar del Plata")
+st.markdown("---")
+
+# 1. CARGAR LOS DATOS (Asegurate que el archivo se llame mapa.json)
+try:
+    with open("mapa.json", "r") as f:
+        datos_geo = json.load(f)
+except FileNotFoundError:
+    st.error("❌ No se encontró el archivo 'mapa.json'. Verificá el nombre.")
+    st.stop()
+
+# 2. CREAR EL MAPA BASE
+# Centrado en el nudo de Colón e Independencia
+m = folium.Map(location=[-38.005, -57.56], zoom_start=13, tiles="CartoDB positron")
+
+# 3. DIBUJAR EL GEOJSON (Esto es lo que convierte el código en colores)
+folium.GeoJson(
+    datos_geo,
+    style_function=lambda feature: {
+        'fillColor': feature['properties']['color'],
+        'color': 'black',
+        'weight': 2,
+        'fillOpacity': 0.4,
+    },
+    tooltip=folium.GeoJsonTooltip(fields=['nombre'], aliases=['Inspector:'])
+).add_to(m)
+
+# 4. RENDERIZAR EN STREAMLIT
+#returned_objects=[] evita que la página se recargue cada vez que tocas el mapa
+st_folium(m, width="100%", height=700, returned_objects=[])
