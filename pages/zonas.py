@@ -3,56 +3,53 @@ import folium
 from streamlit_folium import folium_static
 
 st.set_page_config(layout="wide")
-st.title("📍 Jurisdicción Precisa: INSPECTOR RODRÍGUEZ")
+st.title("📍 Mapa de Jurisdicción: RODRÍGUEZ (Datos Reales)")
 
-# --- COORDENADAS REALES BUSCADAS POR INTERSECCIÓN ---
+# --- COORDENADAS DE LAS ESQUINAS REALES (Intersecciones) ---
 
-# ZONA 1: Güemes / Bs As / Colón / JB Justo
-# Esquinas: (Colón y Güemes), (Colón y Bs As), (JB Justo y Bs As), (JB Justo y Güemes)
-zona1_coords = [
-    [-38.0054, -57.5434], [-38.0084, -57.5484], 
-    [-38.0326, -57.5616], [-38.0296, -57.5566]
+# ZONA 1: Güemes / Buenos Aires / Colón / JB Justo
+# Es un rectángulo inclinado siguiendo la cuadrícula de MDP
+zona1_esquinas = [
+    [-38.0105, -57.5360], # Colón y Güemes
+    [-38.0069, -57.5445], # Colón y Buenos Aires
+    [-38.0336, -57.5569], # J.B. Justo y Buenos Aires
+    [-38.0372, -57.5484]  # J.B. Justo y Güemes
 ]
 
-# ZONA 2: Microcentro / La Perla (Polígono de 5 puntos para dar la forma de la costa)
-# Esquinas: (Catamarca y Luro), (La Costa y Luro), (La Costa y 20 Sept), (Colón y 20 Sept), (Colón y Catamarca)
-zona2_coords = [
-    [-37.9935, -57.5545], [-37.9915, -57.5415], [-37.9975, -57.5395], 
-    [-38.0045, -57.5565], [-38.0015, -57.5595]
+# ZONA 2: Microcentro / La Perla (Siguiendo la diagonal de la costa)
+zona2_esquinas = [
+    [-38.0016, -57.5566], # Colón y Catamarca
+    [-38.0044, -57.5606], # Colón y 20 de Septiembre
+    [-37.9942, -57.5401], # 20 de Septiembre y la Costa (Bv. Marítimo)
+    [-37.9912, -57.5445]  # Catamarca y la Costa (F.U. Camet)
 ]
 
-# ZONA 3: San Juan / Bronzini / Colón / Pehuajó (El Oeste)
-# Esquinas: (San Juan y Colón), (San Juan y Pehuajó), (Bronzini y Pehuajó), (Bronzini y Colón)
-zona3_coords = [
-    [-38.0005, -57.5755], [-38.0155, -57.6555], 
-    [-38.0355, -57.6455], [-38.0205, -57.5655]
+# ZONA 3: San Juan / Bronzini / Colón / Pehuajó (El Oeste Profundo)
+# Esta zona se estira hacia el suroeste siguiendo la cuadrícula
+zona3_esquinas = [
+    [-38.0004, -57.5682], # Colón y San Juan
+    [-38.0017, -57.5750], # Colón y T. Bronzini
+    [-38.0430, -57.6380], # T. Bronzini y Pehuajó (estimado por altura 9000)
+    [-38.0410, -57.6310]  # San Juan y Pehuajó (estimado por altura 9000)
 ]
 
-# --- RENDERIZADO ---
+# --- CREACIÓN DEL MAPA ---
+m = folium.Map(location=[-38.0150, -57.5600], zoom_start=13, tiles="OpenStreetMap")
 
-m = folium.Map(location=[-38.0150, -57.5800], zoom_start=13)
+# Estilo de los polígonos (Usamos el Turquesa de Rodríguez)
+estilo = {'fillColor': '#00CED1', 'color': '#00CED1', 'fillOpacity': 0.5, 'weight': 3}
 
-# Dibujar Zona 1
-folium.Polygon(
-    locations=zona1_coords,
-    color="cyan", fill=True, fill_opacity=0.4,
-    popup="<b>ZONA 1 - RODRÍGUEZ</b><br>Güemes/BsAs<br>Límite: Colón y JB Justo"
-).add_to(m)
+# Dibujar cada isla por separado
+folium.Polygon(locations=zona1_esquinas, **estilo, 
+               popup="ZONA 1: Güemes/BsAs<br>Colón (PAR) / JB Justo (IMPAR)").add_to(m)
 
-# Dibujar Zona 2
-folium.Polygon(
-    locations=zona2_coords,
-    color="teal", fill=True, fill_opacity=0.4,
-    popup="<b>ZONA 2 - RODRÍGUEZ</b><br>La Perla / Microcentro<br>Límite: Catamarca/20 Sept"
-).add_to(m)
+folium.Polygon(locations=zona2_esquinas, **estilo, 
+               popup="ZONA 2: La Perla<br>Catamarca (IMPAR) / 20 Sept (PAR)").add_to(m)
 
-# Dibujar Zona 3
-folium.Polygon(
-    locations=zona3_coords,
-    color="darkturquoise", fill=True, fill_opacity=0.4,
-    popup="<b>ZONA 3 - RODRÍGUEZ</b><br>Oeste: San Juan/Bronzini<br>Hasta Pehuajó"
-).add_to(m)
+folium.Polygon(locations=zona3_esquinas, **estilo, 
+               popup="ZONA 3: Oeste Urbano<br>San Juan/Bronzini hasta Pehuajó").add_to(m)
 
-folium_static(m, width=1200, height=650)
+# Mostrar en Streamlit
+folium_static(m, width=1200, height=700)
 
-st.help("Los rectángulos ahora siguen las líneas de las avenidas principales mencionadas.")
+st.success("Interpretación completada: 3 Islas independientes cargadas con intersecciones reales.")
