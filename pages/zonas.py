@@ -1,29 +1,27 @@
 import folium
 
-# 1. Usamos un proveedor de mapas diferente (OpenStreetMap) y forzamos el renderizado
-mapa = folium.Map(
-    location=[-38.005, -57.555], 
-    zoom_start=14,
-    tiles="OpenStreetMap" # Forzamos el mapa estándar
-)
+# 1. Creamos el mapa SIN mapa base (todo negro/gris) para que no dependa de internet
+mapa = folium.Map(location=[-38.005, -57.555], zoom_start=14, tiles=None)
 
-# Estilo simple
-estilo = {'fillColor': 'blue', 'color': 'red', 'weight': 5, 'fillOpacity': 0.7}
+# Agregamos una capa de color sólido de fondo para ver si el lienzo funciona
+folium.TileLayer('stamenwatercolor', name='Prueba de Fondo').add_to(mapa)
 
-# --- ZONA 1 DE RODRÍGUEZ (Puntos de control exactos) ---
-# Si esto no se ve, el problema es la instalación de la librería
-zona1 = [
-    [-38.0050, -57.5450], 
-    [-38.0100, -57.5450], 
-    [-38.0100, -57.5500], 
-    [-38.0050, -57.5500]
+# Estilo fuerte: Rojo para que resalte
+estilo = {'fillColor': 'red', 'color': 'black', 'weight': 5, 'fillOpacity': 0.8}
+
+# ZONA DE PRUEBA (Un cuadrado grande en el centro)
+zona_test = [
+    [-38.000, -57.550], 
+    [-38.010, -57.550], 
+    [-38.010, -57.560], 
+    [-38.000, -57.560]
 ]
 
-folium.Polygon(locations=zona1, popup="TEST ZONA 1", **estilo).add_to(mapa)
+folium.Polygon(locations=zona_test, popup="SI VES ESTO, EL CODIGO FUNCIONA", **estilo).add_to(mapa)
 
-# Marcador gigante para ver si aparece algo
-folium.Marker([-38.005, -57.555], popup="ESTOY ACÁ").add_to(mapa)
+# Marcador simple
+folium.Marker([-38.005, -57.555], popup="CENTRO").add_to(mapa)
 
-# 2. Guardar
-mapa.save('mapa_rodriguez.html')
-print("Archivo guardado. Abrilo con Chrome o Edge.")
+# 2. Guardar con un nombre nuevo
+mapa.save('prueba_final.html')
+print("Archivo 'prueba_final.html' creado. Abrilo ahora.")
