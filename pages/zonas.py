@@ -2,32 +2,25 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
-# Configuración para que el mapa ocupe toda la pantalla
 st.set_page_config(layout="wide")
 st.title("Mapa de Jurisdicciones: Inspector RODRÍGUEZ")
 
-# 1. Configuración del mapa base
-# Centramos un poco más al sur para ver el estiramiento completo
 mapa = folium.Map(location=[-38.018, -57.548], zoom_start=14)
-
-# Estilo visual: Celeste fuerte para Rodríguez
 estilo = {'fillColor': '#00BFFF', 'color': 'blue', 'weight': 4, 'fillOpacity': 0.6}
 
-# --- ZONA 1: EL MOLDE MAESTRO (LARGO, ANCHO Y PARALELO) ---
-# He estirado los puntos hacia el sur (San Carlos) y ensanchado hacia Buenos Aires
-z1_molde = [
-    [-38.0050, -57.5440], # Esquina Colón y Güemes
-    [-38.0085, -57.5365], # Esquina Colón y Buenos Aires
-    [-38.0330, -57.5580], # Esquina J.B. Justo y Buenos Aires (MUCHO MÁS LARGO)
-    [-38.0290, -57.5655]  # Esquina J.B. Justo y Güemes (MUCHO MÁS LARGO)
+# --- ZONA 1: AJUSTE FINAL (UNA CUADRA MÁS Y CORTE RECTO) ---
+# Se estiró el límite norte para llegar a Güemes y se enderezó el sur.
+z1_finalisimo = [
+    [-38.0045, -57.5448], # Esquina Colón y Güemes (Estirado 1 cuadra)
+    [-38.0080, -57.5375], # Esquina Colón y Buenos Aires (Estirado 1 cuadra)
+    [-38.0335, -57.5585], # Esquina Sur-Este (Corte recto en J.B. Justo)
+    [-38.0300, -57.5655]  # Esquina Sur-Oeste (Corte recto en J.B. Justo)
 ]
 
-# Dibujamos el polígono (usando folium. explicitamente para evitar el NameError)
 folium.Polygon(
-    locations=z1_molde, 
-    popup="Rodríguez - Zona 1 (Calibración Final)", 
+    locations=z1_finalisimo, 
+    popup="Rodríguez - Zona 1 (Ajuste Final)", 
     **estilo
 ).add_to(mapa)
 
-# 2. Renderizado para Streamlit
 st_folium(mapa, width=1200, height=800)
