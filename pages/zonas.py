@@ -1,43 +1,46 @@
 import folium
 
-# 1. Centramos el mapa en una zona intermedia de las jurisdicciones de Rodríguez
-mapa_rodriguez = folium.Map(location=[-38.005, -57.560], zoom_start=13)
+# Centramos el mapa justo en Colón e Independencia
+mapa = folium.Map(location=[-38.005, -57.555], zoom_start=14)
 
-# Estilo para Rodríguez
-estilo = {'fillColor': '#00BFFF', 'color': '#00BFFF', 'weight': 2, 'fillOpacity': 0.5}
+# Definimos el estilo de Rodríguez
+estilo_rodriguez = {
+    'fillColor': 'blue',
+    'color': 'blue',
+    'weight': 3,
+    'fillOpacity': 0.6
+}
 
-# --- ZONA 1 (Güemes / Bs. As. / Colón / J.B. Justo) ---
-# Esquinas reales aproximadas:
-z1 = [
+# --- ZONA 1: Cuadrante Güemes ---
+# Estas coordenadas forman un cuadrado real en Mar del Plata
+zona1 = [
     [-38.0058, -57.5434], # Colón y Güemes
     [-38.0101, -57.5381], # Colón y Buenos Aires
-    [-38.0255, -57.5562], # J.B. Justo y Buenos Aires
-    [-38.0210, -57.5615]  # J.B. Justo y Güemes
+    [-38.0195, -57.5468], # J.B. Justo y Buenos Aires
+    [-38.0152, -57.5521]  # J.B. Justo y Güemes
 ]
-folium.Polygon(locations=z1, popup="Rodríguez - Zona 1", **estilo).add_to(mapa_rodriguez)
+folium.Polygon(locations=zona1, popup="Rodríguez Zona 1", **estilo_rodriguez).add_to(mapa)
 
-# --- ZONA 2 (Microcentro / La Perla) ---
-# Usando Catamarca, Colón y el borde costero
-z2 = [
-    [-37.9942, -57.5435], # F.U. Camet y Catamarca
-    [-38.0006, -57.5548], # Colón y Catamarca
-    [-37.9976, -57.5592], # Colón y 20 de Septiembre
-    [-37.9915, -57.5510]  # Costa y 20 de Septiembre
+# --- ZONA 2: La Perla / Microcentro ---
+zona2 = [
+    [-37.9945, -57.5438], # La Costa y Catamarca
+    [-38.0010, -57.5540], # Colón y Catamarca
+    [-37.9980, -57.5590], # Colón y 20 de Septiembre
+    [-37.9910, -57.5500]  # La Costa y 20 de Septiembre
 ]
-folium.Polygon(locations=z2, popup="Rodríguez - Zona 2", **estilo).add_to(mapa_rodriguez)
+folium.Polygon(locations=zona2, popup="Rodríguez Zona 2", **estilo_rodriguez).add_to(mapa)
 
-# --- ZONA 3 (San Juan / Bronzini - El Oeste) ---
-# San Juan, Bronzini y el límite hacia Pehuajó
-z3 = [
+# --- ZONA 3: San Juan / Bronzini ---
+zona3 = [
     [-37.9890, -57.5700], # Colón y San Juan
     [-37.9970, -57.5810], # Colón y T. Bronzini
-    [-38.0050, -57.6100], # T. Bronzini y zona Pehuajó (estimado oeste)
-    [-37.9950, -57.6150]  # San Juan y zona Pehuajó (estimado oeste)
+    [-38.0040, -57.5950], # T. Bronzini y el oeste
+    [-37.9940, -57.5850]  # San Juan y el oeste
 ]
-folium.Polygon(locations=z3, popup="Rodríguez - Zona 3", **estilo).add_to(mapa_rodriguez)
+folium.Polygon(locations=zona3, popup="Rodríguez Zona 3", **estilo_rodriguez).add_to(mapa)
 
-# Marcador de control para que no te pierdas
-folium.Marker([-38.0009, -57.5416], popup="Luro y Costa").add_to(mapa_rodriguez)
+# Marcador de prueba para ver si el mapa carga
+folium.Marker([-38.000, -57.550], popup="Punto de Control").add_to(mapa)
 
 # Guardar
-mapa_rodriguez.save('mapa_test.html')
+mapa.save('mapa_rodriguez.html')
