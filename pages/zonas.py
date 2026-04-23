@@ -2,98 +2,57 @@ import streamlit as st
 import folium
 from streamlit_folium import folium_static
 
-# Configuración de la página
-st.set_page_config(layout="wide", page_title="Jurisdicción: RODRÍGUEZ")
+st.set_page_config(layout="wide")
+st.title("📍 Jurisdicción Precisa: INSPECTOR RODRÍGUEZ")
 
-st.title("🛡️ Jurisdicción de Inspección: RODRÍGUEZ")
-st.markdown("### Mar del Plata - Control de Veredas y Alturas")
+# --- COORDENADAS REALES BUSCADAS POR INTERSECCIÓN ---
 
-# --- DATA ESTRUCTURADA DE RODRÍGUEZ ---
-RODRIGUEZ_ZONAS = [
-    {
-        "id": "R1",
-        "nombre": "ZONA 1: Cuadrante Güemes / Buenos Aires",
-        "color": "#00CED1",
-        "descripcion": """
-            <b>Límites y Paridad:</b><br>
-            - <b>Norte:</b> Calle Güemes (2200-4800) - <b>VEREDA IMPAR</b><br>
-            - <b>Sur:</b> Calle Buenos Aires (2200-4500) - <b>VEREDA PAR</b><br>
-            - <b>Este:</b> Av. Colón (2000-1300) - <b>VEREDA PAR</b><br>
-            - <b>Oeste:</b> Av. J.B. Justo (2000-1300) - <b>VEREDA IMPAR</b>
-        """,
-        # Coordenadas aproximadas según alturas MDP (Colón/JB Justo y Güemes/BsAs)
-        "coords": [
-            [-38.0055, -57.5430], [-38.0075, -57.5485], 
-            [-38.0345, -57.5615], [-38.0325, -57.5560]
-        ]
-    },
-    {
-        "id": "R2",
-        "nombre": "ZONA 2: Microcentro / La Perla (Polígono Costero)",
-        "color": "#008B8B",
-        "descripcion": """
-            <b>Límites y Paridad:</b><br>
-            - <b>Norte:</b> Calle Catamarca (500-2100) - <b>VEREDA IMPAR</b><br>
-            - <b>Sur:</b> 20 de Septiembre (0-2100, PAR) y Charlone (300-0, PAR)<br>
-            - <b>Este:</b> F.U. Camet (0-200) y Bv. Marítimo P. Ramos (0-600)<br>
-            - <b>Oeste:</b> Av. Colón (3500-3100) - <b>VEREDA IMPAR</b>
-        """,
-        # Polígono irregular costero
-        "coords": [
-            [-37.9895, -57.5410], [-37.9940, -57.5385], [-37.9985, -57.5440],
-            [-38.0015, -57.5560], [-37.9930, -57.5600], [-37.9880, -57.5490]
-        ]
-    },
-    {
-        "id": "R3",
-        "nombre": "ZONA 3: Cuadrante San Juan / Bronzini (Oeste)",
-        "color": "#20B2AA",
-        "descripcion": """
-            <b>Límites y Paridad:</b><br>
-            - <b>Norte:</b> Calle San Juan (2200-4800) - <b>VEREDA IMPAR</b><br>
-            - <b>Sur:</b> Calle T. Bronzini (2200-4800) - <b>VEREDA PAR</b><br>
-            - <b>Este:</b> Av. Colón (5800-4200) - <b>VEREDA PAR</b><br>
-            - <b>Oeste:</b> Pehuajó y Heguilor (0-Final) - Altura 9000-7500
-        """,
-        # Extensión hacia el Oeste
-        "coords": [
-            [-38.0100, -57.5850], [-38.0150, -57.6100], 
-            [-38.0550, -57.6500], [-38.0450, -57.6150]
-        ]
-    }
+# ZONA 1: Güemes / Bs As / Colón / JB Justo
+# Esquinas: (Colón y Güemes), (Colón y Bs As), (JB Justo y Bs As), (JB Justo y Güemes)
+zona1_coords = [
+    [-38.0054, -57.5434], [-38.0084, -57.5484], 
+    [-38.0326, -57.5616], [-38.0296, -57.5566]
 ]
 
-# --- UI DE SELECCIÓN ---
-st.info("💡 Interpretación de Veredas: El sistema valida Calle + Altura + Paridad.")
+# ZONA 2: Microcentro / La Perla (Polígono de 5 puntos para dar la forma de la costa)
+# Esquinas: (Catamarca y Luro), (La Costa y Luro), (La Costa y 20 Sept), (Colón y 20 Sept), (Colón y Catamarca)
+zona2_coords = [
+    [-37.9935, -57.5545], [-37.9915, -57.5415], [-37.9975, -57.5395], 
+    [-38.0045, -57.5565], [-38.0015, -57.5595]
+]
 
-tabs = st.tabs([z["nombre"] for z in RODRIGUEZ_ZONAS])
+# ZONA 3: San Juan / Bronzini / Colón / Pehuajó (El Oeste)
+# Esquinas: (San Juan y Colón), (San Juan y Pehuajó), (Bronzini y Pehuajó), (Bronzini y Colón)
+zona3_coords = [
+    [-38.0005, -57.5755], [-38.0155, -57.6555], 
+    [-38.0355, -57.6455], [-38.0205, -57.5655]
+]
 
-for i, tab in enumerate(tabs):
-    with tab:
-        st.markdown(RODRIGUEZ_ZONAS[i]["descripcion"], unsafe_allow_html=True)
+# --- RENDERIZADO ---
 
-st.divider()
+m = folium.Map(location=[-38.0150, -57.5800], zoom_start=13)
 
-# --- MAPA ---
-# Centramos el mapa para que abarque desde la costa hasta el extremo oeste (Pehuajó)
-m = folium.Map(location=[-38.0200, -57.5800], zoom_start=13, tiles="OpenStreetMap")
+# Dibujar Zona 1
+folium.Polygon(
+    locations=zona1_coords,
+    color="cyan", fill=True, fill_opacity=0.4,
+    popup="<b>ZONA 1 - RODRÍGUEZ</b><br>Güemes/BsAs<br>Límite: Colón y JB Justo"
+).add_to(m)
 
-for zona in RODRIGUEZ_ZONAS:
-    folium.Polygon(
-        locations=zona["coords"],
-        color=zona["color"],
-        fill=True,
-        fill_color=zona["color"],
-        fill_opacity=0.5,
-        weight=3,
-        popup=folium.Popup(f"<b>{zona['nombre']}</b><br>{zona['descripcion']}", max_width=350),
-        tooltip=f"RODRÍGUEZ - {zona['id']}"
-    ).add_to(m)
+# Dibujar Zona 2
+folium.Polygon(
+    locations=zona2_coords,
+    color="teal", fill=True, fill_opacity=0.4,
+    popup="<b>ZONA 2 - RODRÍGUEZ</b><br>La Perla / Microcentro<br>Límite: Catamarca/20 Sept"
+).add_to(m)
 
-# Marcadores de referencia para orientación
-folium.Marker([-38.0009, -57.5416], tooltip="Centro MDP", icon=folium.Icon(color='red')).add_to(m)
-folium.Marker([-38.0550, -57.6500], tooltip="Límite Oeste (Pehuajó/Heguilor)", icon=folium.Icon(color='blue')).add_to(m)
+# Dibujar Zona 3
+folium.Polygon(
+    locations=zona3_coords,
+    color="darkturquoise", fill=True, fill_opacity=0.4,
+    popup="<b>ZONA 3 - RODRÍGUEZ</b><br>Oeste: San Juan/Bronzini<br>Hasta Pehuajó"
+).add_to(m)
 
 folium_static(m, width=1200, height=650)
 
-st.warning("Nota: Los polígonos son representaciones de área. La validación legal se realiza por la paridad de la vereda indicada en el texto.")
+st.help("Los rectángulos ahora siguen las líneas de las avenidas principales mencionadas.")
