@@ -1,19 +1,19 @@
-# --- ZONA 1 (ESTIRADA Y ALINEADA A BUENOS AIRES) ---
-# He ajustado los puntos para que el lateral pase exacto por la calle Buenos Aires
-# y los extremos toquen Colón y J.B. Justo sin torcerse.
+# --- ZONA 1 (RE-ESTIRADA Y EN ESCUADRA TOTAL) ---
+# Se ajustaron los 4 vértices para que cierren en ángulo recto
+# y cubran toda la extensión desde Colón hasta Juan B. Justo.
 
-z1_estirado = [
+z1_final = [
     [-38.0058, -57.5435], # Esquina 1: Av. Colón y Güemes
-    [-38.0098, -57.5385], # Esquina 2: Av. Colón y Buenos Aires (Lateral exacto)
-    [-38.0260, -57.5565], # Esquina 3: Av. J.B. Justo y Buenos Aires (Estirado al Sur)
-    [-38.0215, -57.5618]  # Esquina 4: Av. J.B. Justo y Güemes (Estirado al Sur)
+    [-38.0099, -57.5384], # Esquina 2: Av. Colón y Buenos Aires (Vértice Norte)
+    [-38.0265, -57.5568], # Esquina 3: Av. J.B. Justo y Buenos Aires (Vértice Sur - Estirado)
+    [-38.0224, -57.5619]  # Esquina 4: Av. J.B. Justo y Güemes (Vértice Oeste - Estirado)
 ]
 
 folium.Polygon(
-    locations=z1_estirado, 
-    popup="Rodríguez - Zona 1 (Alineación Final)", 
+    locations=z1_final, 
+    popup="Rodríguez - Zona 1 (Escuadra y Proporción Final)", 
     fillColor='#00BFFF', 
     color='blue', 
-    weight=4, # Línea más gruesa para que veas si pisa la calle
-    fillOpacity=0.5
+    weight=4, 
+    fillOpacity=0.6
 ).add_to(mapa)
