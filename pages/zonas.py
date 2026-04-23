@@ -1,55 +1,93 @@
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont
-import io
+import folium
+from streamlit_folium import folium_static
+import pandas as pd
 
-def generar_infografia_osecac():
-    # Creamos un lienzo oscuro profesional (Full HD)
-    img = Image.new('RGB', (1200, 800), color='#1E1E1E')
-    draw = ImageDraw.Draw(img)
-    
-    # Intentamos cargar una fuente clara, si no, usamos la de sistema
-    try:
-        font_title = ImageFont.truetype("arial.ttf", 45)
-        font_inspector = ImageFont.truetype("arial.ttf", 30)
-        font_calle = ImageFont.truetype("arial.ttf", 18)
-    except:
-        font_title = font_inspector = font_calle = ImageFont.load_default()
+# Configuración de la página
+st.set_page_config(layout="wide", page_title="Mapa de Inspectores - Mar del Plata")
 
-    # TÍTULO
-    draw.text((50, 30), "MAPA TÉCNICO DE JURISDICCIONES - OSECAC MDP", fill="white", font=font_title)
-    draw.line((50, 85, 1150, 85), fill="#444444", width=2)
+st.title("📍 Distribución de Zonas de Inspectores - Mar del Plata")
 
-    # DEFINICIÓN DE ZONAS (Coordenadas de dibujo, no geográficas)
-    # ZONA NORTE - RODRÍGUEZ (Celeste)
-    draw.rectangle([100, 150, 550, 350], fill="#00BFFF33", outline="#00BFFF", width=3)
-    draw.text((120, 160), "INSPECTOR: RODRÍGUEZ (NORTE)", fill="#00BFFF", font=font_inspector)
-    draw.text((120, 200), "LÍMITES PERIMETRALES:", fill="white", font=font_calle)
-    draw.text((120, 230), "• NORTE: Límite Partido Gral. Pueyrredón\n• SUR: Av. Pedro Luro\n• ESTE: Costa Atlántica\n• OESTE: Av. Champagnat", fill="#AAAAAA", font=font_calle)
+# --- BASE DE DATOS DE ZONAS (Aquí debes ajustar las coordenadas y límites) ---
+# Nota: Las coordenadas son ejemplos ilustrativos. Debes buscar los puntos en Google Maps.
+ZONAS_DATA = {
+    "LOPEZ, MARTIN LEONARDO": {
+        "color": "#FF5733", # Naranja
+        "limites": "Av. Colón, Av. Independencia, Av. Juan B. Justo, La Costa",
+        "indicaciones": "Calle Colón (Vereda Impar), Santiago del Estero (Vereda Impar).",
+        "calles_internas": "San Luis, Mitre, Hipólito Yrigoyen, entre otras.",
+        "coordenadas": [
+            [-38.005, -57.545], [-38.005, -57.560], 
+            [-38.020, -57.560], [-38.020, -57.545]
+        ]
+    },
+    "GARCIA, JUAN PAULO": {
+        "color": "#33FF57", # Verde
+        "limites": "J.B. Justo, Av. Vértiz, Av. Edison, Av. Antártida Argentina",
+        "indicaciones": "Comparte J.B. Justo (Vereda Par) con Lopez.",
+        "calles_internas": "Cerrito, Acha, Juramento, Magallanes.",
+        "coordenadas": [
+            [-38.025, -57.565], [-38.025, -57.585], 
+            [-38.040, -57.585], [-38.040, -57.565]
+        ]
+    },
+    "CARBAYO, VICTOR HUGO": {
+        "color": "#3357FF", # Azul
+        "limites": "Av. Juan B. Justo, Av. Independencia, Av. Paso, Av. Jara",
+        "indicaciones": "Toma vereda par en Av. Independencia.",
+        "calles_internas": "Matheu, Formosa, Quintana, Saavedra.",
+        "coordenadas": [
+            [-38.015, -57.570], [-38.015, -57.590], 
+            [-38.030, -57.590], [-38.030, -57.570]
+        ]
+    },
+    "RODRIGUEZ, MAXIMILIANO": {
+        "color": "#F333FF", # Rosa/Púrpura
+        "limites": "Charlone, 20 de Septiembre, Av. Colón, Bv. Maritimo",
+        "indicaciones": "Zona céntrica y comercial.",
+        "calles_internas": "Félix U. Camet, Catamarca, La Rioja.",
+        "coordenadas": [
+            [-37.990, -57.540], [-37.990, -57.555], 
+            [-38.000, -57.555], [-38.000, -57.540]
+        ]
+    }
+}
 
-    # ZONA CENTRO - CARBAYO (Rosa)
-    draw.rectangle([600, 150, 1100, 350], fill="#DC143C33", outline="#DC143C", width=3)
-    draw.text((620, 160), "INSPECTOR: CARBAYO (CENTRO)", fill="#DC143C", font=font_inspector)
-    draw.text((620, 200), "LÍMITES PERIMETRALES:", fill="white", font=font_calle)
-    draw.text((620, 230), "• NORTE: Av. Pedro Luro\n• SUR: Av. Juan B. Justo\n• ESTE: Costa Atlántica (Varese/P. Grande)\n• OESTE: Av. Champagnat", fill="#AAAAAA", font=font_calle)
+# --- SECCIÓN SUPERIOR: INFORMACIÓN DETALLADA ---
+st.markdown("### 📋 Listado de Responsabilidades y Límites")
 
-    # ZONA OESTE - LÓPEZ (Amarillo)
-    draw.rectangle([100, 400, 550, 650], fill="#FFD70033", outline="#FFD700", width=3)
-    draw.text((120, 410), "INSPECTOR: LÓPEZ (OESTE / BATÁN)", fill="#FFD700", font=font_inspector)
-    draw.text((120, 450), "LÍMITES PERIMETRALES:", fill="white", font=font_calle)
-    draw.text((120, 480), "• NORTE: Límite Rural\n• SUR: Av. Juan B. Justo (prolongación)\n• ESTE: Av. Champagnat\n• OESTE: Batán / Parque Industrial", fill="#AAAAAA", font=font_calle)
+# Mostramos la info en columnas o expansores para que sea ordenado
+cols = st.columns(len(ZONAS_DATA))
 
-    # ZONA SUR - GARCÍA (Naranja)
-    draw.rectangle([600, 400, 1100, 650], fill="#FF8C0033", outline="#FF8C00", width=3)
-    draw.text((620, 410), "INSPECTOR: GARCÍA (SUR / MIRAMAR)", fill="#FF8C00", font=font_inspector)
-    draw.text((620, 450), "LÍMITES PERIMETRALES:", fill="white", font=font_calle)
-    draw.text((620, 480), "• NORTE: Av. Juan B. Justo\n• SUR: Ciudad de MIRAMAR\n• ESTE: Costa (Faro / Chapadmalal)\n• OESTE: Ruta 88 / Campo", fill="#AAAAAA", font=font_calle)
+for i, (nombre, data) in enumerate(ZONAS_DATA.items()):
+    with st.expander(f"👤 {nombre}"):
+        st.markdown(f"**Límites:** {data['limites']}")
+        st.markdown(f"**Indicaciones Especiales:** {data['indicaciones']}")
+        st.markdown(f"**Calles principales internas:** {data['calles_internas']}")
+        st.write(f"Color en mapa: 🟦" if data['color'] == "#3357FF" else "🟧") # Representación visual simple
 
-    # PIE DE PÁGINA
-    draw.text((50, 720), "Nota: Los límites coinciden con el Mapa de Jurisdicción Interna de la Agencia.", fill="#666666", font=font_calle)
-    
-    return img
+# --- SECCIÓN DEL MAPA ---
+st.markdown("---")
+st.subheader("🗺️ Visualización Espacial")
 
-# Ejecución en Streamlit
-st.subheader("Esquema Técnico para Validación de Inspectores")
-imagen_final = generar_infografia_osecac()
-st.image(imagen_final, use_container_width=True)
+# Crear el mapa base centrado en Mar del Plata
+m = folium.Map(location=[-38.005, -57.555], zoom_start=13, tiles="OpenStreetMap")
+
+# Dibujar cada zona
+for nombre, data in ZONAS_DATA.items():
+    # Creamos el polígono
+    folium.Polygon(
+        locations=data['coordenadas'],
+        color=data['color'],
+        fill=True,
+        fill_color=data['color'],
+        fill_opacity=0.4,
+        weight=2,
+        popup=folium.Popup(f"<b>Inspector:</b> {nombre}<br><b>Límites:</b> {data['limites']}", max_width=300),
+        tooltip=nombre
+    ).add_to(m)
+
+# Mostrar el mapa en Streamlit
+folium_static(m, width=1000, height=600)
+
+st.info("💡 Haz clic en cada zona coloreada para ver más detalles del inspector.")
