@@ -2,129 +2,98 @@ import streamlit as st
 import folium
 from streamlit_folium import folium_static
 
-# Configuración de página
-st.set_page_config(layout="wide", page_title="Jurisdicciones Inspectores MDP")
+# Configuración de la página
+st.set_page_config(layout="wide", page_title="Jurisdicción: RODRÍGUEZ")
 
-st.title("📋 Sistema de Gestión Territorial de Inspectores")
-st.markdown("### Mar del Plata - Batán - Miramar")
+st.title("🛡️ Jurisdicción de Inspección: RODRÍGUEZ")
+st.markdown("### Mar del Plata - Control de Veredas y Alturas")
 
-# --- DEFINICIÓN DE COLORES POR INSPECTOR ---
-COLORES = {
-    "CARBAYO": "#FF1493",    # Rosa Fucsia
-    "RODRÍGUEZ": "#00CED1",  # Turquesa
-    "LÓPEZ": "#00008B",      # Azul Oscuro
-    "GARCÍA": "#FF8C00"      # Naranja
-}
-
-# --- ESTRUCTURA DE DATOS (ISLAS INDEPENDIENTES) ---
-# He usado tus puntos de referencia para proyectar los polígonos
-ZONAS_DATA = [
-    # --- INSPECTOR CARBAYO ---
+# --- DATA ESTRUCTURADA DE RODRÍGUEZ ---
+RODRIGUEZ_ZONAS = [
     {
-        "inspector": "CARBAYO",
-        "nombre": "ZONA 1: Triángulo Costero",
-        "detalles": "Av. Colón (PAR), Corrientes (PAR), Bv. Marítimo.",
-        "coords": [[-38.0009, -57.5416], [-38.0050, -57.5416], [-38.0030, -57.5350]],
+        "id": "R1",
+        "nombre": "ZONA 1: Cuadrante Güemes / Buenos Aires",
+        "color": "#00CED1",
+        "descripcion": """
+            <b>Límites y Paridad:</b><br>
+            - <b>Norte:</b> Calle Güemes (2200-4800) - <b>VEREDA IMPAR</b><br>
+            - <b>Sur:</b> Calle Buenos Aires (2200-4500) - <b>VEREDA PAR</b><br>
+            - <b>Este:</b> Av. Colón (2000-1300) - <b>VEREDA PAR</b><br>
+            - <b>Oeste:</b> Av. J.B. Justo (2000-1300) - <b>VEREDA IMPAR</b>
+        """,
+        # Coordenadas aproximadas según alturas MDP (Colón/JB Justo y Güemes/BsAs)
+        "coords": [
+            [-38.0055, -57.5430], [-38.0075, -57.5485], 
+            [-38.0345, -57.5615], [-38.0325, -57.5560]
+        ]
     },
     {
-        "inspector": "CARBAYO",
-        "nombre": "ZONA 2: Cuadrante Independencia",
-        "detalles": "Colón (PAR 2199-3199), Independencia (PAR 2201-4499), J.B. Justo (IMPAR 2199-3199), Buenos Aires (IMPAR 2201-4499).",
-        "coords": [[-38.0050, -57.5600], [-38.0050, -57.5800], [-38.0350, -57.5800], [-38.0350, -57.5600]],
+        "id": "R2",
+        "nombre": "ZONA 2: Microcentro / La Perla (Polígono Costero)",
+        "color": "#008B8B",
+        "descripcion": """
+            <b>Límites y Paridad:</b><br>
+            - <b>Norte:</b> Calle Catamarca (500-2100) - <b>VEREDA IMPAR</b><br>
+            - <b>Sur:</b> 20 de Septiembre (0-2100, PAR) y Charlone (300-0, PAR)<br>
+            - <b>Este:</b> F.U. Camet (0-200) y Bv. Marítimo P. Ramos (0-600)<br>
+            - <b>Oeste:</b> Av. Colón (3500-3100) - <b>VEREDA IMPAR</b>
+        """,
+        # Polígono irregular costero
+        "coords": [
+            [-37.9895, -57.5410], [-37.9940, -57.5385], [-37.9985, -57.5440],
+            [-38.0015, -57.5560], [-37.9930, -57.5600], [-37.9880, -57.5490]
+        ]
     },
     {
-        "inspector": "CARBAYO",
-        "nombre": "ZONA 3: Cuadrante Puerto",
-        "detalles": "J.B. Justo (PAR 3199-4400), Don Orione (IMPAR), J. Peralta Ramos (PAR), Edison.",
-        "coords": [[-38.0350, -57.5450], [-38.0350, -57.5650], [-38.0550, -57.5650], [-38.0550, -57.5450]],
-    },
-
-    # --- INSPECTOR RODRÍGUEZ ---
-    {
-        "inspector": "RODRÍGUEZ",
-        "nombre": "ZONA 1: Casco Urbano Norte",
-        "detalles": "Luro (IMPAR), Champagnat (IMPAR), Constitución, La Costa.",
-        "coords": [[-37.9802, -57.5825], [-37.9802, -57.5450], [-37.9600, -57.5450], [-37.9600, -57.5825]],
-    },
-    {
-        "inspector": "RODRÍGUEZ",
-        "nombre": "ZONA 2: Santa Clara / Camet",
-        "detalles": "Ruta 11 (Límite Norte), Av. Constitución (Hacia el Norte).",
-        "coords": [[-37.9500, -57.5300], [-37.9600, -57.5300], [-37.9600, -57.5600], [-37.9500, -57.5600]],
-    },
-
-    # --- INSPECTOR LÓPEZ ---
-    {
-        "inspector": "LÓPEZ",
-        "nombre": "ZONA 1: Oeste Urbano",
-        "detalles": "Champagnat (PAR), Luro (Oeste), J.B. Justo (Oeste).",
-        "coords": [[-37.9802, -57.5825], [-38.0003, -57.5958], [-38.0200, -57.6200], [-37.9802, -57.6200]],
-    },
-    {
-        "inspector": "LÓPEZ",
-        "nombre": "ZONA 2: Isla Batán",
-        "detalles": "Ruta 88 (Traza urbana), Calle 35, Calle 155 (Parque Industrial).",
-        "coords": [[-38.0000, -57.7500], [-38.0100, -57.7400], [-38.0200, -57.7600], [-38.0100, -57.7700]],
-    },
-
-    # --- INSPECTOR GARCÍA ---
-    {
-        "inspector": "GARCÍA",
-        "nombre": "ZONA 1: Mogotes / Faro",
-        "detalles": "J.B. Justo (PAR), Martínez de Hoz (Costa Sur), Mario Bravo.",
-        "coords": [[-38.0407, -57.5423], [-38.0700, -57.5423], [-38.0700, -57.5800], [-38.0407, -57.5800]],
-    },
-    {
-        "inspector": "GARCÍA",
-        "nombre": "ZONA 2: Acantilados / Alfar",
-        "detalles": "Mario Bravo (Hacia el Sur), Ruta 11 (Límite Acantilados).",
-        "coords": [[-38.0700, -57.5423], [-38.1500, -57.6000], [-38.1500, -57.6500], [-38.0700, -57.6000]],
-    },
-    {
-        "inspector": "GARCÍA",
-        "nombre": "ZONA 3: Isla Miramar",
-        "detalles": "Av. 9, Av. 12, Av. 40, Costanera Miramar.",
-        "coords": [[-38.2650, -57.8400], [-38.2750, -57.8300], [-38.2850, -57.8500], [-38.2750, -57.8600]],
+        "id": "R3",
+        "nombre": "ZONA 3: Cuadrante San Juan / Bronzini (Oeste)",
+        "color": "#20B2AA",
+        "descripcion": """
+            <b>Límites y Paridad:</b><br>
+            - <b>Norte:</b> Calle San Juan (2200-4800) - <b>VEREDA IMPAR</b><br>
+            - <b>Sur:</b> Calle T. Bronzini (2200-4800) - <b>VEREDA PAR</b><br>
+            - <b>Este:</b> Av. Colón (5800-4200) - <b>VEREDA PAR</b><br>
+            - <b>Oeste:</b> Pehuajó y Heguilor (0-Final) - Altura 9000-7500
+        """,
+        # Extensión hacia el Oeste
+        "coords": [
+            [-38.0100, -57.5850], [-38.0150, -57.6100], 
+            [-38.0550, -57.6500], [-38.0450, -57.6150]
+        ]
     }
 ]
 
-# --- RENDERIZADO DE INFORMACIÓN ---
-st.info("⚠️ REGLA CRÍTICA: En calles límite, validar PARIDAD (Par/Impar) según la descripción del inspector.")
+# --- UI DE SELECCIÓN ---
+st.info("💡 Interpretación de Veredas: El sistema valida Calle + Altura + Paridad.")
 
-# Mostrar tarjetas informativas
-inspectores = list(COLORES.keys())
-cols = st.columns(len(inspectores))
+tabs = st.tabs([z["nombre"] for z in RODRIGUEZ_ZONAS])
 
-for i, insp in enumerate(inspectores):
-    with cols[i]:
-        st.markdown(f"**Inspector: {insp}**")
-        for zona in ZONAS_DATA:
-            if zona['inspector'] == insp:
-                with st.expander(f"📍 {zona['nombre']}"):
-                    st.write(zona['detalles'])
+for i, tab in enumerate(tabs):
+    with tab:
+        st.markdown(RODRIGUEZ_ZONAS[i]["descripcion"], unsafe_allow_html=True)
 
-st.markdown("---")
+st.divider()
 
-# --- GENERACIÓN DEL MAPA ---
-# Centrado en MDP pero con zoom que permita ver Batán y Miramar
-m = folium.Map(location=[-38.0500, -57.6500], zoom_start=11, tiles="OpenStreetMap")
+# --- MAPA ---
+# Centramos el mapa para que abarque desde la costa hasta el extremo oeste (Pehuajó)
+m = folium.Map(location=[-38.0200, -57.5800], zoom_start=13, tiles="OpenStreetMap")
 
-for zona in ZONAS_DATA:
-    color = COLORES[zona['inspector']]
-    
-    # Crear Polígono
+for zona in RODRIGUEZ_ZONAS:
     folium.Polygon(
-        locations=zona['coords'],
-        color=color,
+        locations=zona["coords"],
+        color=zona["color"],
         fill=True,
-        fill_color=color,
-        fill_opacity=0.4,
-        weight=2,
-        popup=folium.Popup(f"<b>Inspector: {zona['inspector']}</b><br>{zona['nombre']}<br><i>{zona['detalles']}</i>", max_width=300),
-        tooltip=f"{zona['inspector']} - {zona['nombre']}"
+        fill_color=zona["color"],
+        fill_opacity=0.5,
+        weight=3,
+        popup=folium.Popup(f"<b>{zona['nombre']}</b><br>{zona['descripcion']}", max_width=350),
+        tooltip=f"RODRÍGUEZ - {zona['id']}"
     ).add_to(m)
 
-# Mostrar mapa
+# Marcadores de referencia para orientación
+folium.Marker([-38.0009, -57.5416], tooltip="Centro MDP", icon=folium.Icon(color='red')).add_to(m)
+folium.Marker([-38.0550, -57.6500], tooltip="Límite Oeste (Pehuajó/Heguilor)", icon=folium.Icon(color='blue')).add_to(m)
+
 folium_static(m, width=1200, height=650)
 
-st.success("Mapa cargado con éxito. Las 'islas' son independientes para evitar solapamientos visuales.")
+st.warning("Nota: Los polígonos son representaciones de área. La validación legal se realiza por la paridad de la vereda indicada en el texto.")
