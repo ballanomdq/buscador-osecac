@@ -5,24 +5,24 @@ from streamlit_folium import st_folium
 st.set_page_config(layout="wide")
 st.title("Mapa de Jurisdicciones: Inspector RODRÍGUEZ")
 
-mapa = folium.Map(location=[-38.014, -57.545], zoom_start=14)
+mapa = folium.Map(location=[-38.016, -57.548], zoom_start=14)
 estilo = {'fillColor': '#00BFFF', 'color': 'blue', 'weight': 4, 'fillOpacity': 0.6}
 
-# --- ZONA 1: AJUSTE DE DIMENSIONES REALES ---
-# 1. Se achicó arriba (Norte) 2 cuadras.
-# 2. Se achicó abajo (Sur) 4 cuadras.
-# 3. Se ensanchó hacia Güemes para cubrir las 2 cuadras que faltaban.
+# --- ZONA 1: CALIBRACIÓN DE PRECISIÓN ---
+# 1. Recuperamos el ancho hacia Güemes (2 cuadras más).
+# 2. Recortamos arriba (Colón) y abajo (J.B. Justo) para que no sobre.
+# 3. Mantenemos el ángulo paralelo a la cuadrícula.
 
-z1_ajustado = [
-    [-38.0075, -57.5465], # Esquina Norte-Oeste (Güemes y Colón aprox)
-    [-38.0105, -57.5405], # Esquina Norte-Este (Buenos Aires y Colón aprox)
-    [-38.0260, -57.5510], # Esquina Sur-Este (Buenos Aires y J.B. Justo aprox - RECORTE 4 CUADRAS)
-    [-38.0230, -57.5570]  # Esquina Sur-Oeste (Güemes y J.B. Justo aprox - RECORTE 4 CUADRAS)
+z1_rectificado = [
+    [-38.0065, -57.5455], # Esquina Colón y Güemes (Punto Norte-Oeste)
+    [-38.0105, -57.5395], # Esquina Colón y Buenos Aires (Punto Norte-Este)
+    [-38.0255, -57.5535], # Esquina J.B. Justo y Buenos Aires (Punto Sur-Este)
+    [-38.0215, -57.5595]  # Esquina J.B. Justo y Güemes (Punto Sur-Oeste)
 ]
 
 folium.Polygon(
-    locations=z1_ajustado, 
-    popup="Rodríguez - Zona 1 (Ajuste Preciso)", 
+    locations=z1_rectificado, 
+    popup="Rodríguez - Zona 1 (Calibración Real)", 
     **estilo
 ).add_to(mapa)
 
