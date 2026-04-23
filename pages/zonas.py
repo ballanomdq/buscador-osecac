@@ -1,33 +1,18 @@
-import streamlit as st
-import folium
-from streamlit_folium import st_folium
+# --- ZONA 1 (LARGA, ANCHA Y ALINEADA A INDEPENDENCIA) ---
+# Se estiró la longitud hacia el Sur y se ensanchó para cubrir el área real.
 
-st.set_page_config(layout="wide") # Para que el mapa se vea grande
-
-st.title("Mapa de Jurisdicciones: Inspector RODRÍGUEZ")
-
-# 1. Configuración del mapa base
-# Centramos el mapa en el medio del cuadrante
-mapa = folium.Map(location=[-38.016, -57.548], zoom_start=14)
-
-# Estilo visual de Rodríguez
-estilo = {'fillColor': '#00BFFF', 'color': 'blue', 'weight': 4, 'fillOpacity': 0.6}
-
-# --- ZONA 1 (RE-ESTIRADA Y EN ESCUADRA TOTAL) ---
-# Coordenadas calculadas para que sea LARGO y RECTO
-z1_final = [
-    [-38.0058, -57.5435], # Esquina 1: Av. Colón y Güemes
-    [-38.0099, -57.5384], # Esquina 2: Av. Colón y Buenos Aires
-    [-38.0265, -57.5568], # Esquina 3: Av. J.B. Justo y Buenos Aires (Estirado)
-    [-38.0224, -57.5619]  # Esquina 4: Av. J.B. Justo y Güemes (Estirado)
+z1_ajuste_final = [
+    [-38.0050, -57.5440], # Esquina Norte (Cerca de Colón y Güemes)
+    [-38.0095, -57.5375], # Esquina Este (Cerca de Colón y Buenos Aires)
+    [-38.0310, -57.5610], # Esquina Sur (Pasando J.B. Justo para dar longitud)
+    [-38.0265, -57.5675]  # Esquina Oeste (Pasando J.B. Justo para dar longitud)
 ]
 
-# Dibujamos el polígono
 folium.Polygon(
-    locations=z1_final, 
-    popup="Rodríguez - Zona 1 (Escuadra Final)", 
-    **estilo
+    locations=z1_ajuste_final, 
+    popup="Rodríguez - Zona 1 (Ajuste de Escala)", 
+    fillColor='#00BFFF', 
+    color='blue', 
+    weight=3, 
+    fillOpacity=0.5
 ).add_to(mapa)
-
-# 2. Mostramos el mapa en Streamlit
-st_folium(mapa, width=1000, height=700)
