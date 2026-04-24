@@ -1,66 +1,49 @@
 import streamlit as st
 import folium
-from streamlit_folium import folium_static
+from streamlit_folium import st_folium
 
-st.set_page_config(layout="wide", page_title="Mapa de Inspectores - MDP")
+st.set_page_config(layout="wide")
+st.title("Mapa Oficial de Jurisdicciones - OSECAC MDP")
 
-st.title("Mapa de Jurisdicciones de Inspectores Municipales")
-st.write("Visualización basada en el mapa oficial de cuadrantes. Haz clic en las zonas para ver detalles.")
+# Centramos el mapa en Mar del Plata
+m = folium.Map(location=[-38.005, -57.56], zoom_start=13)
 
-# Definición de Colores y Datos según tu foto
-INSPECTORES = {
-    "RODRIGUEZ": {"color": "#FF0000", "legajo": "7713"},  # Rojo
-    "GARCIA": {"color": "#FFA500", "legajo": "7852"},     # Naranja
-    "CARBAYO": {"color": "#FFFF00", "legajo": "9220"},    # Amarillo
-    "LOPEZ": {"color": "#00FF00", "legajo": "9983"},      # Verde
-    "POLINESSI": {"color": "#0000FF", "legajo": "9513"}   # Azul
-}
+# --- DEFINICIÓN DE ZONAS SEGÚN MAPA FÍSICO ---
 
-# Coordenadas procesadas de la foto (Cierre de polígonos exacto)
-ZONAS = [
-    # RODRIGUEZ (Rojo)
-    {"insp": "RODRIGUEZ", "nombre": "Güemes / J.B. Justo", "coords": [(-38.0076, -57.5451), (-38.0315, -57.5471), (-38.0298, -57.5482), (-38.0055, -57.5458)]},
-    {"insp": "RODRIGUEZ", "nombre": "La Perla / Catamarca", "coords": [(-38.0062, -57.5532), (-37.9942, -57.5455), (-37.9855, -57.5531), (-38.0074, -57.5684)]},
-    
-    # GARCIA (Naranja)
-    {"insp": "GARCIA", "nombre": "Microcentro / San Juan", "coords": [(-38.0066, -57.5562), (-38.0065, -57.5552), (-38.0214, -57.5622), (-38.0215, -57.5638)]},
-    {"insp": "GARCIA", "nombre": "Sur / Alfar", "coords": [(-38.0338, -57.5342), (-38.0955, -57.5612), (-38.1155, -57.5912), (-38.0415, -57.5812)]},
+# 1. RODRÍGUEZ (Celeste) - Zona Chauvin / San José
+folium.Polygon(
+    locations=[[-38.006, -57.545], [-38.010, -57.539], [-38.026, -57.554], [-38.022, -57.560]],
+    color='blue', fill_color='#00BFFF', fill_opacity=0.5,
+    popup="Inspector RODRÍGUEZ"
+).add_to(m)
 
-    # CARBAYO (Amarillo)
-    {"insp": "CARBAYO", "nombre": "Microcentro Independencia", "coords": [(-38.0066, -57.5562), (-38.0055, -57.5458), (-38.0298, -57.5482), (-38.0215, -57.5638)]},
-    {"insp": "CARBAYO", "nombre": "Costa Triangular", "coords": [(-38.0044, -57.5428), (-38.0031, -57.5405), (-38.0063, -57.5518)]},
+# 2. CARBAYO (Rosa) - Zona Centro / Plaza Mitre
+folium.Polygon(
+    locations=[[-37.998, -57.555], [-38.005, -57.546], [-38.015, -57.560], [-38.008, -57.568]],
+    color='deeppink', fill_color='#FF69B4', fill_opacity=0.5,
+    popup="Inspector CARBAYO"
+).add_to(m)
 
-    # LOPEZ (Verde - Corregido por fotos)
-    {"insp": "LOPEZ", "nombre": "Centro / Plaza Mitre", "coords": [(-37.9961, -57.5492), (-37.9995, -57.5475), (-38.0062, -57.5507), (-38.0063, -57.5518)]},
-    {"insp": "LOPEZ", "nombre": "Noroeste / Bronzini", "coords": [(-38.0069, -57.5755), (-38.0067, -57.6081), (-38.0335, -57.6152), (-38.0381, -57.5841)]},
-    {"insp": "LOPEZ", "nombre": "Sur / Puerto / Golf", "coords": [(-38.0338, -57.5562), (-38.0535, -57.5721), (-38.0642, -57.5985), (-38.0415, -57.5812)]},
+# 3. GARCÍA (Naranja) - Zona Norte / Constitución
+folium.Polygon(
+    locations=[[-37.975, -57.560], [-37.985, -57.545], [-38.000, -57.555], [-37.990, -57.575]],
+    color='orange', fill_color='#FFA500', fill_opacity=0.5,
+    popup="Inspector GARCÍA"
+).add_to(m)
 
-    # POLINESSI (Azul)
-    {"insp": "POLINESSI", "nombre": "Franja Catamarca", "coords": [(-37.9942, -57.5455), (-37.9949, -57.5478), (-38.0031, -57.5471), (-38.0019, -57.5412)]},
-    {"insp": "POLINESSI", "nombre": "Puerto / Reserva", "coords": [(-38.0315, -57.5471), (-38.0076, -57.5451), (-38.0338, -57.5342), (-38.0268, -57.5312)]}
-]
+# 4. LOPEZ (Violeta) - Zona Puerto / Cerrito
+folium.Polygon(
+    locations=[[-38.025, -57.570], [-38.035, -57.550], [-38.060, -57.580], [-38.050, -57.600]],
+    color='purple', fill_color='#8A2BE2', fill_opacity=0.5,
+    popup="Inspector LÓPEZ"
+).add_to(m)
 
-# Mapa base con CartoDB Positron (es el más nítido para leer nombres de calles)
-m = folium.Map(location=[-38.0100, -57.5600], zoom_start=13, tiles='CartoDB positron')
+# 5. POLINESSI (Verde) - Zona Playa Grande
+folium.Polygon(
+    locations=[[-38.020, -57.540], [-38.030, -57.530], [-38.045, -57.545], [-38.035, -57.555]],
+    color='green', fill_color='#7FFF00', fill_opacity=0.5,
+    popup="Inspector POLINESSI"
+).add_to(m)
 
-# Dibujar todas las zonas con transparencia
-for z in ZONAS:
-    inspector = z["insp"]
-    folium.Polygon(
-        locations=z["coords"],
-        color=INSPECTORES[inspector]["color"],
-        fill=True,
-        fill_color=INSPECTORES[inspector]["color"],
-        fill_opacity=0.35, # Transparencia justa para leer calles
-        weight=2,
-        popup=f"<b>Inspector:</b> {inspector}<br><b>Legajo:</b> {INSPECTORES[inspector]['legajo']}<br><b>Zona:</b> {z['nombre']}",
-        tooltip=f"{inspector}: {z['nombre']}"
-    ).add_to(m)
-
-# Leyenda en el Sidebar para que sea profesional
-st.sidebar.title("Referencia de Colores")
-for nombre, info in INSPECTORES.items():
-    st.sidebar.markdown(f'<p style="color:{info["color"]}; font-weight:bold;">■ {nombre} (Leg. {info["legajo"]})</p>', unsafe_allow_html=True)
-
-# Renderizar mapa
-folium_static(m, width=1100, height=750)
+# Renderizado
+st_folium(m, width=1200, height=800)
