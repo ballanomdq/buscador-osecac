@@ -1,29 +1,171 @@
-import streamlit as st
 import folium
-from streamlit_folium import st_folium
+import webbrowser
+import os
 
-st.set_page_config(layout="wide")
-st.title("Mapa de Jurisdicciones: Inspector RODRÍGUEZ")
+# ============================================================
+# COORDENADAS REALES (LAS QUE ME DISTE)
+# ============================================================
 
-mapa = folium.Map(location=[-38.016, -57.548], zoom_start=14)
-estilo = {'fillColor': '#00BFFF', 'color': 'blue', 'weight': 4, 'fillOpacity': 0.6}
+# Eje Av. Colón
+colón_jbjusto = [-38.0068, -57.6083]   # [lat, lon]
+colón_güemes  = [-38.0076, -57.5451]
+colón_indep   = [-38.0066, -57.5562]
+colón_sanluis = [-38.0063, -57.5518]
 
-# --- ZONA 1: CALIBRACIÓN DE PRECISIÓN ---
-# 1. Recuperamos el ancho hacia Güemes (2 cuadras más).
-# 2. Recortamos arriba (Colón) y abajo (J.B. Justo) para que no sobre.
-# 3. Mantenemos el ángulo paralelo a la cuadrícula.
+# Eje Av. Juan B. Justo
+jbjusto_catamarca      = [-38.0201, -57.5753]
+jbjusto_güemes         = [-38.0315, -57.5471]
+jbjusto_polonia        = [-38.0163, -57.5956]
+jbjusto_peraltaramos   = [-38.0211, -57.5768]
 
-z1_rectificado = [
-    [-38.0065, -57.5455], # Esquina Colón y Güemes (Punto Norte-Oeste)
-    [-38.0105, -57.5395], # Esquina Colón y Buenos Aires (Punto Norte-Este)
-    [-38.0255, -57.5535], # Esquina J.B. Justo y Buenos Aires (Punto Sur-Este)
-    [-38.0215, -57.5595]  # Esquina J.B. Justo y Güemes (Punto Sur-Oeste)
+# Puntos adicionales que me diste antes
+punto_centro      = [-38.00093862744996, -57.54161484586379]  # Centro/Costa
+punto_champagnat  = [-37.980243861788324, -57.58254961283819] # Rotonda Champagnat
+
+# ============================================================
+# CREAR MAPA BASE (centrado en el macrocentro)
+# ============================================================
+lat_centro = (colón_güemes[0] + punto_centro[0]) / 2
+lon_centro = (colón_güemes[1] + punto_centro[1]) / 2
+
+mapa = folium.Map(
+    location=[lat_centro, lon_centro],
+    zoom_start=13,
+    tiles='OpenStreetMap',
+    control_scale=True
+)
+
+# ============================================================
+# FUNCIÓN PARA DIBUJAR ZONAS (POLÍGONOS)
+# ============================================================
+def agregar_zona(mapa, vertices, inspector, zona, color, opacidad=0.4):
+    """vertices: lista de [lat, lon]"""
+    folium.Polygon(
+        locations=vertices,
+        color=color,
+        weight=2,
+        fill=True,
+        fill_opacity=opacidad,
+        popup=f"<b>{inspector}</b><br>{zona}",
+        tooltip=f"{inspector} - {zona}"
+    ).add_to(mapa)
+
+# ============================================================
+# DEFINIR POLÍGONOS - USANDO TUS COORDENADAS COMO REFERENCIA
+# ============================================================
+# NOTA: Interpolo lógicamente entre tus puntos para crear áreas coherentes
+
+# RODRIGUEZ - Zona Güemes (Este, cerca del mar)
+rodriguez_zona1 = [
+    colón_güemes,           # Noroeste
+    [-38.0076, -57.5400],   # Noreste (hacia el mar)
+    [-38.0200, -57.5400],   # Sureste
+    [-38.0200, -57.5471],   # Suroeste (cerca J.B. Justo)
+    colón_güemes
 ]
 
-folium.Polygon(
-    locations=z1_rectificado, 
-    popup="Rodríguez - Zona 1 (Calibración Real)", 
-    **estilo
-).add_to(mapa)
+# GARCÍA - Zona Microcentro
+garcia_zona3 = [
+    colón_indep,            # Noroeste
+    colón_sanluis,          # Noreste
+    [-38.0120, -57.5518],   # Sureste
+    [-38.0120, -57.5562],   # Suroeste
+    colón_indep
+]
 
-st_folium(mapa, width=1200, height=800)
+# CARBAYO - Zona Microcentro (Independencia)
+carbayo_zona2 = [
+    colón_indep,            # Noreste
+    [-38.0066, -57.5620],   # Noroeste
+    [-38.0130, -57.5620],   # Suroeste
+    [-38.0130, -57.5562],   # Sureste
+    colón_indep
+]
+
+# LOPEZ - Zona Centro (Plaza Mitre)
+lopez_zona1 = [
+    colón_sanluis,          # Noreste
+    [-38.0063, -57.5580],   # Noroeste
+    [-38.0140, -57.5580],   # Suroeste
+    [-38.0140, -57.5518],   # Sureste
+    colón_sanluis
+]
+
+# POLINESSI - Zona Champagnat (Noroeste)
+polinessi_zona1 = [
+    punto_champagnat,                       # Centro de la zona
+    [punto_champagnat[0] + 0.015, punto_champagnat[1] - 0.015],
+    [punto_champagnat[0] - 0.005, punto_champagnat[1] + 0.010],
+    [punto_champagnat[0] - 0.008, punto_champagnat[1] - 0.008],
+    punto_champagnat
+]
+
+# ============================================================
+# AGREGAR TODAS LAS ZONAS AL MAPA
+# ============================================================
+agregar_zona(mapa, rodriguez_zona1, 
+             "RODRIGUEZ, Maximiliano (Leg. 7713)", 
+             "Zona 1 - Sector Güemes", "red", 0.35)
+
+agregar_zona(mapa, garcia_zona3,
+             "GARCÍA, Juan Paulo (Leg. 7852)",
+             "Zona 3 - Microcentro / San Juan", "orange", 0.35)
+
+agregar_zona(mapa, carbayo_zona2,
+             "CARBAYO, Víctor Hugo (Leg. 9220)",
+             "Zona 2 - Microcentro (Independencia)", "yellow", 0.35)
+
+agregar_zona(mapa, lopez_zona1,
+             "LOPEZ, Martín Leonardo (Leg. 9983)",
+             "Zona 1 - Centro (Plaza Mitre)", "green", 0.35)
+
+agregar_zona(mapa, polinessi_zona1,
+             "POLINESSI, Juan José (Leg. 9513)",
+             "Zona 1 - Noroeste (Champagnat)", "blue", 0.35)
+
+# ============================================================
+# MARCAR TODAS LAS INTESECCIONES DE REFERENCIA
+# ============================================================
+puntos = {
+    "Colón + J.B. Justo": colón_jbjusto,
+    "Colón + Güemes": colón_güemes,
+    "Colón + Independencia": colón_indep,
+    "Colón + San Luis": colón_sanluis,
+    "J.B. Justo + Catamarca": jbjusto_catamarca,
+    "J.B. Justo + Güemes": jbjusto_güemes,
+    "J.B. Justo + Polonia": jbjusto_polonia,
+    "J.B. Justo + Peralta Ramos": jbjusto_peraltaramos,
+    "Centro/Costa (ref)": punto_centro,
+    "Champagnat (ref)": punto_champagnat
+}
+
+for nombre, coord in puntos.items():
+    folium.Marker(
+        coord,
+        popup=nombre,
+        icon=folium.Icon(color='gray', icon='info-sign', prefix='fa')
+    ).add_to(mapa)
+
+# ============================================================
+# AGREGAR CAPAS DE CONTROL (para activar/desactivar zonas)
+# ============================================================
+folium.LayerControl().add_to(mapa)
+
+# ============================================================
+# GUARDAR Y ABRIR
+# ============================================================
+archivo = "mar_del_plata_inspectores.html"
+mapa.save(archivo)
+webbrowser.open('file://' + os.path.realpath(archivo))
+
+print("=" * 60)
+print("✅ MAPA GENERADO EXITOSAMENTE")
+print("=" * 60)
+print(f"📂 Archivo guardado: {archivo}")
+print("🌐 Se abrió automáticamente en tu navegador")
+print("\n📌 INSTRUCCIONES:")
+print("   - Podés hacer zoom y moverte por el mapa")
+print("   - Las zonas tienen diferentes colores por inspector")
+print("   - Hacé clic en una zona para ver detalles")
+print("   - Usá el control de capas (esquina superior derecha)")
+print("=" * 60)
