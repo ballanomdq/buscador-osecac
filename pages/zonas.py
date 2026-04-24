@@ -1,171 +1,313 @@
+import streamlit as st
 import folium
-import webbrowser
-import os
+from streamlit_folium import st_folium
+from shapely.geometry import Polygon
+import pandas as pd
 
-# ============================================================
-# COORDENADAS REALES (LAS QUE ME DISTE)
-# ============================================================
+# Configurar la página
+st.set_page_config(page_title="Mapa de Inspectores - Osecac", layout="wide")
+st.title("🗺️ Mapa de Inspectores por Zona - Mar del Plata")
+st.markdown("Hacé clic en las zonas para ver los detalles completos.")
 
-# Eje Av. Colón
-colon_jbjusto = [-38.0068, -57.6083]   # [lat, lon]
-colon_güemes  = [-38.0076, -57.5451]
-colon_indep   = [-38.0066, -57.5562]
-colon_sanluis = [-38.0063, -57.5518]
+# ==============================================================================
+# 1. DEFINICIÓN DE ZONAS CON COORDENADAS REALES (APROXIMADAS PERO POR CALLES)
+# ==============================================================================
+# Nota: Las coordenadas son estimaciones para respetar los límites de calles.
+# Para mayor precisión, habría que geocodificar cada cuadra.
 
-# Eje Av. Juan B. Justo
-jbjusto_catamarca      = [-38.0201, -57.5753]
-jbjusto_güemes         = [-38.0315, -57.5471]
-jbjusto_polonia        = [-38.0163, -57.5956]
-jbjusto_peraltaramos   = [-38.0211, -57.5768]
+zonas_inspectores = [
 
-# Puntos adicionales que me diste antes
-punto_centro      = [-38.00093862744996, -57.54161484586379]  # Centro/Costa
-punto_champagnat  = [-37.980243861788324, -57.58254961283819] # Rotonda Champagnat
+    # ========== RODRIGUEZ ==========
+    {
+        "inspector": "RODRIGUEZ, Maximiliano",
+        "legajo": "7713",
+        "color": "#FF0000",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Güemes / J.B. Justo",
+                "calles_descripcion": "Límites: Av. Colón (vereda Par 2000-1300), Av. Juan B. Justo (vereda Impar 2000-1300), Güemes (vereda Impar 2200-4800), Buenos Aires (vereda Par 2200-4500)",
+                "poligono": [
+                    [-38.0075, -57.5480],  # Av. Colón y Güemes (Noroeste)
+                    [-38.0075, -57.5400],  # hacia el mar
+                    [-38.0200, -57.5400],  # Av. J.B. Justo y costa
+                    [-38.0200, -57.5480],  # J.B. Justo y Güemes
+                    [-38.0075, -57.5480]   # cierre
+                ]
+            }
+        ]
+    },
 
-# ============================================================
-# CREAR MAPA BASE - USANDO CARTODB (NO SE VE EN BLANCO)
-# ============================================================
-lat_centro = (colon_güemes[0] + punto_centro[0]) / 2
-lon_centro = (colon_güemes[1] + punto_centro[1]) / 2
+    # ========== GARCIA ==========
+    {
+        "inspector": "GARCÍA, Juan Paulo",
+        "legajo": "7852",
+        "color": "#FFA500",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Costa / Colón",
+                "calles_descripcion": "Límites: La Costa (norte), Av. Colón (vereda Impar), San Luis (vereda Impar), H. Yrigoyen (vereda Par)",
+                "poligono": [
+                    [-38.0000, -57.5350],
+                    [-38.0000, -57.5200],
+                    [-38.0050, -57.5200],
+                    [-38.0050, -57.5350],
+                    [-38.0000, -57.5350]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - J.B. Justo / Peralta Ramos",
+                "calles_descripcion": "Límites: Av. Juan B. Justo (norte), Av. Jacinto Peralta Ramos (vereda Impar), Av. Polonia (vereda Par), al fondo límite jurisdicción",
+                "poligono": [
+                    [-38.0160, -57.5760],
+                    [-38.0160, -57.5680],
+                    [-38.0250, -57.5680],
+                    [-38.0250, -57.5760],
+                    [-38.0160, -57.5760]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - Microcentro / San Juan",
+                "calles_descripcion": "Límites: Av. Colón (vereda Impar), Av. Juan B. Justo (sur), Av. Independencia (vereda Impar), San Juan (vereda Par)",
+                "poligono": [
+                    [-38.0065, -57.5600],
+                    [-38.0065, -57.5520],
+                    [-38.0120, -57.5520],
+                    [-38.0120, -57.5600],
+                    [-38.0065, -57.5600]
+                ]
+            },
+            {
+                "nombre": "Zona 4 - Sur / Puerto / Alfar",
+                "calles_descripcion": "Límites: Av. Juan B. Justo (vereda Par), límite Gral. Alvarado (sur), La Costa (este), Av. Edison (vereda Par)",
+                "poligono": [
+                    [-38.0200, -57.5500],
+                    [-38.0200, -57.5300],
+                    [-38.0400, -57.5300],
+                    [-38.0400, -57.5500],
+                    [-38.0200, -57.5500]
+                ]
+            }
+        ]
+    },
 
-# USO 'CartoDB positron' en lugar de OpenStreetMap para evitar pantalla en blanco
-mapa = folium.Map(
-    location=[lat_centro, lon_centro],
-    zoom_start=13,
-    tiles='CartoDB positron',  # <--- ESTO SOLUCIONA EL MAPA EN BLANCO
-    control_scale=True
-)
+    # ========== CARBAYO ==========
+    {
+        "inspector": "CARBAYO, Víctor Hugo",
+        "legajo": "9220",
+        "color": "#FFFF00",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Costa / Colón (Triangular)",
+                "calles_descripcion": "Límites: La Costa (norte), Av. Colón (vereda Impar), San Luis (vereda Par)",
+                "poligono": [
+                    [-38.0000, -57.5410],
+                    [-38.0000, -57.5350],
+                    [-38.0050, -57.5410],
+                    [-38.0000, -57.5410]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - Microcentro (Independencia)",
+                "calles_descripcion": "Límites: Av. Colón (vereda Par), Av. Juan B. Justo (vereda Impar), Buenos Aires (vereda Impar), Av. Independencia (vereda Par)",
+                "poligono": [
+                    [-38.0065, -57.5580],
+                    [-38.0065, -57.5560],
+                    [-38.0100, -57.5560],
+                    [-38.0100, -57.5580],
+                    [-38.0065, -57.5580]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - J.B. Justo / Peralta Ramos",
+                "calles_descripcion": "Límites: Av. Juan B. Justo (vereda Par), Cerrito (vereda Impar), Av. Jacinto Peralta Ramos (vereda Par)",
+                "poligono": [
+                    [-38.0160, -57.5720],
+                    [-38.0160, -57.5680],
+                    [-38.0220, -57.5680],
+                    [-38.0220, -57.5720],
+                    [-38.0160, -57.5720]
+                ]
+            }
+        ]
+    },
 
-# ============================================================
-# FUNCIÓN PARA DIBUJAR ZONAS (POLÍGONOS)
-# ============================================================
-def agregar_zona(mapa, vertices, inspector, zona, color, opacidad=0.4):
-    """vertices: lista de [lat, lon]"""
-    folium.Polygon(
-        locations=vertices,
-        color=color,
-        weight=2,
-        fill=True,
-        fill_opacity=opacidad,
-        popup=f"<b>{inspector}</b><br>{zona}",
-        tooltip=f"{inspector} - {zona}"
-    ).add_to(mapa)
+    # ========== LOPEZ ==========
+    {
+        "inspector": "LOPEZ, Martín Leonardo",
+        "legajo": "9983",
+        "color": "#00FF00",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Centro (Plaza Mitre / La Perla)",
+                "calles_descripcion": "Límites: San Luis (vereda Par), Santiago del Estero (vereda Impar), Av. Colón (vereda Impar 2100-2600), San Luis altura 1100",
+                "poligono": [
+                    [-38.0050, -57.5500],
+                    [-38.0050, -57.5450],
+                    [-38.0120, -57.5450],
+                    [-38.0120, -57.5500],
+                    [-38.0050, -57.5500]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - Noroeste (Bronzini / Colón Alta)",
+                "calles_descripcion": "Límites: Av. Colón (vereda Par 5800-2200), Teodoro Bronzini (vereda Impar). Barrios: Villa Primera, Regional.",
+                "poligono": [
+                    [-37.9950, -57.5650],
+                    [-37.9950, -57.5550],
+                    [-38.0050, -57.5550],
+                    [-38.0050, -57.5650],
+                    [-37.9950, -57.5650]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - Sur (J.B. Justo / Puerto / Nuevo Golf)",
+                "calles_descripcion": "Límites: Av. Juan B. Justo (vereda Par 100-1300), Cerrito (vereda Impar 3100-4600), Acha (vereda Impar), Av. Jorge Newbery (ambas manos 3400+).",
+                "poligono": [
+                    [-38.0160, -57.5550],
+                    [-38.0160, -57.5480],
+                    [-38.0250, -57.5480],
+                    [-38.0250, -57.5550],
+                    [-38.0160, -57.5550]
+                ]
+            }
+        ]
+    },
 
-# ============================================================
-# DEFINIR POLÍGONOS - USANDO TUS COORDENADAS COMO REFERENCIA
-# ============================================================
-
-# RODRIGUEZ - Zona Güemes (Este, cerca del mar)
-rodriguez_zona1 = [
-    colon_güemes,           # Noroeste
-    [-38.0076, -57.5400],   # Noreste (hacia el mar)
-    [-38.0200, -57.5400],   # Sureste
-    [-38.0200, -57.5471],   # Suroeste (cerca J.B. Justo)
-    colon_güemes
+    # ========== POLINESSI ==========
+    {
+        "inspector": "POLINESSI, Juan José",
+        "legajo": "9513",
+        "color": "#0000FF",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Noroeste (Champagnat)",
+                "calles_descripcion": "Límites: Av. Colón (vereda Impar al final), hasta Ruta 2, Av. Champagnat (vereda Impar)",
+                "poligono": [
+                    [-37.9800, -57.5850],
+                    [-37.9800, -57.5750],
+                    [-37.9900, -57.5750],
+                    [-37.9900, -57.5850],
+                    [-37.9800, -57.5850]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - Microcentro (Catamarca)",
+                "calles_descripcion": "Límites: Catamarca (vereda Par), Hipólito Yrigoyen (vereda Impar), Blvd. Marítimo (La Costa), Jujuy/España (cierre)",
+                "poligono": [
+                    [-38.0020, -57.5300],
+                    [-38.0020, -57.5250],
+                    [-38.0080, -57.5250],
+                    [-38.0080, -57.5300],
+                    [-38.0020, -57.5300]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - Sur (Puerto / Reserva)",
+                "calles_descripcion": "Límites: Güemes (vereda Par 2200+), Blvd. Marítimo (costa sur), el mar, Av. Juan B. Justo (vereda Par 1200+)",
+                "poligono": [
+                    [-38.0250, -57.5450],
+                    [-38.0250, -57.5350],
+                    [-38.0380, -57.5350],
+                    [-38.0380, -57.5450],
+                    [-38.0250, -57.5450]
+                ]
+            }
+        ]
+    }
 ]
 
-# GARCÍA - Zona Microcentro
-garcia_zona3 = [
-    colon_indep,            # Noroeste
-    colon_sanluis,          # Noreste
-    [-38.0120, -57.5518],   # Sureste
-    [-38.0120, -57.5562],   # Suroeste
-    colon_indep
-]
+# ==============================================================================
+# 2. CREAR MAPA CON FOLIUM
+# ==============================================================================
+# Centro aproximado de Mar del Plata
+mapa_centro = [-38.0055, -57.5426]
+mapa = folium.Map(location=mapa_centro, zoom_start=13, tiles="CartoDB positron")
 
-# CARBAYO - Zona Microcentro (Independencia)
-carbayo_zona2 = [
-    colon_indep,            # Noreste
-    [-38.0066, -57.5620],   # Noroeste
-    [-38.0130, -57.5620],   # Suroeste
-    [-38.0130, -57.5562],   # Sureste
-    colon_indep
-]
+# Agregar cada zona como polígono
+for inspector_data in zonas_inspectores:
+    color = inspector_data["color"]
+    inspector_nombre = inspector_data["inspector"]
+    legajo = inspector_data["legajo"]
+    
+    for zona in inspector_data["zonas"]:
+        nombre_zona = zona["nombre"]
+        descripcion = zona["calles_descripcion"]
+        vertices = zona["poligono"]
+        
+        # Crear polígono
+        folium.Polygon(
+            locations=vertices,
+            color=color,
+            weight=2,
+            fill=True,
+            fill_opacity=0.4,
+            popup=folium.Popup(
+                f"""
+                <b>Inspector:</b> {inspector_nombre}<br>
+                <b>Legajo:</b> {legajo}<br>
+                <b>Zona:</b> {nombre_zona}<br>
+                <b>Límites:</b><br>{descripcion}
+                """,
+                max_width=300
+            ),
+            tooltip=f"{inspector_nombre} - {nombre_zona}"
+        ).add_to(mapa)
 
-# LOPEZ - Zona Centro (Plaza Mitre)
-lopez_zona1 = [
-    colon_sanluis,          # Noreste
-    [-38.0063, -57.5580],   # Noroeste
-    [-38.0140, -57.5580],   # Suroeste
-    [-38.0140, -57.5518],   # Sureste
-    colon_sanluis
-]
-
-# POLINESSI - Zona Champagnat (Noroeste)
-polinessi_zona1 = [
-    punto_champagnat,                       # Centro de la zona
-    [punto_champagnat[0] + 0.015, punto_champagnat[1] - 0.015],
-    [punto_champagnat[0] - 0.005, punto_champagnat[1] + 0.010],
-    [punto_champagnat[0] - 0.008, punto_champagnat[1] - 0.008],
-    punto_champagnat
-]
-
-# ============================================================
-# AGREGAR TODAS LAS ZONAS AL MAPA
-# ============================================================
-agregar_zona(mapa, rodriguez_zona1, 
-             "RODRIGUEZ, Maximiliano (Leg. 7713)", 
-             "Zona 1 - Sector Güemes", "red", 0.35)
-
-agregar_zona(mapa, garcia_zona3,
-             "GARCÍA, Juan Paulo (Leg. 7852)",
-             "Zona 3 - Microcentro / San Juan", "orange", 0.35)
-
-agregar_zona(mapa, carbayo_zona2,
-             "CARBAYO, Víctor Hugo (Leg. 9220)",
-             "Zona 2 - Microcentro (Independencia)", "yellow", 0.35)
-
-agregar_zona(mapa, lopez_zona1,
-             "LOPEZ, Martín Leonardo (Leg. 9983)",
-             "Zona 1 - Centro (Plaza Mitre)", "green", 0.35)
-
-agregar_zona(mapa, polinessi_zona1,
-             "POLINESSI, Juan José (Leg. 9513)",
-             "Zona 1 - Noroeste (Champagnat)", "blue", 0.35)
-
-# ============================================================
-# MARCAR TODAS LAS INTERSECCIONES DE REFERENCIA
-# ============================================================
-puntos = {
-    "Colón + J.B. Justo": colon_jbjusto,
-    "Colón + Güemes": colon_güemes,
-    "Colón + Independencia": colon_indep,
-    "Colón + San Luis": colon_sanluis,
-    "J.B. Justo + Catamarca": jbjusto_catamarca,
-    "J.B. Justo + Güemes": jbjusto_güemes,
-    "J.B. Justo + Polonia": jbjusto_polonia,
-    "J.B. Justo + Peralta Ramos": jbjusto_peraltaramos,
-    "Centro/Costa (ref)": punto_centro,
-    "Champagnat (ref)": punto_champagnat
+# Agregar puntos de referencia (intersecciones clave)
+puntos_ref = {
+    "Colón + J.B. Justo": [-38.0068, -57.6083],
+    "Colón + Güemes": [-38.0076, -57.5451],
+    "Colón + Independencia": [-38.0066, -57.5562],
+    "Colón + San Luis": [-38.0063, -57.5518],
+    "J.B. Justo + Catamarca": [-38.0201, -57.5753],
+    "J.B. Justo + Güemes": [-38.0315, -57.5471],
+    "J.B. Justo + Polonia": [-38.0163, -57.5956],
+    "J.B. Justo + Peralta Ramos": [-38.0211, -57.5768],
 }
 
-for nombre, coord in puntos.items():
+for nombre, coord in puntos_ref.items():
     folium.Marker(
         coord,
         popup=nombre,
-        icon=folium.Icon(color='gray', icon='info-sign', prefix='fa')
+        icon=folium.Icon(color="gray", icon="info-sign", prefix="fa"),
+        tooltip=nombre
     ).add_to(mapa)
 
-# ============================================================
-# AGREGAR CAPAS DE CONTROL (para activar/desactivar zonas)
-# ============================================================
-folium.LayerControl().add_to(mapa)
+# ==============================================================================
+# 3. MOSTRAR EL MAPA EN STREAMLIT
+# ==============================================================================
+# Usar columnas para mapa y leyenda
+col1, col2 = st.columns([3, 1])
 
-# ============================================================
-# GUARDAR Y ABRIR
-# ============================================================
-archivo = "mar_del_plata_inspectores.html"
-mapa.save(archivo)
-webbrowser.open('file://' + os.path.realpath(archivo))
+with col1:
+    st.subheader("📍 Mapa de Zonas por Inspector")
+    output = st_folium(mapa, width=800, height=600)
 
-print("=" * 60)
-print("✅ MAPA GENERADO EXITOSAMENTE")
-print("=" * 60)
-print(f"📂 Archivo guardado: {archivo}")
-print("🌐 Se abrió automáticamente en tu navegador")
-print("\n📌 INSTRUCCIONES:")
-print("   - Podés hacer zoom y moverte por el mapa")
-print("   - Las zonas tienen diferentes colores por inspector")
-print("   - Hacé clic en una zona para ver detalles")
-print("   - Usá el control de capas (esquina superior derecha)")
-print("=" * 60)
+with col2:
+    st.subheader("📋 Leyenda de Inspectores")
+    for inspector in zonas_inspectores:
+        with st.expander(f"🟢 {inspector['inspector']} (Leg. {inspector['legajo']})"):
+            st.markdown(f"**Color:** {inspector['color']}")
+            for zona in inspector["zonas"]:
+                st.markdown(f"**{zona['nombre']}**")
+                st.caption(zona["calles_descripcion"])
+                st.markdown("---")
+
+# ==============================================================================
+# 4. TABLA RESUMEN
+# ==============================================================================
+st.subheader("📊 Resumen de Zonas por Inspector")
+datos_tabla = []
+for inspector in zonas_inspectores:
+    for zona in inspector["zonas"]:
+        datos_tabla.append({
+            "Inspector": inspector["inspector"],
+            "Legajo": inspector["legajo"],
+            "Zona": zona["nombre"],
+            "Límites Resumidos": zona["calles_descripcion"][:100] + "...",
+            "Color": inspector["color"]
+        })
+df = pd.DataFrame(datos_tabla)
+st.dataframe(df, use_container_width=True)
+
+st.info("💡 Los polígonos son aproximaciones basadas en las descripciones de límites. Para una geolocalización exacta, se necesita geocodificar cuadra por cuadra.")
