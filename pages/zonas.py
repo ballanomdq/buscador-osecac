@@ -1,16 +1,32 @@
-# Zona que trazaste en geojson.io (Colón/Independencia/JB Justo/Buenos Aires)
-ZONA_TRAZADA = [
-    (-38.006042310292955, -57.54510363463275),
-    (-38.026245240370905, -57.56147063140568),
-    (-38.01895040699503, -57.57118242597171),
-    (-38.00036841020232, -57.55619277144454)
+import streamlit as st
+import folium
+from streamlit_folium import folium_static
+
+st.set_page_config(layout="wide", page_title="Mapa de Zonas")
+
+st.title("Mapa de Jurisdicciones - Mar del Plata")
+
+# 1. LA ZONA QUE SACASTE DE GEOJSON.IO (Corregida para que Folium la entienda)
+# Corresponde a Colón / Independencia / J.B. Justo / Buenos Aires
+zona_manual_1 = [
+    (-38.0060, -57.5451),
+    (-38.0262, -57.5614),
+    (-38.0189, -57.5711),
+    (-38.0003, -57.5561)
 ]
 
-# En tu bucle de folium agregamos esto:
+# 2. CREAR EL MAPA
+m = folium.Map(location=[-38.0100, -57.5600], zoom_start=13, tiles='OpenStreetMap')
+
+# 3. DIBUJAR EL POLÍGONO (Aquí estaba el NameError, ahora está dentro de la lógica correcta)
 folium.Polygon(
-    locations=ZONA_TRAZADA,
-    color="blue", # O el color del inspector que corresponda
+    locations=zona_manual_1,
+    color="blue",
     fill=True,
     fill_opacity=0.4,
-    popup="Zona Trazada Manualmente"
+    weight=3,
+    popup="Zona: Colón / Independencia / J.B. Justo / Buenos Aires"
 ).add_to(m)
+
+# 4. RENDERIZAR EN STREAMLIT
+folium_static(m, width=1100, height=700)
