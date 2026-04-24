@@ -7,10 +7,10 @@ import os
 # ============================================================
 
 # Eje Av. Colón
-colón_jbjusto = [-38.0068, -57.6083]   # [lat, lon]
-colón_güemes  = [-38.0076, -57.5451]
-colón_indep   = [-38.0066, -57.5562]
-colón_sanluis = [-38.0063, -57.5518]
+colon_jbjusto = [-38.0068, -57.6083]   # [lat, lon]
+colon_güemes  = [-38.0076, -57.5451]
+colon_indep   = [-38.0066, -57.5562]
+colon_sanluis = [-38.0063, -57.5518]
 
 # Eje Av. Juan B. Justo
 jbjusto_catamarca      = [-38.0201, -57.5753]
@@ -25,8 +25,8 @@ punto_champagnat  = [-37.980243861788324, -57.58254961283819] # Rotonda Champagn
 # ============================================================
 # CREAR MAPA BASE (centrado en el macrocentro)
 # ============================================================
-lat_centro = (colón_güemes[0] + punto_centro[0]) / 2
-lon_centro = (colón_güemes[1] + punto_centro[1]) / 2
+lat_centro = (colon_güemes[0] + punto_centro[0]) / 2
+lon_centro = (colon_güemes[1] + punto_centro[1]) / 2
 
 mapa = folium.Map(
     location=[lat_centro, lon_centro],
@@ -53,42 +53,41 @@ def agregar_zona(mapa, vertices, inspector, zona, color, opacidad=0.4):
 # ============================================================
 # DEFINIR POLÍGONOS - USANDO TUS COORDENADAS COMO REFERENCIA
 # ============================================================
-# NOTA: Interpolo lógicamente entre tus puntos para crear áreas coherentes
 
 # RODRIGUEZ - Zona Güemes (Este, cerca del mar)
 rodriguez_zona1 = [
-    colón_güemes,           # Noroeste
+    colon_güemes,           # Noroeste
     [-38.0076, -57.5400],   # Noreste (hacia el mar)
     [-38.0200, -57.5400],   # Sureste
     [-38.0200, -57.5471],   # Suroeste (cerca J.B. Justo)
-    colón_güemes
+    colon_güemes
 ]
 
 # GARCÍA - Zona Microcentro
 garcia_zona3 = [
-    colón_indep,            # Noroeste
-    colón_sanluis,          # Noreste
+    colon_indep,            # Noroeste
+    colon_sanluis,          # Noreste
     [-38.0120, -57.5518],   # Sureste
     [-38.0120, -57.5562],   # Suroeste
-    colón_indep
+    colon_indep
 ]
 
 # CARBAYO - Zona Microcentro (Independencia)
 carbayo_zona2 = [
-    colón_indep,            # Noreste
+    colon_indep,            # Noreste
     [-38.0066, -57.5620],   # Noroeste
     [-38.0130, -57.5620],   # Suroeste
     [-38.0130, -57.5562],   # Sureste
-    colón_indep
+    colon_indep
 ]
 
 # LOPEZ - Zona Centro (Plaza Mitre)
 lopez_zona1 = [
-    colón_sanluis,          # Noreste
+    colon_sanluis,          # Noreste
     [-38.0063, -57.5580],   # Noroeste
     [-38.0140, -57.5580],   # Suroeste
     [-38.0140, -57.5518],   # Sureste
-    colón_sanluis
+    colon_sanluis
 ]
 
 # POLINESSI - Zona Champagnat (Noroeste)
@@ -124,13 +123,13 @@ agregar_zona(mapa, polinessi_zona1,
              "Zona 1 - Noroeste (Champagnat)", "blue", 0.35)
 
 # ============================================================
-# MARCAR TODAS LAS INTESECCIONES DE REFERENCIA
+# MARCAR TODAS LAS INTERSECCIONES DE REFERENCIA
 # ============================================================
 puntos = {
-    "Colón + J.B. Justo": colón_jbjusto,
-    "Colón + Güemes": colón_güemes,
-    "Colón + Independencia": colón_indep,
-    "Colón + San Luis": colón_sanluis,
+    "Colón + J.B. Justo": colon_jbjusto,
+    "Colón + Güemes": colon_güemes,
+    "Colón + Independencia": colon_indep,
+    "Colón + San Luis": colon_sanluis,
     "J.B. Justo + Catamarca": jbjusto_catamarca,
     "J.B. Justo + Güemes": jbjusto_güemes,
     "J.B. Justo + Polonia": jbjusto_polonia,
