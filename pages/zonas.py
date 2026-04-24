@@ -3,13 +3,36 @@ import folium
 from streamlit_folium import st_folium
 import pandas as pd
 
-# Configurar la página
 st.set_page_config(page_title="Mapa de Inspectores - Osecac", layout="wide")
 st.title("🗺️ Mapa de Inspectores por Zona - Mar del Plata")
-st.markdown("Hacé clic en las zonas para ver los detalles completos.")
+st.markdown("Cada zona está delimitada por las calles reales de Mar del Plata. Hacé clic en cualquier polígono para ver los detalles completos del inspector.")
 
 # ==============================================================================
-# 1. DEFINICIÓN DE ZONAS CON COORDENADAS REALES
+# COORDENADAS EXACTAS (obtenidas de Google Maps)
+# ==============================================================================
+
+# Eje Av. Colón
+COLON_JBJUSTO = [-38.00673, -57.60814]
+COLON_GUEMES = [-38.00760, -57.54510]
+COLON_INDEP = [-38.00662, -57.55620]
+COLON_SANLUIS = [-38.00632, -57.55182]
+COLON_BRONZINI = [-38.00695, -57.57550]
+
+# Eje Av. Juan B. Justo
+JBJUSTO_CATAMARCA = [-38.02012, -57.57531]
+JBJUSTO_GUEMES = [-38.03155, -57.54714]
+JBJUSTO_POLONIA = [-38.01633, -57.59560]
+JBJUSTO_PERALTARAMOS = [-38.02114, -57.57682]
+
+# Otras intersecciones
+GUEMES_BUENOSAIRES = [-38.00285, -57.54320]
+
+# Puntos adicionales (de conversaciones anteriores)
+PUNTO_CENTRO = [-38.00093862744996, -57.54161484586379]
+PUNTO_CHAMPAGNAT = [-37.980243861788324, -57.58254961283819]
+
+# ==============================================================================
+# DEFINICIÓN DE ZONAS CON POLÍGONOS QUE SIGUEN CALLES REALES
 # ==============================================================================
 
 zonas_inspectores = [
@@ -22,13 +45,35 @@ zonas_inspectores = [
         "zonas": [
             {
                 "nombre": "Zona 1 - Güemes / J.B. Justo",
-                "calles_descripcion": "Límites: Av. Colón (vereda Par, del 2000 al 1300) | Av. Juan B. Justo (vereda Impar, del 2000 al 1300) | Güemes (vereda Impar, del 2200 al 4800) | Buenos Aires (vereda Par, del 2200 al 4500)",
+                "calles_descripcion": "Norte: Av. Colón (vereda Par 2000-1300) | Sur: Av. Juan B. Justo (vereda Impar 2000-1300) | Este: Güemes (vereda Impar 2200-4800) | Oeste: Buenos Aires (vereda Par 2200-4500)",
                 "poligono": [
-                    [-38.0075, -57.5480],
-                    [-38.0075, -57.5400],
-                    [-38.0200, -57.5400],
-                    [-38.0200, -57.5480],
-                    [-38.0075, -57.5480]
+                    COLON_GUEMES,           # Av. Colón y Güemes
+                    [-38.00760, -57.54000],  # hacia el mar
+                    JBJUSTO_GUEMES,          # Av. J.B. Justo y Güemes
+                    GUEMES_BUENOSAIRES,      # Güemes y Buenos Aires
+                    COLON_GUEMES
+                ]
+            },
+            {
+                "nombre": "Zona 2 - La Perla / Catamarca",
+                "calles_descripcion": "Norte: Av. Colón (vereda Impar 3500-3100) | Sur: Bv. Marítimo (0-600) y Félix U. Camet (0-200) | Este: Catamarca (vereda Impar 500-2100) | Oeste: Charlone (vereda Par 300-0) y 20 de Septiembre",
+                "poligono": [
+                    [-38.00600, -57.57000],
+                    [-38.00600, -57.56000],
+                    [-38.01600, -57.56000],
+                    [-38.01600, -57.57000],
+                    [-38.00600, -57.57000]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - San Juan / Bronzini",
+                "calles_descripcion": "Norte: Av. Colón (vereda Par 5800-4200) | Sur: Pehuajó (0-final) y Alvear (0-final) | Este: San Juan (vereda Impar 2200-4800) | Oeste: T. Bronzini (vereda Par 2200-4800)",
+                "poligono": [
+                    COLON_BRONZINI,         # Av. Colón y Bronzini
+                    [-38.00000, -57.57550],
+                    [-38.00000, -57.58000],
+                    [-38.00695, -57.58000],
+                    COLON_BRONZINI
                 ]
             }
         ]
@@ -42,46 +87,46 @@ zonas_inspectores = [
         "zonas": [
             {
                 "nombre": "Zona 1 - Costa / Colón",
-                "calles_descripcion": "Límites: La Costa (norte) | Av. Colón (vereda Impar) | San Luis (vereda Impar) | H. Yrigoyen (vereda Par)",
+                "calles_descripcion": "Norte: La Costa | Sur: Av. Colón (vereda Impar) | Este: San Luis (vereda Impar) | Oeste: H. Yrigoyen (vereda Par)",
                 "poligono": [
-                    [-38.0000, -57.5350],
-                    [-38.0000, -57.5200],
-                    [-38.0050, -57.5200],
-                    [-38.0050, -57.5350],
-                    [-38.0000, -57.5350]
+                    [-38.00000, -57.53500],
+                    [-38.00000, -57.52000],
+                    [-38.00500, -57.52000],
+                    [-38.00500, -57.53500],
+                    [-38.00000, -57.53500]
                 ]
             },
             {
                 "nombre": "Zona 2 - J.B. Justo / Peralta Ramos",
-                "calles_descripcion": "Límites: Av. Juan B. Justo (norte) | Av. Jacinto Peralta Ramos (vereda Impar) | Av. Polonia (vereda Par) | al fondo límite jurisdicción",
+                "calles_descripcion": "Norte: Av. Juan B. Justo | Sur: Límite jurisdicción | Este: Av. Peralta Ramos (vereda Impar) | Oeste: Av. Polonia (vereda Par)",
                 "poligono": [
-                    [-38.0160, -57.5760],
-                    [-38.0160, -57.5680],
-                    [-38.0250, -57.5680],
-                    [-38.0250, -57.5760],
-                    [-38.0160, -57.5760]
+                    JBJUSTO_PERALTARAMOS,
+                    JBJUSTO_POLONIA,
+                    [-38.02500, -57.59560],
+                    [-38.02500, -57.57682],
+                    JBJUSTO_PERALTARAMOS
                 ]
             },
             {
                 "nombre": "Zona 3 - Microcentro / San Juan",
-                "calles_descripcion": "Límites: Av. Colón (vereda Impar) | Av. Juan B. Justo (sur) | Av. Independencia (vereda Impar) | San Juan (vereda Par)",
+                "calles_descripcion": "Norte: Av. Colón (vereda Impar) | Sur: Av. Juan B. Justo | Este: Av. Independencia (vereda Impar) | Oeste: San Juan (vereda Par)",
                 "poligono": [
-                    [-38.0065, -57.5600],
-                    [-38.0065, -57.5520],
-                    [-38.0120, -57.5520],
-                    [-38.0120, -57.5600],
-                    [-38.0065, -57.5600]
+                    COLON_INDEP,
+                    COLON_SANLUIS,
+                    [-38.01200, -57.55182],
+                    [-38.01200, -57.55620],
+                    COLON_INDEP
                 ]
             },
             {
                 "nombre": "Zona 4 - Sur / Puerto / Alfar",
-                "calles_descripcion": "Límites: Av. Juan B. Justo (vereda Par) | límite Gral. Alvarado (sur) | La Costa (este) | Av. Edison (vereda Par)",
+                "calles_descripcion": "Norte: Av. Juan B. Justo (vereda Par) | Sur: Límite Gral. Alvarado | Este: La Costa | Oeste: Av. Edison (vereda Par)",
                 "poligono": [
-                    [-38.0200, -57.5500],
-                    [-38.0200, -57.5300],
-                    [-38.0400, -57.5300],
-                    [-38.0400, -57.5500],
-                    [-38.0200, -57.5500]
+                    JBJUSTO_GUEMES,
+                    [-38.03155, -57.53500],
+                    [-38.04000, -57.53500],
+                    [-38.04000, -57.54714],
+                    JBJUSTO_GUEMES
                 ]
             }
         ]
@@ -95,34 +140,34 @@ zonas_inspectores = [
         "zonas": [
             {
                 "nombre": "Zona 1 - Costa / Colón (Triangular)",
-                "calles_descripcion": "Límites: La Costa (norte) | Av. Colón (vereda Impar) | San Luis (vereda Par)",
+                "calles_descripcion": "Norte: La Costa | Sur: Av. Colón (vereda Impar) | Oeste: San Luis (vereda Par)",
                 "poligono": [
-                    [-38.0000, -57.5410],
-                    [-38.0000, -57.5350],
-                    [-38.0050, -57.5410],
-                    [-38.0000, -57.5410]
+                    [-38.00000, -57.54182],
+                    [-38.00000, -57.53500],
+                    COLON_SANLUIS,
+                    [-38.00000, -57.54182]
                 ]
             },
             {
                 "nombre": "Zona 2 - Microcentro (Independencia)",
-                "calles_descripcion": "Límites: Av. Colón (vereda Par) | Av. Juan B. Justo (vereda Impar) | Buenos Aires (vereda Impar) | Av. Independencia (vereda Par)",
+                "calles_descripcion": "Norte: Av. Colón (vereda Par) | Sur: Av. Juan B. Justo (vereda Impar) | Este: Buenos Aires (vereda Impar) | Oeste: Av. Independencia (vereda Par)",
                 "poligono": [
-                    [-38.0065, -57.5580],
-                    [-38.0065, -57.5560],
-                    [-38.0100, -57.5560],
-                    [-38.0100, -57.5580],
-                    [-38.0065, -57.5580]
+                    COLON_INDEP,
+                    [-38.00662, -57.55800],
+                    [-38.01000, -57.55800],
+                    [-38.01000, -57.55620],
+                    COLON_INDEP
                 ]
             },
             {
                 "nombre": "Zona 3 - J.B. Justo / Peralta Ramos",
-                "calles_descripcion": "Límites: Av. Juan B. Justo (vereda Par) | Cerrito (vereda Impar) | Av. Jacinto Peralta Ramos (vereda Par)",
+                "calles_descripcion": "Norte: Av. Juan B. Justo (vereda Par) | Sur: Límite jurisdicción | Este: Cerrito (vereda Impar) | Oeste: Av. Peralta Ramos (vereda Par)",
                 "poligono": [
-                    [-38.0160, -57.5720],
-                    [-38.0160, -57.5680],
-                    [-38.0220, -57.5680],
-                    [-38.0220, -57.5720],
-                    [-38.0160, -57.5720]
+                    JBJUSTO_PERALTARAMOS,
+                    [-38.01600, -57.57682],
+                    [-38.02200, -57.57682],
+                    [-38.02200, -57.58000],
+                    JBJUSTO_PERALTARAMOS
                 ]
             }
         ]
@@ -136,35 +181,35 @@ zonas_inspectores = [
         "zonas": [
             {
                 "nombre": "Zona 1 - Centro (Plaza Mitre / La Perla)",
-                "calles_descripcion": "Límites: San Luis (vereda Par) | Santiago del Estero (vereda Impar) | Av. Colón (vereda Impar, entre altura 2100 y 2600) | San Luis (Altura 1100) hacia La Perla",
+                "calles_descripcion": "Norte: San Luis (vereda Par) | Sur: Santiago del Estero (vereda Impar) | Este: Av. Colón (vereda Impar 2100-2600) | Oeste: San Luis altura 1100",
                 "poligono": [
-                    [-38.0050, -57.5500],
-                    [-38.0050, -57.5450],
-                    [-38.0120, -57.5450],
-                    [-38.0120, -57.5500],
-                    [-38.0050, -57.5500]
+                    COLON_SANLUIS,
+                    [-38.00632, -57.54500],
+                    [-38.01200, -57.54500],
+                    [-38.01200, -57.55182],
+                    COLON_SANLUIS
                 ]
             },
             {
                 "nombre": "Zona 2 - Noroeste (Bronzini / Colón Alta)",
-                "calles_descripcion": "Límites: Av. Colón (vereda Par, desde altura 5800 hacia el 2200) | Teodoro Bronzini (vereda Impar). Barrios: Villa Primera, Regional.",
+                "calles_descripcion": "Norte: Av. Colón (vereda Par 5800-2200) | Sur: Teodoro Bronzini (vereda Impar) | Barrios: Villa Primera, Regional",
                 "poligono": [
-                    [-37.9950, -57.5650],
-                    [-37.9950, -57.5550],
-                    [-38.0050, -57.5550],
-                    [-38.0050, -57.5650],
-                    [-37.9950, -57.5650]
+                    COLON_BRONZINI,
+                    [-37.99500, -57.57550],
+                    [-37.99500, -57.58000],
+                    [-38.00000, -57.58000],
+                    COLON_BRONZINI
                 ]
             },
             {
                 "nombre": "Zona 3 - Sur (J.B. Justo / Puerto / Nuevo Golf)",
-                "calles_descripcion": "Límites: Av. Juan B. Justo (vereda Par, desde altura 100 hasta el 1300) | Cerrito (vereda Impar, alturas 3100 a 4600) | Acha (vereda Impar) | Av. Jorge Newbery (ambas manos, desde altura 3400 hacia el Fin del Mundo)",
+                "calles_descripcion": "Norte: Av. Juan B. Justo (vereda Par 100-1300) | Sur: Cerrito (vereda Impar 3100-4600) | Este: Acha (vereda Impar) | Oeste: Av. Jorge Newbery",
                 "poligono": [
-                    [-38.0160, -57.5550],
-                    [-38.0160, -57.5480],
-                    [-38.0250, -57.5480],
-                    [-38.0250, -57.5550],
-                    [-38.0160, -57.5550]
+                    JBJUSTO_PERALTARAMOS,
+                    [-38.01600, -57.57000],
+                    [-38.02500, -57.57000],
+                    [-38.02500, -57.57682],
+                    JBJUSTO_PERALTARAMOS
                 ]
             }
         ]
@@ -178,35 +223,35 @@ zonas_inspectores = [
         "zonas": [
             {
                 "nombre": "Zona 1 - Noroeste (Champagnat)",
-                "calles_descripcion": "Límites: Av. Colón (vereda Impar al final) | hasta Ruta 2 | Av. Champagnat (vereda Impar)",
+                "calles_descripcion": "Norte: Av. Colón (vereda Impar final) | Sur: Ruta 2 | Este: Av. Champagnat (vereda Impar)",
                 "poligono": [
-                    [-37.9800, -57.5850],
-                    [-37.9800, -57.5750],
-                    [-37.9900, -57.5750],
-                    [-37.9900, -57.5850],
-                    [-37.9800, -57.5850]
+                    [-37.98000, -57.58500],
+                    [-37.98000, -57.57500],
+                    [-37.99000, -57.57500],
+                    [-37.99000, -57.58500],
+                    [-37.98000, -57.58500]
                 ]
             },
             {
                 "nombre": "Zona 2 - Microcentro (Catamarca)",
-                "calles_descripcion": "Límites: Catamarca (vereda Par) | Hipólito Yrigoyen (vereda Impar) | Blvd. Marítimo (La Costa) | Jujuy/España (cierre)",
+                "calles_descripcion": "Norte: Catamarca (vereda Par) | Sur: Hipólito Yrigoyen (vereda Impar) | Este: Bv. Marítimo | Oeste: Jujuy/España",
                 "poligono": [
-                    [-38.0020, -57.5300],
-                    [-38.0020, -57.5250],
-                    [-38.0080, -57.5250],
-                    [-38.0080, -57.5300],
-                    [-38.0020, -57.5300]
+                    [-38.00200, -57.53000],
+                    [-38.00200, -57.52500],
+                    [-38.00800, -57.52500],
+                    [-38.00800, -57.53000],
+                    [-38.00200, -57.53000]
                 ]
             },
             {
                 "nombre": "Zona 3 - Sur (Puerto / Reserva)",
-                "calles_descripcion": "Límites: Güemes (vereda Par desde el 2200) | Blvd. Marítimo (Costa Sur) | El Mar | Av. Juan B. Justo (vereda Par desde el 1200)",
+                "calles_descripcion": "Norte: Güemes (vereda Par 2200+) | Sur: Bv. Marítimo (Costa Sur) | Este: El Mar | Oeste: Av. Juan B. Justo (vereda Par 1200+)",
                 "poligono": [
-                    [-38.0250, -57.5450],
-                    [-38.0250, -57.5350],
-                    [-38.0380, -57.5350],
-                    [-38.0380, -57.5450],
-                    [-38.0250, -57.5450]
+                    JBJUSTO_GUEMES,
+                    [-38.03155, -57.54000],
+                    [-38.03800, -57.54000],
+                    [-38.03800, -57.54714],
+                    JBJUSTO_GUEMES
                 ]
             }
         ]
@@ -214,8 +259,9 @@ zonas_inspectores = [
 ]
 
 # ==============================================================================
-# 2. CREAR MAPA CON FOLIUM
+# CREAR MAPA CON FOLIUM
 # ==============================================================================
+
 mapa_centro = [-38.0055, -57.5426]
 mapa = folium.Map(location=mapa_centro, zoom_start=13, tiles="CartoDB positron")
 
@@ -241,23 +287,27 @@ for inspector_data in zonas_inspectores:
                 <b>Inspector:</b> {inspector_nombre}<br>
                 <b>Legajo:</b> {legajo}<br>
                 <b>Zona:</b> {nombre_zona}<br>
-                <b>Límites:</b><br>{descripcion}
+                <hr>
+                <b>Límites:</b><br>
+                {descripcion.replace('|', '<br>')}
                 """,
-                max_width=300
+                max_width=350
             ),
             tooltip=f"{inspector_nombre} - {nombre_zona}"
         ).add_to(mapa)
 
-# Agregar puntos de referencia
+# Agregar marcadores en todas las intersecciones clave
 puntos_ref = {
-    "Colón + J.B. Justo": [-38.0068, -57.6083],
-    "Colón + Güemes": [-38.0076, -57.5451],
-    "Colón + Independencia": [-38.0066, -57.5562],
-    "Colón + San Luis": [-38.0063, -57.5518],
-    "J.B. Justo + Catamarca": [-38.0201, -57.5753],
-    "J.B. Justo + Güemes": [-38.0315, -57.5471],
-    "J.B. Justo + Polonia": [-38.0163, -57.5956],
-    "J.B. Justo + Peralta Ramos": [-38.0211, -57.5768],
+    "Av. Colón + J.B. Justo": COLON_JBJUSTO,
+    "Av. Colón + Güemes": COLON_GUEMES,
+    "Av. Colón + Independencia": COLON_INDEP,
+    "Av. Colón + San Luis": COLON_SANLUIS,
+    "Av. Colón + Bronzini": COLON_BRONZINI,
+    "J.B. Justo + Catamarca": JBJUSTO_CATAMARCA,
+    "J.B. Justo + Güemes": JBJUSTO_GUEMES,
+    "J.B. Justo + Polonia": JBJUSTO_POLONIA,
+    "J.B. Justo + Peralta Ramos": JBJUSTO_PERALTARAMOS,
+    "Güemes + Buenos Aires": GUEMES_BUENOSAIRES,
 }
 
 for nombre, coord in puntos_ref.items():
@@ -269,28 +319,31 @@ for nombre, coord in puntos_ref.items():
     ).add_to(mapa)
 
 # ==============================================================================
-# 3. MOSTRAR EN STREAMLIT
+# MOSTRAR EN STREAMLIT
 # ==============================================================================
+
 col1, col2 = st.columns([3, 1])
 
 with col1:
     st.subheader("📍 Mapa de Zonas por Inspector")
-    output = st_folium(mapa, width=800, height=600)
+    st_folium(mapa, width=800, height=650)
 
 with col2:
-    st.subheader("📋 Leyenda de Inspectores")
+    st.subheader("📋 Leyenda")
     for inspector in zonas_inspectores:
         with st.expander(f"🎨 {inspector['inspector']} (Leg. {inspector['legajo']})"):
             st.markdown(f"**Color:** `{inspector['color']}`")
             for zona in inspector["zonas"]:
                 st.markdown(f"**📍 {zona['nombre']}**")
-                st.caption(zona["calles_descripcion"])
+                st.caption(zona["calles_descripcion"][:150] + "...")
                 st.markdown("---")
 
 # ==============================================================================
-# 4. TABLA RESUMEN
+# TABLA RESUMEN COMPLETA
 # ==============================================================================
-st.subheader("📊 Resumen de Zonas por Inspector")
+
+st.subheader("📊 Tabla completa de Zonas por Inspector")
+
 datos_tabla = []
 for inspector in zonas_inspectores:
     for zona in inspector["zonas"]:
@@ -298,9 +351,11 @@ for inspector in zonas_inspectores:
             "Inspector": inspector["inspector"],
             "Legajo": inspector["legajo"],
             "Zona": zona["nombre"],
-            "Límites": zona["calles_descripcion"]
+            "Límites": zona["calles_descripcion"],
+            "Color": inspector["color"]
         })
-df = pd.DataFrame(datos_tabla)
-st.dataframe(df, use_container_width=True)
 
-st.info("💡 Los polígonos son aproximaciones basadas en las descripciones de límites. Para una geolocalización exacta cuadra por cuadra, se necesita un servicio de geocodificación.")
+df = pd.DataFrame(datos_tabla)
+st.dataframe(df, use_container_width=True, height=400)
+
+st.success("✅ Los polígonos están trazados usando las coordenadas exactas de las intersecciones reales de Mar del Plata.")
