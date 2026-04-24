@@ -23,15 +23,16 @@ punto_centro      = [-38.00093862744996, -57.54161484586379]  # Centro/Costa
 punto_champagnat  = [-37.980243861788324, -57.58254961283819] # Rotonda Champagnat
 
 # ============================================================
-# CREAR MAPA BASE (centrado en el macrocentro)
+# CREAR MAPA BASE - USANDO CARTODB (NO SE VE EN BLANCO)
 # ============================================================
 lat_centro = (colon_güemes[0] + punto_centro[0]) / 2
 lon_centro = (colon_güemes[1] + punto_centro[1]) / 2
 
+# USO 'CartoDB positron' en lugar de OpenStreetMap para evitar pantalla en blanco
 mapa = folium.Map(
     location=[lat_centro, lon_centro],
     zoom_start=13,
-    tiles='OpenStreetMap',
+    tiles='CartoDB positron',  # <--- ESTO SOLUCIONA EL MAPA EN BLANCO
     control_scale=True
 )
 
