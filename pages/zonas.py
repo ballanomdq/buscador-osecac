@@ -1,49 +1,59 @@
 import streamlit as st
 import folium
-from streamlit_folium import st_folium
+from streamlit_folium import folium_static
 
-st.set_page_config(layout="wide")
-st.title("Mapa Oficial de Jurisdicciones - OSECAC MDP")
+st.set_page_config(layout="wide", page_title="Zonas Inspector López")
 
-# Centramos el mapa en Mar del Plata
-m = folium.Map(location=[-38.005, -57.56], zoom_start=13)
+st.title("Jurisdicción: LOPEZ, MARTÍN LEONARDO (Leg. 9983)")
+st.write("Mapa rectificado: Los bordes siguen las calles del plano.")
 
-# --- DEFINICIÓN DE ZONAS SEGÚN MAPA FÍSICO ---
+# ESTE ES EL DICCIONARIO CON LAS COORDENADAS QUE FUNCIONAN
+ZONAS_LOPEZ = [
+    {
+        "nombre": "Zona 1: Centro (Plaza Mitre / La Perla)",
+        "calles": "Límites: 11 de Septiembre, Av. Colón, San Luis y Santiago del Estero.",
+        "coords": [
+            (-37.9961, -57.5492), # San Luis y 11 de Septiembre
+            (-37.9995, -57.5475), # Diag. Alberdi y Santiago del Estero
+            (-38.0062, -57.5507), # Av. Colón y Santiago del Estero
+            (-38.0063, -57.5518), # Av. Colón y San Luis
+        ]
+    },
+    {
+        "nombre": "Zona 2: Noroeste (Bronzini)",
+        "calles": "Límites: Av. Colón, Av. Juan B. Justo, T. Bronzini y Av. Champagnat.",
+        "coords": [
+            (-38.0069, -57.5755), # Av. Colón y T. Bronzini
+            (-38.0067, -57.6081), # Av. Colón y Av. J.B. Justo
+            (-38.0335, -57.6152), # Av. J.B. Justo y Reforma Universitaria
+            (-38.0381, -57.5841), # Av. J.B. Justo y T. Bronzini
+        ]
+    },
+    {
+        "nombre": "Zona 3: Sur (J.B. Justo / Nuevo Golf)",
+        "calles": "Límites: Av. Juan B. Justo, Calle Cerrito, Calle Acha y Av. Jorge Newbery.",
+        "coords": [
+            (-38.0338, -57.5562), # Av. J.B. Justo y Acha
+            (-38.0415, -57.5812), # Av. J.B. Justo y Jorge Newbery
+            (-38.0642, -57.5985), # Cerrito y Jorge Newbery
+            (-38.0535, -57.5721)  # Cerrito y Acha
+        ]
+    }
+]
 
-# 1. RODRÍGUEZ (Celeste) - Zona Chauvin / San José
-folium.Polygon(
-    locations=[[-38.006, -57.545], [-38.010, -57.539], [-38.026, -57.554], [-38.022, -57.560]],
-    color='blue', fill_color='#00BFFF', fill_opacity=0.5,
-    popup="Inspector RODRÍGUEZ"
-).add_to(m)
+# Mapa base
+m = folium.Map(location=[-38.0150, -57.5650], zoom_start=13)
 
-# 2. CARBAYO (Rosa) - Zona Centro / Plaza Mitre
-folium.Polygon(
-    locations=[[-37.998, -57.555], [-38.005, -57.546], [-38.015, -57.560], [-38.008, -57.568]],
-    color='deeppink', fill_color='#FF69B4', fill_opacity=0.5,
-    popup="Inspector CARBAYO"
-).add_to(m)
+# Dibujar las 3 zonas en verde
+for zona in ZONAS_LOPEZ:
+    folium.Polygon(
+        locations=zona["coords"],
+        color="green",
+        fill=True,
+        fill_color="green",
+        fill_opacity=0.4,
+        weight=3,
+        popup=f"{zona['nombre']}: {zona['calles']}"
+    ).add_to(m)
 
-# 3. GARCÍA (Naranja) - Zona Norte / Constitución
-folium.Polygon(
-    locations=[[-37.975, -57.560], [-37.985, -57.545], [-38.000, -57.555], [-37.990, -57.575]],
-    color='orange', fill_color='#FFA500', fill_opacity=0.5,
-    popup="Inspector GARCÍA"
-).add_to(m)
-
-# 4. LOPEZ (Violeta) - Zona Puerto / Cerrito
-folium.Polygon(
-    locations=[[-38.025, -57.570], [-38.035, -57.550], [-38.060, -57.580], [-38.050, -57.600]],
-    color='purple', fill_color='#8A2BE2', fill_opacity=0.5,
-    popup="Inspector LÓPEZ"
-).add_to(m)
-
-# 5. POLINESSI (Verde) - Zona Playa Grande
-folium.Polygon(
-    locations=[[-38.020, -57.540], [-38.030, -57.530], [-38.045, -57.545], [-38.035, -57.555]],
-    color='green', fill_color='#7FFF00', fill_opacity=0.5,
-    popup="Inspector POLINESSI"
-).add_to(m)
-
-# Renderizado
-st_folium(m, width=1200, height=800)
+folium_static(m, width=1100, height=700)
