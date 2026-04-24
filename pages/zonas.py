@@ -2,73 +2,64 @@ import streamlit as st
 import folium
 from streamlit_folium import folium_static
 
-st.set_page_config(layout="wide", page_title="Mapa de Inspectores")
+# Configuración de la página
+st.set_page_config(layout="wide", page_title="Zonas Inspector López")
 
-# Sidebar para filtrar
-st.sidebar.header("Filtros de Búsqueda")
-inspector_seleccionado = st.sidebar.multiselect(
-    "Seleccionar Inspector/es:",
-    options=["RODRIGUEZ", "GARCIA", "CARBAYO", "LOPEZ", "POLINESSI"],
-    default=["RODRIGUEZ", "GARCIA", "CARBAYO", "LOPEZ", "POLINESSI"]
-)
+st.title("Jurisdicción: LOPEZ, MARTÍN LEONARDO (Leg. 9983)")
+st.write("Mapa corregido según relevamiento gráfico (Fotos del mapa manual).")
 
-st.title("Mapa Interactivo de Jurisdicciones")
-st.write("Usa el menú lateral para filtrar y evitar la superposición de zonas.")
-
-# Diccionario de Datos (Mantenemos tus coordenadas ordenadas)
-ZONAS_DATA = {
-    "RODRIGUEZ": {
-        "color": "#FF0000", # Rojo
-        "zonas": [
-            {"nombre": "Güemes / J.B. Justo", "coords": [(-38.0076, -57.5451), (-38.0315, -57.5471), (-38.0298, -57.5482), (-38.0055, -57.5458)]},
-            {"nombre": "La Perla / Catamarca", "coords": [(-38.0062, -57.5532), (-37.9942, -57.5455), (-37.9855, -57.5531), (-38.0074, -57.5684)]},
-            {"nombre": "San Juan / Bronzini", "coords": [(-38.0065, -57.5552), (-38.0069, -57.5755), (-38.0171, -57.5772), (-38.0165, -57.5568)]}
+# Diccionario exclusivo para López con los cierres de polígono correctos
+ZONAS_LOPEZ = [
+    {
+        "nombre": "Zona 1: Sector Centro (Plaza Mitre / La Perla)",
+        "descripcion": "Límite: San Luis, Colón (2100-2600), Santiago del Estero y Diag. Alberdi.",
+        "coords": [
+            (-37.9961, -57.5492), # San Luis y 11 de Septiembre
+            (-38.0063, -57.5518), # San Luis y Av. Colón (Vereda Par)
+            (-38.0062, -57.5507), # Santiago del Estero y Av. Colón (Vereda Impar)
+            (-37.9995, -57.5475)  # Santiago del Estero y Diag. Alberdi Sur
         ]
     },
-    "GARCIA": {
-        "color": "#FFA500", # Naranja
-        "zonas": [
-            {"nombre": "Costa / Colón", "coords": [(-38.0044, -57.5428), (-38.0019, -57.5412), (-38.0064, -57.5542), (-38.0063, -57.5518)]},
-            {"nombre": "J.B. Justo / Peralta Ramos", "coords": [(-38.0211, -57.5768), (-38.0163, -57.5956), (-38.0255, -57.6012), (-38.0312, -57.5815)]},
-            {"nombre": "Microcentro / San Juan", "coords": [(-38.0066, -57.5562), (-38.0065, -57.5552), (-38.0214, -57.5622), (-38.0215, -57.5638)]}
+    {
+        "nombre": "Zona 2: Sector Noroeste (Bronzini / Colón Alta)",
+        "descripcion": "Triángulo entre Av. Colón (5800-2200) y Teodoro Bronzini (Vereda Impar).",
+        "coords": [
+            (-38.0069, -57.5755), # Av. Colón y T. Bronzini (Inicio)
+            (-38.0076, -57.5912), # Av. Colón y Champagnat / Ruta 226
+            (-38.0381, -57.5841)  # T. Bronzini y Av. Juan B. Justo (Cierre)
         ]
     },
-    "CARBAYO": {
-        "color": "#E5E500", # Amarillo oscuro para que se vea
-        "zonas": [
-            {"nombre": "Costa Triangular", "coords": [(-38.0044, -57.5428), (-38.0031, -57.5405), (-38.0063, -57.5518)]},
-            {"nombre": "Microcentro Independencia", "coords": [(-38.0066, -57.5562), (-38.0055, -57.5458), (-38.0298, -57.5482), (-38.0215, -57.5638)]}
-        ]
-    },
-    "LOPEZ": {
-        "color": "#008000", # Verde
-        "zonas": [
-            {"nombre": "Plaza Mitre", "coords": [(-38.0063, -57.5518), (-38.0062, -57.5507), (-38.0093, -57.5511), (-38.0094, -57.5522)]},
-            {"nombre": "Noroeste Bronzini", "coords": [(-38.0069, -57.5755), (-38.0067, -57.6081), (-38.0335, -57.6152), (-38.0381, -57.5841)]}
-        ]
-    },
-    "POLINESSI": {
-        "color": "#0000FF", # Azul
-        "zonas": [
-            {"nombre": "Champagnat", "coords": [(-38.0075, -57.5862), (-38.0076, -57.5912), (-37.9868, -57.5772)]},
-            {"nombre": "Microcentro Catamarca", "coords": [(-37.9942, -57.5455), (-37.9949, -57.5478), (-38.0031, -57.5471), (-38.0019, -57.5412)]}
+    {
+        "nombre": "Zona 3: Sector Sur (J.B. Justo / Puerto / Nuevo Golf)",
+        "descripcion": "Límites: J.B. Justo, Acha, Cerrito y Av. Jorge Newbery (Ambas manos).",
+        "coords": [
+            (-38.0338, -57.5562), # J.B. Justo y Acha
+            (-38.0535, -57.5721), # Cerrito y Acha
+            (-38.0642, -57.5985), # Cerrito y Jorge Newbery
+            (-38.0415, -57.5812)  # J.B. Justo y Jorge Newbery
         ]
     }
-}
+]
 
-m = folium.Map(location=[-38.0060, -57.5550], zoom_start=13, tiles='CartoDB positron')
+# Crear el mapa centrado en el punto medio de sus zonas
+m = folium.Map(location=[-38.0200, -57.5600], zoom_start=13, tiles='CartoDB positron')
 
-# Solo dibujar lo seleccionado en la barra lateral
-for insp in inspector_seleccionado:
-    info = ZONAS_DATA[insp]
-    for zona in info["zonas"]:
-        folium.Polygon(
-            locations=zona["coords"],
-            color=info["color"],
-            fill=True,
-            fill_opacity=0.3, # Menos opacidad ayuda a ver la superposición si existe
-            weight=3,
-            popup=f"Inspector: {insp} - {zona['nombre']}"
-        ).add_to(m)
+# Dibujar las 3 zonas de López
+for zona in ZONAS_LOPEZ:
+    folium.Polygon(
+        locations=zona["coords"],
+        color="#00FF00",      # Color Verde
+        fill=True,
+        fill_color="#00FF00",
+        fill_opacity=0.4,     # Transparencia para ver las calles
+        weight=2,
+        popup=f"<b>{zona['nombre']}</b><br>{zona['descripcion']}",
+        tooltip=zona["nombre"]
+    ).add_to(m)
 
-folium_static(m, width=1000, height=600)
+# Mostrar el mapa en la app de Streamlit
+folium_static(m, width=1100, height=700)
+
+# Tabla resumen debajo del mapa
+st.subheader("Detalle de Cobertura")
+st.table(ZONAS_LOPEZ)
