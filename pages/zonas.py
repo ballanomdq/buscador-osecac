@@ -2,8 +2,7 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 import pandas as pd
-from shapely.geometry import Polygon
-from shapely.validation import explain_validity
+import math
 
 st.set_page_config(page_title="Mapa de Inspectores - Osecac", layout="wide")
 st.title("🗺️ Mapa de Inspectores por Zona - Mar del Plata")
@@ -76,96 +75,223 @@ coord = {
 }
 
 # ==============================================================================
-# FUNCIÓN PARA VALIDAR Y CORREGIR POLÍGONOS CON SHAPELY
+# FUNCIÓN PARA ORDENAR VÉRTICES CORRECTAMENTE (SIN SHAPELY)
 # ==============================================================================
 
-def crear_poligono_valido(vertices, nombre_zona):
-    """Valida y corrige un polígono usando Shapely"""
-    try:
-        # Crear polígono
-        poly = Polygon(vertices)
-        
-        # Verificar si es válido
-        if not poly.is_valid:
-            st.warning(f"⚠️ Polígono '{nombre_zona}' inválido: {explain_validity(poly)}")
-            # Intentar corregir con buffer(0)
-            poly = poly.buffer(0)
-            if poly.is_valid:
-                st.success(f"✅ Polígono '{nombre_zona}' corregido exitosamente")
-            else:
-                st.error(f"❌ No se pudo corregir '{nombre_zona}'")
-                return vertices
-        
-        # Devolver las coordenadas corregidas (en orden)
-        return list(poly.exterior.coords)[:-1]  # [:-1] elimina el punto repetido final
-        
-    except Exception as e:
-        st.error(f"Error en '{nombre_zona}': {e}")
+def ordenar_poligono(vertices):
+    """
+    Ordena los vértices en orden horario/antihorario correcto
+    Calculando el centroide y ordenando por ángulo
+    """
+    if len(vertices) < 3:
         return vertices
+    
+    # Calcular centroide (promedio de coordenadas)
+    cx = sum(v[0] for v in vertices) / len(vertices)
+    cy = sum(v[1] for v in vertices) / len(vertices)
+    
+    # Ordenar por ángulo respecto al centroide
+    def angulo(v):
+        return math.atan2(v[0] - cx, v[1] - cy)
+    
+    vertices_ordenados = sorted(vertices, key=angulo)
+    
+    return vertices_ordenados
 
 # ==============================================================================
-# DEFINICIÓN DE ZONAS CON VALIDACIÓN GEOMÉTRICA
+# DEFINICIÓN DE ZONAS (con ordenamiento automático)
 # ==============================================================================
 
-zonas_inspectores = []
-
-# RODRIGUEZ
-zona1_rodriguez = {
-    "inspector": "RODRIGUEZ, Maximiliano",
-    "legajo": "7713",
-    "color": "#FF0000",
-    "nombre": "Zona 1 - Güemes / J.B. Justo",
-    "limites": "Norte: Av. Colón | Sur: Av. Juan B. Justo | Este: Güemes | Oeste: Buenos Aires",
-    "vertices_raw": [
-        coord["COLON_GUEMES"], coord["COLON_BAIRES"],
-        coord["JBJUSTO_BAIRES"], coord["JBJUSTO_GUEMES"]
-    ]
-}
-
-# Aplicar validación
-zona1_rodriguez["vertices"] = crear_poligono_valido(
-    zona1_rodriguez["vertices_raw"], 
-    zona1_rodriguez["nombre"]
-)
+zonas_inspectores = [
+    {
+        "inspector": "RODRIGUEZ, Maximiliano",
+        "legajo": "7713",
+        "color": "#FF0000",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Güemes / J.B. Justo",
+                "limites": "Norte: Av. Colón | Sur: Av. Juan B. Justo | Este: Güemes | Oeste: Buenos Aires",
+                "vertices_raw": [
+                    coord["COLON_GUEMES"], coord["COLON_BAIRES"],
+                    coord["JBJUSTO_BAIRES"], coord["JBJUSTO_GUEMES"]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - La Perla / Catamarca",
+                "limites": "Norte: Av. Colón | Sur: Bv. Marítimo | Este: Catamarca | Oeste: Charlone",
+                "vertices_raw": [
+                    coord["COLON_CATAMARCA"], coord["COLON_CHARLONE"],
+                    coord["BV_CHARLONE"], coord["BV_CATAMARCA"]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - San Juan / Bronzini",
+                "limites": "Norte: Av. Colón | Sur: Pehuajó | Este: San Juan | Oeste: Bronzini",
+                "vertices_raw": [
+                    coord["COLON_SANJUAN"], coord["COLON_BRONZINI"],
+                    coord["PEHUAJO_BRONZINI"], coord["PEHUAJO_SANJUAN"]
+                ]
+            }
+        ]
+    },
+    {
+        "inspector": "GARCÍA, Juan Paulo",
+        "legajo": "7852",
+        "color": "#FFA500",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Costa / Colón",
+                "limites": "Norte: La Costa | Sur: Av. Colón | Este: San Luis | Oeste: Yrigoyen",
+                "vertices_raw": [
+                    coord["SANLUIS_COSTA"], coord["YRIGOYEN_COSTA"],
+                    coord["COLON_YRIGOYEN"], coord["COLON_SANLUIS"]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - J.B. Justo / Peralta Ramos",
+                "limites": "Norte: Av. Juan B. Justo | Sur: Calle Vértiz | Este: Peralta Ramos | Oeste: Polonia",
+                "vertices_raw": [
+                    coord["JBJUSTO_PERALTARAMOS"], coord["JBJUSTO_POLONIA"],
+                    coord["VERTIZ_POLONIA"], coord["VERTIZ_PERALTARAMOS"]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - Microcentro / San Juan",
+                "limites": "Norte: Av. Colón | Sur: Av. Juan B. Justo | Este: Independencia | Oeste: San Juan",
+                "vertices_raw": [
+                    coord["COLON_INDEP"], coord["COLON_SANJUAN"],
+                    coord["JBJUSTO_SANJUAN"], coord["JBJUSTO_INDEP"]
+                ]
+            }
+        ]
+    },
+    {
+        "inspector": "CARBAYO, Víctor Hugo",
+        "legajo": "9220",
+        "color": "#FFFF00",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Costa Triangular",
+                "limites": "Triángulo entre La Costa, Av. Colón y San Luis",
+                "vertices_raw": [
+                    coord["SANLUIS_COSTA"], coord["COLON_SANLUIS"], coord["COLON_COSTA"]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - Microcentro Independencia",
+                "limites": "Norte: Av. Colón | Sur: Av. Juan B. Justo | Este: Independencia | Oeste: Buenos Aires",
+                "vertices_raw": [
+                    coord["COLON_INDEP"], coord["COLON_BAIRES"],
+                    coord["JBJUSTO_BAIRES"], coord["JBJUSTO_INDEP"]
+                ]
+            }
+        ]
+    },
+    {
+        "inspector": "LOPEZ, Martín Leonardo",
+        "legajo": "9983",
+        "color": "#00FF00",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Centro Plaza Mitre",
+                "limites": "Norte: San Luis | Sur: Santiago del Estero | Este: Av. Colón | Oeste: Falucho",
+                "vertices_raw": [
+                    coord["COLON_SANLUIS"], coord["COLON_SANTIAGO"],
+                    coord["FALUCHO_SANTIAGO"], coord["FALUCHO_SANLUIS"]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - Noroeste Bronzini",
+                "limites": "Norte: Av. Colón | Sur: Av. Juan B. Justo | Este: Bronzini | Oeste: Reforma Universitaria",
+                "vertices_raw": [
+                    coord["COLON_BRONZINI"], coord["COLON_JBJUSTO"],
+                    coord["JBJUSTO_REFORMA"], coord["JBJUSTO_BRONZINI"]
+                ]
+            }
+        ]
+    },
+    {
+        "inspector": "POLINESSI, Juan José",
+        "legajo": "9513",
+        "color": "#0000FF",
+        "zonas": [
+            {
+                "nombre": "Zona 1 - Champagnat",
+                "limites": "Triángulo entre Av. Colón, Av. Champagnat y Ruta 2",
+                "vertices_raw": [
+                    coord["COLON_CHAMPAGNAT"], coord["COLON_RUTA2"], coord["CHAMPAGNAT_LIBERTAD"]
+                ]
+            },
+            {
+                "nombre": "Zona 2 - Microcentro Catamarca",
+                "limites": "Norte: Catamarca | Sur: Yrigoyen | Este: Bv. Marítimo | Oeste: Jujuy",
+                "vertices_raw": [
+                    coord["BV_CATAMARCA"], coord["CATAMARCA_JUJUY"],
+                    coord["YRIGOYEN_JUJUY"], coord["YRIGOYEN_COSTA"]
+                ]
+            },
+            {
+                "nombre": "Zona 3 - Sur Puerto",
+                "limites": "Norte: Güemes | Sur: Bv. Marítimo | Este: Mar | Oeste: J.B. Justo",
+                "vertices_raw": [
+                    coord["JBJUSTO_GUEMES"], coord["GÜEMES_MARTINEZ"],
+                    coord["COSTA_PLAYA"], coord["COLON_GUEMES"]
+                ]
+            }
+        ]
+    }
+]
 
 # ==============================================================================
-# CONTINUAR CON EL RESTO DE ZONAS...
-# (por brevedad, aplico el patrón a todas)
+# APLICAR ORDENAMIENTO AUTOMÁTICO A TODAS LAS ZONAS
 # ==============================================================================
 
-# Por razones de espacio, acá continuaría con todas las zonas usando el mismo patrón
-# Pero para no alargar, te muestro el esquema:
-
-# PASO 1: Definir todas las zonas con sus vertices_raw
-# PASO 2: Validar cada una con shapely
-# PASO 3: Solo dibujar las que son válidas
+for inspector in zonas_inspectores:
+    for zona in inspector["zonas"]:
+        zona["vertices"] = ordenar_poligono(zona["vertices_raw"])
 
 # ==============================================================================
-# CREAR MAPA CON FOLIUM (solo polígonos válidos)
+# CREAR MAPA CON FOLIUM
 # ==============================================================================
 
 mapa_centro = [-38.0055, -57.5426]
 mapa = folium.Map(location=mapa_centro, zoom_start=13, tiles="CartoDB positron")
 
-# Ejemplo de cómo agregar zona validada
-if "vertices" in zona1_rodriguez:
-    folium.Polygon(
-        locations=zona1_rodriguez["vertices"],
-        color=zona1_rodriguez["color"],
-        weight=2,
-        fill=True,
-        fill_opacity=0.4,
-        popup=folium.Popup(
-            f"""
-            <b>Inspector:</b> {zona1_rodriguez['inspector']}<br>
-            <b>Legajo:</b> {zona1_rodriguez['legajo']}<br>
-            <b>Zona:</b> {zona1_rodriguez['nombre']}<br>
-            <hr>
-            <b>Límites:</b><br>{zona1_rodriguez['limites']}
-            """,
-            max_width=300
-        ),
-        tooltip=f"{zona1_rodriguez['inspector']} - {zona1_rodriguez['nombre']}"
+# Agregar zonas
+for inspector in zonas_inspectores:
+    for zona in inspector["zonas"]:
+        folium.Polygon(
+            locations=zona["vertices"],
+            color=inspector["color"],
+            weight=2,
+            fill=True,
+            fill_opacity=0.4,
+            popup=folium.Popup(
+                f"""
+                <b>Inspector:</b> {inspector['inspector']}<br>
+                <b>Legajo:</b> {inspector['legajo']}<br>
+                <b>Zona:</b> {zona['nombre']}<br>
+                <hr>
+                <b>Límites:</b><br>{zona['limites']}
+                """,
+                max_width=300
+            ),
+            tooltip=f"{inspector['inspector']} - {zona['nombre']}"
+        ).add_to(mapa)
+
+# Agregar marcadores de intersecciones clave
+puntos_importantes = {
+    "Colón+Güemes": coord["COLON_GUEMES"],
+    "Colón+Bronzini": coord["COLON_BRONZINI"],
+    "Colón+Independencia": coord["COLON_INDEP"],
+    "JBJusto+Güemes": coord["JBJUSTO_GUEMES"],
+}
+
+for nombre, coord_punto in puntos_importantes.items():
+    folium.Marker(
+        coord_punto,
+        popup=nombre,
+        icon=folium.Icon(color="gray", icon="info-sign", prefix="fa"),
     ).add_to(mapa)
 
 # ==============================================================================
@@ -179,11 +305,30 @@ with col1:
     st_folium(mapa, width=800, height=650)
 
 with col2:
-    st.subheader("📋 Leyenda")
-    st.info("""
-    **Validación geométrica activada**
-    - Los polígonos inválidos se corrigen automáticamente
-    - Las coordenadas mantienen el orden correcto
-    """)
+    st.subheader("📋 Leyenda de Inspectores")
+    for inspector in zonas_inspectores:
+        with st.expander(f"🎨 {inspector['inspector']} (Leg. {inspector['legajo']})"):
+            st.markdown(f"**Color:** `{inspector['color']}`")
+            for zona in inspector["zonas"]:
+                st.markdown(f"- {zona['nombre']}")
 
-st.success("✅ Mapa optimizado con validación Shapely")
+# ==============================================================================
+# TABLA RESUMEN
+# ==============================================================================
+
+st.subheader("📊 Resumen de Zonas")
+
+datos_tabla = []
+for inspector in zonas_inspectores:
+    for zona in inspector["zonas"]:
+        datos_tabla.append({
+            "Inspector": inspector["inspector"],
+            "Legajo": inspector["legajo"],
+            "Zona": zona["nombre"],
+            "Límites": zona["limites"]
+        })
+
+df = pd.DataFrame(datos_tabla)
+st.dataframe(df, use_container_width=True)
+
+st.success("✅ Polígonos ordenados automáticamente - No se necesita Shapely")
