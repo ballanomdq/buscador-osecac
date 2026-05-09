@@ -91,12 +91,14 @@ st.markdown("""
 # ================= SECCIÓN PLANILLAS =================
 st.markdown("## 📄 PLANILLAS")
 
-# IDs y nombres (agregamos la nueva planilla)
+# IDs y nombres (actualizados con nueva planilla y tres nuevas)
 planillas = [
-    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", "1ISSigS6YBugt4xfS7tVz00pLfpdqkBR9", False),
+    ("F-PAD-2-219 CONSENTIMIENTO INFORMADO MEDICAMENTOS RECUPERO SUR", "1nHZaJ21axttiarfl77hTETUS2yF2dR18", True),
     ("F-PAD.2.74 PRESCRIPCIÓN ONCOLÓGICA 1ERA VEZ – CONTINUIDAD", "1AJidHwRGRAmczopQPqsYwRVPfTiTlhiK", True),
     ("F-PAD-2-075 PRESCRIPCIÓN ONCOLÓGICA CONTINUIDAD DE TRATAMIENTO", "1aslyVdHH56NU3nHacLl7fHu0opvbEueY", True),
-    ("F-PAD-2-112 Formulario de Prescripcion Especial-1ra Vez Tratamiento del Dolor", "1bF033XJeJiXFvspa80pIJAXI-5SsG4aP", True)
+    ("F-PAD-2-112 Formulario de Prescripcion Especial-1ra Vez Tratamiento del Dolor", "1bF033XJeJiXFvspa80pIJAXI-5SsG4aP", True),
+    ("PLANILLA DE TUTELAJE", "1RJMQ5KbTltrYpRXAcfL6gUOSyF7OgjlC", True),
+    ("RESUMEN HISTORIA CLINICA EDITABLE", "1rTj7CXisIbvfhiF5iDph7p30sqHn2VXN", True)
 ]
 
 for nombre, doc_id, editable in planillas:
@@ -151,7 +153,7 @@ def print_button(html_content):
     """
     st.components.v1.html(btn_html, height=100)
 
-# ===== 1. PRIMERA VEZ (actualizado según directivas) =====
+# ===== 1. PRIMERA VEZ (actualizado según directivas, agregado PLANILLA DE TUTELAJE) =====
 with st.expander("💊 PRIMERA VEZ (CÁPITA Y EXTRACÁPITA)"):
     contenido1 = """
     <h3>Documentación para primera vez / renovación semestral con cambios</h3>
@@ -160,6 +162,7 @@ with st.expander("💊 PRIMERA VEZ (CÁPITA Y EXTRACÁPITA)"):
         <li>FORMULARIO DE 1RA VEZ F-PAD-274</li>
         <li>FORMULARIO CARTA COMPROMISO</li>
         <li>FORMULARIO DE RESUMEN DE HISTORIA CLÍNICA</li>
+        <li>PLANILLA DE TUTELAJE</li>
         <li>RP con: DNI, nombre del paciente, medicación indicada, cantidad de envases para el lapso de 6 meses (Enero a Junio / Julio a Diciembre) y diagnóstico.</li>
         <li><strong>Importante:</strong> Todos los formularios pueden estar hechos en computadora, pero deben tener firma y sello en original.</li>
     </ul>
