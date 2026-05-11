@@ -1,8 +1,8 @@
 """
 scraper_edictos.py
-Descarga el último boletín del Boletín Oficial PBA.
-Selectores actualizados para la página de ediciones anteriores.
-Siempre termina con sys.exit(0) para no marcar error en GitHub Actions.
+Descarga un boletín específico del Boletín Oficial PBA.
+Si se le pasa un número como argumento (ej. python scraper_edictos.py 30215),
+descarga ese boletín. Si no, descarga el último disponible.
 """
 
 import sys
@@ -102,38 +102,8 @@ def obtener_secciones_de_panel(panel) -> dict:
             urls[clave] = href if href.startswith("http") else BASE_URL + href
     return urls
 
-def obtener_ultimo_boletin():
-    url_ediciones = f"{BASE_URL}/ediciones-anteriores"
-    try:
-        resp = requests.get(url_ediciones, headers=HEADERS, timeout=30)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        for panel in soup.find_all("div", class_="panel-default"):
-            titulo_tag = panel.find("h5", class_="panel-title")
-            if not titulo_tag:
-                continue
-            texto_titulo = titulo_tag.get_text(strip=True)
-            m = re.search(r"N[°º]?\s*(\d+)\s*[-–]\s*(\d{2}/\d{2}/\d{4})", texto_titulo, re.IGNORECASE)
-            if not m:
-                continue
-            numero    = m.group(1)
-            fecha_str = m.group(2)
-            urls      = obtener_secciones_de_panel(panel)
-            if urls:
-                log.info(f"Último boletín: N° {numero} - {fecha_str} | Secciones: {list(urls.keys())}")
-                return numero, fecha_str, urls
-            else:
-                log.warning(f"Panel N° {numero} sin secciones válidas, probando siguiente.")
-
-        log.error("No se encontró ningún boletín con secciones válidas.")
-        return None, None, None
-
-    except Exception as e:
-        log.error(f"Error obteniendo ediciones: {e}")
-        return None, None, None
-
-def obtener_urls_por_numero(numero: str) -> dict:
+def obtener_boletin_por_numero(numero: str):
+    """Busca un boletín por su número y devuelve (numero, fecha_str, urls_secciones)"""
     url_ediciones = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url_ediciones, headers=HEADERS, timeout=30)
@@ -144,15 +114,56 @@ def obtener_urls_por_numero(numero: str) -> dict:
             if not titulo_tag:
                 continue
             texto = titulo_tag.get_text(strip=True)
-            if f"N° {numero}" in texto or f"N°{numero}" in texto or f"N º {numero}" in texto:
+            # Buscar el número exacto en el título
+            if re.search(rf"N[°º]?\s*{re.escape(numero)}\b", texto, re.IGNORECASE):
+                # Extraer fecha del título
+                m_fecha = re.search(r"(\d{2}/\d{2}/\d{4})", texto)
+                fecha_str = m_fecha.group(1) if m_fecha else None
                 urls = obtener_secciones_de_panel(panel)
                 if urls:
-                    return urls
-        log.warning(f"Sin secciones para boletín N° {numero}")
-        return {}
+                    log.info(f"Boletín encontrado: N° {numero} - {fecha_str} | Secciones: {list(urls.keys())}")
+                    return numero, fecha_str, urls
+                else:
+                    log.warning(f"Boletín N° {numero} encontrado pero sin secciones válidas.")
+                    return numero, fecha_str, None
+        log.error(f"No se encontró el boletín N° {numero}")
+        return None, None, None
     except Exception as e:
-        log.error(f"Error buscando N° {numero}: {e}")
-        return {}
+        log.error(f"Error buscando boletín N° {numero}: {e}")
+        return None, None, None
+
+def obtener_ultimo_boletin():
+    """Obtiene el último boletín de la página de ediciones anteriores"""
+    url_ediciones = f"{BASE_URL}/ediciones-anteriores"
+    try:
+        resp = requests.get(url_ediciones, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        # El primer panel es el último boletín
+        panel = soup.find("div", class_="panel-default")
+        if not panel:
+            log.error("No se encontró ningún panel")
+            return None, None, None
+        titulo_tag = panel.find("h5", class_="panel-title")
+        if not titulo_tag:
+            return None, None, None
+        texto = titulo_tag.get_text(strip=True)
+        m_num = re.search(r"N[°º]?\s*(\d+)", texto, re.IGNORECASE)
+        m_fecha = re.search(r"(\d{2}/\d{2}/\d{4})", texto)
+        if not m_num or not m_fecha:
+            return None, None, None
+        numero = m_num.group(1)
+        fecha_str = m_fecha.group(1)
+        urls = obtener_secciones_de_panel(panel)
+        if urls:
+            log.info(f"Último boletín: N° {numero} - {fecha_str} | Secciones: {list(urls.keys())}")
+            return numero, fecha_str, urls
+        else:
+            log.warning(f"Último boletín N° {numero} sin secciones válidas")
+            return numero, fecha_str, None
+    except Exception as e:
+        log.error(f"Error obteniendo último boletín: {e}")
+        return None, None, None
 
 # ── Descarga y procesamiento de PDF ──────────────────────────────────────────
 def descargar_pdf(url: str):
@@ -226,12 +237,12 @@ def extraer_mayusculas(texto: str) -> list:
             break
     return resultado
 
-# ── Guardado en Supabase (CORREGIDO) ──────────────────────────────────────────
+# ── Guardado en Supabase ──────────────────────────────────────────────────────
 def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf) -> bool:
     cuits   = extraer_cuits_dnis(texto)
     sujetos = extraer_mayusculas(texto)
 
-    # CORRECCIÓN: deduplicar por combinación de campos, no por texto
+    # Verificar si ya existe para evitar duplicados
     try:
         existente = supabase.table("edictos").select("id")\
             .eq("fecha", fecha.isoformat())\
@@ -244,7 +255,6 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf) ->
             return False
     except Exception as e:
         log.warning(f"Error en consulta dedup: {e}")
-        # Si falla la consulta, continuamos e intentamos insertar
 
     data = {
         "fecha":           fecha.isoformat(),
@@ -271,7 +281,6 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf) ->
             log.info(f"Duplicado detectado por constraint: {localidad}")
             return False
         log.error(f"❌ ERROR INSERTANDO: {e}")
-        log.error(f"   Data: fecha={fecha}, seccion={seccion}, localidad={localidad}")
         return False
 
 def eliminar_viejos(dias: int = 60):
@@ -284,19 +293,12 @@ def eliminar_viejos(dias: int = 60):
     except Exception as e:
         log.warning(f"No se pudieron eliminar registros viejos: {e}")
 
-# ── Contar total en base para diagnóstico ─────────────────────────────────────
-def contar_registros():
-    try:
-        resultado = supabase.table("edictos").select("id", count="exact").execute()
-        total = resultado.count
-        log.info(f"📊 Total registros en tabla 'edictos': {total}")
-        return total
-    except Exception as e:
-        log.warning(f"No se pudo contar registros: {e}")
-        return -1
-
-# ── Procesar un boletín completo ──────────────────────────────────────────────
+# ── Procesar un boletín ──────────────────────────────────────────────────────
 def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
+    if not urls_secciones:
+        log.warning(f"No hay URLs de secciones para el boletín {numero}")
+        return 0
+
     try:
         fecha_obj = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except Exception:
@@ -340,29 +342,34 @@ def main():
     log.info("═══════════════════════════════════════")
     log.info("═══ INICIO DEL SCRAPER ═══")
     log.info("═══════════════════════════════════════")
-    log.info(f"Supabase URL: {SUPABASE_URL}")
-    log.info(f"Supabase Key: ...{SUPABASE_KEY[-10:] if SUPABASE_KEY else 'SIN KEY'}")
 
-    # Diagnóstico: cuántos registros hay antes de empezar
-    antes = contar_registros()
+    # Leer número de boletín de los argumentos de línea o variable de entorno
+    boletin_numero = None
+    if len(sys.argv) > 1:
+        boletin_numero = sys.argv[1]
+        log.info(f"Argumento recibido: N° {boletin_numero}")
+    else:
+        boletin_numero = os.environ.get("BOLETIN_NUMERO")
+        if boletin_numero:
+            log.info(f"Variable de entorno BOLETIN_NUMERO: N° {boletin_numero}")
 
-    numero, fecha_str, urls = obtener_ultimo_boletin()
-    if not numero:
-        log.error("No se pudo obtener el último boletín. Saliendo sin error.")
-        sys.exit(0)
+    if boletin_numero:
+        # Buscar el boletín específico
+        numero, fecha_str, urls = obtener_boletin_por_numero(boletin_numero)
+        if not numero:
+            log.error(f"No se encontró el boletín N° {boletin_numero}")
+            sys.exit(0)
+    else:
+        # Obtener el último boletín
+        numero, fecha_str, urls = obtener_ultimo_boletin()
+        if not numero:
+            log.error("No se pudo obtener el último boletín")
+            sys.exit(0)
 
     log.info(f"Procesando boletín N° {numero} - {fecha_str}")
     total = procesar_boletin(numero, fecha_str, urls)
-
-    # Diagnóstico: cuántos quedaron después
-    despues = contar_registros()
-    nuevos = despues - antes if antes >= 0 and despues >= 0 else "?"
-    log.info(f"📊 Antes: {antes} | Nuevos: {nuevos} | Total ahora: {despues}")
-
     eliminar_viejos(60)
-    log.info("═══════════════════════════════════════")
     log.info(f"═══ FIN | Nuevos guardados: {total} ═══")
-    log.info("═══════════════════════════════════════")
     sys.exit(0)
 
 if __name__ == "__main__":
