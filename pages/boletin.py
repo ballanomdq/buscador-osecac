@@ -46,7 +46,6 @@ HEADERS  = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 
 # ── Funciones para consultar boletines disponibles ────────────────────────────
 def obtener_boletines_disponibles():
-    """Scrapea la página de ediciones anteriores y devuelve lista de (numero, fecha_str)"""
     url = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -67,7 +66,6 @@ def obtener_boletines_disponibles():
         return []
 
 def obtener_urls_secciones(numero: str) -> dict:
-    """Dado un número de boletín, devuelve las URLs de las secciones Oficial y Judicial"""
     url = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -102,10 +100,6 @@ def obtener_urls_secciones(numero: str) -> dict:
         return None
 
 def descargar_y_procesar_boletin(numero: str, fecha_str: str):
-    """
-    Llama al workflow de GitHub Actions con el número de boletín específico.
-    Esto ejecuta el scraper en segundo plano.
-    """
     token = st.secrets.get("GH_TOKEN")
     if not token:
         st.error("Falta GH_TOKEN en los secrets.")
@@ -137,7 +131,6 @@ def eliminar_boletin_de_db(fecha, numero):
         st.error(f"Error: {e}")
 
 def obtener_boletines_guardados():
-    """Devuelve un DataFrame con los boletines disponibles en la base (agrupados)"""
     response = supabase.table("edictos").select("fecha, boletin_numero").execute()
     if not response.data:
         return pd.DataFrame()
@@ -172,7 +165,7 @@ with col3:
         st.rerun()
 
 with col4:
-    st.write("")  # placeholder
+    st.write("")
 
 with col5:
     st.write("")
@@ -251,7 +244,7 @@ df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
-# ── Funciones de análisis (igual que antes) ───────────────────────────────────
+# ── Funciones de análisis ─────────────────────────────────────────────────────
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     m = re.search(patron, texto, re.IGNORECASE)
@@ -308,11 +301,18 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         return
     grupos = df_seccion.groupby(["fecha", "boletin_numero"])
     for (fecha, numero), grupo in grupos:
+        grupo = grupo.copy()
+        grupo["_p"] = [obtener_info_edicto(r)["nivel"] for _, r in grupo.iterrows()]
+        grupo = grupo.sort_values("_p").drop(columns=["_p"])
+        
         titulo = f"{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')} ({len(grupo)} edictos)"
         with st.expander(titulo, expanded=False):
             for _, row in grupo.iterrows():
                 info = obtener_info_edicto(row)
-                with st.expander(f"{info['icono']} {info['motivo']} | {row['localidad']} | {info['nombre_mostrar']}"):
+                titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | {info['nombre_mostrar']}"
+                if info['cuit']:
+                    titulo_edicto += f" - {info['cuit']}"
+                with st.expander(titulo_edicto):
                     st.markdown(row["texto_completo"])
                     col1, col2 = st.columns(2)
                     with col1:
