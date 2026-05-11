@@ -2,18 +2,24 @@ name: Scraping diario de edictos
 
 on:
   schedule:
+    # 8 AM Argentina (UTC-3) = 11:00 UTC, lunes a viernes
     - cron: '0 11 * * 1-5'
   workflow_dispatch:
+    inputs:
+      boletin_numero:
+        description: 'Número de boletín específico (opcional, dejar vacío para el último)'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Python
+      - name: Configurar Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -27,4 +33,12 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python scraper_edictos.py
+          BOLETIN_NUMERO: ${{ github.event.inputs.boletin_numero }}
+        run: |
+          if [ -n "$BOLETIN_NUMERO" ]; then
+            echo "Ejecutando scraper para el boletín N° $BOLETIN_NUMERO"
+            python scraper_edictos.py "$BOLETIN_NUMERO"
+          else
+            echo "Ejecutando scraper para el último boletín"
+            python scraper_edictos.py
+          fi
