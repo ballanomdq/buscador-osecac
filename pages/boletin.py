@@ -18,10 +18,20 @@ st.markdown("""
     border-radius: 20px;
     margin: 0 0.2rem;
 }
+/* Resaltado amarillo para nombres y CUITs */
+.resaltado {
+    background-color: #ffff99;
+    font-weight: bold;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📚 Fiscalización OSECAC - Boletín Oficial")
+
+# Cartel informativo de eliminación automática
+st.info("🗑️ **Los boletines con más de 60 días se eliminarán automáticamente** para mantener la página rápida y ordenada.")
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 def get_credentials():
@@ -130,6 +140,22 @@ def eliminar_boletin_de_db(fecha, numero):
     except Exception as e:
         st.error(f"Error: {e}")
 
+def eliminar_boletines_viejos(dias=60):
+    """Elimina boletines con fecha anterior a hoy - dias (se ejecuta al recargar)"""
+    fecha_limite = date.today() - timedelta(days=dias)
+    try:
+        # Obtener boletines únicos a eliminar (para mostrar estadística)
+        boletines_a_eliminar = supabase.table("edictos").select("fecha", "boletin_numero").lt("fecha", fecha_limite.isoformat()).execute()
+        if boletines_a_eliminar.data:
+            # Eliminar los edictos
+            supabase.table("edictos").delete().lt("fecha", fecha_limite.isoformat()).execute()
+            # Contar cuántos boletines únicos se eliminaron (aproximado)
+            unicos = set([(b["fecha"], b["boletin_numero"]) for b in boletines_a_eliminar.data])
+            if unicos:
+                st.info(f"🧹 Se eliminaron automáticamente {len(unicos)} boletines con fecha anterior a {fecha_limite} (más de {dias} días).")
+    except Exception as e:
+        st.warning(f"No se pudieron eliminar boletines viejos automáticamente: {e}")
+
 def obtener_boletines_guardados():
     response = supabase.table("edictos").select("fecha, boletin_numero").execute()
     if not response.data:
@@ -152,7 +178,7 @@ with col1:
             st.warning("No se encontraron boletines disponibles.")
 
 with col2:
-    if st.button("🗑️ Limpiar boletines viejos", use_container_width=True):
+    if st.button("🗑️ Limpiar boletines viejos manual", use_container_width=True):
         guardados = obtener_boletines_guardados()
         if guardados.empty:
             st.info("No hay boletines guardados.")
@@ -169,6 +195,9 @@ with col4:
 
 with col5:
     st.write("")
+
+# ── Eliminación automática de boletinos viejos (al cargar la página) ──────────
+eliminar_boletines_viejos(60)
 
 # ── Panel para mostrar boletines disponibles y descargar ──────────────────────
 if st.session_state.get("mostrar_disponibles", False):
@@ -244,7 +273,21 @@ df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
-# ── Funciones de análisis ─────────────────────────────────────────────────────
+# ── Funciones de análisis (MEJORADAS para extraer nombre y CUIT) ──────────────
+def extraer_nombre_cuit_mejorado(texto):
+    """Busca patrones como 'Quiebra de NOMBRE (DNI xxx, CUIT xxx)'"""
+    # Patrón para quiebra/concurso
+    patron_quiebra = r"(?:quiebra|concurso)[\s:]*de[\s:]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s*\(?DNI[\s:]*(\d{7,8})?[\s,]*CUIT[\s:]*(\d{2}-\d{8}-\d)?|\.|$)"
+    m = re.search(patron_quiebra, texto, re.IGNORECASE)
+    if m:
+        nombre = m.group(1).strip() if m.group(1) else None
+        dni = m.group(2) if m.group(2) else None
+        cuit = m.group(3) if m.group(3) else None
+        if nombre:
+            return nombre, cuit if cuit else dni
+    # Si no, buscar patrón general
+    return extraer_nombre_cuit_quiebra(texto)
+
 def extraer_nombre_cuit_quiebra(texto):
     patron = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
     m = re.search(patron, texto, re.IGNORECASE)
@@ -267,7 +310,9 @@ def obtener_info_edicto(row):
     texto      = row["texto_completo"]
     sujetos_db = row.get("sujetos")
     cuits_db   = row.get("cuit_detectados")
-    nombre_q, cuit_q = extraer_nombre_cuit_quiebra(texto)
+    
+    # Usar función mejorada para quiebras
+    nombre_q, cuit_q = extraer_nombre_cuit_mejorado(texto)
     if nombre_q:
         nombre = nombre_q
         cuit = cuit_q
@@ -282,6 +327,7 @@ def obtener_info_edicto(row):
             cuit = cuits_db.split(",")[0].strip()
         else:
             _, cuit = extraer_nombre_del_texto(texto)
+    
     if es_quiebra:
         nivel, icono, motivo = 0, "🚨", "QUIEBRA/CONCURSO"
     elif cuit:
@@ -291,8 +337,21 @@ def obtener_info_edicto(row):
     nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos")
     return {
         "nivel": nivel, "icono": icono, "motivo": motivo,
-        "nombre_mostrar": nombre_mostrar, "cuit": cuit
+        "nombre_mostrar": nombre_mostrar, "cuit": cuit,
+        "nombre_original": nombre
     }
+
+def resaltar_nombre_cuit(texto, nombre, cuit):
+    """Resalta en amarillo el nombre y CUIT dentro del texto"""
+    resultado = texto
+    if nombre and nombre != "Sin datos":
+        # Escapar caracteres especiales para regex
+        nombre_esc = re.escape(nombre)
+        resultado = re.sub(rf'(\b{nombre_esc}\b)', r'<span class="resaltado">\1</span>', resultado, flags=re.IGNORECASE)
+    if cuit:
+        cuit_esc = re.escape(cuit)
+        resultado = re.sub(rf'(\b{cuit_esc}\b)', r'<span class="resaltado">\1</span>', resultado, flags=re.IGNORECASE)
+    return resultado
 
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
@@ -300,29 +359,46 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         st.info(f"No hay edictos en {seccion_nombre}.")
         return
     grupos = df_seccion.groupby(["fecha", "boletin_numero"])
-    for (fecha, numero), grupo in grupos:
+    # Ordenar grupos por fecha descendente (más nuevos primero)
+    grupos_ordenados = sorted(grupos, key=lambda x: x[0], reverse=True)
+    for (fecha, numero), grupo in grupos_ordenados:
         grupo = grupo.copy()
         grupo["_p"] = [obtener_info_edicto(r)["nivel"] for _, r in grupo.iterrows()]
         grupo = grupo.sort_values("_p").drop(columns=["_p"])
         
         titulo = f"{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')} ({len(grupo)} edictos)"
-        with st.expander(titulo, expanded=False):
-            for _, row in grupo.iterrows():
-                info = obtener_info_edicto(row)
-                titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | {info['nombre_mostrar']}"
-                if info['cuit']:
-                    titulo_edicto += f" - {info['cuit']}"
-                with st.expander(titulo_edicto):
-                    st.markdown(row["texto_completo"])
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("✅ Revisado", key=f"rev_{row['id']}"):
-                            st.success("Marcado como revisado (solo visual)")
-                    with col2:
-                        if st.button("🗑️ Eliminar este edicto", key=f"del_{row['id']}"):
-                            supabase.table("edictos").delete().eq("id", row["id"]).execute()
-                            st.success("Eliminado")
-                            st.rerun()
+        # Agregar botón de eliminar al lado del título del libro
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            with st.expander(titulo, expanded=False):
+                for _, row in grupo.iterrows():
+                    info = obtener_info_edicto(row)
+                    titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | {info['nombre_mostrar']}"
+                    if info['cuit']:
+                        titulo_edicto += f" - {info['cuit']}"
+                    with st.expander(titulo_edicto):
+                        # Resaltar nombre y CUIT en el texto
+                        texto_resaltado = resaltar_nombre_cuit(row["texto_completo"], info.get("nombre_original"), info.get("cuit"))
+                        st.markdown(texto_resaltado, unsafe_allow_html=True)
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            if st.button("✅ Revisado", key=f"rev_{row['id']}"):
+                                st.success("Marcado como revisado (solo visual)")
+                        with col_b:
+                            if st.button("🗑️ Eliminar este edicto", key=f"del_{row['id']}"):
+                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                                st.success("Eliminado")
+                                st.rerun()
+        with col2:
+            # Botón de tachito de basura para eliminar el boletín completo
+            if st.button("🗑️", key=f"del_bol_{numero}_{fecha}"):
+                confirm_key = f"confirm_del_bol_{numero}_{fecha}"
+                if st.session_state.get(confirm_key, False):
+                    eliminar_boletin_de_db(fecha, numero)
+                else:
+                    st.session_state[confirm_key] = True
+                    st.warning("⚠️ Hacé clic otra vez para confirmar eliminación de TODO el boletín.")
+        st.markdown("---")
 
 # ── Pestañas principales ──────────────────────────────────────────────────────
 tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
