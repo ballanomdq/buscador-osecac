@@ -54,7 +54,39 @@ LOCALIDADES = {
     "mar de ajo", "costa del este", "pinamar", "madariaga", "villa gesell",
     "mar chiquita", "general guido",
 }
-ALIAS_LOCALIDAD = {"general guido": "Guido", "gdor. arias": "Dolores"}
+
+# Abreviaturas y variantes textuales que deben expandirse antes de buscar.
+# Clave: texto a reemplazar (en minúsculas), Valor: texto expandido.
+# El orden importa: poner las más específicas primero.
+ABREVIATURAS = {
+    # Mar del Plata
+    "mdp"                        : "mar del plata",
+    "m.d.p."                     : "mar del plata",
+    "m.d.p"                      : "mar del plata",
+    "depto. jud. de mdp"         : "departamento judicial mar del plata",
+    "depto. jud. mdp"            : "departamento judicial mar del plata",
+    "dto. jud. de mdp"           : "departamento judicial mar del plata",
+    "dto. jud. mdp"              : "departamento judicial mar del plata",
+    "dpto. jud. mdp"             : "departamento judicial mar del plata",
+    "dpto. jud. de mdp"          : "departamento judicial mar del plata",
+    "depto. judicial mar del plata": "departamento judicial mar del plata",
+    # General Guido
+    "gral. guido"                : "general guido",
+    "gral guido"                 : "general guido",
+    # General Madariaga
+    "gral. madariaga"            : "madariaga",
+    "gral madariaga"             : "madariaga",
+    # Dolores (partido)
+    "pdo. de dolores"            : "dolores",
+    "partido de dolores"         : "dolores",
+    # Mar Chiquita
+    "mar chiq."                  : "mar chiquita",
+}
+
+ALIAS_LOCALIDAD = {
+    "general guido" : "Guido",
+    "gdor. arias"   : "Dolores",
+}
 
 # ── Tipos de edictos que nos interesan ───────────────────────────────────────
 TIPOS_EDICTO = [
@@ -64,10 +96,13 @@ TIPOS_EDICTO = [
 
 # ── Regex de segmentación y extracción ───────────────────────────────────────
 
-# Separador de edictos: "POR N DÍAS" al final de cada edicto
+# En el Boletín Oficial de GBA el formato real es:
+#   "POR 5 DÍAS - El Juzgado... texto... may. X v. may. Y\n"
+# Es decir, "POR N DÍAS" ABRE cada edicto (no lo cierra).
+# El bloque va desde un "POR N DÍAS" hasta el siguiente (exclusive).
 RE_SEPARADOR = re.compile(
-    r'\bPOR\s+\w+\s+D[IÍ]AS?\b',
-    re.IGNORECASE
+    r'(?:^|\n)\s*POR\s+\w+\s+D[IÍ]AS?\b',
+    re.IGNORECASE | re.MULTILINE
 )
 
 # Regex para fecha del boletín en el texto del PDF
@@ -101,33 +136,32 @@ def segmentar_en_edictos(texto: str) -> list[str]:
     Divide el texto completo del PDF en bloques individuales de edictos.
 
     Estrategia:
-      Busca todas las posiciones donde aparece "POR N DÍAS" (el cierre de
-      cada edicto). Cada bloque va desde el final del cierre anterior
-      hasta el final del cierre actual (inclusive).
+      "POR N DÍAS" es el INICIO de cada edicto (no el cierre).
+      El bloque va desde un match hasta el inicio del siguiente match.
+      El texto anterior al primer "POR N DÍAS" (cabecera del PDF) se descarta.
 
-    Si no encuentra ningún separador (texto sin estructura esperada),
-    devuelve el texto completo como un único bloque.
+    Ejemplo de estructura real del boletín:
+      [cabecera / numeración de página]
+      POR 5 DÍAS - El Juzgado Civil N°3... texto del edicto...
+      may. 6 v. may. 12        ← línea de vigencia, parte del mismo bloque
+      POR 5 DÍAS - El Juzgado Civil N°6... siguiente edicto...
+
+    Si no se encuentra ningún separador, devuelve el texto completo como
+    un único bloque (fallback conservador).
     """
-    separadores = list(RE_SEPARADOR.finditer(texto))
+    matches = list(RE_SEPARADOR.finditer(texto))
 
-    if not separadores:
+    if not matches:
         log.warning("No se encontraron separadores 'POR X DÍAS' — se procesa como bloque único")
         return [texto.strip()] if texto.strip() else []
 
     bloques = []
-    inicio  = 0
-
-    for sep in separadores:
-        fin    = sep.end()
+    for i, m in enumerate(matches):
+        inicio = m.start()
+        fin    = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
         bloque = texto[inicio:fin].strip()
-        if bloque:
+        if len(bloque) > 50:   # descartar residuos vacíos o cabeceras sueltas
             bloques.append(bloque)
-        inicio = fin  # el siguiente bloque empieza justo después
-
-    # Texto residual al final (sin cierre "POR X DÍAS")
-    residual = texto[inicio:].strip()
-    if residual:
-        bloques.append(residual)
 
     log.info(f"Texto segmentado en {len(bloques)} bloques de edictos")
     return bloques
@@ -135,14 +169,42 @@ def segmentar_en_edictos(texto: str) -> list[str]:
 
 # ── Detección de localidad en un bloque ──────────────────────────────────────
 
+def normalizar_abreviaturas(texto: str) -> str:
+    """
+    Expande abreviaturas conocidas en el texto (ya en minúsculas) para que
+    los términos de búsqueda de localidades puedan hacer match correctamente.
+
+    Ejemplos:
+      "depto. jud. de mdp"  →  "departamento judicial mar del plata"
+      "mdp"                 →  "mar del plata"
+      "gral. guido"         →  "general guido"
+
+    Se aplica de más específico a más general (orden del dict ABREVIATURAS).
+    """
+    for abrev, expansion in ABREVIATURAS.items():
+        # word-boundary adaptado a español: no reemplaza dentro de otra palabra
+        texto = re.sub(
+            r'(?<![a-záéíóúñ])' + re.escape(abrev) + r'(?![a-záéíóúñ])',
+            expansion,
+            texto
+        )
+    return texto
+
+
 def localidades_en_bloque(bloque: str) -> list[str]:
     """
     Devuelve la lista de localidades (normalizadas) que aparecen
     en el bloque de texto, eliminando duplicados.
+
+    Antes de buscar, expande abreviaturas conocidas (ej: "MdP" → "mar del plata")
+    para no perder menciones que usan formas abreviadas del nombre.
     """
+    # 1. Minúsculas y limpieza de correos
     bloque_lower = bloque.lower()
-    # Eliminar correos para evitar falsos positivos
     bloque_lower = re.sub(r'\S+@\S+', ' ', bloque_lower)
+
+    # 2. Expandir abreviaturas ANTES de buscar localidades
+    bloque_lower = normalizar_abreviaturas(bloque_lower)
 
     encontradas = []
     vistas = set()
