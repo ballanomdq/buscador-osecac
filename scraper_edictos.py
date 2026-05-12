@@ -1,14 +1,8 @@
 """
-scraper_edictos.py - Versión con segmentación por bloques de edictos
-─────────────────────────────────────────────────────────────────────
-CAMBIO PRINCIPAL:
-  En lugar de tomar un fragmento de N caracteres alrededor de la localidad,
-  ahora se divide el PDF en bloques lógicos (edictos individuales) usando
-  el marcador "POR X DÍAS" como separador. Cada bloque es un edicto completo.
-  Se busca la localidad DENTRO del bloque completo, y si está presente,
-  se guarda el bloque íntegro. Esto garantiza que palabras como "quiebra",
-  "concurso", el nombre del fallido y el CUIT siempre estén en el texto
-  guardado, sin importar su posición relativa respecto a la localidad.
+scraper_edictos.py - Versión con:
+- Segmentación por bloques de edictos.
+- Filtro en OFICIAL: solo capítulo "TRANSFERENCIAS".
+- Guarda el número de página y el texto completo de la página.
 """
 
 import sys
@@ -55,11 +49,8 @@ LOCALIDADES = {
     "mar chiquita", "general guido",
 }
 
-# Abreviaturas y variantes textuales que deben expandirse antes de buscar.
-# Clave: texto a reemplazar (en minúsculas), Valor: texto expandido.
-# El orden importa: poner las más específicas primero.
+# Abreviaturas y variantes textuales
 ABREVIATURAS = {
-    # Mar del Plata
     "mdp"                        : "mar del plata",
     "m.d.p."                     : "mar del plata",
     "m.d.p"                      : "mar del plata",
@@ -70,16 +61,12 @@ ABREVIATURAS = {
     "dpto. jud. mdp"             : "departamento judicial mar del plata",
     "dpto. jud. de mdp"          : "departamento judicial mar del plata",
     "depto. judicial mar del plata": "departamento judicial mar del plata",
-    # General Guido
     "gral. guido"                : "general guido",
     "gral guido"                 : "general guido",
-    # General Madariaga
     "gral. madariaga"            : "madariaga",
     "gral madariaga"             : "madariaga",
-    # Dolores (partido)
     "pdo. de dolores"            : "dolores",
     "partido de dolores"         : "dolores",
-    # Mar Chiquita
     "mar chiq."                  : "mar chiquita",
 }
 
@@ -88,24 +75,23 @@ ALIAS_LOCALIDAD = {
     "gdor. arias"   : "Dolores",
 }
 
-# ── Tipos de edictos que nos interesan ───────────────────────────────────────
+# ── Tipos de edictos que nos interesan (para cualquier sección) ──────────────
 TIPOS_EDICTO = [
     "quiebra", "concurso preventivo", "concurso", "subasta",
     "sucesion", "citacion", "inhibicion", "embargo", "remate",
 ]
 
-# ── Regex de segmentación y extracción ───────────────────────────────────────
+# ── En OFICIAL solo nos interesa TRANSFERENCIAS ───────────────────────────────
+PALABRAS_TRANSFERENCIAS = ["transferencia", "transferencias", "cesión", "cesiones"]
 
-# En el Boletín Oficial de GBA el formato real es:
-#   "POR 5 DÍAS - El Juzgado... texto... may. X v. may. Y\n"
-# Es decir, "POR N DÍAS" ABRE cada edicto (no lo cierra).
-# El bloque va desde un "POR N DÍAS" hasta el siguiente (exclusive).
+# ── Regex ─────────────────────────────────────────────────────────────────────
 RE_SEPARADOR = re.compile(
     r'(?:^|\n)\s*POR\s+\w+\s+D[IÍ]AS?\b',
     re.IGNORECASE | re.MULTILINE
 )
 
-# Regex para fecha del boletín en el texto del PDF
+RE_INICIO_TRANSFERENCIAS = re.compile(r'\bTRANSFERENCIAS?\b', re.IGNORECASE)
+
 RE_FECHA = re.compile(
     r"La Plata,\s*(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)?\s*"
     r"(\d{1,2})\s+de\s+"
@@ -129,60 +115,26 @@ def extraer_fecha_del_pdf(texto: str):
     return None
 
 
-# ── Segmentación del texto en bloques/edictos ─────────────────────────────────
-
+# ── Segmentación en bloques ───────────────────────────────────────────────────
 def segmentar_en_edictos(texto: str) -> list[str]:
-    """
-    Divide el texto completo del PDF en bloques individuales de edictos.
-
-    Estrategia:
-      "POR N DÍAS" es el INICIO de cada edicto (no el cierre).
-      El bloque va desde un match hasta el inicio del siguiente match.
-      El texto anterior al primer "POR N DÍAS" (cabecera del PDF) se descarta.
-
-    Ejemplo de estructura real del boletín:
-      [cabecera / numeración de página]
-      POR 5 DÍAS - El Juzgado Civil N°3... texto del edicto...
-      may. 6 v. may. 12        ← línea de vigencia, parte del mismo bloque
-      POR 5 DÍAS - El Juzgado Civil N°6... siguiente edicto...
-
-    Si no se encuentra ningún separador, devuelve el texto completo como
-    un único bloque (fallback conservador).
-    """
     matches = list(RE_SEPARADOR.finditer(texto))
-
     if not matches:
         log.warning("No se encontraron separadores 'POR X DÍAS' — se procesa como bloque único")
         return [texto.strip()] if texto.strip() else []
-
     bloques = []
     for i, m in enumerate(matches):
         inicio = m.start()
         fin    = matches[i + 1].start() if i + 1 < len(matches) else len(texto)
         bloque = texto[inicio:fin].strip()
-        if len(bloque) > 50:   # descartar residuos vacíos o cabeceras sueltas
+        if len(bloque) > 50:
             bloques.append(bloque)
-
-    log.info(f"Texto segmentado en {len(bloques)} bloques de edictos")
+    log.info(f"Texto segmentado en {len(bloques)} bloques")
     return bloques
 
 
-# ── Detección de localidad en un bloque ──────────────────────────────────────
-
+# ── Detección de localidad ────────────────────────────────────────────────────
 def normalizar_abreviaturas(texto: str) -> str:
-    """
-    Expande abreviaturas conocidas en el texto (ya en minúsculas) para que
-    los términos de búsqueda de localidades puedan hacer match correctamente.
-
-    Ejemplos:
-      "depto. jud. de mdp"  →  "departamento judicial mar del plata"
-      "mdp"                 →  "mar del plata"
-      "gral. guido"         →  "general guido"
-
-    Se aplica de más específico a más general (orden del dict ABREVIATURAS).
-    """
     for abrev, expansion in ABREVIATURAS.items():
-        # word-boundary adaptado a español: no reemplaza dentro de otra palabra
         texto = re.sub(
             r'(?<![a-záéíóúñ])' + re.escape(abrev) + r'(?![a-záéíóúñ])',
             expansion,
@@ -190,22 +142,10 @@ def normalizar_abreviaturas(texto: str) -> str:
         )
     return texto
 
-
 def localidades_en_bloque(bloque: str) -> list[str]:
-    """
-    Devuelve la lista de localidades (normalizadas) que aparecen
-    en el bloque de texto, eliminando duplicados.
-
-    Antes de buscar, expande abreviaturas conocidas (ej: "MdP" → "mar del plata")
-    para no perder menciones que usan formas abreviadas del nombre.
-    """
-    # 1. Minúsculas y limpieza de correos
     bloque_lower = bloque.lower()
     bloque_lower = re.sub(r'\S+@\S+', ' ', bloque_lower)
-
-    # 2. Expandir abreviaturas ANTES de buscar localidades
     bloque_lower = normalizar_abreviaturas(bloque_lower)
-
     encontradas = []
     vistas = set()
     for loc in LOCALIDADES:
@@ -216,50 +156,32 @@ def localidades_en_bloque(bloque: str) -> list[str]:
     return encontradas
 
 
-# ── Extracción de tipo de edicto ──────────────────────────────────────────────
+# ── Filtro para OFICIAL: solo TRANSFERENCIAS ──────────────────────────────────
+def es_capitulo_transferencias(bloque: str) -> bool:
+    cabecera = bloque[:500].lower()
+    return any(p in cabecera for p in PALABRAS_TRANSFERENCIAS)
 
+
+# ── Extracción de tipo y nombre ───────────────────────────────────────────────
 def extraer_tipo_edicto(bloque: str) -> str:
-    """
-    Detecta el tipo de edicto (QUIEBRA, CONCURSO, SUBASTA, etc.)
-    buscando palabras clave en el texto del bloque.
-    Devuelve la primera coincidencia en mayúsculas, o 'EDICTO' por defecto.
-    """
     bloque_lower = bloque.lower()
     for tipo in TIPOS_EDICTO:
         if tipo in bloque_lower:
             return tipo.upper()
     return "EDICTO"
 
-
-# ── Extracción de CUITs y DNIs ────────────────────────────────────────────────
-
 def extraer_cuits_dnis(texto: str) -> list:
     encontrados = set()
-    # CUIT/CUIL con guiones: XX-XXXXXXXX-X
     for m in re.findall(r'\b\d{2}-\d{8}-\d\b', texto):
         encontrados.add(m)
-    # CUIT/CUIL/DNI seguido de número
     for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', texto, re.IGNORECASE):
         encontrados.add(m)
-    # Números de 7 u 8 dígitos que no sean años (posibles DNIs sin prefijo)
     for m in re.findall(r'\b(\d{7,8})\b', texto):
         if not (1900 <= int(m) <= 2030):
             encontrados.add(m)
     return sorted(encontrados)
 
-
-# ── Extracción de nombre del sujeto (fallido, concursado, etc.) ───────────────
-
 def extraer_nombre_sujeto(bloque: str) -> str:
-    """
-    Intenta extraer el nombre del sujeto del edicto.
-
-    Estrategias (en orden de confiabilidad):
-    1. Patrón "quiebra/concurso de NOMBRE, NOMBRE"
-    2. Patrón "APELLIDO, NOMBRE" en mayúsculas
-    3. Secuencia de palabras en MAYÚSCULAS contiguas (hasta 6 palabras)
-    """
-    # Estrategia 1: después de "quiebra de" o "concurso de"
     m = re.search(
         r'(?:quiebra|concurso\s+preventivo|concurso)\s+de\s+'
         r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑA-Za-záéíóúñ,\s\.]+?)(?:\s*[-–,]|\s+con\s+domicilio|\s+CUIT|\s+DNI|\n)',
@@ -269,16 +191,12 @@ def extraer_nombre_sujeto(bloque: str) -> str:
         nombre = m.group(1).strip().rstrip(',').strip()
         if len(nombre) > 3:
             return nombre.upper()
-
-    # Estrategia 2: "APELLIDO, Nombre" con coma
     m = re.search(
         r'\b([A-ZÁÉÍÓÚÑ]{2,}(?:\s+[A-ZÁÉÍÓÚÑ]{2,})*),\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)\b',
         bloque
     )
     if m:
         return f"{m.group(1)}, {m.group(2)}"
-
-    # Estrategia 3: secuencia de palabras en MAYÚSCULAS
     palabras_excluir = {
         "JUZGADO","PRIMERA","INSTANCIA","CIVIL","COMERCIAL","SECRETARIA",
         "PROVINCIA","BUENOS","AIRES","REPUBLICA","ARGENTINA","PODER",
@@ -293,12 +211,10 @@ def extraer_nombre_sujeto(bloque: str) -> str:
         palabras = seq.split()
         if not any(p in palabras_excluir for p in palabras):
             return seq
-
     return ""
 
 
-# ── Guardar edicto en Supabase ────────────────────────────────────────────────
-
+# ── Guardado en Supabase (con página) ─────────────────────────────────────────
 def guardar_edicto(
     localidad: str,
     texto: str,
@@ -308,10 +224,9 @@ def guardar_edicto(
     url_pdf: str,
     tipo_edicto: str,
     nombre_sujeto: str,
+    pagina: int,
 ) -> bool:
     cuits = extraer_cuits_dnis(texto)
-
-    # Deduplicación: mismo boletín + sección + localidad + tipo + nombre
     try:
         existente = supabase.table("edictos").select("id") \
             .eq("fecha", fecha.isoformat()) \
@@ -326,7 +241,6 @@ def guardar_edicto(
             return False
     except Exception as e:
         log.warning(f"Error en consulta dedup: {e}")
-
     data = {
         "fecha":           fecha.isoformat(),
         "boletin_numero":  str(boletin_numero),
@@ -337,12 +251,12 @@ def guardar_edicto(
         "sujetos":         nombre_sujeto or None,
         "texto_completo":  texto,
         "url_pdf":         url_pdf,
+        "pagina":          pagina,
     }
-
     try:
         resultado = supabase.table("edictos").insert(data).execute()
         if resultado.data:
-            log.info(f"✅ GUARDADO: {tipo_edicto} | {localidad} | {nombre_sujeto or '(sin nombre)'} | {fecha}")
+            log.info(f"✅ GUARDADO: {tipo_edicto} | {localidad} | {nombre_sujeto or '(sin nombre)'} | pág {pagina}")
             return True
         else:
             log.warning(f"Insert sin respuesta: {resultado}")
@@ -356,8 +270,7 @@ def guardar_edicto(
         return False
 
 
-# ── Limpieza de registros viejos ──────────────────────────────────────────────
-
+# ── Limpieza de viejos ────────────────────────────────────────────────────────
 def eliminar_viejos(dias: int = 60):
     ahora  = datetime.now(BUENOS_AIRES)
     limite = (ahora - timedelta(days=dias)).date()
@@ -369,8 +282,7 @@ def eliminar_viejos(dias: int = 60):
         log.warning(f"No se pudieron eliminar registros viejos: {e}")
 
 
-# ── Scraping de la web del boletín (sin cambios respecto a versión anterior) ──
-
+# ── Scraping web (ediciones anteriores) ───────────────────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
     urls = {}
     panel_body = panel.find("div", class_="panel-body")
@@ -452,8 +364,7 @@ def obtener_ultimo_boletin():
         return None, None, None
 
 
-# ── Descarga y extracción de texto del PDF ────────────────────────────────────
-
+# ── Descarga y extracción con páginas ─────────────────────────────────────────
 def descargar_pdf(url: str):
     try:
         resp = requests.get(url, headers=HEADERS, timeout=60)
@@ -464,107 +375,92 @@ def descargar_pdf(url: str):
         log.warning(f"Error descargando {url}: {e}")
         return None
 
-def extraer_texto_pdf(contenido: bytes) -> str:
-    """Extrae el texto completo del PDF página por página."""
+def extraer_texto_con_paginas(contenido: bytes):
     try:
         with pdfplumber.open(BytesIO(contenido)) as pdf:
-            paginas = len(pdf.pages)
-            textos  = []
-            for i, page in enumerate(pdf.pages):
+            paginas_texto = []
+            for i, page in enumerate(pdf.pages, start=1):
                 try:
                     text = page.extract_text()
                     if text:
-                        textos.append(text)
+                        paginas_texto.append((i, text))
                     else:
-                        log.warning(f"Página {i+1} sin texto extraíble")
+                        log.warning(f"Página {i} sin texto extraíble")
                 except Exception as e:
-                    log.warning(f"Error en página {i+1}: {e}")
-            texto_completo = "\n".join(textos)
-            log.info(f"PDF procesado: {paginas} páginas, {len(texto_completo)} chars")
-            return texto_completo
+                    log.warning(f"Error en página {i}: {e}")
+            log.info(f"PDF procesado: {len(paginas_texto)} páginas con texto")
+            return paginas_texto
     except Exception as e:
         log.warning(f"Error leyendo PDF: {e}")
-        return ""
+        return []
 
 
-# ── Procesamiento principal de un boletín ────────────────────────────────────
-
+# ── Procesamiento principal ───────────────────────────────────────────────────
 def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
     if not urls_secciones:
         log.warning(f"No hay URLs de secciones para el boletín {numero}")
         return 0
-
     try:
         fecha_boletin = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except Exception:
         fecha_boletin = datetime.now(BUENOS_AIRES).date()
-
     total = 0
-
     for seccion_nombre, url in urls_secciones.items():
         log.info(f"── Procesando {seccion_nombre}: {url}")
-
         pdf_bytes = descargar_pdf(url)
         if not pdf_bytes:
             log.warning(f"Sin PDF para {seccion_nombre}")
             continue
-
-        texto_completo = extraer_texto_pdf(pdf_bytes)
-        if not texto_completo.strip():
+        paginas_texto = extraer_texto_con_paginas(pdf_bytes)
+        if not paginas_texto:
             log.warning(f"PDF de {seccion_nombre} sin texto extraíble.")
             continue
-
-        # Diagnóstico de fecha
-        fecha_pdf = extraer_fecha_del_pdf(texto_completo)
-        if fecha_pdf and fecha_pdf != fecha_boletin:
-            log.warning(
-                f"Fecha en el PDF: {fecha_pdf} | "
-                f"Fecha del boletín: {fecha_boletin} (se mantiene la del boletín)"
-            )
-
-        # ── NUEVA LÓGICA: segmentar en bloques de edictos ──────────────────
-        bloques = segmentar_en_edictos(texto_completo)
-        log.info(f"{seccion_nombre}: {len(bloques)} bloques encontrados")
-
-        guardados = 0
-
-        for bloque in bloques:
-            if len(bloque) < 50:          # bloques vacíos o residuos de cabecera
+        inicio_transferencias = None
+        if seccion_nombre == "OFICIAL":
+            for pagina, texto in paginas_texto:
+                if RE_INICIO_TRANSFERENCIAS.search(texto):
+                    inicio_transferencias = pagina
+                    log.info(f"Capítulo TRANSFERENCIAS detectado en página {pagina}")
+                    break
+            if inicio_transferencias is None:
+                log.warning("No se encontró TRANSFERENCIAS en OFICIAL. Se omite toda la sección.")
                 continue
-
-            localidades = localidades_en_bloque(bloque)
-            if not localidades:
-                continue                  # edicto sin localidad de interés
-
-            tipo_edicto   = extraer_tipo_edicto(bloque)
-            nombre_sujeto = extraer_nombre_sujeto(bloque)
-
-            for localidad in localidades:
-                if guardar_edicto(
-                    localidad     = localidad,
-                    texto         = bloque,
-                    seccion       = seccion_nombre,
-                    fecha         = fecha_boletin,
-                    boletin_numero= numero,
-                    url_pdf       = url,
-                    tipo_edicto   = tipo_edicto,
-                    nombre_sujeto = nombre_sujeto,
-                ):
-                    guardados += 1
-
-        log.info(f"{seccion_nombre}: {guardados} edictos nuevos guardados.")
-        total += guardados
-
+        for pagina, texto_pagina in paginas_texto:
+            if seccion_nombre == "OFICIAL" and inicio_transferencias and pagina < inicio_transferencias:
+                continue
+            bloques = segmentar_en_edictos(texto_pagina)
+            log.info(f"Página {pagina}: {len(bloques)} bloques")
+            for bloque in bloques:
+                if len(bloque) < 50:
+                    continue
+                if seccion_nombre == "OFICIAL" and not es_capitulo_transferencias(bloque):
+                    continue
+                localidades = localidades_en_bloque(bloque)
+                if not localidades:
+                    continue
+                tipo_edicto   = extraer_tipo_edicto(bloque)
+                nombre_sujeto = extraer_nombre_sujeto(bloque)
+                for localidad in localidades:
+                    if guardar_edicto(
+                        localidad     = localidad,
+                        texto         = texto_pagina,   # Toda la página
+                        seccion       = seccion_nombre,
+                        fecha         = fecha_boletin,
+                        boletin_numero= numero,
+                        url_pdf       = url,
+                        tipo_edicto   = tipo_edicto,
+                        nombre_sujeto = nombre_sujeto,
+                        pagina        = pagina,
+                    ):
+                        total += 1
     return total
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
-
 def main():
     log.info("═══════════════════════════════════════════════════")
     log.info("═══ SCRAPER CON SEGMENTACIÓN POR BLOQUES ══════════")
     log.info("═══════════════════════════════════════════════════")
-
     boletin_numero = None
     if len(sys.argv) > 1:
         boletin_numero = sys.argv[1]
@@ -573,7 +469,6 @@ def main():
         boletin_numero = os.environ.get("BOLETIN_NUMERO")
         if boletin_numero:
             log.info(f"Variable de entorno BOLETIN_NUMERO: N° {boletin_numero}")
-
     if boletin_numero:
         numero, fecha_str, urls = obtener_boletin_por_numero(boletin_numero)
         if not numero:
@@ -584,7 +479,6 @@ def main():
         if not numero:
             log.error("No se pudo obtener el último boletín")
             sys.exit(0)
-
     log.info(f"Procesando boletín N° {numero} - {fecha_str}")
     total = procesar_boletin(numero, fecha_str, urls)
     eliminar_viejos(60)
