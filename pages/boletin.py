@@ -246,16 +246,21 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     html += texto + "</div></body></html>"
     return html
 
+# FUNCION CORREGIDA
 def resaltar_texto(texto, localidad, nombre, cuit):
     palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
     if nombre and nombre not in ["Sin nombre", "Sin datos", "None", ""]:
         palabras.append(nombre.lower())
-    if cuit:
+    # CORREGIDO: solo si cuit es string y no está vacío
+    if cuit and isinstance(cuit, str) and cuit.strip() and cuit.lower() not in ["nan", "none"]:
         palabras.append(cuit.lower())
     resultado = texto
     for p in palabras:
         if p:
-            resultado = re.sub(rf'\b{re.escape(p)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
+            try:
+                resultado = re.sub(rf'\b{re.escape(p)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
+            except:
+                pass
     return resultado
 
 def renderizar_seccion(df_seccion, seccion_nombre):
