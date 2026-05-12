@@ -223,7 +223,6 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     localidad = row["localidad"]
     tipo = row.get("tipo_edicto") or "EDICTO"
     
-    # Resaltar palabras en el HTML de impresión
     for p in ["quiebra", "concurso", localidad.lower(), nombre.lower()]:
         if p:
             texto = re.sub(rf'\b{re.escape(p)}\b', f'<span class="resaltado">\\0</span>', texto, flags=re.IGNORECASE)
@@ -241,7 +240,6 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     return html
 
 def resaltar_texto(texto, palabras_clave):
-    """Resalta múltiples palabras en el texto"""
     resultado = texto
     for palabra in palabras_clave:
         if palabra and isinstance(palabra, str) and len(palabra) > 2:
@@ -251,7 +249,7 @@ def resaltar_texto(texto, palabras_clave):
                 pass
     return resultado
 
-# ── RENDERIZADO CORREGIDO (basado en Gemini pero completo) ────────────────────
+# ── RENDERIZADO CON CLAVES ÚNICAS ─────────────────────────────────────────────
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
     if df_seccion.empty:
@@ -267,11 +265,9 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         with col_a:
             with st.expander(titulo_bol, expanded=False):
                 
-                # Agrupar por página
                 paginas_en_boletin = df_bol.groupby("pagina")
                 
                 for num_pagina, df_pag in paginas_en_boletin:
-                    # Recolectar todos los datos de esta página
                     ids_de_esta_pagina = df_pag["id"].tolist()
                     detalles_sujetos = []
                     todas_palabras_resaltar = set(["quiebra", "concurso", "subasta", "transferencia"])
@@ -309,19 +305,21 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                     icono = "🚨" if es_quiebra_pagina else "⚪"
                     titulo_fila = f"{icono} Pág. {num_pagina} | {' | '.join(detalles_sujetos)}"
                     
+                    # CLAVE ÚNICA: usar timestamp + seccion + numero + pagina
+                    unique_key = f"{seccion_nombre}_{numero}_{num_pagina}_{fecha}"
+                    
                     with st.expander(titulo_fila):
                         texto_resaltado = resaltar_texto(texto_completo, list(todas_palabras_resaltar))
                         st.markdown(texto_resaltado, unsafe_allow_html=True)
                         
                         c1, c2, c3 = st.columns(3)
-                        if c1.button(f"✅ Revisado", key=f"rev_pag_{num_pagina}_{numero}"):
+                        if c1.button("✅ Revisado", key=f"rev_{unique_key}"):
                             st.success("OK")
-                        if c2.button(f"🗑️ Eliminar Página {num_pagina}", key=f"del_pag_{num_pagina}_{numero}"):
+                        if c2.button("🗑️ Eliminar Página", key=f"del_{unique_key}"):
                             for id_db in ids_de_esta_pagina:
                                 supabase.table("edictos").delete().eq("id", id_db).execute()
                             st.rerun()
-                        if c3.button(f"🖨️ Imprimir", key=f"print_pag_{num_pagina}_{numero}"):
-                            # Usar el primer row para imprimir
+                        if c3.button("🖨️ Imprimir", key=f"print_{unique_key}"):
                             row_impresion = df_pag.iloc[0]
                             html = generar_html_impresion(row_impresion, numero, fecha.strftime('%d/%m/%Y'), num_pagina)
                             b64 = base64.b64encode(html.encode()).decode()
