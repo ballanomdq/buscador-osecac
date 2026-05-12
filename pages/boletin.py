@@ -293,7 +293,6 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
         <title>Impresión edicto - Boletín N° {boletin_numero}</title>
         <style>
             body {{ font-family: Arial, sans-serif; margin: 40px; }}
-            h1 {{ color: #333; }}
             .info {{ margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-left: 6px solid #1e88e5; }}
             .edicto {{ white-space: pre-wrap; font-family: monospace; margin-top: 20px; }}
             .resaltado {{ background-color: #ffff99; font-weight: bold; }}
@@ -309,7 +308,6 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
         </div>
         <div class="edicto">
     """
-    # Resaltar palabras clave
     texto_resaltado = texto
     palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
     if nombre and nombre != "Sin nombre":
@@ -327,12 +325,12 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     """
     return html
 
-# ── Función para resaltar texto en pantalla (sin errores) ─────────────────────
+# ── Función para resaltar texto en pantalla (ya corregida) ────────────────────
 def resaltar_texto(texto, localidad, nombre, cuit):
     palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
-    if nombre and nombre != "Sin nombre" and nombre != "Sin datos":
+    if nombre and isinstance(nombre, str) and nombre not in ["Sin nombre", "Sin datos", "None", ""]:
         palabras.append(nombre.lower())
-    if cuit:
+    if cuit and isinstance(cuit, str) and cuit.strip():
         palabras.append(cuit.lower())
     resultado = texto
     for palabra in palabras:
@@ -358,7 +356,7 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         with col_a:
             with st.expander(titulo, expanded=False):
                 for _, row in grupo.iterrows():
-                    nombre = row.get("sujetos") or "Sin nombre"
+                    nombre = row.get("sujetos") or ""
                     cuit = row.get("cuit_detectados") or ""
                     tipo = row.get("tipo_edicto") or "EDICTO"
                     localidad = row["localidad"]
@@ -369,7 +367,8 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                         icono = "⚠️"
                     else:
                         icono = "⚪"
-                    titulo_edicto = f"{icono} {tipo} | {localidad} | {nombre} - {cuit} (pág. {pagina})"
+                    nombre_mostrar = nombre if nombre and nombre not in ["Sin nombre", "Sin datos", "None", ""] else "Sin datos"
+                    titulo_edicto = f"{icono} {tipo} | {localidad} | {nombre_mostrar} - {cuit if cuit else 'Sin CUIT'} (pág. {pagina})"
                     with st.expander(titulo_edicto):
                         texto_resaltado = resaltar_texto(row["texto_completo"], localidad, nombre, cuit)
                         st.markdown(texto_resaltado, unsafe_allow_html=True)
