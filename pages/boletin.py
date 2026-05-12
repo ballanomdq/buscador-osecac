@@ -24,6 +24,23 @@ st.markdown("""
     padding: 2px 4px;
     border-radius: 4px;
 }
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .print-area, .print-area * {
+        visibility: visible;
+    }
+    .print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+    .stButton, .stTabs, .stExpander, .stCheckbox, .stRadio, .stMultiselect {
+        display: none !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -103,8 +120,7 @@ def obtener_urls_secciones(numero: str) -> dict:
                                 urls["OFICIAL"] = url_completa
                             elif "JUDICIAL" in nombre:
                                 urls["JUDICIAL"] = url_completa
-                if urls:
-                    return urls
+                return urls if urls else None
         return None
     except Exception as e:
         st.error(f"Error: {e}")
@@ -260,78 +276,54 @@ if not datos:
 
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
-
 if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
-# ── Funciones de análisis ─────────────────────────────────────────────────────
-def extraer_nombre_cuit_mejorado(texto):
-    patron_quiebra = r"(?:quiebra|concurso)[\s:]*de[\s:]*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s*\(?DNI[\s:]*(\d{7,8})?[\s,]*CUIT[\s:]*(\d{2}-\d{8}-\d)?|\.|$)"
-    m = re.search(patron_quiebra, texto, re.IGNORECASE)
-    if m:
-        nombre = m.group(1).strip() if m.group(1) else None
-        cuit = m.group(3) if m.group(3) else m.group(2)
-        if nombre:
-            return nombre, cuit
-    patron_general = r"(?:quiebra|concurso)\s+(?:de\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?)(?:\s+\(?(?:CUIT|DNI)[\s:]*(\d{2}-\d{8}-\d|\d{7,8})?|\.|$)"
-    m2 = re.search(patron_general, texto, re.IGNORECASE)
-    if m2:
-        return m2.group(1).strip(), m2.group(2) if m2.group(2) else None
-    return None, None
-
-def extraer_nombre_del_texto(texto):
-    cuit_m = re.search(r'\b\d{2}-\d{8}-\d\b', texto)
-    cuit   = cuit_m.group(0) if cuit_m else None
-    dni_m  = re.search(r'\b(\d{7,8})\b', texto)
-    dni    = dni_m.group(1) if dni_m else None
-    mayus  = re.findall(r'\b[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ]+\b', texto)
-    if not mayus:
-        mayus = re.findall(r'\b[A-ZÁÉÍÓÚÑ]{5,}\b', texto)
-    nombre = mayus[0] if mayus else (f"DNI {dni}" if dni else None)
-    return nombre, cuit
-
-def obtener_info_edicto(row):
+# ── Función para generar HTML de impresión ────────────────────────────────────
+def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     texto = row["texto_completo"]
-    sujetos_db = row.get("sujetos")
-    cuits_db = row.get("cuit_detectados")
-    nombre_q, cuit_q = extraer_nombre_cuit_mejorado(texto)
-    if nombre_q:
-        nombre = nombre_q
-        cuit = cuit_q
-        es_quiebra = True
-    else:
-        es_quiebra = "quiebra" in texto.lower() or "concurso" in texto.lower()
-        if sujetos_db and isinstance(sujetos_db, str) and sujetos_db.strip():
-            nombre = sujetos_db.split(",")[0].strip()
-        else:
-            nombre, _ = extraer_nombre_del_texto(texto)
-        if cuits_db and isinstance(cuits_db, str) and cuits_db.strip():
-            cuit = cuits_db.split(",")[0].strip()
-        else:
-            _, cuit = extraer_nombre_del_texto(texto)
-    if es_quiebra:
-        nivel, icono, motivo = 0, "🚨", "QUIEBRA/CONCURSO"
-    elif cuit:
-        nivel, icono, motivo = 1, "⚠️", "PRECAUCIÓN"
-    else:
-        nivel, icono, motivo = 2, "⚪", "INFORMATIVO"
-    nombre_mostrar = nombre if nombre else (cuit if cuit else "Sin datos")
-    return {
-        "nivel": nivel, "icono": icono, "motivo": motivo,
-        "nombre_mostrar": nombre_mostrar, "cuit": cuit,
-        "nombre_original": nombre
-    }
+    nombre = row.get("sujetos") or "Sin nombre"
+    cuit = row.get("cuit_detectados") or ""
+    localidad = row["localidad"]
+    tipo = row.get("tipo_edicto") or "EDICTO"
+    html = f"""
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Impresión edicto - Boletín N° {boletin_numero}</title>
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 40px; }}
+            h1 {{ color: #333; }}
+            .info {{ margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-left: 6px solid #1e88e5; }}
+            .edicto {{ white-space: pre-wrap; font-family: monospace; margin-top: 20px; }}
+            .resaltado {{ background-color: #ffff99; font-weight: bold; }}
+        </style>
+    </head>
+    <body>
+        <div class="info">
+            <strong>Boletín Oficial de la Provincia de Buenos Aires</strong><br>
+            Número: {boletin_numero} | Fecha: {fecha_boletin}<br>
+            Sección: {row["seccion"]} | Localidad: {localidad}<br>
+            Tipo: {tipo} | Sujeto: {nombre} | CUIT/DNI: {cuit}<br>
+            Página original: {pagina}
+        </div>
+        <div class="edicto">
+    """
+    # Resaltar palabras clave
+    texto_resaltado = texto
+    palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", row["localidad"].lower(), nombre.lower()]
+    for palabra in palabras_clave:
+        if palabra:
+            texto_resaltado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
+    html += texto_resaltado
+    html += """
+        </div>
+    </body>
+    </html>
+    """
+    return html
 
-def resaltar_nombre_cuit(texto, nombre, cuit):
-    resultado = texto
-    if nombre and nombre != "Sin datos":
-        nombre_esc = re.escape(nombre)
-        resultado = re.sub(rf'(\b{nombre_esc}\b)', r'<span class="resaltado">\1</span>', resultado, flags=re.IGNORECASE)
-    if cuit:
-        cuit_esc = re.escape(cuit)
-        resultado = re.sub(rf'(\b{cuit_esc}\b)', r'<span class="resaltado">\1</span>', resultado, flags=re.IGNORECASE)
-    return resultado
-
+# ── Renderizado por sección (modificado para incluir botón imprimir y número de página) ──
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
     if df_seccion.empty:
@@ -341,21 +333,36 @@ def renderizar_seccion(df_seccion, seccion_nombre):
     grupos_ordenados = sorted(grupos, key=lambda x: x[0], reverse=True)
     for (fecha, numero), grupo in grupos_ordenados:
         grupo = grupo.copy()
-        grupo["_p"] = [obtener_info_edicto(r)["nivel"] for _, r in grupo.iterrows()]
-        grupo = grupo.sort_values("_p").drop(columns=["_p"])
+        grupo["_p"] = [row.get("tipo_edicto", "").lower() in ("quiebra", "concurso", "concurso preventivo") for _, row in grupo.iterrows()]
+        grupo = grupo.sort_values("_p", ascending=False).drop(columns=["_p"])
         titulo = f"{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')} ({len(grupo)} edictos)"
         col_a, col_b = st.columns([6, 1])
         with col_a:
             with st.expander(titulo, expanded=False):
                 for _, row in grupo.iterrows():
-                    info = obtener_info_edicto(row)
-                    titulo_edicto = f"{info['icono']} {info['motivo']} | {row['localidad']} | {info['nombre_mostrar']}"
-                    if info['cuit']:
-                        titulo_edicto += f" - {info['cuit']}"
+                    nombre = row.get("sujetos") or "Sin datos"
+                    cuit = row.get("cuit_detectados") or ""
+                    tipo = row.get("tipo_edicto") or "EDICTO"
+                    localidad = row["localidad"]
+                    pagina = row.get("pagina", "?")
+                    # Mostrar el número de página en el título
+                    titulo_edicto = f"🚨 {tipo} | {localidad} | {nombre} - {cuit} (pág. {pagina})"
+                    if "quiebra" in tipo.lower() or "concurso" in tipo.lower():
+                        icono = "🚨"
+                    elif cuit:
+                        icono = "⚠️"
+                    else:
+                        icono = "⚪"
+                    titulo_edicto = f"{icono} {tipo} | {localidad} | {nombre} - {cuit} (pág. {pagina})"
                     with st.expander(titulo_edicto):
-                        texto_resaltado = resaltar_nombre_cuit(row["texto_completo"], info.get("nombre_original"), info.get("cuit"))
+                        # Resaltar en pantalla
+                        texto_resaltado = row["texto_completo"]
+                        palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower(), nombre.lower()]
+                        for palabra in palabras_clave:
+                            if palabra:
+                                texto_resaltado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
                         st.markdown(texto_resaltado, unsafe_allow_html=True)
-                        col_x, col_y = st.columns(2)
+                        col_x, col_y, col_z = st.columns(3)
                         with col_x:
                             if st.button("✅ Revisado", key=f"rev_{row['id']}"):
                                 st.success("Marcado como revisado (solo visual)")
@@ -364,8 +371,14 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                                 supabase.table("edictos").delete().eq("id", row["id"]).execute()
                                 st.success("Eliminado")
                                 st.rerun()
+                        with col_z:
+                            # Botón Imprimir
+                            if st.button("🖨️ Imprimir", key=f"print_{row['id']}"):
+                                html_impresion = generar_html_impresion(row, numero, fecha.strftime('%d/%m/%Y'), pagina)
+                                b64 = base64.b64encode(html_impresion.encode()).decode()
+                                href = f'<a href="data:text/html;base64,{b64}" target="_blank">🖨️ Abrir para imprimir</a>'
+                                st.markdown(href, unsafe_allow_html=True)
         with col_b:
-            # Clave única combinando sección, número y fecha (CORREGIDO)
             clave_eliminar = f"del_bol_{seccion_nombre}_{numero}_{fecha}"
             if st.button("🗑️", key=clave_eliminar):
                 confirm_key = f"confirm_del_bol_{seccion_nombre}_{numero}_{fecha}"
