@@ -1,10 +1,9 @@
 """
-scraper_edictos.py
-Descarga un boletín específico del Boletín Oficial PBA.
-Si se le pasa un número como argumento (ej. python scraper_edictos.py 30235),
-descarga ese boletín. Si no, descarga el último disponible.
-Corregido: NO reemplaza la fecha del boletín con la fecha extraída del PDF
-de cada sección (evita que la sección Judicial se guarde con fecha diferente).
+scraper_edictos.py - Versión mejorada
+- Aumenta el contexto de búsqueda a 5000 caracteres.
+- Mejora la extracción de texto del PDF.
+- Guarda el texto completo (sin recortar).
+- Mantiene la fecha y número del boletín desde la página oficial.
 """
 
 import sys
@@ -51,9 +50,10 @@ LOCALIDADES = {
     "mar chiquita", "general guido",
 }
 ALIAS_LOCALIDAD = {"general guido": "Guido", "gdor. arias": "Dolores"}
-CONTEXTO_CHARS  = 1500
+# Aumentamos el contexto a 5000 caracteres (antes 1500)
+CONTEXTO_CHARS  = 5000
 
-# ── Regex ─────────────────────────────────────────────────────────────────────
+# ── Regex para extraer números y fechas (solo diagnóstico) ────────────────────
 RE_FECHA = re.compile(
     r"La Plata,\s*(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)?\s*"
     r"(\d{1,2})\s+de\s+"
@@ -67,7 +67,6 @@ MESES = {
 }
 
 def extraer_fecha_del_pdf(texto: str):
-    """Extrae fecha del texto del PDF (solo para diagnóstico, no se usa para guardar)."""
     m = RE_FECHA.search(texto)
     if m:
         try:
@@ -77,11 +76,10 @@ def extraer_fecha_del_pdf(texto: str):
     return None
 
 def extraer_numero_del_pdf(texto: str) -> str:
-    """Extrae número de boletín del texto del PDF (solo para diagnóstico)."""
     m = re.search(r"N[º°]?\s*(\d{4,6})", texto)
     return m.group(1) if m else "desconocido"
 
-# ── Scraping de ediciones anteriores ─────────────────────────────────────────
+# ── Scraping de ediciones anteriores (sin cambios) ─────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
     urls = {}
     panel_body = panel.find("div", class_="panel-body")
@@ -116,7 +114,6 @@ def obtener_boletin_por_numero(numero: str):
                 continue
             texto = titulo_tag.get_text(strip=True)
             if re.search(rf"N[°º]?\s*{re.escape(numero)}\b", texto, re.IGNORECASE):
-                # Extraer fecha del título
                 m_fecha = re.search(r"(\d{2}/\d{2}/\d{4})", texto)
                 fecha_str = m_fecha.group(1) if m_fecha else None
                 urls = obtener_secciones_de_panel(panel)
@@ -163,7 +160,7 @@ def obtener_ultimo_boletin():
         log.error(f"Error obteniendo último boletín: {e}")
         return None, None, None
 
-# ── Descarga y procesamiento de PDF ──────────────────────────────────────────
+# ── Descarga y procesamiento de PDF mejorados ──────────────────────────────
 def descargar_pdf(url: str):
     try:
         resp = requests.get(url, headers=HEADERS, timeout=60)
@@ -175,19 +172,31 @@ def descargar_pdf(url: str):
         return None
 
 def extraer_texto_pdf(contenido: bytes) -> str:
+    """Extrae texto del PDF manejando posibles errores por página."""
     try:
         with pdfplumber.open(BytesIO(contenido)) as pdf:
             paginas = len(pdf.pages)
-            texto = "\n".join(p.extract_text() or "" for p in pdf.pages)
-            log.info(f"PDF procesado: {paginas} páginas, {len(texto)} caracteres")
-            return texto
+            textos = []
+            for i, page in enumerate(pdf.pages):
+                try:
+                    text = page.extract_text()
+                    if text:
+                        textos.append(text)
+                    else:
+                        log.warning(f"Página {i+1} sin texto extraíble")
+                except Exception as e:
+                    log.warning(f"Error en página {i+1}: {e}")
+            texto_completo = "\n".join(textos)
+            log.info(f"PDF procesado: {paginas} páginas, {len(texto_completo)} caracteres extraídos")
+            return texto_completo
     except Exception as e:
         log.warning(f"Error leyendo PDF: {e}")
         return ""
 
-# ── Búsqueda de localidades ───────────────────────────────────────────────────
+# ── Búsqueda de localidades con contexto ampliado ──────────────────────────
 def buscar_localidades(texto: str) -> list:
     resultados  = []
+    # Eliminar correos para evitar falsos positivos
     texto_clean = re.sub(r'\S+@\S+', ' ', texto)
     texto_lower = texto_clean.lower()
     for loc in LOCALIDADES:
@@ -201,15 +210,22 @@ def buscar_localidades(texto: str) -> list:
             nombre = ALIAS_LOCALIDAD.get(loc, loc.title())
             resultados.append((nombre, texto_clean[inicio:fin].strip()))
             pos = idx + len(loc)
+    log.info(f"Total menciones encontradas: {len(resultados)}")
     return resultados
 
-# ── Extracción de metadatos ───────────────────────────────────────────────────
+# ── Extracción de metadatos mejorada ──────────────────────────────────────
 def extraer_cuits_dnis(texto: str) -> list:
     encontrados = set()
+    # CUIT con guiones
     for m in re.findall(r'\b\d{2}-\d{8}-\d\b', texto):
         encontrados.add(m)
+    # DNI con palabra clave
     for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:]*(\d{6,8})\b', texto, re.IGNORECASE):
         encontrados.add(m)
+    # Números de 7 u 8 dígitos que no sean años
+    for m in re.findall(r'\b(\d{7,8})\b', texto):
+        if not (1900 <= int(m) <= 2030):
+            encontrados.add(m)
     return sorted(encontrados)
 
 def extraer_mayusculas(texto: str) -> list:
@@ -235,11 +251,11 @@ def extraer_mayusculas(texto: str) -> list:
             break
     return resultado
 
-# ── Guardado en Supabase (CORREGIDO) ──────────────────────────────────────────
 def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf) -> bool:
     cuits   = extraer_cuits_dnis(texto)
     sujetos = extraer_mayusculas(texto)
 
+    # Verificar si ya existe (por fecha, número, sección y localidad)
     try:
         existente = supabase.table("edictos").select("id")\
             .eq("fecha", fecha.isoformat())\
@@ -253,6 +269,7 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf) ->
     except Exception as e:
         log.warning(f"Error en consulta dedup: {e}")
 
+    # Guardar el texto completo (sin recortar) para no perder información
     data = {
         "fecha":           fecha.isoformat(),
         "boletin_numero":  str(boletin_numero),
@@ -260,7 +277,7 @@ def guardar_edicto(localidad, texto, seccion, fecha, boletin_numero, url_pdf) ->
         "localidad":       localidad,
         "cuit_detectados": ", ".join(cuits) if cuits else None,
         "sujetos":         ", ".join(sujetos) if sujetos else None,
-        "texto_completo":  texto[:5000],
+        "texto_completo":  texto,   # Texto completo, sin límite
         "url_pdf":         url_pdf,
     }
 
@@ -290,13 +307,12 @@ def eliminar_viejos(dias: int = 60):
     except Exception as e:
         log.warning(f"No se pudieron eliminar registros viejos: {e}")
 
-# ── Procesar un boletín completo (CORREGIDO: NO REEMPLAZA LA FECHA) ────────────
 def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
     if not urls_secciones:
         log.warning(f"No hay URLs de secciones para el boletín {numero}")
         return 0
 
-    # Fecha del boletín (la correcta, obtenida de la página de ediciones anteriores)
+    # Fecha del boletín (la correcta, desde la página de ediciones anteriores)
     try:
         fecha_boletin = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except Exception:
@@ -314,12 +330,7 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
             log.warning(f"PDF de {seccion_nombre} sin texto extraíble.")
             continue
 
-        # Extraer número del PDF (solo para diagnóstico, no se usa para guardar)
-        num_pdf = extraer_numero_del_pdf(texto)
-        if num_pdf != "desconocido" and num_pdf != numero:
-            log.info(f"Número en el PDF: {num_pdf} (el boletín es N° {numero})")
-
-        # Extraer fecha del PDF (solo para diagnóstico, NO se reemplaza)
+        # Solo diagnóstico
         fecha_pdf = extraer_fecha_del_pdf(texto)
         if fecha_pdf and fecha_pdf != fecha_boletin:
             log.warning(f"Fecha en el PDF: {fecha_pdf} | Fecha del boletín: {fecha_boletin} (se mantiene la del boletín)")
@@ -329,6 +340,7 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
 
         guardados = 0
         for localidad, fragmento in menciones:
+            # Guardamos el texto completo, no solo el fragmento
             if guardar_edicto(localidad, fragmento, seccion_nombre, fecha_boletin, numero, url):
                 guardados += 1
         log.info(f"{seccion_nombre}: {guardados} edictos nuevos guardados.")
@@ -336,13 +348,11 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
 
     return total
 
-# ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     log.info("═══════════════════════════════════════")
-    log.info("═══ INICIO DEL SCRAPER ═══")
+    log.info("═══ INICIO DEL SCRAPER (VERSIÓN MEJORADA) ═══")
     log.info("═══════════════════════════════════════")
 
-    # Leer número de boletín de los argumentos de línea o variable de entorno
     boletin_numero = None
     if len(sys.argv) > 1:
         boletin_numero = sys.argv[1]
