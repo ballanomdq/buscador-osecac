@@ -309,7 +309,7 @@ df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
-# ── Función para obtener clase CSS según nivel de confianza ───────────────────
+# ── Función para obtener clase CSS y ícono según nivel de confianza ───────────
 def get_confianza_class(nivel):
     if nivel == "ALTA":
         return "confianza-alta"
@@ -351,4 +351,115 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
         <div class="info">
             <strong>Boletín Oficial de la Provincia de Buenos Aires</strong><br>
             Número: {boletin_numero} | Fecha: {fecha_boletin}<br>
-            Sección: {row["seccion"]} | Localidad: {
+            Sección: {row["seccion"]} | Localidad: {localidad}<br>
+            Tipo: {tipo} | Nivel confianza: {nivel} {get_icono_confianza(nivel)}<br>
+            Sujeto: {nombre} | CUIT/DNI: {cuit}<br>
+            Página original: {pagina}
+        </div>
+        <div class="edicto">
+    """
+    palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
+    if nombre and nombre != "Sin nombre":
+        palabras_clave.append(nombre.lower())
+    if cuit:
+        palabras_clave.append(cuit.lower())
+    texto_resaltado = texto
+    for palabra in palabras_clave:
+        if palabra:
+            texto_resaltado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
+    html += texto_resaltado
+    html += """
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
+# ── Función para resaltar texto en pantalla ───────────────────────────────────
+def resaltar_texto(texto, localidad, nombre, cuit):
+    palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
+    if nombre and isinstance(nombre, str) and nombre not in ["Sin nombre", "Sin datos", "None", ""]:
+        palabras.append(nombre.lower())
+    if cuit and isinstance(cuit, str) and cuit.strip():
+        palabras.append(cuit.lower())
+    resultado = texto
+    for palabra in palabras:
+        if palabra:
+            resultado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
+    return resultado
+
+# ── Renderizado por sección ───────────────────────────────────────────────────
+def renderizar_seccion(df_seccion, seccion_nombre):
+    icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
+    if df_seccion.empty:
+        st.info(f"No hay edictos en {seccion_nombre}.")
+        return
+    
+    grupos = df_seccion.groupby(["fecha", "boletin_numero"])
+    grupos_ordenados = sorted(grupos, key=lambda x: x[0], reverse=True)
+    
+    for (fecha, numero), grupo in grupos_ordenados:
+        grupo = grupo.copy()
+        # Ordenar por nivel de confianza: ALTA > MEDIA > BAJA
+        orden_confianza = {"ALTA": 0, "MEDIA": 1, "BAJA": 2}
+        grupo["_orden"] = grupo["nivel_confianza"].map(orden_confianza).fillna(2)
+        grupo = grupo.sort_values("_orden")
+        
+        titulo = f"{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')} ({len(grupo)} edictos)"
+        col_a, col_b = st.columns([6, 1])
+        
+        with col_a:
+            with st.expander(titulo, expanded=False):
+                for _, row in grupo.iterrows():
+                    nombre = row.get("sujetos") or ""
+                    cuit = row.get("cuit_detectados") or ""
+                    tipo = row.get("tipo_edicto") or "EDICTO"
+                    localidad = row["localidad"]
+                    pagina = row.get("pagina", "?")
+                    nivel_confianza = row.get("nivel_confianza", "BAJA")
+                    
+                    icono_confianza = get_icono_confianza(nivel_confianza)
+                    icono_adicional = "🚨" if "QUIEBRA" in tipo or "CONCURSO" in tipo else ""
+                    
+                    nombre_mostrar = nombre if nombre and nombre not in ["Sin nombre", "Sin datos", "None", ""] else "Sin datos"
+                    titulo_edicto = f"{icono_confianza}{icono_adicional} {nivel_confianza} | {tipo} | {localidad} | {nombre_mostrar} - {cuit if cuit else 'Sin CUIT'} (pág. {pagina})"
+                    
+                    with st.expander(titulo_edicto):
+                        # Aplicar clase según nivel de confianza
+                        clase_confianza = get_confianza_class(nivel_confianza)
+                        texto_resaltado = resaltar_texto(row["texto_completo"], localidad, nombre, cuit)
+                        st.markdown(f'<div class="{clase_confianza}">{texto_resaltado}</div>', unsafe_allow_html=True)
+                        
+                        col_x, col_y, col_z = st.columns(3)
+                        with col_x:
+                            if st.button("✅ Revisado", key=f"rev_{row['id']}"):
+                                st.success("Marcado como revisado (solo visual)")
+                        with col_y:
+                            if st.button("🗑️ Eliminar", key=f"del_{row['id']}"):
+                                supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                                st.success("Eliminado")
+                                st.rerun()
+                        with col_z:
+                            if st.button("🖨️ Imprimir", key=f"print_{row['id']}"):
+                                html_impresion = generar_html_impresion(row, numero, fecha.strftime('%d/%m/%Y'), pagina)
+                                b64 = base64.b64encode(html_impresion.encode()).decode()
+                                href = f'<a href="data:text/html;base64,{b64}" target="_blank">🖨️ Abrir para imprimir</a>'
+                                st.markdown(href, unsafe_allow_html=True)
+        
+        with col_b:
+            clave_eliminar = f"del_bol_{seccion_nombre}_{numero}_{fecha}"
+            if st.button("🗑️", key=clave_eliminar):
+                confirm_key = f"confirm_del_bol_{seccion_nombre}_{numero}_{fecha}"
+                if st.session_state.get(confirm_key, False):
+                    eliminar_boletin_de_db(fecha, numero)
+                else:
+                    st.session_state[confirm_key] = True
+                    st.warning("⚠️ Hacé clic otra vez para confirmar eliminación de TODO el boletín.")
+        st.markdown("---")
+
+# ── Pestañas principales ──────────────────────────────────────────────────────
+tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
+with tab_judicial:
+    renderizar_seccion(df[df["seccion"] == "JUDICIAL"], "JUDICIAL")
+with tab_oficial:
+    renderizar_seccion(df[df["seccion"] == "OFICIAL"], "OFICIAL")
