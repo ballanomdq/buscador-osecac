@@ -74,7 +74,6 @@ def obtener_boletines_disponibles():
         return []
 
 def obtener_urls_secciones(numero: str) -> dict:
-    """Dado un número de boletín, devuelve las URLs de las secciones Oficial y Judicial que encuentre."""
     url = f"{BASE_URL}/ediciones-anteriores"
     try:
         resp = requests.get(url, headers=HEADERS, timeout=30)
@@ -89,7 +88,6 @@ def obtener_urls_secciones(numero: str) -> dict:
                 urls = {}
                 panel_body = panel.find("div", class_="panel-body")
                 if panel_body:
-                    # Buscar en todas las secciones (pueden ser más de dos)
                     for section in panel_body.find_all("div", class_="section"):
                         titulo_sec = section.find("h5", class_="body-title")
                         if not titulo_sec:
@@ -101,73 +99,36 @@ def obtener_urls_secciones(numero: str) -> dict:
                         if link and link.get("href"):
                             href = link["href"]
                             url_completa = href if href.startswith("http") else BASE_URL + href
-                            # Clasificar por nombre, no solo "OFICIAL" o "JUDICIAL"
                             if "OFICIAL" in nombre:
                                 urls["OFICIAL"] = url_completa
                             elif "JUDICIAL" in nombre:
                                 urls["JUDICIAL"] = url_completa
-                            else:
-                                # Guardar también otras secciones por si acaso
-                                urls[nombre] = url_completa
-                # Si encontramos al menos una sección, las devolvemos (aunque falte la otra)
                 if urls:
-                    st.info(f"Secciones encontradas para el boletín {numero}: {', '.join(urls.keys())}")
                     return urls
-                else:
-                    st.warning(f"No se encontraron enlaces a PDF en el panel del boletín {numero}")
-                    return None
-        st.warning(f"No se encontró el boletín N° {numero} en la página de ediciones anteriores.")
         return None
     except Exception as e:
-        st.error(f"Error al obtener URLs del boletín {numero}: {e}")
+        st.error(f"Error: {e}")
         return None
 
 def descargar_y_procesar_boletin(numero: str, fecha_str: str):
-    """Dispara el workflow de GitHub Actions para un boletín específico"""
     token = st.secrets.get("GH_TOKEN")
     if not token:
         st.error("Falta GH_TOKEN en los secrets.")
         return False
-    
-    # Primero, verificar si el boletín tiene al menos una sección disponible
-    with st.spinner("Verificando secciones del boletín..."):
-        urls = obtener_urls_secciones(numero)
-    
-    if not urls:
-        st.error(f"❌ No se encontraron secciones (Oficial/Judicial) para el boletín N° {numero}. No se puede descargar.")
-        return False
-    
-    # Mostrar qué secciones se van a procesar
-    secciones_encontradas = list(urls.keys())
-    st.info(f"📄 Secciones encontradas: {', '.join(secciones_encontradas)}")
-    
-    # Preguntar si quiere continuar (si falta alguna sección)
-    if "OFICIAL" not in urls or "JUDICIAL" not in urls:
-        faltantes = []
-        if "OFICIAL" not in urls:
-            faltantes.append("OFICIAL")
-        if "JUDICIAL" not in urls:
-            faltantes.append("JUDICIAL")
-        st.warning(f"⚠️ No se encontró la(s) sección(es): {', '.join(faltantes)}. Solo se descargará/n la(s) disponible(s).")
-        if not st.button("Continuar de todos modos"):
-            return False
-    
-    # Disparar workflow
     repo = "ballanomdq/buscador-osecac"
     url_api = f"https://api.github.com/repos/{repo}/actions/workflows/scrape_edictos.yml/dispatches"
     headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
     payload = {"ref": "main", "inputs": {"boletin_numero": numero}}
-    
     try:
         response = requests.post(url_api, json=payload, headers=headers, timeout=15)
         if response.status_code == 204:
-            st.success(f"✅ Descarga iniciada para el boletín N° {numero}. Los resultados aparecerán en unos minutos.")
+            st.success(f"Descarga iniciada para el boletín N° {numero}. Los resultados aparecerán en unos minutos.")
             return True
         else:
-            st.error(f"❌ Error al iniciar descarga: {response.status_code} - {response.text}")
+            st.error(f"Error {response.status_code}")
             return False
     except Exception as e:
-        st.error(f"❌ Error de conexión: {e}")
+        st.error(f"Error: {e}")
         return False
 
 # ── Funciones de gestión en la base de datos ──────────────────────────────────
@@ -404,8 +365,10 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                                 st.success("Eliminado")
                                 st.rerun()
         with col_b:
-            if st.button("🗑️", key=f"del_bol_{numero}_{fecha}"):
-                confirm_key = f"confirm_del_bol_{numero}_{fecha}"
+            # Clave única combinando sección, número y fecha (CORREGIDO)
+            clave_eliminar = f"del_bol_{seccion_nombre}_{numero}_{fecha}"
+            if st.button("🗑️", key=clave_eliminar):
+                confirm_key = f"confirm_del_bol_{seccion_nombre}_{numero}_{fecha}"
                 if st.session_state.get(confirm_key, False):
                     eliminar_boletin_de_db(fecha, numero)
                 else:
