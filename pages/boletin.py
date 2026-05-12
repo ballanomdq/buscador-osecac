@@ -280,8 +280,7 @@ df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 def resaltar_texto(texto, palabras_clave):
     resultado = texto
     for palabra in palabras_clave:
-        if palabra and len(palabra) > 2:
-            # Escapar caracteres especiales para regex
+        if palabra and len(palabra) > 2 and isinstance(palabra, str):
             palabra_escape = re.escape(palabra)
             resultado = re.sub(rf'\b{palabra_escape}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
     return resultado
@@ -300,6 +299,12 @@ def get_clase_confianza(nivel):
         return "confianza-media"
     return "confianza-baja"
 
+# ── Función para extraer números de un CUIT/DNI ───────────────────────────────
+def extraer_numeros(texto):
+    if not texto or not isinstance(texto, str):
+        return []
+    return re.findall(r'\d+', texto)
+
 # ── Renderizado AGRUPADO POR PÁGINA ───────────────────────────────────────────
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
@@ -307,7 +312,11 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         st.info(f"No hay edictos en {seccion_nombre}.")
         return
     
-    # Agrupar por boletín y página
+    # Agrupar por boletín, fecha y página
+    if "pagina" not in df_seccion.columns:
+        st.warning("La columna 'pagina' no existe. Eliminá y volvé a descargar los boletines.")
+        return
+    
     grupos = df_seccion.groupby(["fecha", "boletin_numero", "pagina"])
     
     for (fecha, numero, pagina), grupo in sorted(grupos, key=lambda x: x[0], reverse=True):
@@ -326,45 +335,46 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         tipos = set()
         
         for _, row in grupo.iterrows():
-            tipos.add(row["tipo_edicto"])
+            tipos.add(row.get("tipo_edicto", "EDICTO"))
             nombre = row.get("sujetos")
-            localidad = row["localidad"]
+            localidad = row.get("localidad", "")
             cuit = row.get("cuit_detectados")
             
             if nombre and nombre not in ["Sin nombre", "None", "", None]:
                 if nombre not in nombres_por_localidad:
                     nombres_por_localidad[nombre] = []
                     cuits_por_nombre[nombre] = cuit
-                if localidad not in nombres_por_localidad[nombre]:
+                if localidad and localidad not in nombres_por_localidad[nombre]:
                     nombres_por_localidad[nombre].append(localidad)
         
         # Construir título
-        tiene_quiebra = "QUIEBRA" in tipos or "CONCURSO" in tipos
+        tiene_quiebra = any(t in ["QUIEBRA", "CONCURSO"] for t in tipos)
         icono_alerta = "🚨" if tiene_quiebra else ""
         icono_conf = get_icono_confianza(nivel_grupo)
         
         # Lista de nombres con localidades
         nombres_str = []
         for nombre, locs in nombres_por_localidad.items():
-            locs_str = ", ".join(locs)
+            locs_str = ", ".join(locs) if locs else "sin localidad"
             cuit_info = f" - {cuits_por_nombre[nombre]}" if cuits_por_nombre[nombre] else ""
             nombres_str.append(f"{nombre}{cuit_info} ({locs_str})")
         
         if not nombres_str:
             nombres_str = ["Sin nombre identificado"]
         
-        titulo = f"{icono_conf}{icono_alerta} {nivel_grupo} | {seccion_nombre} | Pág. {pagina} | {len(grupo)} localidad(es) | {', '.join(tipos)}"
+        tipos_str = ", ".join(tipos) if tipos else "EDICTO"
+        titulo = f"{icono_conf}{icono_alerta} {nivel_grupo} | {seccion_nombre} | Pág. {pagina} | {len(grupo)} localidad(es) | {tipos_str}"
         
         with st.expander(titulo, expanded=False):
-            # Mostrar cada nombre como subtítulo
-            st.markdown(f"**📋 Nombres encontrados en esta página:**")
+            # Mostrar cada nombre como lista
+            st.markdown("**📋 Nombres encontrados en esta página:**")
             for nombre_info in nombres_str:
                 st.markdown(f"- {nombre_info}")
             
             st.markdown("---")
             
-            # Mostrar el texto completo de la página (usar el primer row para el texto)
-            texto_completo = grupo.iloc[0]["texto_completo"]
+            # Mostrar el texto completo de la página
+            texto_completo = grupo.iloc[0].get("texto_completo", "")
             
             # Recolectar todas las palabras clave para resaltar
             palabras_clave = set(["quiebra", "concurso", "subasta", "transferencia"])
@@ -373,14 +383,15 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                     palabras_clave.add(nombre)
             for locs in nombres_por_localidad.values():
                 for loc in locs:
-                    palabras_clave.add(loc)
+                    if loc:
+                        palabras_clave.add(loc)
             for cuit in cuits_por_nombre.values():
-                if cuit:
-                    # Extraer números del CUIT
-                    for num in re.findall(r'\d+', cuit):
+                if cuit and isinstance(cuit, str):
+                    for num in extraer_numeros(cuit):
                         if len(num) >= 6:
                             palabras_clave.add(num)
             
+            # Resaltar
             texto_resaltado = resaltar_texto(texto_completo, list(palabras_clave))
             st.markdown(f'<div class="{get_clase_confianza(nivel_grupo)}">{texto_resaltado}</div>', unsafe_allow_html=True)
             
@@ -391,7 +402,6 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                     st.success("Marcado como revisado")
             with col_y:
                 if st.button("🗑️ Eliminar página", key=f"del_{seccion_nombre}_{numero}_{pagina}"):
-                    # Eliminar todos los registros de esta página
                     supabase.table("edictos").delete() \
                         .eq("fecha", fecha.isoformat()) \
                         .eq("boletin_numero", str(numero)) \
@@ -404,21 +414,27 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                 html_impresion = f"""
                 <html>
                 <head><meta charset="UTF-8"><title>Boletín N° {numero} - Pág. {pagina}</title>
-                <style>body{{font-family:Arial;margin:40px}} .info{{background:#f5f5f5;padding:10px;border-left:6px solid #1e88e5}} .edicto{{white-space:pre-wrap}} .resaltado{{background:#ffff99}}</style>
+                <style>
+                    body{{font-family:Arial;margin:40px}}
+                    .info{{background:#f5f5f5;padding:10px;border-left:6px solid #1e88e5;margin-bottom:20px}}
+                    .edicto{{white-space:pre-wrap}}
+                    .resaltado{{background:#ffff99;font-weight:bold}}
+                </style>
                 </head>
                 <body>
                     <div class="info">
                         <strong>Boletín Oficial de Buenos Aires</strong><br>
                         N° {numero} - {fecha.strftime('%d/%m/%Y')}<br>
                         Sección: {seccion_nombre} | Página: {pagina}<br>
-                        Nombres: {', '.join(nombres_str)}
+                        Nombres encontrados:<br>
+                        {"<br>".join(nombres_str)}
                     </div>
                     <div class="edicto">{texto_resaltado}</div>
                 </body>
                 </html>
                 """
                 b64 = base64.b64encode(html_impresion.encode()).decode()
-                st.markdown(f'<a href="data:text/html;base64,{b64}" target="_blank">🖨️ Imprimir</a>', unsafe_allow_html=True)
+                st.markdown(f'<a href="data:text/html;base64,{b64}" target="_blank">🖨️ Imprimir página</a>', unsafe_allow_html=True)
 
 # ── Pestañas ──────────────────────────────────────────────────────────────────
 tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
