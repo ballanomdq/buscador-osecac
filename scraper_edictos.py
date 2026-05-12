@@ -1,6 +1,7 @@
 """
-scraper_edictos.py - VERSIÓN CORREGIDA
-- Mejor extracción de nombres (ignora "la señora", "el señor", etc.)
+scraper_edictos.py - VERSIÓN DEFINITIVA
+- Extrae MÚLTIPLES edictos por página
+- Limpia caracteres � (reemplaza por espacio)
 - Vincula páginas consecutivas
 - Niveles de confianza: ALTA, MEDIA, BAJA
 """
@@ -61,71 +62,110 @@ PALABRAS_IGNORAR = re.compile(
     re.IGNORECASE
 )
 
+def limpiar_texto(texto: str) -> str:
+    """Reemplaza caracteres � por espacios y normaliza"""
+    if not texto:
+        return ""
+    # Reemplazar � por espacio
+    texto = texto.replace('�', ' ')
+    # Eliminar múltiples espacios
+    texto = re.sub(r'\s+', ' ', texto)
+    return texto.strip()
+
 def extraer_nombre_mejorado(texto: str) -> str:
-    """
-    Extrae el nombre real ignorando artículos y títulos como "la señora"
-    """
+    """Extrae el nombre real ignorando artículos y títulos"""
+    if not texto:
+        return ""
+    
+    # Limpiar primero
+    texto_limpio = limpiar_texto(texto)
+    
     # Buscar patrón "quiebra de ..." o "concurso de ..."
     patron_principal = re.compile(
         r'(?:quiebra|concurso)\s+de\s+(.+?)(?:\s*(?:\(?DNI|CUIT|CUIL|\(|\n|$))',
         re.IGNORECASE
     )
     
-    m = patron_principal.search(texto)
+    m = patron_principal.search(texto_limpio)
     if not m:
         # Buscar secuencias de mayúsculas (apellido y nombre)
-        mayus = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)?)\b', texto)
+        mayus = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)?)\b', texto_limpio)
         if mayus:
-            # Tomar la más larga que parece nombre completo
             nombres_validos = [n for n in mayus if len(n.split()) >= 2]
             if nombres_validos:
                 return nombres_validos[0].strip()
         return ""
     
     raw_nombre = m.group(1).strip()
-    
-    # Limpiar: eliminar "la señora", "el señor", etc. del principio
+    # Limpiar: eliminar artículos y títulos
     limpio = PALABRAS_IGNORAR.sub('', raw_nombre).strip()
     
-    # Si quedó vacío, devolver el original sin artículos
     if not limpio:
         limpio = raw_nombre
     
-    # Eliminar textos residuales como "BOLETÍN OFICIAL"
+    # Eliminar textos residuales
     if "BOLETÍN" in limpio.upper() or "OFICIAL" in limpio.upper():
-        # Buscar un nombre válido dentro del texto
         partes = limpio.split()
         candidatos = []
-        for i, parte in enumerate(partes):
+        for parte in partes:
             if re.match(r'^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]*$', parte) and len(parte) > 2:
-                # Verificar que no sea una palabra común
                 if parte.upper() not in ['LA', 'EL', 'LOS', 'LAS', 'DE', 'DEL', 'Y']:
                     candidatos.append(parte)
         if len(candidatos) >= 2:
-            return ' '.join(candidatos[:3])  # Hasta nombre + apellido + segundo apellido
+            return ' '.join(candidatos[:3])
     
-    # Limpiar caracteres no deseados
     limpio = re.sub(r'[,\n\r]+$', '', limpio)
-    
     return limpio.upper() if len(limpio) > 3 else ""
 
-def extraer_tipo_edicto(texto: str) -> str:
-    if re.search(r'\bquiebra\b', texto, re.IGNORECASE):
-        return "QUIEBRA"
-    if re.search(r'\bconcurso\b', texto, re.IGNORECASE):
-        return "CONCURSO"
-    return "EDICTO"
-
-def extraer_cuits_dnis(texto: str) -> list:
-    encontrados = set()
-    for m in re.findall(r'\b\d{2}-\d{8}-\d\b', texto):
-        encontrados.add(m)
-    for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', texto, re.IGNORECASE):
-        encontrados.add(m)
-    for m in re.findall(r'\b(\d{7,8})\b', texto):
-        if not (1900 <= int(m) <= 2030):
-            encontrados.add(m)
-    return sorted(encontrados)
+def extraer_todos_edictos_de_pagina(texto: str) -> list:
+    """
+    Extrae TODOS los edictos de una página usando "POR X DÍAS" como separador
+    Retorna lista de dicts: {'tipo': str, 'nombre': str, 'cuits': list}
+    """
+    if not texto:
+        return []
+    
+    texto_limpio = limpiar_texto(texto)
+    
+    # Separar por "POR X DÍAS" (cada nuevo edicto empieza ahí)
+    partes = re.split(r'POR\s+\d+\s+DÍAS\s*[-–]?\s*', texto_limpio)
+    
+    edictos = []
+    for parte in partes:
+        parte = parte.strip()
+        if not parte or len(parte) < 50:
+            continue
+        
+        # Buscar si tiene quiebra o concurso
+        tiene_quiebra = re.search(r'\bquiebra\b', parte, re.IGNORECASE) is not None
+        tiene_concurso = re.search(r'\bconcurso\b', parte, re.IGNORECASE) is not None
+        
+        if not (tiene_quiebra or tiene_concurso):
+            continue
+        
+        tipo = "QUIEBRA" if tiene_quiebra else ("CONCURSO" if tiene_concurso else "EDICTO")
+        
+        # Extraer nombre
+        nombre = extraer_nombre_mejorado(parte)
+        
+        # Extraer CUITs/DNIs
+        cuits = set()
+        for m in re.findall(r'\b\d{2}-\d{8}-\d\b', parte):
+            cuits.add(m)
+        for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', parte, re.IGNORECASE):
+            cuits.add(m)
+        for m in re.findall(r'\b(\d{7,8})\b', parte):
+            if not (1900 <= int(m) <= 2030):
+                cuits.add(m)
+        
+        edictos.append({
+            'tipo': tipo,
+            'nombre': nombre,
+            'cuits': ", ".join(sorted(cuits)) if cuits else None,
+            'texto': parte[:500]  # Guardamos parte del texto para referencia
+        })
+    
+    return edictos
 
 def normalizar_abreviaturas(texto: str) -> str:
     texto_lower = texto.lower()
@@ -149,40 +189,50 @@ def vincular_paginas_consecutivas(paginas_con_localidades, todas_paginas):
     
     for pag, locs in paginas_con_localidades.items():
         texto_pagina = todas_paginas[pag]
-        tipo_actual = extraer_tipo_edicto(texto_pagina)
-        nombre_actual = extraer_nombre_mejorado(texto_pagina)
         
+        # Extraer TODOS los edictos de esta página
+        edictos_pagina = extraer_todos_edictos_de_pagina(texto_pagina)
+        
+        # También revisar página anterior y siguiente
         paginas_a_revisar = [pag]
         if pag - 1 in todas_paginas:
             paginas_a_revisar.append(pag - 1)
         if pag + 1 in todas_paginas:
             paginas_a_revisar.append(pag + 1)
         
-        tipo_maximo = tipo_actual
-        nombre_principal = nombre_actual
-        todos_cuits = set(extraer_cuits_dnis(texto_pagina))
-        
+        todos_edictos = list(edictos_pagina)
         for otra_pag in paginas_a_revisar:
-            if otra_pag == pag:
-                continue
-            texto_otra = todas_paginas[otra_pag]
-            tipo_otra = extraer_tipo_edicto(texto_otra)
-            nombre_otra = extraer_nombre_mejorado(texto_otra)
-            
-            if tipo_otra == "QUIEBRA" and tipo_maximo != "QUIEBRA":
-                tipo_maximo = "QUIEBRA"
-            elif tipo_otra == "CONCURSO" and tipo_maximo not in ["QUIEBRA", "CONCURSO"]:
-                tipo_maximo = "CONCURSO"
-            
-            if nombre_otra and len(nombre_otra) > len(nombre_principal):
-                nombre_principal = nombre_otra
-            elif nombre_otra and not nombre_principal:
-                nombre_principal = nombre_otra
-            
-            todos_cuits.update(extraer_cuits_dnis(texto_otra))
+            if otra_pag != pag:
+                otros_edictos = extraer_todos_edictos_de_pagina(todas_paginas[otra_pag])
+                todos_edictos.extend(otros_edictos)
+        
+        # Si no encontró edictos, usar método anterior como fallback
+        if not todos_edictos:
+            tipo_actual = extraer_tipo_edicto_fallback(texto_pagina)
+            nombre_actual = extraer_nombre_mejorado(texto_pagina)
+            todos_edictos = [{'tipo': tipo_actual, 'nombre': nombre_actual, 'cuits': None}]
+        
+        # Para cada localidad, usar el PRIMER edicto de la página (o el que tenga nombre)
+        # Pero si hay múltiples, intentar asignar correctamente
+        mejor_edicto = None
+        for e in todos_edictos:
+            if e['nombre'] and len(e['nombre']) > 5 and "BOLETÍN" not in e['nombre'].upper():
+                mejor_edicto = e
+                break
+        if not mejor_edicto and todos_edictos:
+            mejor_edicto = todos_edictos[0]
+        
+        if mejor_edicto:
+            tipo_maximo = mejor_edicto['tipo']
+            nombre_principal = mejor_edicto['nombre']
+            cuits = mejor_edicto['cuits']
+        else:
+            tipo_maximo = "EDICTO"
+            nombre_principal = ""
+            cuits = None
         
         if tipo_maximo in ["QUIEBRA", "CONCURSO"]:
-            if nombre_principal and len(nombre_principal) > 3 and "BOLETÍN" not in nombre_principal.upper():
+            if nombre_principal and len(nombre_principal) > 3:
                 nivel_confianza = "ALTA"
             else:
                 nivel_confianza = "MEDIA"
@@ -194,11 +244,19 @@ def vincular_paginas_consecutivas(paginas_con_localidades, todas_paginas):
             'tipo_edicto': tipo_maximo,
             'sujetos': nombre_principal if nombre_principal else None,
             'nivel_confianza': nivel_confianza,
-            'cuits': ", ".join(sorted(todos_cuits)) if todos_cuits else None,
+            'cuits': cuits,
             'paginas_relacionadas': list(set(paginas_a_revisar))
         }
     
     return resultado
+
+def extraer_tipo_edicto_fallback(texto: str) -> str:
+    texto_limpio = limpiar_texto(texto)
+    if re.search(r'\bquiebra\b', texto_limpio, re.IGNORECASE):
+        return "QUIEBRA"
+    if re.search(r'\bconcurso\b', texto_limpio, re.IGNORECASE):
+        return "CONCURSO"
+    return "EDICTO"
 
 # ── Web scraping ──────────────────────────────────────────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
@@ -377,7 +435,7 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
     return total
 
 def main():
-    log.info("═══ SCRAPER CORREGIDO (MEJOR EXTRACCIÓN DE NOMBRES) ═══")
+    log.info("═══ SCRAPER DEFINITIVO (MÚLTIPLES EDICTOS POR PÁGINA) ═══")
     boletin_numero = None
     if len(sys.argv) > 1:
         boletin_numero = sys.argv[1]
