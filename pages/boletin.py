@@ -237,63 +237,75 @@ df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
 if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
+# ── Función para limpiar valores basura ───────────────────────────────────────
+def es_nombre_valido(nombre):
+    if not nombre or not isinstance(nombre, str):
+        return False
+    nombre_upper = nombre.upper()
+    basura = ["FECHA INICIO", "BOLETÍN OFICIAL", "SIN NOMBRE", "NONE", "NAN", ""]
+    for b in basura:
+        if b in nombre_upper:
+            return False
+    return len(nombre) > 3
+
+def limpiar_cuit(cuit):
+    if not cuit or not isinstance(cuit, str):
+        return None
+    if cuit.upper() in ["NAN", "NONE", ""]:
+        return None
+    return cuit
+
 # ── Función para resaltar texto ───────────────────────────────────────────────
-def resaltar_texto(texto, localidad, nombre, cuit):
-    palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
-    if nombre and nombre not in ["Sin nombre", "None", ""]:
-        palabras.append(nombre.lower())
-    if cuit and isinstance(cuit, str):
-        palabras.append(cuit.lower())
+def resaltar_texto(texto, palabras_clave):
     resultado = texto
-    for palabra in palabras:
-        if palabra:
-            resultado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
+    for palabra in palabras_clave:
+        if palabra and isinstance(palabra, str) and len(palabra) > 2:
+            try:
+                resultado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
+            except:
+                pass
     return resultado
 
-# ── Renderizado AGRUPADO POR PÁGINA (pero con títulos completos) ──────────────
+# ── Renderizado AGRUPADO POR PÁGINA ───────────────────────────────────────────
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
     if df_seccion.empty:
         st.info(f"No hay edictos en {seccion_nombre}.")
         return
     
-    # Agrupar por página dentro de cada boletín
     if "pagina" not in df_seccion.columns:
         st.warning("Falta la columna 'pagina'. Re-descargá los boletines.")
         return
     
-    # Primero ordenar por fecha descendente, luego por página
     df_seccion = df_seccion.sort_values(["fecha", "boletin_numero", "pagina"], ascending=[False, False, True])
-    
-    # Agrupar por boletín y página
     grupos = df_seccion.groupby(["fecha", "boletin_numero", "pagina"])
     
     for (fecha, numero, pagina), grupo in grupos:
-        # Determinar el nivel de prioridad (quiebra primero)
-        tipos = grupo["tipo_edicto"].values
-        prioridad = 0 if any(t in ["QUIEBRA", "CONCURSO"] for t in tipos) else 1
-        
-        # Recolectar TODOS los nombres con sus localidades y CUITs
+        # Recolectar TODOS los nombres válidos
         items = []
         for _, row in grupo.iterrows():
             nombre = row.get("sujetos")
-            loc = row["localidad"]
+            loc = row.get("localidad", "")
             cuit = row.get("cuit_detectados")
-            tipo = row.get("tipo_edicto", "EDICTO")
             
-            if nombre and nombre not in ["Sin nombre", "None", "", None]:
-                items.append({
-                    "nombre": nombre,
-                    "localidad": loc,
-                    "cuit": cuit,
-                    "tipo": tipo
-                })
+            # Filtrar nombres basura
+            if not es_nombre_valido(nombre):
+                continue
+            
+            cuit_limpio = limpiar_cuit(cuit)
+            
+            items.append({
+                "nombre": nombre,
+                "localidad": loc,
+                "cuit": cuit_limpio,
+                "tipo": row.get("tipo_edicto", "EDICTO")
+            })
         
-        # Si no hay nombres, mostrar mensaje
+        # Si no hay nombres válidos, mostrar "Sin nombre identificado"
         if not items:
-            items = [{"nombre": "Sin nombre", "localidad": "?", "cuit": "", "tipo": "EDICTO"}]
+            items = [{"nombre": "Sin nombre identificado", "localidad": "?", "cuit": None, "tipo": "EDICTO"}]
         
-        # Construir título con TODOS los nombres
+        # Construir título
         nombres_str = []
         for item in items:
             cuit_str = f" - {item['cuit']}" if item['cuit'] else ""
@@ -301,30 +313,26 @@ def renderizar_seccion(df_seccion, seccion_nombre):
         
         titulo_nombres = " | ".join(nombres_str)
         
-        # Determinar ícono y tipo principal
-        tipos_set = set(item['tipo'] for item in items)
-        tiene_quiebra = "QUIEBRA" in tipos_set or "CONCURSO" in tipos_set
+        # Determinar ícono
+        tiene_quiebra = any(item['tipo'] in ["QUIEBRA", "CONCURSO"] for item in items)
         icono = "🚨" if tiene_quiebra else "📄"
         
-        # Título final
         titulo = f"{icono} {seccion_nombre} | Pág. {pagina} | {titulo_nombres}"
         
         with st.expander(titulo, expanded=False):
-            # Mostrar el texto completo (usar el primer elemento del grupo)
             texto_completo = grupo.iloc[0]["texto_completo"]
             
-            # Resaltar todas las palabras clave
-            texto_resaltado = texto_completo
-            for palabra in ["quiebra", "concurso", "subasta", "transferencia"]:
-                texto_resaltado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
+            # Recolectar todas las palabras clave para resaltar
+            palabras_clave = set(["quiebra", "concurso", "subasta", "transferencia"])
             for item in items:
-                if item['nombre'] and item['nombre'] not in ["Sin nombre", "None", ""]:
-                    texto_resaltado = re.sub(rf'\b{re.escape(item['nombre'])}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
-                if item['localidad']:
-                    texto_resaltado = re.sub(rf'\b{re.escape(item['localidad'])}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
+                if item['nombre'] and es_nombre_valido(item['nombre']):
+                    palabras_clave.add(item['nombre'])
+                if item['localidad'] and item['localidad'] != "?":
+                    palabras_clave.add(item['localidad'])
                 if item['cuit']:
-                    texto_resaltado = re.sub(rf'\b{re.escape(item['cuit'])}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
+                    palabras_clave.add(item['cuit'])
             
+            texto_resaltado = resaltar_texto(texto_completo, list(palabras_clave))
             st.markdown(texto_resaltado, unsafe_allow_html=True)
             
             # Botones
@@ -339,7 +347,7 @@ def renderizar_seccion(df_seccion, seccion_nombre):
             with col_z:
                 html_impresion = f"""
                 <html><head><meta charset="UTF-8"><title>Boletín N° {numero} - Pág. {pagina}</title>
-                <style>body{{font-family:Arial;margin:40px}} .info{{background:#f5f5f5;padding:10px;border-left:6px solid #1e88e5}}</style>
+                <style>body{{font-family:Arial;margin:40px}} .info{{background:#f5f5f5;padding:10px;border-left:6px solid #1e88e5}} .resaltado{{background:#ffff99}}</style>
                 </head><body>
                 <div class="info"><strong>Boletín N° {numero}</strong> - {fecha.strftime('%d/%m/%Y')}<br>
                 Sección: {seccion_nombre} | Página: {pagina}<br>
