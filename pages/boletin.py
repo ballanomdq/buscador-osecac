@@ -311,7 +311,11 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     """
     # Resaltar palabras clave
     texto_resaltado = texto
-    palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", row["localidad"].lower(), nombre.lower()]
+    palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
+    if nombre and nombre != "Sin nombre":
+        palabras_clave.append(nombre.lower())
+    if cuit:
+        palabras_clave.append(cuit.lower())
     for palabra in palabras_clave:
         if palabra:
             texto_resaltado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
@@ -323,7 +327,20 @@ def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
     """
     return html
 
-# ── Renderizado por sección (modificado para incluir botón imprimir y número de página) ──
+# ── Función para resaltar texto en pantalla (sin errores) ─────────────────────
+def resaltar_texto(texto, localidad, nombre, cuit):
+    palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
+    if nombre and nombre != "Sin nombre" and nombre != "Sin datos":
+        palabras.append(nombre.lower())
+    if cuit:
+        palabras.append(cuit.lower())
+    resultado = texto
+    for palabra in palabras:
+        if palabra:
+            resultado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
+    return resultado
+
+# ── Renderizado por sección ───────────────────────────────────────────────────
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
     if df_seccion.empty:
@@ -332,22 +349,21 @@ def renderizar_seccion(df_seccion, seccion_nombre):
     grupos = df_seccion.groupby(["fecha", "boletin_numero"])
     grupos_ordenados = sorted(grupos, key=lambda x: x[0], reverse=True)
     for (fecha, numero), grupo in grupos_ordenados:
+        # Ordenar por prioridad: quiebras/concurso primero
         grupo = grupo.copy()
-        grupo["_p"] = [row.get("tipo_edicto", "").lower() in ("quiebra", "concurso", "concurso preventivo") for _, row in grupo.iterrows()]
-        grupo = grupo.sort_values("_p", ascending=False).drop(columns=["_p"])
+        grupo["_prioridad"] = grupo["tipo_edicto"].apply(lambda x: 0 if x and ("quiebra" in x.lower() or "concurso" in x.lower()) else 1)
+        grupo = grupo.sort_values("_prioridad")
         titulo = f"{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')} ({len(grupo)} edictos)"
         col_a, col_b = st.columns([6, 1])
         with col_a:
             with st.expander(titulo, expanded=False):
                 for _, row in grupo.iterrows():
-                    nombre = row.get("sujetos") or "Sin datos"
+                    nombre = row.get("sujetos") or "Sin nombre"
                     cuit = row.get("cuit_detectados") or ""
                     tipo = row.get("tipo_edicto") or "EDICTO"
                     localidad = row["localidad"]
                     pagina = row.get("pagina", "?")
-                    # Mostrar el número de página en el título
-                    titulo_edicto = f"🚨 {tipo} | {localidad} | {nombre} - {cuit} (pág. {pagina})"
-                    if "quiebra" in tipo.lower() or "concurso" in tipo.lower():
+                    if tipo and ("quiebra" in tipo.lower() or "concurso" in tipo.lower()):
                         icono = "🚨"
                     elif cuit:
                         icono = "⚠️"
@@ -355,12 +371,7 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                         icono = "⚪"
                     titulo_edicto = f"{icono} {tipo} | {localidad} | {nombre} - {cuit} (pág. {pagina})"
                     with st.expander(titulo_edicto):
-                        # Resaltar en pantalla
-                        texto_resaltado = row["texto_completo"]
-                        palabras_clave = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower(), nombre.lower()]
-                        for palabra in palabras_clave:
-                            if palabra:
-                                texto_resaltado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', texto_resaltado, flags=re.IGNORECASE)
+                        texto_resaltado = resaltar_texto(row["texto_completo"], localidad, nombre, cuit)
                         st.markdown(texto_resaltado, unsafe_allow_html=True)
                         col_x, col_y, col_z = st.columns(3)
                         with col_x:
@@ -372,7 +383,6 @@ def renderizar_seccion(df_seccion, seccion_nombre):
                                 st.success("Eliminado")
                                 st.rerun()
                         with col_z:
-                            # Botón Imprimir
                             if st.button("🖨️ Imprimir", key=f"print_{row['id']}"):
                                 html_impresion = generar_html_impresion(row, numero, fecha.strftime('%d/%m/%Y'), pagina)
                                 b64 = base64.b64encode(html_impresion.encode()).decode()
