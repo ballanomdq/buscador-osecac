@@ -1,8 +1,9 @@
 """
-scraper_edictos.py - VERSIÓN TOLERANTE Y "BRUTA"
-- Guarda la página COMPLETA cada vez que aparece una localidad (sin depender de palabras clave).
-- Extrae tipo de edicto y nombre de forma flexible (más tolerante).
-- Para la sección OFICIAL, sigue filtrando solo TRANSFERENCIAS.
+scraper_edictos.py - VERSIÓN DEFINITIVA CON NIVELES DE CONFIANZA
+- Guarda la página COMPLETA cuando aparece una localidad
+- Vincula páginas consecutivas para no perder edictos que cruzan páginas
+- Niveles de confianza: ALTA (quiebra+nombre), MEDIA (quiebra sin nombre), BAJA (solo localidad)
+- Para la sección OFICIAL, sigue filtrando solo TRANSFERENCIAS
 """
 
 import sys
@@ -36,7 +37,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 BASE_URL = "https://boletinoficial.gba.gob.ar"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; OSECAC-Scraper/1.0)"}
 
-# ── Localidades objetivo (todas en minúsculas para comparar) ─────────────────
+# ── Localidades objetivo ─────────────────────────────────────────────────────
 LOCALIDADES = {
     "mar del plata", "alvarado", "miramar", "mechongue", "otamendi", "vivorata",
     "vidal", "piran", "las armas", "maipu", "labarden", "guido", "dolores",
@@ -46,62 +47,23 @@ LOCALIDADES = {
     "mar chiquita", "general guido",
 }
 
-# Abreviaturas comunes
 ABREVIATURAS = {
-    "mdp"            : "mar del plata",
-    "m.d.p."         : "mar del plata",
-    "depto. jud. de mdp" : "mar del plata",
-    "gral. guido"    : "general guido",
+    "mdp": "mar del plata",
+    "m.d.p.": "mar del plata",
+    "depto. jud. de mdp": "mar del plata",
+    "gral. guido": "general guido",
     "gral. madariaga": "madariaga",
     "pdo. de dolores": "dolores",
-    "mar chiq."      : "mar chiquita",
+    "mar chiq.": "mar chiquita",
 }
+
 ALIAS_LOCALIDAD = {"general guido": "Guido", "gdor. arias": "Dolores"}
 
-PALABRAS_TRANSFERENCIAS = ["transferencia", "transferencias", "cesión", "cesiones"]
-
-# Expresiones regulares tolerantes
 RE_INICIO_TRANSFERENCIAS = re.compile(r'\bTRANSFERENCIAS?\b', re.IGNORECASE)
-RE_QUIEBRA = re.compile(r'\b(?:quiebra|concurso)\b', re.IGNORECASE)
-
-# Extracción de nombre: busca después de "quiebra de", "concurso de", o toma secuencia de mayúsculas
 RE_NOMBRE_QUIEBRA = re.compile(
     r'(?:quiebra|concurso)\s+de\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s,\.]+?)(?:\s*(?:\(?DNI|CUIT|\(|\n)|$)',
     re.IGNORECASE
 )
-
-def extraer_tipo_edicto(texto: str) -> str:
-    """Devuelve 'QUIEBRA', 'CONCURSO', 'EDICTO' según lo que encuentre."""
-    if re.search(r'\bquiebra\b', texto, re.IGNORECASE):
-        return "QUIEBRA"
-    if re.search(r'\bconcurso\b', texto, re.IGNORECASE):
-        return "CONCURSO"
-    return "EDICTO"
-
-def extraer_nombre_tolerante(texto: str) -> str:
-    """Extrae nombre de forma tolerante."""
-    # Primero: "quiebra de NOMBRE"
-    m = RE_NOMBRE_QUIEBRA.search(texto)
-    if m:
-        nombre = m.group(1).strip().strip(',').strip()
-        if len(nombre) > 3:
-            return nombre.upper()
-    # Segundo: buscar una secuencia de mayúsculas de al menos dos palabras
-    mayus = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)\b', texto)
-    if mayus:
-        return mayus[0].strip()
-    return ""
-
-def extraer_cuits_dnis(texto: str) -> list:
-    encontrados = set()
-    for m in re.findall(r'\b\d{2}-\d{8}-\d\b', texto):
-        encontrados.add(m)
-    for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', texto, re.IGNORECASE):
-        encontrados.add(m)
-    for m in re.findall(r'\b(\d{7,8})\b', texto):
-        if not (1900 <= int(m) <= 2030):
-            encontrados.add(m)
-    return sorted(encontrados)
 
 def normalizar_abreviaturas(texto: str) -> str:
     texto_lower = texto.lower()
@@ -119,7 +81,95 @@ def localidades_en_texto(texto: str) -> list:
             encontradas.append(ALIAS_LOCALIDAD.get(loc, loc.title()))
     return encontradas
 
-# ── Web scraping (ediciones anteriores) ───────────────────────────────────────
+def extraer_tipo_edicto(texto: str) -> str:
+    if re.search(r'\bquiebra\b', texto, re.IGNORECASE):
+        return "QUIEBRA"
+    if re.search(r'\bconcurso\b', texto, re.IGNORECASE):
+        return "CONCURSO"
+    return "EDICTO"
+
+def extraer_nombre_tolerante(texto: str) -> str:
+    m = RE_NOMBRE_QUIEBRA.search(texto)
+    if m:
+        nombre = m.group(1).strip().strip(',').strip()
+        if len(nombre) > 3:
+            return nombre.upper()
+    mayus = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)\b', texto)
+    if mayus:
+        return mayus[0].strip()
+    return ""
+
+def extraer_cuits_dnis(texto: str) -> list:
+    encontrados = set()
+    for m in re.findall(r'\b\d{2}-\d{8}-\d\b', texto):
+        encontrados.add(m)
+    for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', texto, re.IGNORECASE):
+        encontrados.add(m)
+    for m in re.findall(r'\b(\d{7,8})\b', texto):
+        if not (1900 <= int(m) <= 2030):
+            encontrados.add(m)
+    return sorted(encontrados)
+
+# ── Vincular páginas consecutivas para no perder edictos que cruzan ──────────
+def vincular_paginas_consecutivas(paginas_con_localidades, todas_paginas):
+    """
+    páginas_con_localidades: dict {pagina: [localidades_encontradas]}
+    todas_paginas: dict {pagina: texto_completo}
+    Retorna: dict {pagina: {'localidades': [], 'tipo_maximo': str, 'nombre_principal': str, 'paginas_relacionadas': []}}
+    """
+    resultado = {}
+    
+    for pag, locs in paginas_con_localidades.items():
+        texto_pagina = todas_paginas[pag]
+        tipo_actual = extraer_tipo_edicto(texto_pagina)
+        nombre_actual = extraer_nombre_tolerante(texto_pagina)
+        
+        # Revisar página anterior y siguiente
+        paginas_a_revisar = [pag]
+        if pag - 1 in todas_paginas:
+            paginas_a_revisar.append(pag - 1)
+        if pag + 1 in todas_paginas:
+            paginas_a_revisar.append(pag + 1)
+        
+        tipo_maximo = tipo_actual
+        nombre_principal = nombre_actual
+        
+        for otra_pag in paginas_a_revisar:
+            if otra_pag == pag:
+                continue
+            texto_otra = todas_paginas[otra_pag]
+            tipo_otra = extraer_tipo_edicto(texto_otra)
+            nombre_otra = extraer_nombre_tolerante(texto_otra)
+            
+            # Prioridad: QUIEBRA > CONCURSO > EDICTO
+            if tipo_otra == "QUIEBRA" and tipo_maximo != "QUIEBRA":
+                tipo_maximo = "QUIEBRA"
+            elif tipo_otra == "CONCURSO" and tipo_maximo not in ["QUIEBRA", "CONCURSO"]:
+                tipo_maximo = "CONCURSO"
+            
+            if nombre_otra and not nombre_principal:
+                nombre_principal = nombre_otra
+        
+        # Calcular nivel de confianza
+        if tipo_maximo in ["QUIEBRA", "CONCURSO"]:
+            if nombre_principal:
+                nivel_confianza = "ALTA"
+            else:
+                nivel_confianza = "MEDIA"
+        else:
+            nivel_confianza = "BAJA"
+        
+        resultado[pag] = {
+            'localidades': locs,
+            'tipo_edicto': tipo_maximo,
+            'sujetos': nombre_principal,
+            'nivel_confianza': nivel_confianza,
+            'paginas_relacionadas': list(set(paginas_a_revisar))
+        }
+    
+    return resultado
+
+# ── Web scraping ──────────────────────────────────────────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
     urls = {}
     panel_body = panel.find("div", class_="panel-body")
@@ -187,7 +237,6 @@ def obtener_ultimo_boletin():
         log.error(f"Error: {e}")
         return None, None, None
 
-# ── Descarga y extracción de páginas ─────────────────────────────────────────
 def descargar_pdf(url: str):
     try:
         resp = requests.get(url, headers=HEADERS, timeout=60)
@@ -209,51 +258,6 @@ def extraer_paginas(contenido: bytes):
     except Exception as e:
         log.warning(f"Error leyendo PDF: {e}")
         return []
-
-# ── Guardado en Supabase ──────────────────────────────────────────────────────
-def guardar_pagina(
-    localidad: str,
-    texto: str,
-    seccion: str,
-    fecha,
-    boletin_numero: str,
-    url_pdf: str,
-    pagina: int,
-) -> bool:
-    tipo = extraer_tipo_edicto(texto)
-    nombre_sujeto = extraer_nombre_tolerante(texto)
-    cuits = extraer_cuits_dnis(texto)
-
-    # Evitar duplicados exactos de página + localidad
-    existente = supabase.table("edictos").select("id") \
-        .eq("fecha", fecha.isoformat()) \
-        .eq("boletin_numero", str(boletin_numero)) \
-        .eq("seccion", seccion) \
-        .eq("localidad", localidad) \
-        .eq("pagina", pagina) \
-        .execute()
-    if existente.data:
-        return False
-
-    data = {
-        "fecha": fecha.isoformat(),
-        "boletin_numero": str(boletin_numero),
-        "seccion": seccion,
-        "localidad": localidad,
-        "tipo_edicto": tipo,
-        "cuit_detectados": ", ".join(cuits) if cuits else None,
-        "sujetos": nombre_sujeto or None,
-        "texto_completo": texto,
-        "url_pdf": url_pdf,
-        "pagina": pagina,
-    }
-    try:
-        supabase.table("edictos").insert(data).execute()
-        log.info(f"✅ GUARDADO: pág {pagina} | {tipo} | {localidad} | {nombre_sujeto or '(sin nombre)'}")
-        return True
-    except Exception as e:
-        log.error(f"❌ Error: {e}")
-        return False
 
 def eliminar_viejos(dias=60):
     limite = (datetime.now(BUENOS_AIRES) - timedelta(days=dias)).date()
@@ -290,32 +294,79 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
                 log.warning("No se encontró TRANSFERENCIAS. Se omite OFICIAL.")
                 continue
 
+        # Crear diccionarios de páginas
+        todas_paginas = {pag: txt for pag, txt in paginas}
+        paginas_con_localidades = {}
+        
         for pagina, texto_pagina in paginas:
             if seccion_nombre == "OFICIAL" and inicio_transferencias and pagina < inicio_transferencias:
                 continue
             localidades = localidades_en_texto(texto_pagina)
-            if not localidades:
-                continue
-            for loc in localidades:
-                if guardar_pagina(loc, texto_pagina, seccion_nombre, fecha_boletin, numero, url, pagina):
+            if localidades:
+                paginas_con_localidades[pagina] = localidades
+        
+        if not paginas_con_localidades:
+            continue
+        
+        # Vincular páginas consecutivas
+        paginas_procesadas = vincular_paginas_consecutivas(paginas_con_localidades, todas_paginas)
+        
+        # Guardar cada página
+        for pagina, datos in paginas_procesadas.items():
+            texto_pagina = todas_paginas[pagina]
+            
+            for loc in datos['localidades']:
+                # Verificar si ya existe
+                existente = supabase.table("edictos").select("id") \
+                    .eq("fecha", fecha_boletin.isoformat()) \
+                    .eq("boletin_numero", str(numero)) \
+                    .eq("seccion", seccion_nombre) \
+                    .eq("localidad", loc) \
+                    .eq("pagina", pagina) \
+                    .execute()
+                if existente.data:
+                    continue
+                
+                data = {
+                    "fecha": fecha_boletin.isoformat(),
+                    "boletin_numero": str(numero),
+                    "seccion": seccion_nombre,
+                    "localidad": loc,
+                    "tipo_edicto": datos['tipo_edicto'],
+                    "cuit_detectados": ", ".join(extraer_cuits_dnis(texto_pagina)) if extraer_cuits_dnis(texto_pagina) else None,
+                    "sujetos": datos['sujetos'] if datos['sujetos'] else None,
+                    "texto_completo": texto_pagina,
+                    "url_pdf": url,
+                    "pagina": pagina,
+                    "nivel_confianza": datos['nivel_confianza'],
+                    "paginas_relacionadas": datos['paginas_relacionadas']
+                }
+                try:
+                    supabase.table("edictos").insert(data).execute()
+                    log.info(f"✅ pág {pagina} | {datos['tipo_edicto']} | {datos['nivel_confianza']} | {loc} | {datos['sujetos'] or '(sin nombre)'}")
                     total += 1
-
+                except Exception as e:
+                    log.error(f"❌ Error: {e}")
+    
     return total
 
 def main():
-    log.info("═══ SCRAPER TOLERANTE (PÁGINA COMPLETA) ═══")
+    log.info("═══ SCRAPER DEFINITIVO (NIVELES DE CONFIANZA) ═══")
     boletin_numero = None
     if len(sys.argv) > 1:
         boletin_numero = sys.argv[1]
     else:
         boletin_numero = os.environ.get("BOLETIN_NUMERO")
+    
     if boletin_numero:
         numero, fecha_str, urls = obtener_boletin_por_numero(boletin_numero)
     else:
         numero, fecha_str, urls = obtener_ultimo_boletin()
+    
     if not numero:
         log.error("No se encontró el boletín")
         sys.exit(0)
+    
     log.info(f"Procesando boletín N° {numero} - {fecha_str}")
     total = procesar_boletin(numero, fecha_str, urls)
     eliminar_viejos(60)
