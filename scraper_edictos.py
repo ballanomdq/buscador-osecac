@@ -1,5 +1,5 @@
 """
-scraper_edictos.py - VERSIÓN ORIGINAL (CORREGIDA SOLO NOMBRES)
+scraper_edictos.py - VERSIÓN FINAL
 """
 
 import sys
@@ -48,67 +48,106 @@ ALIAS_LOCALIDAD = {"general guido": "Guido", "gdor. arias": "Dolores"}
 
 RE_INICIO_TRANSFERENCIAS = re.compile(r'\bTRANSFERENCIAS?\b', re.IGNORECASE)
 
-# CORREGIDO: mejor extracción de nombre
-def extraer_nombre_corregido(texto: str) -> str:
-    # Busca "quiebra de ..." o "concurso de ..."
-    patron = re.compile(
-        r'(?:quiebra|concurso)\s+de\s+(?:la\s+)?(?:señora\s+)?(?:señor\s+)?(?:doña\s+)?(?:don\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s,\.]+?)(?:\s*(?:\(?DNI|CUIT|CUIL|\(|\n|$))',
-        re.IGNORECASE
-    )
-    m = patron.search(texto)
-    if m:
-        nombre = m.group(1).strip().strip(',').strip()
-        # Limpiar residuos
-        nombre = re.sub(r'\s+', ' ', nombre)
-        if len(nombre) > 3:
-            return nombre.upper()
+# Nombres basura a ignorar
+NOMBRES_BASURA = ["FECHA INICIO", "BOLETÍN OFICIAL", "BOLETIN OFICIAL", "LA PLATA", "BUENOS AIRES"]
+
+def limpiar_nombre(nombre: str) -> str:
+    if not nombre:
+        return ""
+    nombre = nombre.strip()
+    nombre_upper = nombre.upper()
+    for basura in NOMBRES_BASURA:
+        if basura in nombre_upper:
+            return ""
+    # Limpiar "SEÑORA" del principio
+    nombre = re.sub(r'^(SEÑORA|SEÑOR|DOÑA|DON)\s+', '', nombre, flags=re.IGNORECASE)
+    return nombre
+
+def extraer_edictos_de_texto(texto: str) -> list:
+    """Extrae TODOS los edictos de una página usando 'POR X DÍAS' como separador"""
+    if not texto:
+        return []
     
-    # Si no, busca secuencia de mayúsculas
-    mayus = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)?)\b', texto)
-    if mayus:
-        return mayus[0].strip()
-    return ""
-
-def extraer_tipo_edicto(texto: str) -> str:
-    if re.search(r'\bquiebra\b', texto, re.IGNORECASE):
-        return "QUIEBRA"
-    if re.search(r'\bconcurso\b', texto, re.IGNORECASE):
-        return "CONCURSO"
-    return "EDICTO"
-
-def extraer_cuits_dnis(texto: str) -> list:
-    encontrados = set()
-    for m in re.findall(r'\b\d{2}-\d{8}-\d\b', texto):
-        encontrados.add(m)
-    for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', texto, re.IGNORECASE):
-        encontrados.add(m)
-    for m in re.findall(r'\b(\d{7,8})\b', texto):
-        if not (1900 <= int(m) <= 2030):
-            encontrados.add(m)
-    return sorted(encontrados)
-
-def normalizar_abreviaturas(texto: str) -> str:
-    texto_lower = texto.lower()
-    for abrev, expansion in ABREVIATURAS.items():
-        texto_lower = re.sub(rf'\b{re.escape(abrev)}\b', expansion, texto_lower)
-    return texto_lower
-
-def localidades_en_texto(texto: str) -> list:
-    texto_norm = normalizar_abreviaturas(texto)
-    encontradas = []
-    vistas = set()
-    for loc in LOCALIDADES:
-        if loc in texto_norm and loc not in vistas:
-            vistas.add(loc)
-            encontradas.append(ALIAS_LOCALIDAD.get(loc, loc.title()))
-    return encontradas
-
-def guardar_pagina(localidad, texto, seccion, fecha, boletin_numero, url_pdf, pagina) -> bool:
-    tipo = extraer_tipo_edicto(texto)
-    nombre = extraer_nombre_corregido(texto)
-    cuits = extraer_cuits_dnis(texto)
+    # Limpiar caracteres raros
+    texto = texto.replace('�', ' ')
+    texto = re.sub(r'\s+', ' ', texto)
     
-    existente = supabase.table("edictos").select("id").eq("fecha", fecha.isoformat()).eq("boletin_numero", str(boletin_numero)).eq("seccion", seccion).eq("localidad", localidad).eq("pagina", pagina).execute()
+    # Separar por "POR X DÍAS"
+    partes = re.split(r'POR\s+\d+\s+DÍAS\s*[-–]?\s*', texto)
+    
+    resultados = []
+    for parte in partes:
+        parte = parte.strip()
+        if not parte or len(parte) < 50:
+            continue
+        
+        # Detectar tipo de edicto
+        es_quiebra = re.search(r'\bquiebra\b', parte, re.IGNORECASE) is not None
+        es_concurso = re.search(r'\bconcurso\b', parte, re.IGNORECASE) is not None
+        
+        if es_quiebra or es_concurso:
+            tipo = "QUIEBRA" if es_quiebra else "CONCURSO"
+        else:
+            tipo = "EDICTO"
+        
+        # Extraer nombre
+        nombre = ""
+        patron_nombre = re.compile(
+            r'(?:quiebra|concurso)\s+de\s+(?:la\s+)?(?:señora\s+)?(?:señor\s+)?([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s,\.]+?)(?:\s*(?:\(?DNI|CUIT|CUIL|\(|\n|$))',
+            re.IGNORECASE
+        )
+        m = patron_nombre.search(parte)
+        if m:
+            nombre = m.group(1).strip().strip(',').strip()
+            nombre = re.sub(r'\s+', ' ', nombre)
+        else:
+            # Buscar nombre en mayúsculas (al menos 2 palabras)
+            mayus = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)?)\b', parte)
+            if mayus:
+                nombre = mayus[0]
+        
+        nombre = limpiar_nombre(nombre)
+        if not nombre and tipo == "EDICTO":
+            # Para edictos sin quiebra, buscar nombres comunes
+            nombres_comunes = re.findall(r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)\b', parte)
+            if nombres_comunes:
+                nombre = limpiar_nombre(nombres_comunes[0])
+        
+        # Extraer localidades dentro de ESTE edicto
+        localidades_edicto = []
+        texto_lower = parte.lower()
+        for loc in LOCALIDADES:
+            if loc in texto_lower:
+                localidades_edicto.append(ALIAS_LOCALIDAD.get(loc, loc.title()))
+        
+        # Extraer CUITs/DNIs
+        cuits = set()
+        for m in re.findall(r'\b\d{2}-\d{8}-\d\b', parte):
+            cuits.add(m)
+        for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:Nº°]*(\d{6,11})\b', parte, re.IGNORECASE):
+            cuits.add(m)
+        for m in re.findall(r'\b(\d{7,8})\b', parte):
+            if not (1900 <= int(m) <= 2030):
+                cuits.add(m)
+        
+        if localidades_edicto:
+            resultados.append({
+                'tipo': tipo,
+                'nombre': nombre.upper() if nombre else "(sin nombre)",
+                'cuits': ", ".join(sorted(cuits)) if cuits else None,
+                'localidades': list(set(localidades_edicto))
+            })
+    
+    return resultados
+
+def guardar_edicto(localidad, edicto, seccion, fecha, boletin_numero, url_pdf, pagina, texto_completo) -> bool:
+    existente = supabase.table("edictos").select("id") \
+        .eq("fecha", fecha.isoformat()) \
+        .eq("boletin_numero", str(boletin_numero)) \
+        .eq("seccion", seccion) \
+        .eq("localidad", localidad) \
+        .eq("pagina", pagina) \
+        .execute()
     if existente.data:
         return False
     
@@ -117,19 +156,19 @@ def guardar_pagina(localidad, texto, seccion, fecha, boletin_numero, url_pdf, pa
         "boletin_numero": str(boletin_numero),
         "seccion": seccion,
         "localidad": localidad,
-        "tipo_edicto": tipo,
-        "cuit_detectados": ", ".join(cuits) if cuits else None,
-        "sujetos": nombre if nombre else None,
-        "texto_completo": texto,
+        "tipo_edicto": edicto['tipo'],
+        "cuit_detectados": edicto['cuits'],
+        "sujetos": edicto['nombre'] if edicto['nombre'] != "(sin nombre)" else None,
+        "texto_completo": texto_completo,
         "url_pdf": url_pdf,
         "pagina": pagina,
     }
     supabase.table("edictos").insert(data).execute()
-    log.info(f"✅ Guardado: pág {pagina} | {tipo} | {localidad} | {nombre or '(sin nombre)'}")
+    log.info(f"✅ Guardado: pág {pagina} | {edicto['tipo']} | {localidad} | {edicto['nombre']}")
     return True
 
 def eliminar_viejos(dias=60):
-    limite = (datetime.now(BUENOS_AIRES) - timedelta(days=dias)).date()
+    limite = (datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")) - timedelta(days=dias)).date()
     supabase.table("edictos").delete().lt("fecha", limite.isoformat()).execute()
 
 # ── Web scraping ──────────────────────────────────────────────────────────────
@@ -227,7 +266,7 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
     try:
         fecha_boletin = datetime.strptime(fecha_str, "%d/%m/%Y").date()
     except:
-        fecha_boletin = datetime.now(BUENOS_AIRES).date()
+        fecha_boletin = datetime.now(ZoneInfo("America/Argentina/Buenos_Aires")).date()
 
     total = 0
     for seccion, url in urls_secciones.items():
@@ -252,16 +291,22 @@ def procesar_boletin(numero: str, fecha_str: str, urls_secciones: dict) -> int:
         for pagina, texto in paginas:
             if seccion == "OFICIAL" and inicio_transferencias and pagina < inicio_transferencias:
                 continue
-            locs = localidades_en_texto(texto)
-            if not locs:
+            
+            # Extraer TODOS los edictos de esta página
+            edictos = extraer_edictos_de_texto(texto)
+            if not edictos:
                 continue
-            for loc in locs:
-                if guardar_pagina(loc, texto, seccion, fecha_boletin, numero, url, pagina):
-                    total += 1
+            
+            # Guardar cada combinación de edicto + localidad
+            for edicto in edictos:
+                for loc in edicto['localidades']:
+                    if guardar_edicto(loc, edicto, seccion, fecha_boletin, numero, url, pagina, texto):
+                        total += 1
+    
     return total
 
 def main():
-    log.info("═══ SCRAPER ORIGINAL CORREGIDO ═══")
+    log.info("═══ SCRAPER FINAL (MÚLTIPLES EDICTOS) ═══")
     num = None
     if len(sys.argv) > 1:
         num = sys.argv[1]
