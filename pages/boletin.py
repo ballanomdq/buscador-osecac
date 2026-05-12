@@ -12,24 +12,9 @@ st.set_page_config(page_title="Fiscalización - BOLETINES", layout="wide")
 
 st.markdown("""
 <style>
-.stButton > button {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.8rem;
-    border-radius: 20px;
-    margin: 0 0.2rem;
-}
-.resaltado {
-    background-color: #ffff99;
-    font-weight: bold;
-    padding: 2px 4px;
-    border-radius: 4px;
-}
-@media print {
-    body * { visibility: hidden; }
-    .print-area, .print-area * { visibility: visible; }
-    .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-    .stButton, .stTabs, .stExpander, .stCheckbox, .stRadio, .stMultiselect { display: none !important; }
-}
+.stButton > button { padding: 0.2rem 0.6rem; font-size: 0.8rem; border-radius: 20px; margin: 0 0.2rem; }
+.resaltado { background-color: #ffff99; font-weight: bold; padding: 2px 4px; border-radius: 4px; }
+@media print { body * { visibility: hidden; } .print-area, .print-area * { visibility: visible; } .print-area { position: absolute; left: 0; top: 0; width: 100%; } .stButton, .stTabs, .stExpander, .stCheckbox, .stRadio, .stMultiselect { display: none !important; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -58,7 +43,6 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 BASE_URL = "https://boletinoficial.gba.gob.ar"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-# ── Funciones ─────────────────────────────────────────────────────────────────
 def obtener_boletines_disponibles():
     url = f"{BASE_URL}/ediciones-anteriores"
     try:
@@ -136,7 +120,7 @@ def descargar_y_procesar_boletin(numero: str, fecha_str: str):
 
 def eliminar_boletin_de_db(fecha, numero):
     supabase.table("edictos").delete().eq("fecha", fecha.isoformat()).eq("boletin_numero", str(numero)).execute()
-    st.success(f"Boletín N° {numero} eliminado.")
+    st.success(f"Boletín N° {numero} del {fecha.strftime('%d/%m/%Y')} eliminado.")
     st.rerun()
 
 def eliminar_boletines_viejos(dias=60):
@@ -151,57 +135,64 @@ def obtener_boletines_guardados():
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
     return df.drop_duplicates().sort_values("fecha", ascending=False)
 
-# ── Botones ───────────────────────────────────────────────────────────────────
-col1, col2, col3 = st.columns([1, 1, 1])
+col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 with col1:
-    if st.button("📥 Buscar y bajar nuevos boletines"):
+    if st.button("📥 Buscar y bajar nuevos boletines", use_container_width=True):
         disponibles = obtener_boletines_disponibles()
         if disponibles:
             st.session_state["disponibles"] = disponibles
             st.session_state["mostrar_disponibles"] = True
+        else:
+            st.warning("No se encontraron boletines.")
 with col2:
-    if st.button("🗑️ Limpiar boletines viejos manual"):
+    if st.button("🗑️ Limpiar boletines viejos manual", use_container_width=True):
         guardados = obtener_boletines_guardados()
-        if not guardados.empty:
+        if guardados.empty:
+            st.info("No hay boletines guardados.")
+        else:
             st.session_state["para_eliminar"] = guardados
             st.session_state["mostrar_eliminar"] = True
 with col3:
-    if st.button("🔄 Actualizar vista"):
+    if st.button("🔄 Actualizar vista", use_container_width=True):
         st.rerun()
+with col4:
+    st.write("")
 
 eliminar_boletines_viejos(60)
 
-# ── Paneles ───────────────────────────────────────────────────────────────────
 if st.session_state.get("mostrar_disponibles", False):
-    with st.expander("📥 Boletines disponibles", expanded=True):
+    with st.expander("📥 Boletines disponibles para descargar", expanded=True):
         disponibles = st.session_state.get("disponibles", [])
         if disponibles:
             opciones = {f"N° {n} - {f}": n for n, f in disponibles}
             seleccion = st.selectbox("Elegí un boletín:", list(opciones.keys()))
-            if st.button("✅ DESCARGAR"):
+            if st.button("✅ DESCARGAR ESTE BOLETÍN"):
                 num = opciones[seleccion]
                 fecha_str = seleccion.split(" - ")[1]
                 descargar_y_procesar_boletin(num, fecha_str)
+        else:
+            st.info("No hay boletines disponibles para descargar.")
         if st.button("Cerrar"):
             st.session_state["mostrar_disponibles"] = False
             st.rerun()
     st.divider()
 
 if st.session_state.get("mostrar_eliminar", False):
-    with st.expander("🗑️ Eliminar boletín", expanded=True):
+    with st.expander("🗑️ Seleccionar boletín para eliminar", expanded=True):
         guardados = st.session_state.get("para_eliminar", pd.DataFrame())
         if not guardados.empty:
             opciones = {f"{row['fecha']} - N° {row['boletin_numero']}": row for _, row in guardados.iterrows()}
-            seleccion = st.selectbox("Elegí:", list(opciones.keys()))
+            seleccion = st.selectbox("Elegí un boletín para eliminar:", list(opciones.keys()))
             if st.button("⚠️ CONFIRMAR ELIMINACIÓN"):
                 row = opciones[seleccion]
                 eliminar_boletin_de_db(row["fecha"], row["boletin_numero"])
+        else:
+            st.info("No hay boletines guardados para eliminar.")
         if st.button("Cerrar"):
             st.session_state["mostrar_eliminar"] = False
             st.rerun()
     st.divider()
 
-# ── Filtros ───────────────────────────────────────────────────────────────────
 LOCALIDADES = [
     "Mar del Plata", "Alvarado", "Miramar", "Mechongue", "Otamendi", "Vivorata",
     "Vidal", "Piran", "Las Armas", "Maipu", "Labarden", "Guido", "Dolores",
@@ -217,148 +208,99 @@ with st.sidebar:
     seccion_filtro = st.radio("Sección", ["Todas", "JUDICIAL", "OFICIAL"], index=0)
     solo_quiebras = st.checkbox("🚨 Solo quiebras/concursos")
 
-# ── Consulta ──────────────────────────────────────────────────────────────────
 query = supabase.table("edictos").select("*").order("fecha", desc=True)
 if "Todas" not in localidad_filtro and localidad_filtro:
     query = query.in_("localidad", localidad_filtro)
 if seccion_filtro != "Todas":
     query = query.eq("seccion", seccion_filtro)
-
 response = query.execute()
 datos = response.data
 
 if not datos:
-    st.info("No hay edictos cargados.")
+    st.info("No hay edictos cargados. Usá 'Buscar y bajar nuevos boletines' para comenzar.")
     st.stop()
 
 df = pd.DataFrame(datos)
 df["fecha"] = pd.to_datetime(df["fecha"]).dt.date
-
 if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
-# ── Función para limpiar valores basura ───────────────────────────────────────
-def es_nombre_valido(nombre):
-    if not nombre or not isinstance(nombre, str):
-        return False
-    nombre_upper = nombre.upper()
-    basura = ["FECHA INICIO", "BOLETÍN OFICIAL", "SIN NOMBRE", "NONE", "NAN", ""]
-    for b in basura:
-        if b in nombre_upper:
-            return False
-    return len(nombre) > 3
+def generar_html_impresion(row, boletin_numero, fecha_boletin, pagina):
+    texto = row["texto_completo"]
+    nombre = row.get("sujetos") or "Sin nombre"
+    cuit = row.get("cuit_detectados") or ""
+    localidad = row["localidad"]
+    tipo = row.get("tipo_edicto") or "EDICTO"
+    html = f"""
+    <html><head><meta charset="UTF-8"><title>Impresión - Boletín N° {boletin_numero}</title>
+    <style>body{{font-family:Arial;margin:40px}}.info{{margin-bottom:20px;padding:10px;background:#f5f5f5;border-left:6px solid #1e88e5}}.edicto{{white-space:pre-wrap}}.resaltado{{background-color:#ffff99}}</style>
+    </head><body>
+        <div class="info"><strong>Boletín Oficial de la Provincia de Buenos Aires</strong><br>
+        Número: {boletin_numero} | Fecha: {fecha_boletin}<br>
+        Sección: {row["seccion"]} | Localidad: {localidad}<br>
+        Tipo: {tipo} | Sujeto: {nombre} | CUIT/DNI: {cuit}<br>Página original: {pagina}</div>
+        <div class="edicto">"""
+    for p in ["quiebra", "concurso", localidad.lower(), nombre.lower()]:
+        if p:
+            texto = re.sub(rf'\b{re.escape(p)}\b', f'<span class="resaltado">\\0</span>', texto, flags=re.IGNORECASE)
+    html += texto + "</div></body></html>"
+    return html
 
-def limpiar_cuit(cuit):
-    if not cuit or not isinstance(cuit, str):
-        return None
-    if cuit.upper() in ["NAN", "NONE", ""]:
-        return None
-    return cuit
-
-# ── Función para resaltar texto ───────────────────────────────────────────────
-def resaltar_texto(texto, palabras_clave):
+def resaltar_texto(texto, localidad, nombre, cuit):
+    palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
+    if nombre and nombre not in ["Sin nombre", "Sin datos", "None", ""]:
+        palabras.append(nombre.lower())
+    if cuit:
+        palabras.append(cuit.lower())
     resultado = texto
-    for palabra in palabras_clave:
-        if palabra and isinstance(palabra, str) and len(palabra) > 2:
-            try:
-                resultado = re.sub(rf'\b{re.escape(palabra)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
-            except:
-                pass
+    for p in palabras:
+        if p:
+            resultado = re.sub(rf'\b{re.escape(p)}\b', f'<span class="resaltado">\\0</span>', resultado, flags=re.IGNORECASE)
     return resultado
 
-# ── Renderizado AGRUPADO POR PÁGINA ───────────────────────────────────────────
 def renderizar_seccion(df_seccion, seccion_nombre):
     icono_libro = "📘" if seccion_nombre == "JUDICIAL" else "📕"
     if df_seccion.empty:
         st.info(f"No hay edictos en {seccion_nombre}.")
         return
-    
-    if "pagina" not in df_seccion.columns:
-        st.warning("Falta la columna 'pagina'. Re-descargá los boletines.")
-        return
-    
-    df_seccion = df_seccion.sort_values(["fecha", "boletin_numero", "pagina"], ascending=[False, False, True])
-    grupos = df_seccion.groupby(["fecha", "boletin_numero", "pagina"])
-    
-    for (fecha, numero, pagina), grupo in grupos:
-        # Recolectar TODOS los nombres válidos
-        items = []
-        for _, row in grupo.iterrows():
-            nombre = row.get("sujetos")
-            loc = row.get("localidad", "")
-            cuit = row.get("cuit_detectados")
-            
-            # Filtrar nombres basura
-            if not es_nombre_valido(nombre):
-                continue
-            
-            cuit_limpio = limpiar_cuit(cuit)
-            
-            items.append({
-                "nombre": nombre,
-                "localidad": loc,
-                "cuit": cuit_limpio,
-                "tipo": row.get("tipo_edicto", "EDICTO")
-            })
-        
-        # Si no hay nombres válidos, mostrar "Sin nombre identificado"
-        if not items:
-            items = [{"nombre": "Sin nombre identificado", "localidad": "?", "cuit": None, "tipo": "EDICTO"}]
-        
-        # Construir título
-        nombres_str = []
-        for item in items:
-            cuit_str = f" - {item['cuit']}" if item['cuit'] else ""
-            nombres_str.append(f"{item['nombre']}{cuit_str} ({item['localidad']})")
-        
-        titulo_nombres = " | ".join(nombres_str)
-        
-        # Determinar ícono
-        tiene_quiebra = any(item['tipo'] in ["QUIEBRA", "CONCURSO"] for item in items)
-        icono = "🚨" if tiene_quiebra else "📄"
-        
-        titulo = f"{icono} {seccion_nombre} | Pág. {pagina} | {titulo_nombres}"
-        
-        with st.expander(titulo, expanded=False):
-            texto_completo = grupo.iloc[0]["texto_completo"]
-            
-            # Recolectar todas las palabras clave para resaltar
-            palabras_clave = set(["quiebra", "concurso", "subasta", "transferencia"])
-            for item in items:
-                if item['nombre'] and es_nombre_valido(item['nombre']):
-                    palabras_clave.add(item['nombre'])
-                if item['localidad'] and item['localidad'] != "?":
-                    palabras_clave.add(item['localidad'])
-                if item['cuit']:
-                    palabras_clave.add(item['cuit'])
-            
-            texto_resaltado = resaltar_texto(texto_completo, list(palabras_clave))
-            st.markdown(texto_resaltado, unsafe_allow_html=True)
-            
-            # Botones
-            col_x, col_y, col_z = st.columns(3)
-            with col_x:
-                if st.button("✅ Revisado", key=f"rev_{seccion_nombre}_{numero}_{pagina}"):
-                    st.success("OK")
-            with col_y:
-                if st.button("🗑️ Eliminar página", key=f"del_{seccion_nombre}_{numero}_{pagina}"):
-                    supabase.table("edictos").delete().eq("fecha", fecha.isoformat()).eq("boletin_numero", str(numero)).eq("seccion", seccion_nombre).eq("pagina", pagina).execute()
-                    st.rerun()
-            with col_z:
-                html_impresion = f"""
-                <html><head><meta charset="UTF-8"><title>Boletín N° {numero} - Pág. {pagina}</title>
-                <style>body{{font-family:Arial;margin:40px}} .info{{background:#f5f5f5;padding:10px;border-left:6px solid #1e88e5}} .resaltado{{background:#ffff99}}</style>
-                </head><body>
-                <div class="info"><strong>Boletín N° {numero}</strong> - {fecha.strftime('%d/%m/%Y')}<br>
-                Sección: {seccion_nombre} | Página: {pagina}<br>
-                {titulo_nombres}</div>
-                <div class="edicto">{texto_resaltado}</div>
-                </body></html>
-                """
-                b64 = base64.b64encode(html_impresion.encode()).decode()
-                st.markdown(f'<a href="data:text/html;base64,{b64}" target="_blank">🖨️ Imprimir</a>', unsafe_allow_html=True)
+    grupos = df_seccion.groupby(["fecha", "boletin_numero"])
+    for (fecha, numero), grupo in sorted(grupos, key=lambda x: x[0], reverse=True):
+        grupo = grupo.copy()
+        grupo["_p"] = grupo["tipo_edicto"].apply(lambda x: 0 if x and ("quiebra" in x.lower() or "concurso" in x.lower()) else 1)
+        grupo = grupo.sort_values("_p")
+        titulo = f"{icono_libro} Boletín N° {numero} - {fecha.strftime('%d/%m/%Y')} ({len(grupo)} edictos)"
+        col_a, col_b = st.columns([6, 1])
+        with col_a:
+            with st.expander(titulo, expanded=False):
+                for _, row in grupo.iterrows():
+                    nombre = row.get("sujetos") or ""
+                    cuit = row.get("cuit_detectados") or ""
+                    tipo = row.get("tipo_edicto") or "EDICTO"
+                    localidad = row["localidad"]
+                    pagina = row.get("pagina", "?")
+                    icono = "🚨" if "QUIEBRA" in tipo or "CONCURSO" in tipo else ("⚠️" if cuit else "⚪")
+                    titulo_edicto = f"{icono} {tipo} | {localidad} | {nombre or 'Sin datos'} - {cuit or 'Sin CUIT'} (pág. {pagina})"
+                    with st.expander(titulo_edicto):
+                        st.markdown(resaltar_texto(row["texto_completo"], localidad, nombre, cuit), unsafe_allow_html=True)
+                        col1, col2, col3 = st.columns(3)
+                        if col1.button("✅ Revisado", key=f"rev_{row['id']}"):
+                            st.success("Marcado como revisado")
+                        if col2.button("🗑️ Eliminar", key=f"del_{row['id']}"):
+                            supabase.table("edictos").delete().eq("id", row["id"]).execute()
+                            st.rerun()
+                        if col3.button("🖨️ Imprimir", key=f"print_{row['id']}"):
+                            html = generar_html_impresion(row, numero, fecha.strftime('%d/%m/%Y'), pagina)
+                            b64 = base64.b64encode(html.encode()).decode()
+                            st.markdown(f'<a href="data:text/html;base64,{b64}" target="_blank">🖨️ Abrir para imprimir</a>', unsafe_allow_html=True)
+        with col_b:
+            if st.button("🗑️", key=f"del_bol_{seccion_nombre}_{numero}_{fecha}"):
+                if st.session_state.get(f"confirm_bol_{seccion_nombre}_{numero}_{fecha}", False):
+                    eliminar_boletin_de_db(fecha, numero)
+                else:
+                    st.session_state[f"confirm_bol_{seccion_nombre}_{numero}_{fecha}"] = True
+                    st.warning("⚠️ Hacé clic otra vez para confirmar eliminación de TODO el boletín.")
+        st.markdown("---")
 
-# ── Pestañas ──────────────────────────────────────────────────────────────────
 tab_judicial, tab_oficial = st.tabs(["📘 JUDICIAL", "📕 OFICIAL"])
 with tab_judicial:
     renderizar_seccion(df[df["seccion"] == "JUDICIAL"], "JUDICIAL")
