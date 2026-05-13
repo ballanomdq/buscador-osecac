@@ -25,7 +25,6 @@ st.markdown("""
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
     .delete-btn button { background-color: #dc2626 !important; }
-    /* Compactar tabla de calles */
     .compact-table td, .compact-table th { padding: 2px 8px !important; font-size: 0.8rem !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -190,7 +189,7 @@ with tab2:
             st.markdown(f"**Legajo:** {legajo_seleccionado}")
             
             # Área para pegar bloque de calles
-            st.markdown("### 📋 Cargar calles desde bloque de texto")
+            st.markdown("### 📋 Cargar nuevas calles desde bloque de texto")
             st.markdown("""
             <div class="info-box">
                 <strong>📌 Formato aceptado:</strong><br>
@@ -202,53 +201,48 @@ with tab2:
             bloque_calles = st.text_area(
                 "Pegá acá el bloque de calles:",
                 height=150,
-                placeholder='Ejemplo: Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400 / Pehuajó (P) 2100-5400'
+                placeholder='Ejemplo: Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400'
             )
             
-            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            col_btn1, col_btn2 = st.columns(2)
             with col_btn1:
-                if st.button("🔍 Previsualizar", key="preview_calles"):
+                if st.button("🔍 Previsualizar y guardar", type="primary"):
                     if bloque_calles:
                         calles_parseadas = parsear_bloque_calles(bloque_calles)
                         if calles_parseadas:
-                            st.markdown("### 📋 Calles detectadas:")
+                            st.markdown("### 📋 Calles a guardar:")
                             df_preview = pd.DataFrame(calles_parseadas)
                             st.dataframe(df_preview, use_container_width=True, hide_index=True)
-                            st.session_state.calles_para_guardar = calles_parseadas
+                            
+                            # Confirmar guardado
+                            if st.button("✅ Confirmar guardado de estas calles"):
+                                # Insertar nuevas calles (sin borrar las existentes)
+                                insertados = 0
+                                for calle_data in calles_parseadas:
+                                    try:
+                                        # Verificar si ya existe
+                                        existe = supabase.table("zonas_inspectores").select("id").eq("legajo", legajo_seleccionado).eq("calle", calle_data['calle']).execute()
+                                        if not existe.data:
+                                            supabase.table("zonas_inspectores").insert({
+                                                "legajo": legajo_seleccionado,
+                                                "calle": calle_data['calle'],
+                                                "lado": calle_data['lado'],
+                                                "altura_desde": calle_data['desde'],
+                                                "altura_hasta": calle_data['hasta']
+                                            }).execute()
+                                            insertados += 1
+                                    except Exception as e:
+                                        st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
+                                
+                                st.success(f"✅ Se agregaron {insertados} nuevas calles")
+                                st.rerun()
                         else:
                             st.error("No se pudo parsear ninguna calle. Verificá el formato.")
                     else:
                         st.warning("Pegá un bloque de calles primero")
             
             with col_btn2:
-                if st.button("💾 Guardar todas las calles", type="primary"):
-                    if bloque_calles and st.session_state.get('calles_para_guardar'):
-                        calles_parseadas = st.session_state.calles_para_guardar
-                        
-                        supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
-                        
-                        insertados = 0
-                        for calle_data in calles_parseadas:
-                            try:
-                                supabase.table("zonas_inspectores").insert({
-                                    "legajo": legajo_seleccionado,
-                                    "calle": calle_data['calle'],
-                                    "lado": calle_data['lado'],
-                                    "altura_desde": calle_data['desde'],
-                                    "altura_hasta": calle_data['hasta']
-                                }).execute()
-                                insertados += 1
-                            except Exception as e:
-                                st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
-                        
-                        st.success(f"✅ Se guardaron {insertados} calles")
-                        st.session_state.calles_para_guardar = None
-                        st.rerun()
-                    else:
-                        st.warning("Primero hacé clic en 'Previsualizar'")
-            
-            with col_btn3:
-                if st.button("🗑️ Eliminar todas las calles"):
+                if st.button("🗑️ Eliminar TODAS las calles de este inspector", key="delete_all"):
                     supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
                     st.success(f"✅ Se eliminaron todas las calles")
                     st.rerun()
@@ -259,57 +253,15 @@ with tab2:
             zonas = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo_seleccionado).order("calle").execute()
             
             if zonas.data:
-                # Usar una tabla compacta con columnas
-                df_zonas = pd.DataFrame(zonas.data)
-                df_zonas = df_zonas[['calle', 'lado', 'altura_desde', 'altura_hasta']]
-                df_zonas.columns = ['Calle', 'Lado', 'Desde', 'Hasta']
-                
-                # Mostrar como data_editor compacto para edición inline
-                edited_df = st.data_editor(
-                    df_zonas,
-                    use_container_width=True,
-                    hide_index=True,
-                    height=min(400, len(df_zonas) * 35 + 38),
-                    column_config={
-                        "Calle": st.column_config.TextColumn("Calle", width="large"),
-                        "Lado": st.column_config.SelectColumn("Lado", options=["PAR", "IMPAR", "AMBOS"], width="small"),
-                        "Desde": st.column_config.NumberColumn("Desde", width="small"),
-                        "Hasta": st.column_config.NumberColumn("Hasta", width="small"),
-                    }
-                )
-                
-                # Botón para guardar cambios inline
-                if st.button("💾 Guardar cambios de la tabla", key="guardar_tabla"):
-                    with st.spinner("Guardando..."):
-                        # Obtener las zonas actuales para comparar
-                        zonas_actuales = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo_seleccionado).execute()
-                        
-                        for idx, row in edited_df.iterrows():
-                            zona_original = zonas_actuales.data[idx] if idx < len(zonas_actuales.data) else None
-                            if zona_original:
-                                supabase.table("zonas_inspectores").update({
-                                    "calle": row['Calle'],
-                                    "lado": row['Lado'],
-                                    "altura_desde": int(row['Desde']),
-                                    "altura_hasta": int(row['Hasta'])
-                                }).eq("id", zona_original['id']).execute()
-                        
-                        st.success("✅ Cambios guardados")
-                        st.rerun()
-                
-                # Botones individuales por fila (compactos)
-                st.markdown("---")
-                st.markdown("### 🗑️ Eliminar calles individualmente")
-                
-                # Mostrar en columnas compactas
-                for idx, row in enumerate(zonas.data):
-                    col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+                # Mostrar como tabla compacta
+                for row in zonas.data:
+                    col1, col2, col3, col4, col5 = st.columns([2.5, 1, 1, 0.5, 0.5])
                     with col1:
                         st.write(f"**{row['calle']}**")
                     with col2:
-                        st.write(f"{row['lado']}")
+                        st.write(row['lado'])
                     with col3:
-                        st.write(f"{row['altura_desde']}-{row['altura_hasta']}")
+                        st.write(f"{row['altura_desde']} - {row['altura_hasta']}")
                     with col4:
                         if st.button("✏️", key=f"edit_zona_{row['id']}"):
                             st.session_state.editando_zona = row
@@ -335,7 +287,7 @@ with tab2:
                     
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
-                        if st.button("💾 Guardar cambios zona"):
+                        if st.button("💾 Guardar cambios"):
                             supabase.table("zonas_inspectores").update({
                                 "calle": nueva_calle.upper().strip(),
                                 "lado": nuevo_lado,
