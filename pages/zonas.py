@@ -25,7 +25,6 @@ st.markdown("""
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
     .delete-btn button { background-color: #dc2626 !important; }
-    .compact-table td, .compact-table th { padding: 2px 8px !important; font-size: 0.8rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -188,8 +187,30 @@ with tab2:
             
             st.markdown(f"**Legajo:** {legajo_seleccionado}")
             
-            # Área para pegar bloque de calles
-            st.markdown("### 📋 Cargar nuevas calles desde bloque de texto")
+            # Mostrar calles actuales PRIMERO (para que veas lo que hay)
+            st.markdown(f"### 📋 Calles actuales de {inspector_seleccionado}")
+            
+            zonas = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo_seleccionado).order("calle").execute()
+            
+            if zonas.data:
+                # Tabla compacta
+                df_zonas = pd.DataFrame(zonas.data)
+                df_mostrar = df_zonas[['calle', 'lado', 'altura_desde', 'altura_hasta']]
+                df_mostrar.columns = ['CALLE', 'LADO', 'DESDE', 'HASTA']
+                st.dataframe(df_mostrar, use_container_width=True, hide_index=True)
+                
+                # Botón para eliminar todas
+                if st.button("🗑️ Eliminar TODAS las calles de este inspector", key="delete_all"):
+                    supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
+                    st.success(f"✅ Se eliminaron todas las calles")
+                    st.rerun()
+            else:
+                st.info("No hay calles asignadas a este inspector.")
+            
+            st.markdown("---")
+            
+            # Área para agregar NUEVAS calles
+            st.markdown("### ➕ Agregar nuevas calles desde bloque de texto")
             st.markdown("""
             <div class="info-box">
                 <strong>📌 Formato aceptado:</strong><br>
@@ -204,56 +225,47 @@ with tab2:
                 placeholder='Ejemplo: Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400'
             )
             
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                if st.button("🔍 Previsualizar y guardar", type="primary"):
-                    if bloque_calles:
-                        calles_parseadas = parsear_bloque_calles(bloque_calles)
-                        if calles_parseadas:
-                            st.markdown("### 📋 Calles a guardar:")
-                            df_preview = pd.DataFrame(calles_parseadas)
-                            st.dataframe(df_preview, use_container_width=True, hide_index=True)
+            if st.button("🔍 Previsualizar y guardar", type="primary"):
+                if bloque_calles:
+                    calles_parseadas = parsear_bloque_calles(bloque_calles)
+                    if calles_parseadas:
+                        st.markdown("### 📋 Calles a guardar:")
+                        df_preview = pd.DataFrame(calles_parseadas)
+                        st.dataframe(df_preview, use_container_width=True, hide_index=True)
+                        
+                        if st.button("✅ Confirmar guardado de estas calles", key="confirm_guardar"):
+                            insertados = 0
+                            duplicados = 0
+                            for calle_data in calles_parseadas:
+                                try:
+                                    # Verificar si ya existe
+                                    existe = supabase.table("zonas_inspectores").select("id").eq("legajo", legajo_seleccionado).eq("calle", calle_data['calle']).execute()
+                                    if not existe.data:
+                                        supabase.table("zonas_inspectores").insert({
+                                            "legajo": legajo_seleccionado,
+                                            "calle": calle_data['calle'],
+                                            "lado": calle_data['lado'],
+                                            "altura_desde": calle_data['desde'],
+                                            "altura_hasta": calle_data['hasta']
+                                        }).execute()
+                                        insertados += 1
+                                    else:
+                                        duplicados += 1
+                                except Exception as e:
+                                    st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
                             
-                            # Confirmar guardado
-                            if st.button("✅ Confirmar guardado de estas calles"):
-                                # Insertar nuevas calles (sin borrar las existentes)
-                                insertados = 0
-                                for calle_data in calles_parseadas:
-                                    try:
-                                        # Verificar si ya existe
-                                        existe = supabase.table("zonas_inspectores").select("id").eq("legajo", legajo_seleccionado).eq("calle", calle_data['calle']).execute()
-                                        if not existe.data:
-                                            supabase.table("zonas_inspectores").insert({
-                                                "legajo": legajo_seleccionado,
-                                                "calle": calle_data['calle'],
-                                                "lado": calle_data['lado'],
-                                                "altura_desde": calle_data['desde'],
-                                                "altura_hasta": calle_data['hasta']
-                                            }).execute()
-                                            insertados += 1
-                                    except Exception as e:
-                                        st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
-                                
-                                st.success(f"✅ Se agregaron {insertados} nuevas calles")
-                                st.rerun()
-                        else:
-                            st.error("No se pudo parsear ninguna calle. Verificá el formato.")
+                            st.success(f"✅ Se agregaron {insertados} nuevas calles. Duplicados omitidos: {duplicados}")
+                            st.rerun()
                     else:
-                        st.warning("Pegá un bloque de calles primero")
+                        st.error("No se pudo parsear ninguna calle. Verificá el formato.")
+                else:
+                    st.warning("Pegá un bloque de calles primero")
             
-            with col_btn2:
-                if st.button("🗑️ Eliminar TODAS las calles de este inspector", key="delete_all"):
-                    supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
-                    st.success(f"✅ Se eliminaron todas las calles")
-                    st.rerun()
-            
-            # Listado de zonas actuales (VERSIÓN COMPACTA)
-            st.markdown(f"### 📋 Calles actuales de {inspector_seleccionado}")
-            
-            zonas = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo_seleccionado).order("calle").execute()
-            
+            # Edición individual (opcional)
             if zonas.data:
-                # Mostrar como tabla compacta
+                st.markdown("---")
+                st.markdown("### ✏️ Editar o eliminar calles individualmente")
+                
                 for row in zonas.data:
                     col1, col2, col3, col4, col5 = st.columns([2.5, 1, 1, 0.5, 0.5])
                     with col1:
@@ -301,8 +313,6 @@ with tab2:
                         if st.button("❌ Cancelar"):
                             del st.session_state.editando_zona
                             st.rerun()
-            else:
-                st.info("No hay calles asignadas. Usá el bloque de texto para cargarlas.")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
