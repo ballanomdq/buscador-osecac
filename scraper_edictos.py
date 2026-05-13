@@ -1,9 +1,8 @@
 """
-scraper_edictos.py
-- Guarda la PÁGINA COMPLETA del PDF como unidad (no fragmentos).
-- Calcula nivel de confianza: ALTA / MEDIA / BAJA.
-- Sección OFICIAL: solo guarda a partir de "TRANSFERENCIAS".
-- Siempre sys.exit(0) para no marcar error en GitHub Actions.
+scraper_edictos.py - VERSIÓN DEFINITIVA
+- Guarda la PÁGINA COMPLETA del PDF como unidad
+- Calcula nivel de confianza: ALTA / MEDIA / BAJA
+- Sección OFICIAL: solo guarda a partir de "TRANSFERENCIAS"
 """
 
 import sys
@@ -38,6 +37,7 @@ LOCALIDADES = {
     "mar de ajo", "costa del este", "pinamar", "madariaga", "villa gesell",
     "mar chiquita", "general guido",
 }
+
 ABREVIATURAS = {
     "mdp": "mar del plata", "m.d.p.": "mar del plata",
     "gral. guido": "general guido", "gral. madariaga": "madariaga",
@@ -64,9 +64,8 @@ def normalizar_abreviaturas(texto: str) -> str:
     return t
 
 def localidades_en_texto(texto: str) -> list:
-    norm  = normalizar_abreviaturas(texto)
-    # Eliminar emails para evitar falsos positivos (ej: "guido" en un mail)
-    norm  = re.sub(r'\S+@\S+', ' ', norm)
+    norm = normalizar_abreviaturas(texto)
+    norm = re.sub(r'\S+@\S+', ' ', norm)
     vistas = set()
     result = []
     for loc in LOCALIDADES:
@@ -97,7 +96,6 @@ def extraer_cuits(texto: str) -> str:
     return ", ".join(sorted(encontrados)) if encontrados else None
 
 def extraer_sujeto(texto: str) -> str | None:
-    """Busca el nombre después de 'quiebra/concurso de'."""
     m = re.search(
         r'(?:quiebra|concurso(?:\s+preventivo)?)\s+de\s+'
         r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑA-Za-záéíóúñ\s,\.]{3,60}?)'
@@ -112,19 +110,10 @@ def extraer_sujeto(texto: str) -> str | None:
 
 # ── Nivel de confianza ────────────────────────────────────────────────────────
 def calcular_confianza(texto: str) -> str:
-    """
-    ALTA  → aparece quiebra/concurso + se extrajo nombre del imputado
-    MEDIA → aparece quiebra/concurso pero sin nombre claro
-    BAJA  → solo localidad, sin palabras clave de edicto judicial
-    """
     tiene_quiebra   = bool(re.search(r'\bquiebra\b',   texto, re.IGNORECASE))
     tiene_concurso  = bool(re.search(r'\bconcurso\b',  texto, re.IGNORECASE))
-    tiene_subasta   = bool(re.search(r'\bsubasta\b',   texto, re.IGNORECASE))
-    tiene_transfer  = bool(re.search(r'\btransferencia\b', texto, re.IGNORECASE))
-
-    if not (tiene_quiebra or tiene_concurso or tiene_subasta or tiene_transfer):
+    if not (tiene_quiebra or tiene_concurso):
         return "BAJA"
-
     nombre = extraer_sujeto(texto)
     if nombre and len(nombre) > 5:
         return "ALTA"
@@ -141,11 +130,10 @@ def obtener_secciones_de_panel(panel) -> dict:
         if not titulo_tag:
             continue
         nombre = titulo_tag.get_text(strip=True).upper()
-        clave  = "OFICIAL" if "OFICIAL" in nombre else ("JUDICIAL" if "JUDICIAL" in nombre else None)
+        clave = "OFICIAL" if "OFICIAL" in nombre else ("JUDICIAL" if "JUDICIAL" in nombre else None)
         if not clave:
             continue
-        link = section.find("a", title="Ver PDF") or \
-               section.find("a", href=re.compile(r"/secciones/\d+/ver"))
+        link = section.find("a", title="Ver PDF") or section.find("a", href=re.compile(r"/secciones/\d+/ver"))
         if link and link.get("href"):
             href = link["href"]
             urls[clave] = href if href.startswith("http") else BASE_URL + href
@@ -167,26 +155,24 @@ def obtener_ultimo_boletin():
             numero, fecha_str = m.group(1), m.group(2)
             urls = obtener_secciones_de_panel(panel)
             if urls:
-                log.info(f"Último boletín: N° {numero} - {fecha_str} | {list(urls.keys())}")
+                log.info(f"Último boletín: N° {numero} - {fecha_str}")
                 return numero, fecha_str, urls
-        log.error("No se encontró boletín con secciones.")
+        log.error("No se encontró boletín")
         return None, None, None
     except Exception as e:
-        log.error(f"Error scraping: {e}")
+        log.error(f"Error: {e}")
         return None, None, None
 
-# ── Descarga de PDF ───────────────────────────────────────────────────────────
 def descargar_pdf(url: str):
     try:
         r = requests.get(url, headers=HEADERS, timeout=60)
         r.raise_for_status()
         return r.content
     except Exception as e:
-        log.warning(f"Error descargando {url}: {e}")
+        log.warning(f"Error descargando: {e}")
         return None
 
-def extraer_paginas(contenido: bytes) -> list[tuple[int, str]]:
-    """Devuelve lista de (numero_pagina, texto_pagina)."""
+def extraer_paginas(contenido: bytes) -> list:
     paginas = []
     try:
         with pdfplumber.open(BytesIO(contenido)) as pdf:
@@ -195,84 +181,66 @@ def extraer_paginas(contenido: bytes) -> list[tuple[int, str]]:
                 if texto.strip():
                     paginas.append((i, texto))
     except Exception as e:
-        log.warning(f"Error extrayendo páginas: {e}")
+        log.warning(f"Error extrayendo: {e}")
     return paginas
 
-# ── Corte de sección OFICIAL desde "TRANSFERENCIAS" ──────────────────────────
 def texto_desde_transferencias(texto: str) -> str:
-    """
-    Para sección OFICIAL: devuelve solo el texto desde la primera
-    aparición de "TRANSFERENCIA" en adelante.
-    Si no aparece, devuelve el texto completo (por las dudas).
-    """
     m = re.search(r'\bTRANSFERENCIAS?\b', texto, re.IGNORECASE)
     if m:
         return texto[m.start():]
     return texto
 
-# ── Guardado en Supabase ──────────────────────────────────────────────────────
-def ya_existe(fecha_iso, numero, seccion, localidad, pagina) -> bool:
-    try:
-        r = supabase.table("edictos").select("id") \
-            .eq("fecha",          fecha_iso) \
-            .eq("boletin_numero", str(numero)) \
-            .eq("seccion",        seccion) \
-            .eq("localidad",      localidad) \
-            .eq("pagina",         pagina) \
-            .execute()
-        return len(r.data) > 0
-    except Exception:
-        return False
-
-def guardar_pagina(localidad, texto_pagina, seccion, fecha, numero, url_pdf, pagina) -> bool:
+def guardar_pagina(localidad, texto, seccion, fecha, numero, url_pdf, pagina) -> bool:
     fecha_iso = fecha.isoformat()
-    if ya_existe(fecha_iso, numero, seccion, localidad, pagina):
+    existente = supabase.table("edictos").select("id") \
+        .eq("fecha", fecha_iso) \
+        .eq("boletin_numero", str(numero)) \
+        .eq("seccion", seccion) \
+        .eq("localidad", localidad) \
+        .eq("pagina", pagina) \
+        .execute()
+    if existente.data:
         return False
 
-    confianza = calcular_confianza(texto_pagina)
-    sujeto    = extraer_sujeto(texto_pagina)
-    cuits     = extraer_cuits(texto_pagina)
+    confianza = calcular_confianza(texto)
+    sujeto = extraer_sujeto(texto)
+    cuits = extraer_cuits(texto)
 
-    # tipo_edicto para compatibilidad con boletin.py
-    if re.search(r'\bquiebra\b', texto_pagina, re.IGNORECASE):
+    if re.search(r'\bquiebra\b', texto, re.IGNORECASE):
         tipo = "QUIEBRA"
-    elif re.search(r'\bconcurso\b', texto_pagina, re.IGNORECASE):
+    elif re.search(r'\bconcurso\b', texto, re.IGNORECASE):
         tipo = "CONCURSO"
-    elif re.search(r'\bsubasta\b', texto_pagina, re.IGNORECASE):
-        tipo = "SUBASTA"
-    elif re.search(r'\btransferencia\b', texto_pagina, re.IGNORECASE):
-        tipo = "TRANSFERENCIA"
     else:
         tipo = "EDICTO"
 
     try:
         supabase.table("edictos").insert({
-            "fecha":            fecha_iso,
-            "boletin_numero":   str(numero),
-            "seccion":          seccion,
-            "localidad":        localidad,
-            "tipo_edicto":      tipo,
-            "sujetos":          sujeto,
-            "cuit_detectados":  cuits,
-            "texto_completo":   texto_pagina[:5000],
-            "url_pdf":          url_pdf,
-            "pagina":           pagina,
-            "nivel_confianza":  confianza,
+            "fecha": fecha_iso,
+            "boletin_numero": str(numero),
+            "seccion": seccion,
+            "localidad": localidad,
+            "tipo_edicto": tipo,
+            "sujetos": sujeto,
+            "cuit_detectados": cuits,
+            "texto_completo": texto[:5000],
+            "url_pdf": url_pdf,
+            "pagina": pagina,
+            "nivel_confianza": confianza,
         }).execute()
+        log.info(f"✅ Guardado: pág {pagina} | {confianza} | {localidad} | {sujeto or 'sin nombre'}")
         return True
     except Exception as e:
-        log.error(f"Error guardando ({localidad} p.{pagina}): {e}")
+        log.error(f"Error guardando: {e}")
         return False
 
 def eliminar_viejos(dias=60):
     limite = (datetime.now() - timedelta(days=dias)).date()
     try:
         supabase.table("edictos").delete().lt("fecha", limite.isoformat()).execute()
-        log.info(f"Registros anteriores a {limite} eliminados.")
+        log.info(f"Registros anteriores a {limite} eliminados")
     except Exception as e:
         log.warning(f"No se pudieron eliminar viejos: {e}")
 
-# ── Proceso principal ─────────────────────────────────────────────────────────
 def procesar_boletin(numero, fecha_str, urls_secciones) -> int:
     try:
         fecha_obj = datetime.strptime(fecha_str, "%d/%m/%Y").date()
@@ -284,17 +252,14 @@ def procesar_boletin(numero, fecha_str, urls_secciones) -> int:
         log.info(f"── {seccion}: {url}")
         pdf_bytes = descargar_pdf(url)
         if not pdf_bytes:
-            log.warning(f"Sin PDF para {seccion}")
             continue
 
         paginas = extraer_paginas(pdf_bytes)
         if not paginas:
-            log.warning(f"PDF {seccion} sin páginas extraíbles.")
             continue
 
-        # Refinar fecha/número desde el texto del primer página
         texto_total = " ".join(t for _, t in paginas[:3])
-        fecha_pdf   = extraer_fecha_del_pdf(texto_total)
+        fecha_pdf = extraer_fecha_del_pdf(texto_total)
         if fecha_pdf:
             fecha_obj = fecha_pdf
         num_pdf = extraer_numero_del_pdf(texto_total)
@@ -303,31 +268,23 @@ def procesar_boletin(numero, fecha_str, urls_secciones) -> int:
 
         log.info(f"N° {numero} | Fecha: {fecha_obj} | {len(paginas)} páginas")
 
-        guardados = 0
         for num_pag, texto_pag in paginas:
-            # Para OFICIAL: solo a partir de "TRANSFERENCIAS"
             if seccion == "OFICIAL":
                 texto_pag = texto_desde_transferencias(texto_pag)
-
             locs = localidades_en_texto(texto_pag)
             if not locs:
-                continue  # Esta página no tiene ninguna localidad relevante
-
-            # Guardar una entrada por cada localidad encontrada en la página
+                continue
             for loc in locs:
                 if guardar_pagina(loc, texto_pag, seccion, fecha_obj, numero, url, num_pag):
-                    guardados += 1
-
-        log.info(f"{seccion}: {guardados} registros nuevos.")
-        total += guardados
-
+                    total += 1
+        log.info(f"{seccion}: {total} registros nuevos")
     return total
 
 def main():
-    log.info("═══ Inicio del scraper ═══")
+    log.info("═══ SCRAPER DEFINITIVO ═══")
     numero, fecha_str, urls = obtener_ultimo_boletin()
     if not numero:
-        log.error("No se obtuvo boletín.")
+        log.error("No se obtuvo boletín")
         sys.exit(0)
     log.info(f"Procesando N° {numero} - {fecha_str}")
     total = procesar_boletin(numero, fecha_str, urls)
