@@ -267,7 +267,6 @@ if solo_quiebras:
     df = df[df["texto_completo"].str.lower().str.contains("quiebra|concurso", na=False)]
 
 if filtro_confianza and len(filtro_confianza) < 3:
-    # Compatibilidad: si nivel_confianza es NULL en registros viejos, los incluimos
     mask = df["nivel_confianza"].isin(filtro_confianza) | df["nivel_confianza"].isna()
     df   = df[mask]
 
@@ -295,20 +294,25 @@ def badge_confianza(nivel):
 def prioridad_confianza(nivel):
     return {"ALTA": 0, "MEDIA": 1, "BAJA": 2}.get(nivel or "BAJA", 2)
 
+# FUNCIÓN CORREGIDA - MANEJA CUIT None
 def resaltar_texto(texto, localidad, nombre, cuit):
     palabras = ["quiebra", "concurso", "subasta", "transferencia", localidad.lower()]
     if nombre and nombre not in ["Sin datos", "None", "", "Sin nombre"]:
         palabras.append(nombre.lower())
-    if cuit and cuit.strip():
+    # CORREGIDO: verificar que cuit sea string y no None
+    if cuit and isinstance(cuit, str) and cuit.strip():
         palabras.append(cuit.lower())
     resultado = texto
     for p in palabras:
         if p:
-            resultado = re.sub(
-                rf'\b({re.escape(p)})\b',
-                r'<span class="resaltado">\1</span>',
-                resultado, flags=re.IGNORECASE
-            )
+            try:
+                resultado = re.sub(
+                    rf'\b({re.escape(p)})\b',
+                    r'<span class="resaltado">\1</span>',
+                    resultado, flags=re.IGNORECASE
+                )
+            except:
+                pass
     return resultado
 
 def generar_html_impresion(row, numero, fecha_str):
@@ -345,11 +349,9 @@ def renderizar_seccion(df_sec, seccion_nombre):
 
     for (fecha, numero), grupo in grupos:
         grupo = grupo.copy()
-        # Ordenar: ALTA primero, luego MEDIA, luego BAJA
         grupo["_prio"] = grupo["nivel_confianza"].apply(prioridad_confianza)
         grupo = grupo.sort_values("_prio").drop(columns=["_prio"])
 
-        # Contar por nivel para el título del boletín
         n_alta  = (grupo["nivel_confianza"] == "ALTA").sum()
         n_media = (grupo["nivel_confianza"] == "MEDIA").sum()
         badges  = ""
@@ -383,7 +385,6 @@ def renderizar_seccion(df_sec, seccion_nombre):
                         titulo_ed = "🟢 " + titulo_ed
 
                     with st.expander(titulo_ed):
-                        # Badge de confianza
                         st.markdown(
                             f"Nivel de confianza: {badge_confianza(nivel)}",
                             unsafe_allow_html=True
