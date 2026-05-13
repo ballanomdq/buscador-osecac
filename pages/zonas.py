@@ -19,9 +19,9 @@ supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
 st.markdown("""
 <style>
     .main-header { background-color: #1e293b; padding: 1.2rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6; }
-    .success-box { background-color: #064e3b; padding: 1rem; border-radius: 6px; border-left: 4px solid #10b981; margin: 1rem 0; }
-    .warning-box { background-color: #451a03; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 1rem 0; }
-    .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; }
+    .success-box { background-color: #064e3b; padding: 1rem; border-radius: 6px; border-left: 4px solid #10b981; margin: 1rem 0; color: #ffffff; }
+    .warning-box { background-color: #451a03; padding: 1rem; border-radius: 6px; border-left: 4px solid #f59e0b; margin: 1rem 0; color: #ffffff; }
+    .info-box { background-color: #1e293b; padding: 1rem; border-radius: 6px; border-left: 4px solid #3b82f6; margin: 1rem 0; color: #ffffff; }
     div[data-testid="stButton"] button { background-color: #3b82f6; color: white; font-weight: 500; border: none; padding: 0.4rem 1.2rem; }
     div[data-testid="stButton"] button:hover { background-color: #2563eb; }
     .delete-btn button { background-color: #dc2626 !important; }
@@ -46,13 +46,7 @@ st.markdown("---")
 
 # ==================== FUNCIÓN PARA PARSAR EL BLOQUE DE CALLES ====================
 def parsear_bloque_calles(bloque_texto):
-    """
-    Parsea un bloque de texto con formato:
-    "Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400"
-    """
     resultados = []
-    
-    # Separar por " / " (espacio barra espacio)
     partes = bloque_texto.split(' / ')
     
     for parte in partes:
@@ -60,7 +54,6 @@ def parsear_bloque_calles(bloque_texto):
         if not parte:
             continue
         
-        # Buscar patrón: CALLE (LADO) RANGO
         patron = r'^(.*?)\s*\(([PpIiEeY\s]+)\)\s*(\d+)-(\d+)$'
         match = re.match(patron, parte)
         
@@ -97,7 +90,6 @@ tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Zonas por Inspector", "�
 with tab1:
     st.markdown("### 👥 Administrar Inspectores")
     
-    # Formulario para agregar inspector
     with st.expander("➕ Agregar nuevo inspector", expanded=False):
         with st.form("form_nuevo_inspector"):
             col1, col2 = st.columns(2)
@@ -120,7 +112,6 @@ with tab1:
                 else:
                     st.warning("Completá nombre y legajo")
     
-    # Listado de inspectores
     st.markdown("### 📋 Listado de inspectores")
     
     try:
@@ -186,7 +177,6 @@ with tab2:
         if not inspectores.data:
             st.warning("⚠️ Primero debes cargar inspectores en la pestaña 'Inspectores'")
         else:
-            # Selector de inspector
             opciones_inspectores = {f"{row['nombre']} (Legajo {row['legajo']})": row['legajo'] for row in inspectores.data}
             inspector_seleccionado = st.selectbox(
                 "Seleccionar inspector",
@@ -197,7 +187,7 @@ with tab2:
             
             st.markdown(f"**Legajo:** {legajo_seleccionado}")
             
-            # ========== ÁREA PARA PEGAR BLOQUE DE CALLES (SIN EXPANDER) ==========
+            # Área para pegar bloque de calles
             st.markdown("### 📋 Cargar calles desde bloque de texto")
             st.markdown("""
             <div class="info-box">
@@ -206,7 +196,7 @@ with tab2:
                 <strong>Opciones de lado:</strong><br>
                 - (P) = PAR<br>
                 - (I) = IMPAR<br>
-                - (P e I) o (P/I) = AMBOS<br><br>
+                - (P e I) = AMBOS<br><br>
                 <strong>El separador entre calles debe ser:</strong> espacio barra espacio: <code> / </code>
             </div>
             """, unsafe_allow_html=True)
@@ -226,7 +216,7 @@ with tab2:
                             st.markdown("### 📋 Calles detectadas:")
                             df_preview = pd.DataFrame(calles_parseadas)
                             st.dataframe(df_preview, use_container_width=True)
-                            st.session_state.preview_calles = calles_parseadas
+                            st.session_state.calles_para_guardar = calles_parseadas
                         else:
                             st.error("No se pudo parsear ninguna calle. Verificá el formato.")
                     else:
@@ -234,10 +224,9 @@ with tab2:
             
             with col_btn2:
                 if st.button("💾 Guardar todas las calles", type="primary"):
-                    if bloque_calles and st.session_state.get('preview_calles'):
-                        calles_parseadas = st.session_state.preview_calles
+                    if bloque_calles and st.session_state.get('calles_para_guardar'):
+                        calles_parseadas = st.session_state.calles_para_guardar
                         
-                        # Eliminar zonas existentes para este inspector
                         supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
                         
                         insertados = 0
@@ -255,7 +244,7 @@ with tab2:
                                 st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
                         
                         st.success(f"✅ Se guardaron {insertados} calles para el inspector")
-                        st.session_state.preview_calles = None
+                        st.session_state.calles_para_guardar = None
                         st.rerun()
                     else:
                         st.warning("Primero hacé clic en 'Previsualizar'")
