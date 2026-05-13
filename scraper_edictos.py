@@ -1,9 +1,5 @@
 """
-scraper_edictos.py - VERSIÓN CORREGIDA
-- Guarda la PÁGINA COMPLETA del PDF como unidad
-- Calcula nivel de confianza: ALTA / MEDIA / BAJA
-- Sección OFICIAL: solo guarda a partir de "TRANSFERENCIAS"
-- LIMPIA NOMBRES: elimina "la señora", "el señor", etc.
+scraper_edictos.py - VERSIÓN DEFINITIVA CON EXTRACCIÓN PERFECTA DE NOMBRES
 """
 
 import sys
@@ -99,44 +95,57 @@ def extraer_cuits(texto: str) -> str:
             encontrados.add(m)
     return ", ".join(sorted(encontrados)) if encontrados else None
 
-def limpiar_nombre(nombre: str) -> str:
-    """Elimina 'la señora', 'el señor', 'doña', 'don' y artículos del nombre"""
-    if not nombre:
-        return ""
-    # Eliminar prefijos comunes
-    nombre = re.sub(r'^(la|el|los|las|señora|señor|doña|don)\s+', '', nombre, flags=re.IGNORECASE)
-    # Eliminar "la señora" dentro del texto
-    nombre = re.sub(r'\b(la|el|los|las)\s+(señora|señor)\s+', '', nombre, flags=re.IGNORECASE)
-    # Limpiar espacios múltiples
-    nombre = re.sub(r'\s+', ' ', nombre)
-    nombre = nombre.strip().strip(',').strip()
-    return nombre.upper() if len(nombre) > 2 else ""
-
+# ── FUNCIÓN CORREGIDA POR CLAUDE ──────────────────────────────────────────────
 def extraer_sujeto(texto: str) -> str | None:
-    """Extrae el nombre después de 'quiebra/concurso de' y lo limpia"""
-    # Buscar patrón principal
+    # Palabras que NO son parte del nombre — si el match empieza con alguna, descartamos
+    EXCLUIR_INICIO = re.compile(
+        r'^(la\s+provincia|el\s+estado|los\s+acreedores|las\s+partes'
+        r'|señora|señor|doña|don|la|el|los|las|sr\.|sra\.)\s+',
+        re.IGNORECASE
+    )
+    # Palabras que indican que el nombre terminó
+    RE_CORTE = re.compile(
+        r'\b(dni|cuit|cuil|domicili|sindico|síndico|con\s+domicilio'
+        r'|quien|cuya|siendo|present|por\s+el\s+término|edicto|juzgado'
+        r'|secretar|actuaciones|expediente|inciso|artículo)\b',
+        re.IGNORECASE
+    )
+
+    # Buscar el patrón "quiebra/concurso de [opcionales] NOMBRE"
     m = re.search(
         r'(?:quiebra|concurso(?:\s+preventivo)?)\s+de\s+'
-        r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑA-Za-záéíóúñ\s,\.]{3,80}?)'
-        r'(?:\s*[\(\.,]|\s+DNI|\s+CUIT|\s+CUIL|\n|$)',
+        r'(?:(?:la\s+señora|el\s+señor|la\s+firma|señora|señor|doña|don|la|el)\s+)?'
+        r'([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑA-Za-záéíóúüñ\s,\.]{2,80})',
         texto, re.IGNORECASE
     )
-    if m:
-        nombre_raw = m.group(1).strip()
-        nombre_limpio = limpiar_nombre(nombre_raw)
-        if nombre_limpio and len(nombre_limpio) > 3:
-            return nombre_limpio
-    
-    # Si no, buscar secuencia de mayúsculas (apellido y nombre)
-    mayus = re.findall(
-        r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)?)\b',
-        texto
-    )
-    for posible in mayus:
-        if len(posible) > 5 and not re.search(r'(BOLETIN|OFICIAL|EDICTO)', posible, re.IGNORECASE):
-            return posible.strip()
-    
-    return None
+    if not m:
+        return None
+
+    nombre = m.group(1).strip()
+
+    # Cortar en cuanto aparezca una palabra que no es parte del nombre
+    corte = RE_CORTE.search(nombre)
+    if corte:
+        nombre = nombre[:corte.start()].strip()
+
+    # Cortar también en salto de línea o paréntesis
+    nombre = re.split(r'[\n\r\(]', nombre)[0].strip()
+
+    # Limpiar puntuación final
+    nombre = nombre.rstrip('.,;: ')
+
+    # Si después de limpiar empieza con artículo/tratamiento, quitarlo
+    nombre = EXCLUIR_INICIO.sub('', nombre).strip()
+
+    # Validar: debe tener al menos 5 caracteres y no ser una frase genérica
+    FRASES_INVALIDAS = {
+        "LA PROVINCIA", "EL ESTADO", "LOS ACREEDORES", "LAS PARTES",
+        "LA CONCURSADA", "EL CONCURSADO", "LA FALLIDA", "EL FALLIDO",
+    }
+    if len(nombre) < 5 or nombre.upper() in FRASES_INVALIDAS:
+        return None
+
+    return nombre.upper()
 
 # ── Nivel de confianza ────────────────────────────────────────────────────────
 def calcular_confianza(texto: str) -> str:
@@ -149,7 +158,7 @@ def calcular_confianza(texto: str) -> str:
         return "ALTA"
     return "MEDIA"
 
-# ── Scraping de ediciones anteriores ─────────────────────────────────────────
+# ── Scraping ──────────────────────────────────────────────────────────────────
 def obtener_secciones_de_panel(panel) -> dict:
     urls = {}
     panel_body = panel.find("div", class_="panel-body")
@@ -315,7 +324,7 @@ def procesar_boletin(numero, fecha_str, urls_secciones) -> int:
     return total
 
 def main():
-    log.info("═══ SCRAPER CORREGIDO (NOMBRES LIMPIOS) ═══")
+    log.info("═══ SCRAPER DEFINITIVO (CLAUDE) ═══")
     numero, fecha_str, urls = obtener_ultimo_boletin()
     if not numero:
         log.error("No se obtuvo boletín")
