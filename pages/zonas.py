@@ -48,8 +48,7 @@ st.markdown("---")
 def parsear_bloque_calles(bloque_texto):
     """
     Parsea un bloque de texto con formato:
-    "Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400 / Pehuajó (P) 2100-5400"
-    Devuelve una lista de diccionarios con calle, lado, desde, hasta
+    "Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400"
     """
     resultados = []
     
@@ -62,7 +61,6 @@ def parsear_bloque_calles(bloque_texto):
             continue
         
         # Buscar patrón: CALLE (LADO) RANGO
-        # Ejemplo: "Av. Colón (P) 2000-2500"
         patron = r'^(.*?)\s*\(([PpIiEeY\s]+)\)\s*(\d+)-(\d+)$'
         match = re.match(patron, parte)
         
@@ -72,7 +70,6 @@ def parsear_bloque_calles(bloque_texto):
             desde = int(match.group(3))
             hasta = int(match.group(4))
             
-            # Determinar lado
             if 'P' in lado_raw and 'I' in lado_raw:
                 lado = 'AMBOS'
             elif 'P' in lado_raw:
@@ -89,21 +86,7 @@ def parsear_bloque_calles(bloque_texto):
                 'hasta': hasta
             })
         else:
-            # Intentar otro patrón: "Calle (P e I) 2000-2500"
-            patron2 = r'^(.*?)\s*\(([PpIiEeY\s]+)\s*[eEyY]\s*([PpIiEeY\s]+)\)\s*(\d+)-(\d+)$'
-            match2 = re.match(patron2, parte)
-            if match2:
-                calle = match2.group(1).strip().upper()
-                desde = int(match2.group(4))
-                hasta = int(match2.group(5))
-                resultados.append({
-                    'calle': calle,
-                    'lado': 'AMBOS',
-                    'desde': desde,
-                    'hasta': hasta
-                })
-            else:
-                st.warning(f"No se pudo parsear: {parte}")
+            st.warning(f"No se pudo parsear: {parte}")
     
     return resultados
 
@@ -155,7 +138,6 @@ with tab1:
                         st.session_state.editando_inspector = row
                 with col4:
                     if st.button("🗑️", key=f"del_insp_{row['id']}"):
-                        # Verificar si tiene zonas asociadas
                         zonas = supabase.table("zonas_inspectores").select("id").eq("legajo", row['legajo']).execute()
                         if zonas.data:
                             st.warning(f"⚠️ No se puede eliminar. El inspector tiene {len(zonas.data)} zona(s) asignada(s).")
@@ -165,7 +147,6 @@ with tab1:
                             st.rerun()
                 st.markdown("---")
             
-            # Edición
             if st.session_state.get('editando_inspector'):
                 st.markdown("### ✏️ Editar inspector")
                 editando = st.session_state.editando_inspector
@@ -193,7 +174,7 @@ with tab1:
             st.info("No hay inspectores cargados")
     except Exception as e:
         st.error(f"Error: {str(e)}")
-        st.info("Si la tabla no existe, ejecutá el SQL de creación en Supabase")
+        st.info("Ejecutá el SQL de creación de tablas en Supabase")
 
 # ==================== TAB 2: ZONAS POR INSPECTOR ====================
 with tab2:
@@ -216,69 +197,74 @@ with tab2:
             
             st.markdown(f"**Legajo:** {legajo_seleccionado}")
             
-            # ========== ÁREA PARA PEGAR BLOQUE DE CALLES ==========
-            with st.expander("📋 Cargar calles desde bloque de texto", expanded=True):
-                st.markdown("""
-                <div class="info-box">
-                    <strong>📌 Formato aceptado:</strong><br>
-                    <code>Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400 / Pehuajó (P) 2100-5400</code><br><br>
-                    <strong>Opciones de lado:</strong><br>
-                    - (P) = PAR<br>
-                    - (I) = IMPAR<br>
-                    - (P e I) o (P/I) = AMBOS<br><br>
-                    <strong>El separador entre calles debe ser:</strong> espacio barra espacio: <code> / </code>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                bloque_calles = st.text_area(
-                    "Pegá acá el bloque de calles:",
-                    height=200,
-                    placeholder='Ejemplo: Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400 / Pehuajó (P) 2100-5400'
-                )
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("🔍 Previsualizar", key="preview_calles"):
-                        if bloque_calles:
-                            calles_parseadas = parsear_bloque_calles(bloque_calles)
-                            if calles_parseadas:
-                                st.markdown("### 📋 Calles detectadas:")
-                                df_preview = pd.DataFrame(calles_parseadas)
-                                st.dataframe(df_preview, use_container_width=True)
-                                st.session_state.preview_calles = calles_parseadas
-                            else:
-                                st.error("No se pudo parsear ninguna calle. Verificá el formato.")
+            # ========== ÁREA PARA PEGAR BLOQUE DE CALLES (SIN EXPANDER) ==========
+            st.markdown("### 📋 Cargar calles desde bloque de texto")
+            st.markdown("""
+            <div class="info-box">
+                <strong>📌 Formato aceptado:</strong><br>
+                <code>Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400 / Pehuajó (P) 2100-5400</code><br><br>
+                <strong>Opciones de lado:</strong><br>
+                - (P) = PAR<br>
+                - (I) = IMPAR<br>
+                - (P e I) o (P/I) = AMBOS<br><br>
+                <strong>El separador entre calles debe ser:</strong> espacio barra espacio: <code> / </code>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            bloque_calles = st.text_area(
+                "Pegá acá el bloque de calles:",
+                height=200,
+                placeholder='Ejemplo: Av. Colón (P) 2000-2500 / San Juan (P) 2100-5400 / Pehuajó (P) 2100-5400'
+            )
+            
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
+            with col_btn1:
+                if st.button("🔍 Previsualizar", key="preview_calles"):
+                    if bloque_calles:
+                        calles_parseadas = parsear_bloque_calles(bloque_calles)
+                        if calles_parseadas:
+                            st.markdown("### 📋 Calles detectadas:")
+                            df_preview = pd.DataFrame(calles_parseadas)
+                            st.dataframe(df_preview, use_container_width=True)
+                            st.session_state.preview_calles = calles_parseadas
                         else:
-                            st.warning("Pegá un bloque de calles primero")
-                
-                with col_btn2:
-                    if st.button("💾 Guardar todas las calles", type="primary"):
-                        if bloque_calles and st.session_state.get('preview_calles'):
-                            calles_parseadas = st.session_state.preview_calles
-                            
-                            # Eliminar zonas existentes para este inspector
-                            supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
-                            
-                            # Insertar nuevas zonas
-                            insertados = 0
-                            for calle_data in calles_parseadas:
-                                try:
-                                    supabase.table("zonas_inspectores").insert({
-                                        "legajo": legajo_seleccionado,
-                                        "calle": calle_data['calle'],
-                                        "lado": calle_data['lado'],
-                                        "altura_desde": calle_data['desde'],
-                                        "altura_hasta": calle_data['hasta']
-                                    }).execute()
-                                    insertados += 1
-                                except Exception as e:
-                                    st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
-                            
-                            st.success(f"✅ Se guardaron {insertados} calles para el inspector")
-                            st.session_state.preview_calles = None
-                            st.rerun()
-                        else:
-                            st.warning("Primero hacé clic en 'Previsualizar'")
+                            st.error("No se pudo parsear ninguna calle. Verificá el formato.")
+                    else:
+                        st.warning("Pegá un bloque de calles primero")
+            
+            with col_btn2:
+                if st.button("💾 Guardar todas las calles", type="primary"):
+                    if bloque_calles and st.session_state.get('preview_calles'):
+                        calles_parseadas = st.session_state.preview_calles
+                        
+                        # Eliminar zonas existentes para este inspector
+                        supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
+                        
+                        insertados = 0
+                        for calle_data in calles_parseadas:
+                            try:
+                                supabase.table("zonas_inspectores").insert({
+                                    "legajo": legajo_seleccionado,
+                                    "calle": calle_data['calle'],
+                                    "lado": calle_data['lado'],
+                                    "altura_desde": calle_data['desde'],
+                                    "altura_hasta": calle_data['hasta']
+                                }).execute()
+                                insertados += 1
+                            except Exception as e:
+                                st.error(f"Error con calle {calle_data['calle']}: {str(e)}")
+                        
+                        st.success(f"✅ Se guardaron {insertados} calles para el inspector")
+                        st.session_state.preview_calles = None
+                        st.rerun()
+                    else:
+                        st.warning("Primero hacé clic en 'Previsualizar'")
+            
+            with col_btn3:
+                if st.button("🗑️ Eliminar todas las calles de este inspector"):
+                    supabase.table("zonas_inspectores").delete().eq("legajo", legajo_seleccionado).execute()
+                    st.success(f"✅ Se eliminaron todas las calles del inspector")
+                    st.rerun()
             
             # Listado de zonas actuales
             st.markdown(f"### 📋 Calles actuales de {inspector_seleccionado}")
@@ -304,7 +290,6 @@ with tab2:
                             st.rerun()
                     st.markdown("---")
                 
-                # Edición de zona individual
                 if st.session_state.get('editando_zona'):
                     st.markdown("### ✏️ Editar zona")
                     editando = st.session_state.editando_zona
@@ -338,7 +323,6 @@ with tab2:
                 st.info("No hay calles asignadas a este inspector. Usá el bloque de texto para cargarlas.")
     except Exception as e:
         st.error(f"Error: {str(e)}")
-        st.info("Verificá que las tablas 'inspectores' y 'zonas_inspectores' existan en Supabase")
 
 # ==================== TAB 3: ASIGNAR LEGAJOS ====================
 with tab3:
@@ -348,23 +332,20 @@ with tab3:
         <strong>📌 ¿Qué hace esta función?</strong><br>
         - Toma todas las empresas que tienen <strong>leg vacío</strong> en el padrón.<br>
         - Lee su dirección (calle y número).<br>
-        - Busca en la tabla de zonas qué inspector le corresponde (por calle, lado PAR/IMPAR y rango de altura).<br>
-        - Asigna automáticamente el número de legajo.<br>
-        - Solo asigna a registros que NO tienen legajo.
+        - Busca en la tabla de zonas qué inspector le corresponde.<br>
+        - Asigna automáticamente el número de legajo.
     </div>
     """, unsafe_allow_html=True)
     
     try:
-        # Verificar tablas
         inspectores = supabase.table("inspectores").select("legajo").execute()
         zonas = supabase.table("zonas_inspectores").select("id").limit(1).execute()
         
         if not inspectores.data:
-            st.warning("⚠️ No hay inspectores cargados. Andá a la pestaña 'Inspectores' primero.")
+            st.warning("⚠️ No hay inspectores cargados.")
         elif not zonas.data:
-            st.warning("⚠️ No hay zonas cargadas. Andá a la pestaña 'Zonas por Inspector' primero.")
+            st.warning("⚠️ No hay zonas cargadas.")
         else:
-            # Contar registros sin legajo
             sin_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").is_("leg", "null").execute()
             total_sin_legajo = sin_legajo.count
             
@@ -373,15 +354,13 @@ with tab3:
             if total_sin_legajo == 0:
                 st.success("✅ Todos los registros ya tienen legajo asignado.")
             else:
-                # Obtener todas las zonas
                 todas_zonas = supabase.table("zonas_inspectores").select("*").execute()
                 df_zonas = pd.DataFrame(todas_zonas.data)
                 
                 st.info(f"📌 Se asignarán legajos a {total_sin_legajo} registros")
                 
                 if st.button("🚀 Asignar Legajos Automáticamente", type="primary"):
-                    with st.spinner("Procesando direcciones y asignando legajos..."):
-                        # Obtener registros sin legajo (paginado)
+                    with st.spinner("Procesando..."):
                         todos_registros = []
                         offset = 0
                         batch_size = 100
@@ -405,18 +384,15 @@ with tab3:
                                 no_asignados += 1
                                 continue
                             
-                            # Limpiar número (solo dígitos)
                             try:
                                 numero_limpio = int(re.sub(r'\D', '', str(numero)))
                             except:
                                 no_asignados += 1
                                 continue
                             
-                            # Determinar lado PAR/IMPAR
                             lado = "PAR" if numero_limpio % 2 == 0 else "IMPAR"
-                            
-                            # Buscar zona que coincida
                             legajo_asignado = None
+                            
                             for _, zona in df_zonas.iterrows():
                                 if zona['calle'].upper() == calle.upper():
                                     if zona['lado'] == "AMBOS" or zona['lado'] == lado:
@@ -432,7 +408,7 @@ with tab3:
                             else:
                                 no_asignados += 1
                         
-                        st.success(f"✅ Asignación completada: {asignados} legajos asignados, {no_asignados} no encontrados")
+                        st.success(f"✅ {asignados} legajos asignados, {no_asignados} no encontrados")
                         st.rerun()
     except Exception as e:
         st.error(f"Error: {str(e)}")
