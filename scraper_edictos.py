@@ -1,8 +1,9 @@
 """
-scraper_edictos.py - VERSIÓN DEFINITIVA
+scraper_edictos.py - VERSIÓN CORREGIDA
 - Guarda la PÁGINA COMPLETA del PDF como unidad
 - Calcula nivel de confianza: ALTA / MEDIA / BAJA
 - Sección OFICIAL: solo guarda a partir de "TRANSFERENCIAS"
+- LIMPIA NOMBRES: elimina "la señora", "el señor", etc.
 """
 
 import sys
@@ -93,19 +94,48 @@ def extraer_cuits(texto: str) -> str:
         encontrados.add(m)
     for m in re.findall(r'\b(?:DNI|CUIT|CUIL)[\s:]*(\d{6,8})\b', texto, re.IGNORECASE):
         encontrados.add(m)
+    for m in re.findall(r'\b(\d{7,8})\b', texto):
+        if not (1900 <= int(m) <= 2030):
+            encontrados.add(m)
     return ", ".join(sorted(encontrados)) if encontrados else None
 
+def limpiar_nombre(nombre: str) -> str:
+    """Elimina 'la señora', 'el señor', 'doña', 'don' y artículos del nombre"""
+    if not nombre:
+        return ""
+    # Eliminar prefijos comunes
+    nombre = re.sub(r'^(la|el|los|las|señora|señor|doña|don)\s+', '', nombre, flags=re.IGNORECASE)
+    # Eliminar "la señora" dentro del texto
+    nombre = re.sub(r'\b(la|el|los|las)\s+(señora|señor)\s+', '', nombre, flags=re.IGNORECASE)
+    # Limpiar espacios múltiples
+    nombre = re.sub(r'\s+', ' ', nombre)
+    nombre = nombre.strip().strip(',').strip()
+    return nombre.upper() if len(nombre) > 2 else ""
+
 def extraer_sujeto(texto: str) -> str | None:
+    """Extrae el nombre después de 'quiebra/concurso de' y lo limpia"""
+    # Buscar patrón principal
     m = re.search(
         r'(?:quiebra|concurso(?:\s+preventivo)?)\s+de\s+'
-        r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑA-Za-záéíóúñ\s,\.]{3,60}?)'
-        r'(?:\s*[\(\.,]|DNI|CUIT|\n|$)',
+        r'([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑA-Za-záéíóúñ\s,\.]{3,80}?)'
+        r'(?:\s*[\(\.,]|\s+DNI|\s+CUIT|\s+CUIL|\n|$)',
         texto, re.IGNORECASE
     )
     if m:
-        nombre = m.group(1).strip().rstrip(',.').strip()
-        if len(nombre) > 3:
-            return nombre
+        nombre_raw = m.group(1).strip()
+        nombre_limpio = limpiar_nombre(nombre_raw)
+        if nombre_limpio and len(nombre_limpio) > 3:
+            return nombre_limpio
+    
+    # Si no, buscar secuencia de mayúsculas (apellido y nombre)
+    mayus = re.findall(
+        r'\b([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+(?:\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ]+)?)\b',
+        texto
+    )
+    for posible in mayus:
+        if len(posible) > 5 and not re.search(r'(BOLETIN|OFICIAL|EDICTO)', posible, re.IGNORECASE):
+            return posible.strip()
+    
     return None
 
 # ── Nivel de confianza ────────────────────────────────────────────────────────
@@ -115,7 +145,7 @@ def calcular_confianza(texto: str) -> str:
     if not (tiene_quiebra or tiene_concurso):
         return "BAJA"
     nombre = extraer_sujeto(texto)
-    if nombre and len(nombre) > 5:
+    if nombre and len(nombre) > 4:
         return "ALTA"
     return "MEDIA"
 
@@ -210,6 +240,10 @@ def guardar_pagina(localidad, texto, seccion, fecha, numero, url_pdf, pagina) ->
         tipo = "QUIEBRA"
     elif re.search(r'\bconcurso\b', texto, re.IGNORECASE):
         tipo = "CONCURSO"
+    elif re.search(r'\bsubasta\b', texto, re.IGNORECASE):
+        tipo = "SUBASTA"
+    elif re.search(r'\btransferencia\b', texto, re.IGNORECASE):
+        tipo = "TRANSFERENCIA"
     else:
         tipo = "EDICTO"
 
@@ -281,7 +315,7 @@ def procesar_boletin(numero, fecha_str, urls_secciones) -> int:
     return total
 
 def main():
-    log.info("═══ SCRAPER DEFINITIVO ═══")
+    log.info("═══ SCRAPER CORREGIDO (NOMBRES LIMPIOS) ═══")
     numero, fecha_str, urls = obtener_ultimo_boletin()
     if not numero:
         log.error("No se obtuvo boletín")
