@@ -11,18 +11,17 @@ supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
 
 st.markdown("""
 <style>
-.main-header { background-color: #1e293b; padding: 1.2rem 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6; }
-div[data-testid="stButton"] button { background-color: #3b82f6; color: white; border: none; padding: 0.25rem 0.75rem; font-size: 0.78rem; }
+.main-header { background-color: #1e293b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #3b82f6; }
+div[data-testid="stButton"] button { background-color: #3b82f6; color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; }
 div[data-testid="stButton"] button:hover { background-color: #2563eb; }
-.delete-btn button { background-color: #dc2626 !important; }
-.stDataFrame { font-size: 0.78rem; }
+.stDataFrame { font-size: 0.75rem; }
+.stSelectbox, .stTextInput { font-size: 0.75rem; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="main-header">
-    <h2 style="color: #ffffff; margin: 0;">🗺️ Zonas de Inspectores</h2>
-    <p style="color: #94a3b8; margin: 0;">Gestión de inspectores, localidades y calles</p>
+    <h2 style="color: #ffffff; margin: 0; font-size: 1.2rem;">🗺️ Zonas de Inspectores</h2>
 </div>
 """, unsafe_allow_html=True)
 
@@ -33,13 +32,11 @@ with col_back:
 
 st.markdown("---")
 
-# Normalización
 def normalizar_localidad(loc):
     if not loc:
         return ""
     loc = loc.upper().strip()
-    reemplazos = {"BLNRIO": "BALNEARIO", "GRAL": "GENERAL", "CNEL": "CORONEL", "CTE": "COMANDANTE",
-                  "BS. AS.": "", "BS AS": "", "PTE": "PRESIDENTE", "DR": "DOCTOR", "ING": "INGENIERO"}
+    reemplazos = {"BLNRIO": "BALNEARIO", "GRAL": "GENERAL", "CNEL": "CORONEL", "CTE": "COMANDANTE", "BS. AS.": "", "BS AS": ""}
     for a, b in reemplazos.items():
         loc = loc.replace(a, b)
     loc = re.sub(r'\s+', ' ', loc).replace('(', '').replace(')', '')
@@ -52,160 +49,123 @@ def normalizar_calle(calle):
     par = re.search(r'\(([^)]+)\)', calle)
     if par:
         calle = par.group(1)
-    for p in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/', 'RUTA ', 'RP ']:
+    for p in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/']:
         if calle.startswith(p):
             calle = calle[len(p):]
-    for s in [' AV', ' AV.', ' AVENIDA']:
-        if calle.endswith(s):
-            calle = calle[:-len(s)]
     calle = re.sub(r'^\d+\s+', '', calle)
     calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
-# Pestañas
 tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)"])
 
 # ==================== TAB 1: INSPECTORES ====================
 with tab1:
-    st.markdown("### 👥 Administrar Inspectores")
+    st.markdown("### 👥 Inspectores")
     
-    with st.expander("➕ Agregar inspector"):
-        with st.form("form_inspector"):
+    with st.expander("➕ Agregar"):
+        with st.form("form_insp"):
             c1, c2 = st.columns(2)
             with c1:
-                nombre = st.text_input("Nombre completo")
+                nombre = st.text_input("Nombre", key="nombre_insp")
             with c2:
-                legajo = st.text_input("Número de legajo")
+                legajo = st.text_input("Legajo", key="legajo_insp")
             if st.form_submit_button("Guardar"):
                 if nombre and legajo:
                     supabase.table("inspectores").insert({"nombre": nombre, "legajo": legajo}).execute()
-                    st.success("Agregado")
                     st.rerun()
     
-    st.markdown("### 📋 Listado")
-    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
-    if inspectores.data:
-        for ins in inspectores.data:
-            c1, c2, c3 = st.columns([3, 2, 1])
-            c1.write(f"**{ins['nombre']}**")
-            c2.write(f"Legajo: {ins['legajo']}")
-            if c3.button("🗑️", key=f"del_insp_{ins['id']}"):
-                supabase.table("inspectores").delete().eq("id", ins['id']).execute()
+    ins = supabase.table("inspectores").select("*").order("legajo").execute()
+    if ins.data:
+        df = pd.DataFrame(ins.data)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        for i, row in df.iterrows():
+            c1, c2 = st.columns([4, 1])
+            c1.write(f"{row['nombre']} (Legajo {row['legajo']})")
+            if c2.button("🗑️", key=f"del_{row['id']}"):
+                supabase.table("inspectores").delete().eq("id", row['id']).execute()
                 st.rerun()
     else:
         st.info("No hay inspectores")
 
-# ==================== TAB 2: LOCALIDADES (fuera de MDQ) ====================
+# ==================== TAB 2: LOCALIDADES ====================
 with tab2:
-    st.markdown("### 📍 Asignar localidades a inspectores (fuera de Mar del Plata)")
+    st.markdown("### 📍 Localidades (fuera de MDQ)")
     
-    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
-    if not inspectores.data:
-        st.warning("Primero cargá inspectores en TAB 1")
+    ins = supabase.table("inspectores").select("*").order("legajo").execute()
+    if not ins.data:
+        st.warning("Primero cargá inspectores")
     else:
-        opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
-        inspector_legajo = st.selectbox("Seleccionar inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0], key="sel_insp_localidad")
+        opts = {f"{i['nombre']} (Legajo {i['legajo']})": i['legajo'] for i in ins.data}
+        leg = st.selectbox("Inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0])
         
-        # Agregar localidad
         with st.expander("➕ Agregar localidad"):
-            with st.form("form_localidad"):
-                localidad = st.text_input("Nombre de la localidad (ej: BALNEARIO MAR CHIQUITA)")
+            with st.form("form_loc"):
+                loc = st.text_input("Localidad")
                 if st.form_submit_button("Guardar"):
-                    if localidad:
-                        supabase.table("inspectores_localidad").insert({
-                            "legajo": inspector_legajo,
-                            "localidad": normalizar_localidad(localidad)
-                        }).execute()
-                        st.success("Localidad agregada")
+                    if loc:
+                        supabase.table("inspectores_localidad").insert({"legajo": leg, "localidad": normalizar_localidad(loc)}).execute()
                         st.rerun()
         
-        # Listado de localidades de este inspector
-        st.markdown("### 📋 Localidades asignadas")
-        locs = supabase.table("inspectores_localidad").select("*").eq("legajo", inspector_legajo).order("localidad").execute()
+        locs = supabase.table("inspectores_localidad").select("*").eq("legajo", leg).order("localidad").execute()
         if locs.data:
-            for loc in locs.data:
+            for l in locs.data:
                 c1, c2 = st.columns([4, 1])
-                c1.write(loc['localidad'])
-                if c2.button("🗑️", key=f"del_loc_{loc['id']}"):
-                    supabase.table("inspectores_localidad").delete().eq("id", loc['id']).execute()
+                c1.write(l['localidad'])
+                if c2.button("🗑️", key=f"del_loc_{l['id']}"):
+                    supabase.table("inspectores_localidad").delete().eq("id", l['id']).execute()
                     st.rerun()
         else:
-            st.info("No hay localidades asignadas")
+            st.info("Sin localidades")
 
-# ==================== TAB 3: CALLES (MAR DEL PLATA) ====================
+# ==================== TAB 3: CALLES (MDQ) ====================
 with tab3:
-    st.markdown("### 📍 Asignar calles a inspectores (solo para Mar del Plata)")
+    st.markdown("### 📍 Calles (Mar del Plata)")
     
-    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
-    if not inspectores.data:
-        st.warning("Primero cargá inspectores en TAB 1")
+    ins = supabase.table("inspectores").select("*").order("legajo").execute()
+    if not ins.data:
+        st.warning("Primero cargá inspectores")
     else:
-        opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
-        inspector_legajo = st.selectbox("Seleccionar inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0], key="sel_insp_calles")
+        opts = {f"{i['nombre']} (Legajo {i['legajo']})": i['legajo'] for i in ins.data}
+        leg = st.selectbox("Inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0])
         
-        # Bloque para agregar calles
-        st.markdown("#### Agregar calles (formato: Calle (P) 2000-2500 / Calle2 (I) 1000-2000)")
-        st.caption("Separador: espacio + barra + espacio: ` / `")
-        bloque = st.text_area("Pegá acá el bloque de calles", height=120)
-        
-        if st.button("📋 Previsualizar"):
-            if bloque:
+        with st.expander("➕ Agregar calles (formato: Calle (P) 2000-2500)"):
+            bloque = st.text_area("Bloque", height=100, key="bloque_calles")
+            if st.button("Previsualizar"):
                 calles = []
                 for parte in bloque.split(' / '):
-                    parte = parte.strip()
-                    m = re.match(r'^(.*?)\s*\(([PpIiEeY\s]+)\)\s*(\d+)-(\d+)$', parte)
+                    m = re.match(r'^(.*?)\s*\(([PpIiEeY\s]+)\)\s*(\d+)-(\d+)$', parte.strip())
                     if m:
                         calle = m.group(1).strip().upper()
                         lr = m.group(2).strip().upper()
-                        if 'P' in lr and 'I' in lr:
-                            lado = 'AMBOS'
-                        elif 'P' in lr:
-                            lado = 'PAR'
-                        elif 'I' in lr:
-                            lado = 'IMPAR'
-                        else:
-                            lado = 'AMBOS'
+                        lado = 'AMBOS' if ('P' in lr and 'I' in lr) else ('PAR' if 'P' in lr else ('IMPAR' if 'I' in lr else 'AMBOS'))
                         calles.append({'calle': calle, 'lado': lado, 'desde': int(m.group(3)), 'hasta': int(m.group(4))})
                 if calles:
                     st.dataframe(pd.DataFrame(calles), use_container_width=True)
                     st.session_state.calles_temp = calles
-                else:
-                    st.error("No se pudo parsear. Verificá el formato.")
+            if st.button("Guardar calles"):
+                if st.session_state.get('calles_temp'):
+                    supabase.table("zonas_inspectores").delete().eq("legajo", leg).execute()
+                    for c in st.session_state.calles_temp:
+                        supabase.table("zonas_inspectores").insert({
+                            "legajo": leg, "calle": c['calle'], "lado": c['lado'],
+                            "altura_desde": c['desde'], "altura_hasta": c['hasta']
+                        }).execute()
+                    st.success("Guardado")
+                    st.session_state.calles_temp = None
+                    st.rerun()
         
-        if st.button("💾 Guardar calles", type="primary"):
-            if st.session_state.get('calles_temp'):
-                supabase.table("zonas_inspectores").delete().eq("legajo", inspector_legajo).execute()
-                for c in st.session_state.calles_temp:
-                    supabase.table("zonas_inspectores").insert({
-                        "legajo": inspector_legajo,
-                        "calle": c['calle'],
-                        "lado": c['lado'],
-                        "altura_desde": c['desde'],
-                        "altura_hasta": c['hasta']
-                    }).execute()
-                st.success("Calles guardadas")
-                st.session_state.calles_temp = None
-                st.rerun()
-            else:
-                st.warning("Primero hacé clic en 'Previsualizar'")
-        
-        # Mostrar calles actuales
-        st.markdown("---")
-        st.markdown("### 📋 Calles actuales")
-        zonas = supabase.table("zonas_inspectores").select("*").eq("legajo", inspector_legajo).order("calle").execute()
+        zonas = supabase.table("zonas_inspectores").select("*").eq("legajo", leg).order("calle").execute()
         if zonas.data:
             df = pd.DataFrame(zonas.data)[['calle', 'lado', 'altura_desde', 'altura_hasta']]
             df.columns = ['Calle', 'Lado', 'Desde', 'Hasta']
             st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            st.markdown("#### Eliminar calles")
             for z in zonas.data:
                 c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
                 c1.write(z['calle'])
                 c2.write(z['lado'])
                 c3.write(f"{z['altura_desde']}-{z['altura_hasta']}")
-                if c4.button("🗑️", key=f"del_zona_{z['id']}"):
+                if c4.button("🗑️", key=f"del_{z['id']}"):
                     supabase.table("zonas_inspectores").delete().eq("id", z['id']).execute()
                     st.rerun()
         else:
-            st.info("No hay calles cargadas")
+            st.info("Sin calles")
