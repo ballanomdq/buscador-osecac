@@ -424,6 +424,14 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
+# ==================== CREAR PESTAÑAS ====================
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Cargar Padrón",
+    "✏️ Editar Legajos y Vtos",
+    "📧 Solicitar Actas",
+    "📋 Subir Actas",
+])
+
 # ══════════════════════════════════════════════════════════════════
 # TAB 1 — Cargar Padrón
 # ══════════════════════════════════════════════════════════════════
@@ -613,7 +621,6 @@ with tab2:
                 df_no_asignados = pd.DataFrame(resultado['detalle'])
                 st.dataframe(df_no_asignados, use_container_width=True)
                 
-                # Botón para copiar direcciones
                 if st.button("📋 Copiar direcciones no encontradas"):
                     texto = ""
                     for item in resultado['detalle']:
