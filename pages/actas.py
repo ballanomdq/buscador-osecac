@@ -482,4 +482,402 @@ with tab1:
 # TAB 2 — Editar Legajos y Vtos (con botón de asignación y filtros)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("#### Editar Legajos y F
+    st.markdown("#### Editar Legajos y Fechas de Vencimiento")
+    
+    # ── CARTEL GRANDE CON TOTAL DE REGISTROS ──────────────────────
+    total_registros_db = supabase.table("padron_deuda_presunta").select("id", count="exact").execute()
+    total_general = total_registros_db.count
+    con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute()
+    sin_legajo_total = total_general - con_legajo.count
+    
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        st.markdown(f"""
+        <div class="big-number">
+            <h1>{total_general}</h1>
+            <p>TOTAL DE REGISTROS</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_t2:
+        st.markdown(f"""
+        <div class="big-number">
+            <h1>{con_legajo.count}</h1>
+            <p>CON LEGAJO</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_t3:
+        st.markdown(f"""
+        <div class="big-number">
+            <h1>{sin_legajo_total}</h1>
+            <p>SIN LEGAJO</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ── Barra de acciones compacta (con nuevo botón de asignación) ──
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+        if st.button("🗑 Eliminar seleccionados", key="btn_del_sel"):
+            ids = st.session_state.get('ids_a_eliminar', [])
+            if ids:
+                supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
+                st.session_state.ids_a_eliminar = []
+                st.rerun()
+            else:
+                st.warning("Nada seleccionado.")
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+        if st.button("🗑 Eliminar TODO", key="btn_del_todo"):
+            st.session_state.confirmar_del_todo = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="btn-success">', unsafe_allow_html=True)
+        if st.button("🤖 Asignar Legajos", key="btn_asignar_legajos"):
+            st.session_state.asignar_legajos = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with c4:
+        if st.button("↺ Resetear filtros", key="btn_reset"):
+            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
+                      'filtro_mail','filtro_leg','pagina_actual']:
+                st.session_state.pop(k, None)
+            st.rerun()
+    with c5:
+        if st.button("⟳ Recargar", key="btn_reload"):
+            st.rerun()
+    
+    # Confirmación eliminar todo
+    if st.session_state.get('confirmar_del_todo'):
+        st.warning("⚠️ Esta acción eliminará **TODOS** los registros. ¿Confirmar?")
+        ca, cb = st.columns(2)
+        with ca:
+            if st.button("Sí, eliminar todo", type="primary"):
+                supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
+                st.session_state.confirmar_del_todo = False
+                st.session_state.ids_a_eliminar = []
+                st.rerun()
+        with cb:
+            if st.button("Cancelar"):
+                st.session_state.confirmar_del_todo = False
+                st.rerun()
+    
+    # Proceso de asignación de legajos
+    if st.session_state.get('asignar_legajos'):
+        with st.spinner("Asignando legajos automáticamente..."):
+            registros_sin_legajo = supabase.table("padron_deuda_presunta").select("*").is_("leg", "null").execute()
+            asignados = 0
+            no_asignados = 0
+            no_asignados_detalle = []
+            
+            for reg in registros_sin_legajo.data:
+                localidad = reg.get('localidad', '')
+                calle = reg.get('calle', '')
+                numero = reg.get('numero', '')
+                
+                legajo_asignado = asignar_legajo_por_direccion(localidad, calle, numero)
+                
+                if legajo_asignado:
+                    supabase.table("padron_deuda_presunta").update({"leg": legajo_asignado}).eq("id", reg['id']).execute()
+                    asignados += 1
+                else:
+                    no_asignados += 1
+                    no_asignados_detalle.append({
+                        "id": reg['id'],
+                        "localidad": localidad,
+                        "calle": calle,
+                        "numero": numero,
+                        "razon_social": reg.get('razon_social', '')
+                    })
+            
+            st.session_state.asignar_legajos = False
+            st.session_state.ultima_asignacion = {
+                "asignados": asignados,
+                "no_asignados": no_asignados,
+                "detalle": no_asignados_detalle
+            }
+            st.rerun()
+    
+    # Mostrar resultado de la última asignación
+    if st.session_state.get('ultima_asignacion'):
+        resultado = st.session_state.ultima_asignacion
+        st.markdown(f"""
+        <div class="msg msg-success">
+        ✅ Asignación completada: {resultado['asignados']} legajos asignados, {resultado['no_asignados']} no encontrados.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if resultado['no_asignados'] > 0:
+            with st.expander(f"📋 Ver {resultado['no_asignados']} registros sin legajo asignado"):
+                df_no_asignados = pd.DataFrame(resultado['detalle'])
+                st.dataframe(df_no_asignados, use_container_width=True)
+                
+                # Botón para copiar direcciones
+                if st.button("📋 Copiar direcciones no encontradas"):
+                    texto = ""
+                    for item in resultado['detalle']:
+                        texto += f"{item['localidad']}, {item['calle']} {item['numero']} - {item['razon_social']}\n"
+                    st.code(texto)
+        
+        if st.button("Cerrar resultado"):
+            del st.session_state.ultima_asignacion
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # ── FILTROS (con nuevo filtro de LEG) ─────────────────────────
+    f1, f2, f3, f4, f5 = st.columns([1.5, 1.5, 1.5, 1, 1])
+    with f1:
+        filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
+    with f2:
+        filtro_razon = st.text_input("Razón social", key="input_filtro_razon", placeholder="Razón social", label_visibility="collapsed")
+    with f3:
+        locs = get_localidades(supabase)
+        localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
+    with f4:
+        filtro_mail = st.selectbox("Mail", ["AMBOS","NO","SI"], key="filtro_mail", label_visibility="collapsed")
+    with f5:
+        filtro_leg = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
+    
+    # ── Consulta Supabase ─────────────────────────────────────────
+    q = supabase.table("padron_deuda_presunta").select("*")
+    if localidad != "TODAS":
+        q = q.eq("localidad", localidad)
+    if filtro_mail == "SI":
+        q = q.eq("mail_enviado","SI")
+    elif filtro_mail == "NO":
+        q = q.eq("mail_enviado","NO")
+    
+    datos = q.execute()
+    
+    if not datos.data:
+        st.info("Sin datos.")
+    else:
+        df = pd.DataFrame(datos.data)
+        
+        if filtro_cuit:
+            df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
+        if filtro_razon:
+            df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
+        if filtro_leg == "CON LEGAJO":
+            df = df[df['leg'].notna()]
+        elif filtro_leg == "SIN LEGAJO":
+            df = df[df['leg'].isna()]
+        
+        total = len(df)
+        RPP   = 300
+        pages = max(1, (total + RPP - 1) // RPP)
+        
+        if 'pagina_actual' not in st.session_state:
+            st.session_state.pagina_actual = 1
+        st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
+        
+        # Paginación compacta
+        pa, pn, ps = st.columns([1, 3, 1])
+        with pa:
+            if st.button("◀", key="btn_prev") and st.session_state.pagina_actual > 1:
+                st.session_state.pagina_actual -= 1
+                st.rerun()
+        with pn:
+            st.caption(f"Página {st.session_state.pagina_actual} / {pages}  |  {total} registros")
+        with ps:
+            if st.button("▶", key="btn_next") and st.session_state.pagina_actual < pages:
+                st.session_state.pagina_actual += 1
+                st.rerun()
+        
+        off = (st.session_state.pagina_actual - 1) * RPP
+        df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
+        
+        # Formatear para mostrar
+        for col in ['empl_10_2025','emp_11_2025','empl_12_2025']:
+            if col in df_p.columns:
+                df_p[col] = df_p[col].apply(limpiar_entero)
+        for col in ['fechareldependencia','desde','hasta','fecha_pago_obl','vto','fecha_carga']:
+            if col in df_p.columns:
+                df_p[col] = df_p[col].apply(fmt_fecha)
+        
+        df_orig = df_p.copy()
+        df_ed   = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns=TITULOS)
+        df_ed.insert(0, "🗑️", False)
+        
+        sel_todos = st.checkbox("Seleccionar todos (página actual)", key="sel_todos")
+        if sel_todos:
+            df_ed["🗑️"] = True
+        
+        edited = st.data_editor(
+            df_ed, use_container_width=True, height=550,
+            column_config={"🗑️": st.column_config.CheckboxColumn("Elim.", help="Marcar para eliminar")},
+            disabled=COLS_DISABLED,
+            key=f"editor_{st.session_state.pagina_actual}",
+        )
+        
+        ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
+        st.session_state.ids_a_eliminar = ids_sel
+        if ids_sel:
+            st.caption(f"📌 {len(ids_sel)} seleccionado(s) para eliminar.")
+        
+        st.markdown("---")
+        
+        if st.button("💾 Guardar cambios", type="primary", key="btn_save"):
+            inverso = {v: k for k, v in TITULOS.items()}
+            mods = 0
+            with st.spinner("Guardando..."):
+                for idx, row in edited.iterrows():
+                    if idx >= len(df_orig):
+                        continue
+                    orig = df_orig.iloc[idx]
+                    upd  = {}
+                    
+                    nv = row.get('LEG'); ov = orig.get('leg')
+                    nv = None if pd.isna(nv) or nv == '' else nv
+                    ov = None if pd.isna(ov) or ov == '' else ov
+                    if nv != ov: upd['leg'] = nv
+                    
+                    nv = row.get('VTO'); ov = orig.get('vto')
+                    nv = None if pd.isna(nv) or nv == '' else norm_fecha(nv)
+                    ov = None if pd.isna(ov) or ov == '' else ov
+                    if nv != ov: upd['vto'] = nv
+                    
+                    nv = row.get('MAIL ENVIADO') or 'NO'
+                    if nv not in ('SI','NO'): nv = 'NO'
+                    if nv != orig.get('mail_enviado'): upd['mail_enviado'] = nv
+                    
+                    nv = row.get('ACTA'); ov = orig.get('acta')
+                    nv = None if pd.isna(nv) or nv == '' else nv
+                    ov = None if pd.isna(ov) or ov == '' else ov
+                    if nv != ov: upd['acta'] = nv
+                    
+                    nv = row.get('ESTADO GESTION') or 'PENDIENTE'
+                    if nv != orig.get('estado_gestion'): upd['estado_gestion'] = nv
+                    
+                    if upd:
+                        supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
+                        mods += 1
+            
+            if mods:
+                st.markdown(f'<div class="msg msg-success">✅ {mods} registros actualizados.</div>', unsafe_allow_html=True)
+                st.rerun()
+            else:
+                st.info("Sin cambios detectados.")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 3 — Solicitar Actas
+# ══════════════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("#### Solicitar Actas a Central")
+    st.markdown("""<div class="msg msg-info">
+    Muestra empresas con <strong>LEG + VTO asignados</strong> y <strong>MAIL ENVIADO = NO</strong>.
+    Al confirmar se registra la solicitud.
+    </div>""", unsafe_allow_html=True)
+
+    try:
+        datos3 = (supabase.table("padron_deuda_presunta")
+                  .select("id,cuit,razon_social,leg,vto,mail_enviado,estado_gestion")
+                  .eq("mail_enviado","NO")
+                  .not_.is_("leg","null")
+                  .not_.is_("vto","null")
+                  .execute())
+
+        if datos3.data:
+            df3 = pd.DataFrame(datos3.data)
+            st.caption(f"📧 {len(df3)} empresas listas para solicitar actas.")
+            dm = df3[['cuit','razon_social','leg','vto']].copy()
+            dm['vto'] = dm['vto'].apply(fmt_fecha)
+            st.dataframe(dm, use_container_width=True, height=400)
+
+            if st.button("📧 Confirmar solicitud", type="primary"):
+                with st.spinner("Actualizando..."):
+                    for _, r in df3.iterrows():
+                        supabase.table("padron_deuda_presunta") \
+                            .update({"mail_enviado":"SI","estado_gestion":"ACTA_SOLICITADA"}) \
+                            .eq("id", r['id']).execute()
+                st.markdown(f'<div class="msg msg-success">✅ Solicitud registrada para {len(df3)} empresas.</div>', unsafe_allow_html=True)
+        else:
+            st.info("No hay registros listos.")
+    except Exception as e:
+        st.error(str(e))
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 4 — Subir Actas
+# ══════════════════════════════════════════════════════════════════
+with tab4:
+    st.markdown("#### Subir Archivo de Actas (CSV)")
+    st.markdown("""<div class="msg msg-info">
+    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
+    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
+    </div>""", unsafe_allow_html=True)
+
+    csv_file = st.file_uploader("Archivo CSV", type=["csv"], key="upload_actas")
+
+    if csv_file:
+        st.caption(f"Archivo: **{csv_file.name}**")
+
+        try:
+            df_prev4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+            with st.expander("Vista previa (5 primeras filas)"):
+                st.dataframe(df_prev4.head(5), use_container_width=True, height=200)
+        except Exception:
+            pass
+
+        if st.button("📋 Procesar y actualizar actas", type="primary"):
+            with st.spinner("Procesando..."):
+                try:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+                except Exception:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
+
+                df4.columns = [str(c).strip().upper() for c in df4.columns]
+
+                col_cuit = col_leg = col_vto = col_acta = None
+                for c in df4.columns:
+                    cu = c.upper()
+                    if 'CUIT' in cu and not col_cuit:         col_cuit = c
+                    if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
+                    if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
+                    if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
+
+                if not all([col_cuit, col_leg, col_vto]):
+                    st.error(f"Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
+                else:
+                    st.caption(f"Columnas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                    actualizados = no_enc = 0
+                    bar = st.progress(0)
+
+                    for i, row in df4.iterrows():
+                        cuit = limpiar_cuit(row[col_cuit])
+                        leg  = limpiar_str(row[col_leg])
+                        vto  = norm_fecha(row[col_vto])
+                        acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+
+                        if cuit and leg and vto:
+                            try:
+                                res = (supabase.table("padron_deuda_presunta")
+                                       .select("id")
+                                       .eq("cuit", cuit)
+                                       .eq("leg",  leg)
+                                       .eq("vto",  vto)
+                                       .eq("mail_enviado","SI")
+                                       .execute())
+                                if res.data:
+                                    for reg in res.data:
+                                        supabase.table("padron_deuda_presunta") \
+                                            .update({"acta": acta, "estado_gestion":"FINALIZADO"}) \
+                                            .eq("id", reg['id']).execute()
+                                    actualizados += len(res.data)
+                                else:
+                                    no_enc += 1
+                            except Exception as e:
+                                st.error(f"Error fila {i}: {e}")
+
+                        bar.progress((i + 1) / len(df4))
+
+                    bar.empty()
+                    ca4, cb4 = st.columns(2)
+                    ca4.metric("✅ Actualizados", actualizados)
+                    cb4.metric("❌ No encontrados", no_enc)
+
+                    if no_enc:
+                        st.markdown(f'<div class="msg msg-warning">⚠️ {no_enc} filas sin coincidencia. '
+                                     'Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado.</div>',
+                                     unsafe_allow_html=True)
