@@ -43,16 +43,6 @@ div[data-testid="stButton"] > button[kind="primary"] {
     color: #fff !important;
 }
 div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8 !important; }
-.btn-danger div[data-testid="stButton"] > button {
-    background: #7f1d1d !important;
-    border-color: #991b1b !important;
-    color: #fca5a5 !important;
-}
-.btn-success div[data-testid="stButton"] > button {
-    background: #065f46 !important;
-    border-color: #059669 !important;
-    color: #a7f3d0 !important;
-}
 #MainMenu, footer, header { display: none !important; }
 div[data-testid="stTextInput"] input,
 div[data-testid="stSelectbox"] > div { font-size: 0.8rem !important; padding: 0.2rem 0.5rem !important; }
@@ -169,146 +159,72 @@ def limpiar_entero(v):
     except Exception:
         return None
 
-# ── Datos de inspectores para asignación automática ────────────────────────────
-INSPECTORES_POR_LOCALIDAD = {
-    "RODRIGUEZ MAXIMILIANO": {"legajo": "7713", "localidades": [
-        "MAR DE AJO", "SAN BERNARDO", "COSTA AZUL", "LA LUCILA DEL MAR",
-        "NUEVA ATLANTIS", "AGUAS VERDES", "GRAL. MADARIAGA", "SANTA CLARA DEL MAR",
-        "MAR DE COBO", "BALNEARIO MAR CHIQUITA"
-    ]},
-    "POLINESSI JUAN JOSE": {"legajo": "9513", "localidades": [
-        "VILLA GESELL", "MAR DE LAS PAMPAS", "MAR AZUL", "MIRAMAR",
-        "CMTE. NICANOR OTAMENDI", "MECHONGUE", "SIERRA DE LOS PADRES", "ESTACION CAMET"
-    ]},
-    "LOPEZ MARTIN": {"legajo": "9983", "localidades": [
-        "SANTA TERESITA", "MAR DEL TUYU", "COSTA DEL ESTE", "LAS TONINAS", "BATAN"
-    ]},
-    "CARBAYO VICTOR HUGO": {"legajo": "9220", "localidades": [
-        "VIVORATA", "CNEL. VIDAL", "GRAL. PIRAN", "LAS ARMAS", "MAIPU",
-        "LABARDEN", "GRAL. GUIDO", "DOLORES", "CASTELLI", "GRAL. CONESA"
-    ]},
-    "GARCIA JUAN PAULO": {"legajo": "7952", "localidades": [
-        "PINAMAR", "CARILO", "OSTENDE", "VALERIA DEL MAR",
-        "SAN CLEMENTE DEL TUYU", "GRAL. LAVALLE", "CHAPADMALAL"
-    ]}
-}
-
-INSPECTORES_CALLES_MDQ = {
-    "GARCIA JUAN PAULO": {"legajo": "7952", "calles": [
-        ("COLON", "PAR", 2000, 2500), ("SAN JUAN", "PAR", 2100, 5400),
-        ("PEHUAJO", "PAR", 2100, 5400), ("INDEPENDENCIA", "IMPAR", 2100, 3500),
-        ("J.P. RAMOS", "IMPAR", 3500, 5400), ("MARIO BRAVO", "AMBOS", 2000, 2500),
-        ("H. YRIGOYEN", "PAR", 1600, 2100), ("SAN LUIS", "IMPAR", 1600, 2100),
-        ("COLON", "IMPAR", 1600, 1800), ("P.P. RAMOS", "AMBOS", 1600, 1800),
-        ("ACHA", "PAR", 3500, 5400), ("J.B. JUSTO", "AMBOS", 0, 500),
-        ("MARIO BRAVO", "AMBOS", 0, 500), ("TRABAJADORES", "AMBOS", 3500, 5400),
-        ("RUTA 11", "AMBOS", 5400, 9000), ("CALLE 515", "AMBOS", 0, 3000),
-        ("JORGE NEWBERY", "AMBOS", 5400, 9000), ("SALTA", "AMBOS", 2100, 5300),
-        ("JUJUY", "AMBOS", 2100, 5300), ("ESPAÑA", "AMBOS", 2100, 5300),
-        ("20 SEPTIEMBRE", "AMBOS", 2100, 5300), ("14 JULIO", "AMBOS", 2100, 5300),
-        ("DORREGO", "AMBOS", 2100, 5300), ("GUIDO", "AMBOS", 2100, 5300),
-        ("FUNES", "AMBOS", 2100, 5300), ("OLAZABAL", "AMBOS", 2100, 5300),
-        ("ALMIRANTE BROWN", "AMBOS", 2100, 5300), ("FALUCHO", "AMBOS", 2100, 5300),
-        ("GASCON", "AMBOS", 2100, 5300), ("ALBERTI", "AMBOS", 2100, 5300),
-        ("MATHEU", "AMBOS", 2100, 5300), ("QUINTANA", "AMBOS", 2100, 5300),
-        ("SAAVEDRA", "AMBOS", 2100, 5300), ("ROCA", "AMBOS", 2100, 5300),
-        ("PEÑA", "AMBOS", 2100, 5300), ("PRIMERA JUNTA", "AMBOS", 2100, 5300),
-        ("RODRIGUEZ PEÑA", "AMBOS", 2100, 5300), ("LAPRIDA", "AMBOS", 2100, 5300),
-        ("AZCUENAGA", "AMBOS", 2100, 5300), ("LARREA", "AMBOS", 2100, 5300),
-        ("VIEYTES", "AMBOS", 2100, 5300), ("PASO", "AMBOS", 2100, 5300),
-        ("CASTELLI", "AMBOS", 2100, 5300), ("GARAY", "AMBOS", 2100, 5300),
-        ("RAWSON", "AMBOS", 2100, 5300), ("MITRE", "AMBOS", 1600, 2000),
-        ("SAN MARTIN", "AMBOS", 1600, 2000), ("RIVADAVIA", "AMBOS", 1600, 2000),
-        ("BELGRANO", "AMBOS", 1600, 2000), ("MORENO", "AMBOS", 1600, 2000),
-        ("BOLIVAR", "AMBOS", 1600, 2000), ("POSADAS", "AMBOS", 3600, 5300),
-        ("RONDEAU", "AMBOS", 3600, 5300), ("BERMEJO", "AMBOS", 3600, 5300),
-        ("FIGUEROA ALCORTA", "AMBOS", 3600, 5300), ("MARTINEZ DE HOZ", "AMBOS", 3600, 5300),
-        ("SOLIS", "AMBOS", 3600, 5300), ("GABOTO", "AMBOS", 3600, 5300),
-        ("ELCANO", "AMBOS", 3600, 5300), ("MAGALLANES", "AMBOS", 3600, 5300),
-        ("12 DE OCTUBRE", "AMBOS", 3600, 5300), ("AYOLAS", "AMBOS", 3600, 5300),
-        ("IRALA", "AMBOS", 3600, 5300), ("VERTIZ", "AMBOS", 3600, 5300),
-        ("AZOPARDO", "AMBOS", 3600, 5300), ("BOUCHARD", "AMBOS", 3600, 5300),
-        ("PIEDRABUENA", "AMBOS", 3600, 5300), ("RODRIGUEZ", "AMBOS", 3600, 5300),
-        ("BESTO", "AMBOS", 3600, 5300), ("TRIPULANTES DEL FOURNIER", "AMBOS", 3600, 5300),
-        ("ROSALES", "AMBOS", 3600, 5300), ("FORTUNATO DE LA PLAZA", "AMBOS", 3600, 5300),
-        ("LEBENSOHN", "AMBOS", 3600, 5300), ("MALABIA", "AMBOS", 3600, 5300),
-        ("ARANA Y GOIRI", "AMBOS", 3600, 5300), ("ORTIZ DE ZARATE", "AMBOS", 3600, 5300),
-        ("GUANAHANI", "AMBOS", 3600, 5300), ("DON ARTURO", "AMBOS", 5500, 8900),
-        ("MARGARITAS", "AMBOS", 5500, 8900), ("JAZMINES", "AMBOS", 5500, 8900),
-        ("LOS ALERCES", "AMBOS", 5500, 8900), ("LOS SAUCES", "AMBOS", 5500, 8900)
-    ]},
-    "CARBAYO VICTOR HUGO": {"legajo": "9220", "calles": [
-        ("COLON", "PAR", 2199, 3199), ("BUENOS AIRES", "IMPAR", 2201, 4499),
-        ("SAN LUIS", "IMPAR", 2199, 3199), ("INDEPENDENCIA", "PAR", 2201, 4499),
-        ("SALTA", "AMBOS", 2100, 5300), ("JUJUY", "AMBOS", 2100, 5300),
-        ("ESPAÑA", "AMBOS", 2100, 5300), ("20 SEPTIEMBRE", "AMBOS", 2100, 5300),
-        ("14 JULIO", "AMBOS", 2100, 5300), ("DORREGO", "AMBOS", 2100, 5300),
-        ("GUIDO", "AMBOS", 2100, 5300), ("FUNES", "AMBOS", 2100, 5300),
-        ("OLAZABAL", "AMBOS", 2100, 5300), ("ALMIRANTE BROWN", "AMBOS", 2100, 5300),
-        ("FALUCHO", "AMBOS", 2100, 5300), ("GASCON", "AMBOS", 2100, 5300),
-        ("ALBERTI", "AMBOS", 2100, 5300), ("MATHEU", "AMBOS", 2100, 5300),
-        ("QUINTANA", "AMBOS", 2100, 5300), ("SAAVEDRA", "AMBOS", 2100, 5300),
-        ("ROCA", "AMBOS", 2100, 5300), ("PEÑA", "AMBOS", 2100, 5300),
-        ("PRIMERA JUNTA", "AMBOS", 2100, 5300), ("RODRIGUEZ PEÑA", "AMBOS", 2100, 5300),
-        ("LAPRIDA", "AMBOS", 2100, 5300), ("AZCUENAGA", "AMBOS", 2100, 5300),
-        ("LARREA", "AMBOS", 2100, 5300), ("VIEYTES", "AMBOS", 2100, 5300),
-        ("PASO", "AMBOS", 2100, 5300), ("CASTELLI", "AMBOS", 2100, 5300),
-        ("GARAY", "AMBOS", 2100, 5300), ("RAWSON", "AMBOS", 2100, 5300)
-    ]},
-    "RODRIGUEZ MAXIMILIANO": {"legajo": "7713", "calles": [
-        ("CATAMARCA", "IMPAR", 500, 2100), ("COLON", "IMPAR", 3500, 3100),
-        ("JARA", "PAR", 1, 9999), ("TEJEDOR CARLOS", "PAR", 1, 9999),
-        ("PATRICIO PERALTA RAMOS", "AMBOS", 1, 9999), ("FELIX U. CAMET", "AMBOS", 1, 9999),
-        ("MITRE", "AMBOS", 1600, 2000), ("SAN MARTIN", "AMBOS", 1600, 2000),
-        ("RIVADAVIA", "AMBOS", 1600, 2000), ("BELGRANO", "AMBOS", 1600, 2000),
-        ("MORENO", "AMBOS", 1600, 2000), ("BOLIVAR", "AMBOS", 1600, 2000)
-    ]},
-    "POLINESSI JUAN JOSE": {"legajo": "9513", "calles": [
-        ("COLON", "IMPAR", 6301, 9999), ("CHAMPAGNAT", "IMPAR", 2199, 9999),
-        ("CATAMARCA", "PAR", 2198, 3098), ("H. YRIGOYEN", "IMPAR", 2199, 9999),
-        ("PATRICIO PERALTA RAMOS", "AMBOS", 1, 9999), ("FELIX U. CAMET", "AMBOS", 1, 9999),
-        ("DON ARTURO", "AMBOS", 5500, 8900), ("MARGARITAS", "AMBOS", 5500, 8900),
-        ("JAZMINES", "AMBOS", 5500, 8900), ("LOS ALERCES", "AMBOS", 5500, 8900),
-        ("LOS SAUCES", "AMBOS", 5500, 8900)
-    ]},
-    "LOPEZ MARTIN": {"legajo": "9983", "calles": [
-        ("COLON", "IMPAR", 1, 9999), ("SAN LUIS", "PAR", 1, 9999),
-        ("PATRICIO PERALTA RAMOS", "AMBOS", 1, 9999), ("SANTA FE", "IMPAR", 1, 9999),
-        ("POSADAS", "AMBOS", 3600, 5300), ("RONDEAU", "AMBOS", 3600, 5300),
-        ("BERMEJO", "AMBOS", 3600, 5300), ("FIGUEROA ALCORTA", "AMBOS", 3600, 5300),
-        ("MARTINEZ DE HOZ", "AMBOS", 3600, 5300), ("SOLIS", "AMBOS", 3600, 5300),
-        ("GABOTO", "AMBOS", 3600, 5300), ("ELCANO", "AMBOS", 3600, 5300),
-        ("MAGALLANES", "AMBOS", 3600, 5300), ("12 DE OCTUBRE", "AMBOS", 3600, 5300),
-        ("AYOLAS", "AMBOS", 3600, 5300), ("IRALA", "AMBOS", 3600, 5300),
-        ("VERTIZ", "AMBOS", 3600, 5300), ("AZOPARDO", "AMBOS", 3600, 5300),
-        ("BOUCHARD", "AMBOS", 3600, 5300), ("PIEDRABUENA", "AMBOS", 3600, 5300),
-        ("RODRIGUEZ", "AMBOS", 3600, 5300), ("BESTO", "AMBOS", 3600, 5300),
-        ("TRIPULANTES DEL FOURNIER", "AMBOS", 3600, 5300), ("ROSALES", "AMBOS", 3600, 5300),
-        ("FORTUNATO DE LA PLAZA", "AMBOS", 3600, 5300), ("LEBENSOHN", "AMBOS", 3600, 5300),
-        ("MALABIA", "AMBOS", 3600, 5300), ("ARANA Y GOIRI", "AMBOS", 3600, 5300),
-        ("ORTIZ DE ZARATE", "AMBOS", 3600, 5300), ("GUANAHANI", "AMBOS", 3600, 5300)
-    ]}
-}
+# ── FUNCIONES DE NORMALIZACIÓN ────────────────────────────────────────────────
+def normalizar_localidad(localidad):
+    if not localidad:
+        return ""
+    localidad = localidad.upper().strip()
+    reemplazos = {
+        "BLNRIO": "BALNEARIO",
+        "GRAL": "GENERAL",
+        "CNEL": "CORONEL",
+        "CTE": "COMANDANTE",
+        "BS. AS.": "",
+        "BS AS": "",
+        "PTE": "PRESIDENTE",
+        "DR": "DOCTOR",
+        "ING": "INGENIERO",
+        "STA": "SANTA",
+        "SAN": "SANTO",
+    }
+    for abrev, completo in reemplazos.items():
+        localidad = localidad.replace(abrev, completo)
+    localidad = re.sub(r'\s+', ' ', localidad)
+    localidad = localidad.replace('(', '').replace(')', '')
+    return localidad.strip()
 
 def normalizar_calle(calle):
+    if not calle:
+        return ""
     calle = calle.upper().strip()
-    for prefijo in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/']:
+    parentesis = re.search(r'\(([^)]+)\)', calle)
+    if parentesis:
+        calle = parentesis.group(1)
+    for prefijo in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/', 'RUTA ', 'RP ']:
         if calle.startswith(prefijo):
             calle = calle[len(prefijo):]
     for sufijo in [' AV', ' AV.', ' AVENIDA']:
         if calle.endswith(sufijo):
             calle = calle[:-len(sufijo)]
+    calle = re.sub(r'^\d+\s+', '', calle)
+    calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
+# ── FUNCIÓN DE ASIGNACIÓN DE LEGAJO (LEE DESDE SUPABASE) ──────────────────────
+@st.cache_data(ttl=300)
+def cargar_inspectores_localidad():
+    resultado = supabase.table("inspectores_localidad").select("*").execute()
+    return resultado.data if resultado.data else []
+
+@st.cache_data(ttl=300)
+def cargar_zonas_inspectores():
+    resultado = supabase.table("zonas_inspectores").select("*").execute()
+    return resultado.data if resultado.data else []
+
 def asignar_legajo_por_direccion(localidad, calle, numero):
-    if localidad.upper() != "MAR DEL PLATA":
-        for inspector, data in INSPECTORES_POR_LOCALIDAD.items():
-            for loc in data["localidades"]:
-                if loc == localidad.upper():
-                    return data["legajo"]
+    localidad_norm = normalizar_localidad(localidad)
+    calle_norm = normalizar_calle(calle)
+    
+    # 1. Si la localidad NO es MAR DEL PLATA → buscar en inspectores_localidad
+    if localidad_norm != "MAR DEL PLATA":
+        inspectores_localidad = cargar_inspectores_localidad()
+        for item in inspectores_localidad:
+            if normalizar_localidad(item['localidad']) == localidad_norm:
+                return item['legajo']
         return None
     
-    if not calle or not numero:
+    # 2. Es MAR DEL PLATA → buscar por calle
+    if not calle_norm or not numero:
         return None
     
     try:
@@ -317,18 +233,13 @@ def asignar_legajo_por_direccion(localidad, calle, numero):
         return None
     
     lado = "PAR" if numero_limpio % 2 == 0 else "IMPAR"
-    calle_norm = normalizar_calle(calle)
     
-    for inspector, data in INSPECTORES_CALLES_MDQ.items():
-        for calle_data in data["calles"]:
-            calle_zona = normalizar_calle(calle_data[0])
-            if calle_zona == calle_norm:
-                lado_zona = calle_data[1]
-                desde = calle_data[2]
-                hasta = calle_data[3]
-                if lado_zona == "AMBOS" or lado_zona == lado:
-                    if desde <= numero_limpio <= hasta:
-                        return data["legajo"]
+    zonas = cargar_zonas_inspectores()
+    for zona in zonas:
+        if normalizar_calle(zona['calle']) == calle_norm:
+            if zona['lado'] == "AMBOS" or zona['lado'] == lado:
+                if zona['altura_desde'] <= numero_limpio <= zona['altura_hasta']:
+                    return zona['legajo']
     return None
 
 # ── Datos cacheados ───────────────────────────────────────────────────────────
@@ -425,11 +336,12 @@ def procesar_excel(archivo):
     return out
 
 # ==================== CREAR PESTAÑAS ====================
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
     "📧 Solicitar Actas",
     "📋 Subir Actas",
+    "🔍 Buscador de Calles",
 ])
 
 # ══════════════════════════════════════════════════════════════════
@@ -487,16 +399,15 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (con botón de asignación y filtros)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
     
-    # ── CARTEL GRANDE CON TOTAL DE REGISTROS (CONTEO REAL) ─────────
+    # ── CARTELES ────────────────────────────────────────────────
     total_registros_db = supabase.table("padron_deuda_presunta").select("id", count="exact").execute()
     total_general = total_registros_db.count
     
-    # Contar CON LEGAJO (leg no es null)
     con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute()
     con_legajo_count = con_legajo.count
     
@@ -527,7 +438,7 @@ with tab2:
     
     st.markdown("---")
     
-    # ── Barra de acciones (con botón verde de Asignar Legajos VISIBLE) ──
+    # ── BOTONES ─────────────────────────────────────────────────
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
@@ -636,7 +547,7 @@ with tab2:
     
     st.markdown("---")
     
-    # ── FILTROS ────────────────────────────────────────────────────
+    # ── FILTROS ─────────────────────────────────────────────────
     f1, f2, f3, f4, f5 = st.columns([1.5, 1.5, 1.5, 1, 1])
     with f1:
         filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
@@ -891,3 +802,54 @@ with tab4:
                         st.markdown(f'<div class="msg msg-warning">⚠️ {no_enc} filas sin coincidencia. '
                                      'Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado.</div>',
                                      unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — BUSCADOR DE CALLES
+# ══════════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown("#### 🔍 Buscador de Calles")
+    st.markdown("""<div class="msg msg-info">
+    Buscá una calle para ver a qué inspector corresponde y cuántos registros hay sin legajo.
+    </div>""", unsafe_allow_html=True)
+    
+    busqueda_calle = st.text_input("Escribí el nombre de una calle:", placeholder="Ej: COLON, SAN MARTIN, 12 DE OCTUBRE")
+    
+    if busqueda_calle:
+        busqueda_norm = normalizar_calle(busqueda_calle)
+        
+        # Buscar a qué inspector pertenece (desde Supabase)
+        zonas = supabase.table("zonas_inspectores").select("*").execute()
+        inspector_encontrado = None
+        for zona in zonas.data:
+            if normalizar_calle(zona['calle']) == busqueda_norm:
+                # Obtener nombre del inspector
+                insp = supabase.table("inspectores").select("nombre").eq("legajo", zona['legajo']).execute()
+                if insp.data:
+                    inspector_encontrado = f"{insp.data[0]['nombre']} (Legajo {zona['legajo']})"
+                    break
+        
+        if inspector_encontrado:
+            st.success(f"✅ La calle **{busqueda_calle.upper()}** pertenece al inspector **{inspector_encontrado}**")
+        else:
+            st.warning(f"⚠️ La calle **{busqueda_calle.upper()}** no está asignada a ningún inspector")
+        
+        # Buscar registros en la base con esa calle
+        registros_calle = supabase.table("padron_deuda_presunta").select("*").ilike("calle", f"%{busqueda_calle}%").execute()
+        
+        if registros_calle.data:
+            df_calle = pd.DataFrame(registros_calle.data)
+            st.markdown(f"### 📋 Registros encontrados con la calle '{busqueda_calle.upper()}': {len(df_calle)}")
+            
+            sin_legajo_calle = df_calle[df_calle['leg'].isna()]
+            con_legajo_calle = df_calle[df_calle['leg'].notna()]
+            
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                st.metric("Con legajo", len(con_legajo_calle))
+            with col_c2:
+                st.metric("Sin legajo", len(sin_legajo_calle))
+            
+            with st.expander("Ver detalles"):
+                st.dataframe(df_calle[['localidad', 'calle', 'numero', 'leg', 'razon_social']], use_container_width=True)
+        else:
+            st.info(f"No se encontraron registros con la calle '{busqueda_calle}'")
