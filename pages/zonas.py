@@ -35,23 +35,30 @@ def normalizar_localidad(loc):
     if not loc:
         return ""
     loc = loc.upper().strip()
-    reemplazos = {"BLNRIO": "BALNEARIO", "GRAL": "GENERAL", "CNEL": "CORONEL", "CTE": "COMANDANTE", "BS. AS.": "", "BS AS": ""}
-    for a, b in reemplazos.items():
-        loc = loc.replace(a, b)
-    loc = re.sub(r'\s+', ' ', loc).replace('(', '').replace(')', '')
+    loc = re.sub(r'\([^)]*\)', '', loc)
+    loc = loc.replace('.', '')
+    loc = re.sub(r'\s+', ' ', loc)
+    reemplazos = {
+        "GRAL": "GENERAL", "CNEL": "CORONEL", "CTE": "COMANDANTE", "CMTE": "COMANDANTE",
+        "DR": "DOCTOR", "ING": "INGENIERO", "PTE": "PRESIDENTE", "STA": "SANTA",
+        "BLNRIO": "BALNEARIO", "BALNEARIO": "BALNEARIO"
+    }
+    for abrev, completo in reemplazos.items():
+        loc = loc.replace(abrev, completo)
     return loc.strip()
 
 def normalizar_calle(calle):
     if not calle:
         return ""
     calle = calle.upper().strip()
-    par = re.search(r'\(([^)]+)\)', calle)
-    if par:
-        calle = par.group(1)
-    for p in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/']:
-        if calle.startswith(p):
-            calle = calle[len(p):]
+    parentesis = re.search(r'\(([^)]+)\)', calle)
+    if parentesis:
+        calle = parentesis.group(1)
+    for prefijo in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/', 'RUTA ', 'RP ']:
+        if calle.startswith(prefijo):
+            calle = calle[len(prefijo):]
     calle = re.sub(r'^\d+\s+', '', calle)
+    calle = calle.replace('.', '')
     calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
@@ -65,8 +72,7 @@ with tab1:
         with st.form("form_inspector"):
             nombre = st.text_input("Nombre", key="nombre_inspector")
             legajo = st.text_input("Legajo", key="legajo_inspector")
-            submitted = st.form_submit_button("Guardar")
-            if submitted:
+            if st.form_submit_button("Guardar"):
                 if nombre and legajo:
                     supabase.table("inspectores").insert({"nombre": nombre, "legajo": legajo}).execute()
                     st.success("Agregado")
@@ -86,7 +92,7 @@ with tab1:
 
 # ==================== TAB 2: LOCALIDADES ====================
 with tab2:
-    st.markdown("### 📍 Localidades (fuera de MDQ)")
+    st.markdown("### 📍 Localidades")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
@@ -95,13 +101,20 @@ with tab2:
         opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
         legajo_sel = st.selectbox("Seleccionar inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0], key="sel_legajo_localidad")
         
-        with st.expander("➕ Agregar localidad"):
+        with st.expander("➕ Agregar localidad (separar variantes con /)"):
             with st.form("form_localidad"):
-                localidad = st.text_input("Localidad", key="nueva_localidad")
-                submitted = st.form_submit_button("Guardar")
-                if submitted and localidad:
-                    supabase.table("inspectores_localidad").insert({"legajo": legajo_sel, "localidad": normalizar_localidad(localidad)}).execute()
-                    st.rerun()
+                localidades = st.text_area("Localidades (ej: BATAN / BARRIO BATAN)", key="nuevas_localidades")
+                if st.form_submit_button("Guardar"):
+                    if localidades:
+                        for loc in localidades.split('/'):
+                            loc = loc.strip()
+                            if loc:
+                                supabase.table("inspectores_localidad").insert({
+                                    "legajo": legajo_sel,
+                                    "localidad": normalizar_localidad(loc)
+                                }).execute()
+                        st.success("Localidades agregadas")
+                        st.rerun()
         
         localidades = supabase.table("inspectores_localidad").select("*").eq("legajo", legajo_sel).order("localidad").execute()
         if localidades.data:
@@ -126,6 +139,7 @@ with tab3:
         legajo_sel = st.selectbox("Seleccionar inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0], key="sel_legajo_calles")
         
         with st.expander("➕ Agregar calles (formato: Calle (P) 2000-2500)"):
+            st.caption("Podés agregar varias calles separadas por '/' (ej: BELGRANO / BELGRA / BELG)")
             bloque = st.text_area("Pegá el bloque de calles", height=100, key="bloque_calles")
             
             if st.button("Previsualizar", key="btn_preview"):
@@ -181,12 +195,41 @@ with tab3:
             
             st.markdown("#### Eliminar calles")
             for zona in zonas.data:
-                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
                 col1.write(zona['calle'])
                 col2.write(zona['lado'])
                 col3.write(f"{zona['altura_desde']}-{zona['altura_hasta']}")
-                if col4.button("🗑️", key=f"del_calle_{zona['id']}"):
+                if col4.button("✏️", key=f"edit_calle_{zona['id']}"):
+                    st.session_state.editando_calle = zona
+                if col5.button("🗑️", key=f"del_calle_{zona['id']}"):
                     supabase.table("zonas_inspectores").delete().eq("id", zona['id']).execute()
+                    st.rerun()
+            
+            # Editar calle (para agregar variantes)
+            if st.session_state.get('editando_calle'):
+                st.markdown("### ✏️ Agregar variantes a esta calle")
+                editando = st.session_state.editando_calle
+                st.write(f"Calle original: **{editando['calle']}** (Lado: {editando['lado']}, Altura: {editando['altura_desde']}-{editando['altura_hasta']})")
+                
+                nuevas_variantes = st.text_input("Nuevas variantes (separadas por /)", placeholder="Ej: BELGRA / BELG")
+                if st.button("Agregar variantes"):
+                    if nuevas_variantes:
+                        for var in nuevas_variantes.split('/'):
+                            var = var.strip().upper()
+                            if var:
+                                supabase.table("zonas_inspectores").insert({
+                                    "legajo": editando['legajo'],
+                                    "calle": var,
+                                    "lado": editando['lado'],
+                                    "altura_desde": editando['altura_desde'],
+                                    "altura_hasta": editando['altura_hasta']
+                                }).execute()
+                        st.success("Variantes agregadas")
+                        del st.session_state.editando_calle
+                        st.rerun()
+                
+                if st.button("Cancelar edición"):
+                    del st.session_state.editando_calle
                     st.rerun()
         else:
             st.info("No hay calles cargadas")
