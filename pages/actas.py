@@ -69,7 +69,7 @@ div[data-testid="stSelectbox"] > div { font-size: 0.8rem !important; padding: 0.
     text-align: center;
     border: 1px solid #3b82f6;
 }
-.big-number h1 { margin: 0; font-size: 2rem; color: #3b82f6; }
+.big-number h1 { margin: 0; font-size: 1.8rem; color: #3b82f6; }
 .big-number p { margin: 0; font-size: 0.7rem; color: #94a3b8; }
 </style>
 """, unsafe_allow_html=True)
@@ -492,11 +492,15 @@ with tab1:
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
     
-    # ── CARTEL GRANDE CON TOTAL DE REGISTROS ──────────────────────
+    # ── CARTEL GRANDE CON TOTAL DE REGISTROS (CONTEO REAL) ─────────
     total_registros_db = supabase.table("padron_deuda_presunta").select("id", count="exact").execute()
     total_general = total_registros_db.count
+    
+    # Contar CON LEGAJO (leg no es null)
     con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute()
-    sin_legajo_total = total_general - con_legajo.count
+    con_legajo_count = con_legajo.count
+    
+    sin_legajo_total = total_general - con_legajo_count
     
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
@@ -509,7 +513,7 @@ with tab2:
     with col_t2:
         st.markdown(f"""
         <div class="big-number">
-            <h1>{con_legajo.count}</h1>
+            <h1>{con_legajo_count}</h1>
             <p>CON LEGAJO</p>
         </div>
         """, unsafe_allow_html=True)
@@ -523,10 +527,10 @@ with tab2:
     
     st.markdown("---")
     
-    # ── Barra de acciones compacta (con nuevo botón de asignación) ──
-    c1, c2, c3, c4, c5 = st.columns(5)
-    with c1:
-        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+    # ── Barra de acciones (con botón verde de Asignar Legajos VISIBLE) ──
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
         if st.button("🗑 Eliminar seleccionados", key="btn_del_sel"):
             ids = st.session_state.get('ids_a_eliminar', [])
             if ids:
@@ -535,24 +539,23 @@ with tab2:
                 st.rerun()
             else:
                 st.warning("Nada seleccionado.")
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c2:
-        st.markdown('<div class="btn-danger">', unsafe_allow_html=True)
+    
+    with col2:
         if st.button("🗑 Eliminar TODO", key="btn_del_todo"):
             st.session_state.confirmar_del_todo = True
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c3:
-        st.markdown('<div class="btn-success">', unsafe_allow_html=True)
+    
+    with col3:
         if st.button("🤖 Asignar Legajos", key="btn_asignar_legajos"):
             st.session_state.asignar_legajos = True
-        st.markdown('</div>', unsafe_allow_html=True)
-    with c4:
+    
+    with col4:
         if st.button("↺ Resetear filtros", key="btn_reset"):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
                       'filtro_mail','filtro_leg','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
-    with c5:
+    
+    with col5:
         if st.button("⟳ Recargar", key="btn_reload"):
             st.rerun()
     
@@ -633,7 +636,7 @@ with tab2:
     
     st.markdown("---")
     
-    # ── FILTROS (con nuevo filtro de LEG) ─────────────────────────
+    # ── FILTROS ────────────────────────────────────────────────────
     f1, f2, f3, f4, f5 = st.columns([1.5, 1.5, 1.5, 1, 1])
     with f1:
         filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
