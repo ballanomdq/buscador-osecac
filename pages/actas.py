@@ -404,14 +404,10 @@ with tab1:
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
     
-    # ── CARTELES ────────────────────────────────────────────────
-    total_registros_db = supabase.table("padron_deuda_presunta").select("id", count="exact").execute()
-    total_general = total_registros_db.count
-    
-    con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute()
-    con_legajo_count = con_legajo.count
-    
-    sin_legajo_total = total_general - con_legajo_count
+    # ── CARTELES CON CONTEO REAL ────────────────────────────────
+    total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
+    con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
+    sin_legajo_total = total_general - con_legajo
     
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
@@ -424,7 +420,7 @@ with tab2:
     with col_t2:
         st.markdown(f"""
         <div class="big-number">
-            <h1>{con_legajo_count}</h1>
+            <h1>{con_legajo}</h1>
             <p>CON LEGAJO</p>
         </div>
         """, unsafe_allow_html=True)
@@ -485,15 +481,32 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
     
-    # Proceso de asignación de legajos
+    # Proceso de asignación de legajos (CON PAGINACIÓN PARA TRAER TODOS)
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Asignando legajos automáticamente..."):
-            registros_sin_legajo = supabase.table("padron_deuda_presunta").select("*").is_("leg", "null").execute()
+            # Traer TODOS los registros sin legajo usando paginación
+            todos_sin_legajo = []
+            offset = 0
+            batch_size = 1000
+            
+            while True:
+                batch = supabase.table("padron_deuda_presunta")\
+                    .select("*")\
+                    .is_("leg", "null")\
+                    .range(offset, offset + batch_size - 1)\
+                    .execute()
+                if not batch.data:
+                    break
+                todos_sin_legajo.extend(batch.data)
+                offset += batch_size
+                if len(batch.data) < batch_size:
+                    break
+            
             asignados = 0
             no_asignados = 0
             no_asignados_detalle = []
             
-            for reg in registros_sin_legajo.data:
+            for reg in todos_sin_legajo:
                 localidad = reg.get('localidad', '')
                 calle = reg.get('calle', '')
                 numero = reg.get('numero', '')
@@ -680,176 +693,4 @@ with tab2:
                 st.markdown(f'<div class="msg msg-success">✅ {mods} registros actualizados.</div>', unsafe_allow_html=True)
                 st.rerun()
             else:
-                st.info("Sin cambios detectados.")
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 3 — Solicitar Actas
-# ══════════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown("#### Solicitar Actas a Central")
-    st.markdown("""<div class="msg msg-info">
-    Muestra empresas con <strong>LEG + VTO asignados</strong> y <strong>MAIL ENVIADO = NO</strong>.
-    Al confirmar se registra la solicitud.
-    </div>""", unsafe_allow_html=True)
-
-    try:
-        datos3 = (supabase.table("padron_deuda_presunta")
-                  .select("id,cuit,razon_social,leg,vto,mail_enviado,estado_gestion")
-                  .eq("mail_enviado","NO")
-                  .not_.is_("leg","null")
-                  .not_.is_("vto","null")
-                  .execute())
-
-        if datos3.data:
-            df3 = pd.DataFrame(datos3.data)
-            st.caption(f"📧 {len(df3)} empresas listas para solicitar actas.")
-            dm = df3[['cuit','razon_social','leg','vto']].copy()
-            dm['vto'] = dm['vto'].apply(fmt_fecha)
-            st.dataframe(dm, use_container_width=True, height=400)
-
-            if st.button("📧 Confirmar solicitud", type="primary"):
-                with st.spinner("Actualizando..."):
-                    for _, r in df3.iterrows():
-                        supabase.table("padron_deuda_presunta") \
-                            .update({"mail_enviado":"SI","estado_gestion":"ACTA_SOLICITADA"}) \
-                            .eq("id", r['id']).execute()
-                st.markdown(f'<div class="msg msg-success">✅ Solicitud registrada para {len(df3)} empresas.</div>', unsafe_allow_html=True)
-        else:
-            st.info("No hay registros listos.")
-    except Exception as e:
-        st.error(str(e))
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 4 — Subir Actas
-# ══════════════════════════════════════════════════════════════════
-with tab4:
-    st.markdown("#### Subir Archivo de Actas (CSV)")
-    st.markdown("""<div class="msg msg-info">
-    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
-    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
-    </div>""", unsafe_allow_html=True)
-
-    csv_file = st.file_uploader("Archivo CSV", type=["csv"], key="upload_actas")
-
-    if csv_file:
-        st.caption(f"Archivo: **{csv_file.name}**")
-
-        try:
-            df_prev4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-            with st.expander("Vista previa (5 primeras filas)"):
-                st.dataframe(df_prev4.head(5), use_container_width=True, height=200)
-        except Exception:
-            pass
-
-        if st.button("📋 Procesar y actualizar actas", type="primary"):
-            with st.spinner("Procesando..."):
-                try:
-                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-                except Exception:
-                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
-
-                df4.columns = [str(c).strip().upper() for c in df4.columns]
-
-                col_cuit = col_leg = col_vto = col_acta = None
-                for c in df4.columns:
-                    cu = c.upper()
-                    if 'CUIT' in cu and not col_cuit:         col_cuit = c
-                    if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
-                    if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
-                    if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
-
-                if not all([col_cuit, col_leg, col_vto]):
-                    st.error(f"Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
-                else:
-                    st.caption(f"Columnas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
-                    actualizados = no_enc = 0
-                    bar = st.progress(0)
-
-                    for i, row in df4.iterrows():
-                        cuit = limpiar_cuit(row[col_cuit])
-                        leg  = limpiar_str(row[col_leg])
-                        vto  = norm_fecha(row[col_vto])
-                        acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
-
-                        if cuit and leg and vto:
-                            try:
-                                res = (supabase.table("padron_deuda_presunta")
-                                       .select("id")
-                                       .eq("cuit", cuit)
-                                       .eq("leg",  leg)
-                                       .eq("vto",  vto)
-                                       .eq("mail_enviado","SI")
-                                       .execute())
-                                if res.data:
-                                    for reg in res.data:
-                                        supabase.table("padron_deuda_presunta") \
-                                            .update({"acta": acta, "estado_gestion":"FINALIZADO"}) \
-                                            .eq("id", reg['id']).execute()
-                                    actualizados += len(res.data)
-                                else:
-                                    no_enc += 1
-                            except Exception as e:
-                                st.error(f"Error fila {i}: {e}")
-
-                        bar.progress((i + 1) / len(df4))
-
-                    bar.empty()
-                    ca4, cb4 = st.columns(2)
-                    ca4.metric("✅ Actualizados", actualizados)
-                    cb4.metric("❌ No encontrados", no_enc)
-
-                    if no_enc:
-                        st.markdown(f'<div class="msg msg-warning">⚠️ {no_enc} filas sin coincidencia. '
-                                     'Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado.</div>',
-                                     unsafe_allow_html=True)
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 5 — BUSCADOR DE CALLES
-# ══════════════════════════════════════════════════════════════════
-with tab5:
-    st.markdown("#### 🔍 Buscador de Calles")
-    st.markdown("""<div class="msg msg-info">
-    Buscá una calle para ver a qué inspector corresponde y cuántos registros hay sin legajo.
-    </div>""", unsafe_allow_html=True)
-    
-    busqueda_calle = st.text_input("Escribí el nombre de una calle:", placeholder="Ej: COLON, SAN MARTIN, 12 DE OCTUBRE")
-    
-    if busqueda_calle:
-        busqueda_norm = normalizar_calle(busqueda_calle)
-        
-        # Buscar a qué inspector pertenece (desde Supabase)
-        zonas = supabase.table("zonas_inspectores").select("*").execute()
-        inspector_encontrado = None
-        for zona in zonas.data:
-            if normalizar_calle(zona['calle']) == busqueda_norm:
-                # Obtener nombre del inspector
-                insp = supabase.table("inspectores").select("nombre").eq("legajo", zona['legajo']).execute()
-                if insp.data:
-                    inspector_encontrado = f"{insp.data[0]['nombre']} (Legajo {zona['legajo']})"
-                    break
-        
-        if inspector_encontrado:
-            st.success(f"✅ La calle **{busqueda_calle.upper()}** pertenece al inspector **{inspector_encontrado}**")
-        else:
-            st.warning(f"⚠️ La calle **{busqueda_calle.upper()}** no está asignada a ningún inspector")
-        
-        # Buscar registros en la base con esa calle
-        registros_calle = supabase.table("padron_deuda_presunta").select("*").ilike("calle", f"%{busqueda_calle}%").execute()
-        
-        if registros_calle.data:
-            df_calle = pd.DataFrame(registros_calle.data)
-            st.markdown(f"### 📋 Registros encontrados con la calle '{busqueda_calle.upper()}': {len(df_calle)}")
-            
-            sin_legajo_calle = df_calle[df_calle['leg'].isna()]
-            con_legajo_calle = df_calle[df_calle['leg'].notna()]
-            
-            col_c1, col_c2 = st.columns(2)
-            with col_c1:
-                st.metric("Con legajo", len(con_legajo_calle))
-            with col_c2:
-                st.metric("Sin legajo", len(sin_legajo_calle))
-            
-            with st.expander("Ver detalles"):
-                st.dataframe(df_calle[['localidad', 'calle', 'numero', 'leg', 'razon_social']], use_container_width=True)
-        else:
-            st.info(f"No se encontraron registros con la calle '{busqueda_calle}'")
+                st.info
