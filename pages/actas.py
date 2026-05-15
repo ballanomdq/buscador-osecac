@@ -128,110 +128,27 @@ def limpiar_para_comparar(texto):
         return ""
     return re.sub(r'\s+', ' ', str(texto).upper()).strip()
 
-# ── Normalización de calles (MEJORADA) ───────────────────────────────────────
-# Tabla de reemplazos aplicada ANTES de quitar caracteres especiales.
-# Orden importa: primero abreviaturas con punto, luego palabras sueltas.
-REEMPLAZOS_CALLE = [
-    # Abreviaturas con punto — van primero para no interferir con las siguientes
-    (r'\bH\.\s*',          'HIPOLITO '),
-    (r'\bGRAL\.\s*',       'GENERAL '),
-    (r'\bGRL\.\s*',        'GENERAL '),
-    (r'\bDR\.\s*',         'DOCTOR '),
-    (r'\bGOB\.\s*',        'GOBERNADOR '),
-    (r'\bPTE\.\s*',        'PRESIDENTE '),
-    (r'\bSTA\.\s*',        'SANTA '),
-    (r'\bSTO\.\s*',        'SANTO '),
-    (r'\bOBISPO\b',        'OBISPO'),
-    # Variantes ortográficas frecuentes
-    (r'\bYRIGOYEN\b',      'IRIGOYEN'),
-    (r'\bIRIGOYEN\b',      'IRIGOYEN'),   # ya normalizado, no hace daño
-    (r'\bSETIEMBRE\b',     'SEPTIEMBRE'),
-    (r'\bSTIEMBRE\b',      'SEPTIEMBRE'),
-    # Números escritos (los más comunes en nombres de calles de MDQ)
-    (r'\b11\b',            'ONCE'),
-    (r'\b12\b',            'DOCE'),
-    (r'\b25\b',            'VEINTICINCO'),
-    (r'\b9\b',             'NUEVE'),
-    # Prefijos de vía — se quitan
-    (r'\bAVENIDA\b',       ''),
-    (r'\bAV\.\s*',         ''),
-    (r'\bAV\s+',           ''),
-    (r'\bCALLE\b',         ''),
-    (r'\bC/\s*',           ''),
-    (r'\bRUTA\b',          ''),
-    (r'\bRP\b',            ''),
-    (r'\bPASAJE\b',        ''),
-    (r'\bBLEVARD\b',       ''),
-    (r'\bBOULEVARD\b',     ''),
-    (r'\bBLVD\.\s*',       ''),
-    (r'\bBLVD\s+',         ''),
-]
-
-def normalizar_calle(calle: str) -> str:
-    """
-    Normaliza el nombre de una calle para comparación fuzzy:
-    - Todo en mayúsculas
-    - Si hay texto entre paréntesis y lo que queda afuera es solo un número
-      o prefijo sin sentido (ej: "1 AV (B FELIX U CAMET)"), usa el contenido
-      del paréntesis como nombre real.
-    - Si el paréntesis es una aclaración menor (ej: "HIPOLITO (H) IRIGOYEN"),
-      lo descarta y conserva el texto exterior.
-    - Aplica reemplazos de abreviaturas y variantes ortográficas
-    - Elimina caracteres no alfanuméricos (excepto espacios)
-    - Colapsa espacios múltiples
-    """
+def normalizar_calle(calle):
     if not calle:
         return ""
+    calle = calle.upper().strip()
+    parentesis = re.search(r'\(([^)]+)\)', calle)
+    if parentesis:
+        calle = parentesis.group(1)
+    for prefijo in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/', 'RUTA ', 'RP ']:
+        if calle.startswith(prefijo):
+            calle = calle[len(prefijo):]
+    calle = re.sub(r'^\d+\s+', '', calle)
+    calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
+    return calle.strip()
 
-    calle = str(calle).upper().strip()
-
-    # Extraer contenido del paréntesis si existe
-    m_par = re.search(r'\(([^)]+)\)', calle)
-    if m_par:
-        contenido_par = m_par.group(1).strip()
-        # Texto fuera del paréntesis (sin el paréntesis)
-        exterior = re.sub(r'\(.*?\)', '', calle).strip()
-        # Limpiar prefijos de vía del exterior para evaluar qué queda
-        exterior_limpio = re.sub(
-            r'\b(AV\.?|AVENIDA|CALLE|BLVD\.?|BOULEVARD|PASAJE|RUTA|RP|C/)\b',
-            '', exterior, flags=re.IGNORECASE
-        ).strip()
-        exterior_limpio = re.sub(r'\s+', ' ', exterior_limpio).strip()
-        # Si lo que queda fuera del paréntesis es solo un número (o vacío),
-        # el nombre real es el contenido del paréntesis
-        if re.match(r'^\d*$', exterior_limpio):
-            calle = contenido_par
-        else:
-            # Paréntesis es aclaración menor: descartarlo
-            calle = exterior.strip()
-    
-
-    # Aplicar tabla de reemplazos en orden
-    for patron, reemplazo in REEMPLAZOS_CALLE:
-        calle = re.sub(patron, reemplazo, calle)
-
-    # Eliminar caracteres que no sean letras, dígitos o espacios
-    calle = re.sub(r'[^A-ZÁÉÍÓÚÜÑ0-9 ]', '', calle)
-
-    # Colapsar espacios y recortar
-    return re.sub(r'\s+', ' ', calle).strip()
-
-
-# ── Asignación de legajo (MEJORADA) ──────────────────────────────────────────
+# ── Asignación de legajo ─────────────────────────────────────────────────────
 def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas):
-    """
-    Asigna el legajo del inspector correspondiente.
-    - Localidades distintas de Mar del Plata: búsqueda directa por localidad.
-    - Mar del Plata: búsqueda por calle + altura + lado (PAR/IMPAR/AMBOS).
-      Acepta "P", "PAR", "I", "IMPAR", "AMBOS", "A" como valores de lado.
-    """
     localidad_cmp = limpiar_para_comparar(localidad)
 
-    # ── Localidades fuera de Mar del Plata (no tocar) ──────────────────────
     if localidad_cmp not in ("MAR DEL PLATA", ""):
         return lookup_localidades.get(localidad_cmp)
 
-    # ── Mar del Plata: búsqueda por zona ──────────────────────────────────
     calle_norm = normalizar_calle(calle)
     if not calle_norm:
         return None
@@ -244,27 +161,20 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas):
     lado_actual = "PAR" if num % 2 == 0 else "IMPAR"
 
     for zona in lookup_zonas.get(calle_norm, []):
-        # Normalizar el valor de "lado" guardado en la BD:
-        # acepta "PAR"/"P", "IMPAR"/"I", "AMBOS"/"A" (y combinaciones en mayúsc/minúsc)
         lado_db = str(zona['lado']).upper().strip()
         es_mismo_lado = (
             lado_db in ("AMBOS", "A")
             or (lado_actual == "PAR"   and lado_db in ("PAR",   "P"))
             or (lado_actual == "IMPAR" and lado_db in ("IMPAR", "I"))
         )
-
-        # Comparar altura dentro del rango
         try:
             desde = int(zona['desde'])
             hasta = int(zona['hasta'])
         except (TypeError, ValueError):
             continue
-
         if es_mismo_lado and desde <= num <= hasta:
             return zona['legajo']
-
     return None
-
 
 # ── Carga de datos ────────────────────────────────────────────────────────────
 def cargar_inspectores_localidad():
@@ -284,10 +194,6 @@ def construir_lookup_localidades(inspectores_localidad):
     return lookup
 
 def construir_lookup_zonas(zonas_inspectores):
-    """
-    Construye el diccionario de zonas normalizando la clave de calle
-    con la misma función que se usa al buscar, garantizando coincidencia.
-    """
     lookup = {}
     for zona in zonas_inspectores:
         clave = normalizar_calle(zona.get('calle', ''))
@@ -420,7 +326,7 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
-# ── Pestañas ──────────────────────────────────────────────────────────────────
+# ==================== PESTAÑAS ====================
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
