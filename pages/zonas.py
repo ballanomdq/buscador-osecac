@@ -32,31 +32,11 @@ with col_back:
 st.markdown("---")
 
 def normalizar_localidad(loc):
-    """
-    Normaliza localidad:
-    - MAYÚSCULAS
-    - Elimina espacios dobles
-    - NO elimina puntos (se respetan)
-    - Reemplaza abreviaturas comunes
-    """
+    """Solo MAYÚSCULAS y espacios simples. NO transforma NADA más."""
     if not loc:
         return ""
     loc = loc.upper().strip()
-    # NO elimino puntos: loc = loc.replace('.', '')
     loc = re.sub(r'\s+', ' ', loc)
-    reemplazos = {
-        "GRAL": "GENERAL",
-        "CNEL": "CORONEL",
-        "CTE": "COMANDANTE",
-        "CMTE": "COMANDANTE",
-        "DR": "DOCTOR",
-        "ING": "INGENIERO",
-        "PTE": "PRESIDENTE",
-        "STA": "SANTA",
-        "BLNRIO": "BALNEARIO",
-    }
-    for abrev, completo in reemplazos.items():
-        loc = loc.replace(abrev, completo)
     return loc.strip()
 
 def normalizar_calle(calle):
@@ -74,7 +54,6 @@ def normalizar_calle(calle):
     calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
-# Función para forzar recarga del caché de actas.py
 def forzar_recarga_cache_actas():
     try:
         import sys
@@ -122,7 +101,7 @@ with tab1:
 # ==================== TAB 2: LOCALIDADES ====================
 with tab2:
     st.markdown("### 📍 Localidades")
-    st.caption("⚠️ **Importante:** Las localidades se guardan EXACTAMENTE como las escribís (solo mayúsculas). Los puntos se respetan. Usá variantes separadas por /")
+    st.caption("⚠️ **Importante:** Las localidades se guardan EXACTAMENTE como las escribís (solo mayúsculas). Se respetan puntos, abreviaturas, etc.")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
@@ -133,7 +112,7 @@ with tab2:
         
         with st.expander("➕ Agregar localidad (separar variantes con /)"):
             with st.form("form_localidad"):
-                st.caption("Ejemplo: BATAN / BARRIO BATAN / GRAL CONESA (BS. AS.)")
+                st.caption("Ejemplo: GRAL CONESA (BS. AS.) / GRAL CONESA (BS AS) / BATAN")
                 localidades = st.text_area("Localidades", key="nuevas_localidades")
                 if st.form_submit_button("Guardar"):
                     if localidades:
