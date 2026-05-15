@@ -374,7 +374,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (CON BOTÓN DE PRUEBA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -393,7 +393,7 @@ with tab2:
 
     st.markdown("---")
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
             ids = st.session_state.get('ids_a_eliminar', [])
@@ -416,6 +416,33 @@ with tab2:
     with col5:
         if st.button("⟳ Recargar"):
             st.rerun()
+    with col6:
+        if st.button("🧪 Probar caso concreto"):
+            insp_loc = cargar_inspectores_localidad()
+            insp_zonas = cargar_zonas_inspectores()
+            lkp_loc = construir_lookup_localidades(insp_loc)
+            lkp_zonas = construir_lookup_zonas(insp_zonas)
+            
+            casos = [
+                ("MAR DEL PLATA", "BELGRANO", "1500"),
+                ("MAR DEL PLATA", "BELGRANO", "1501"),
+                ("MAR DEL PLATA", "COLON", "2200"),
+                ("MAR DEL PLATA", "HIPOLITO IRIGOYEN", "1800"),
+                ("MAR DEL PLATA", "H. YRIGOYEN", "1800"),
+                ("MAR DEL PLATA", "12 DE OCTUBRE", "4000"),
+                ("MAR DEL PLATA", "FELIX U. CAMET", "500"),
+            ]
+            
+            st.write("**Resultado de casos de prueba:**")
+            for loc, calle, num in casos:
+                norm = normalizar_calle(calle)
+                en_lkp = norm in lkp_zonas
+                legajo = asignar_legajo(loc, calle, num, lkp_loc, lkp_zonas)
+                st.write(f"- `{calle}` #{num} → norm: `{norm}` | en lookup: {en_lkp} | legajo: **{legajo}**")
+            
+            st.write("**Primeras 5 claves en lookup_zonas:**")
+            for k in list(lkp_zonas.keys())[:5]:
+                st.write(f"  `{k}` → {lkp_zonas[k]}")
 
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
