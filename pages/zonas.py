@@ -32,10 +32,12 @@ with col_back:
 st.markdown("---")
 
 def normalizar_localidad(loc):
+    """Normaliza localidad: MAYÚSCULAS, sin puntos, sin espacios dobles, respeta paréntesis"""
     if not loc:
         return ""
     loc = loc.upper().strip()
-    loc = re.sub(r'\([^)]*\)', '', loc)
+    # ❌ ELIMINÉ esta línea para NO eliminar el contenido de paréntesis:
+    # loc = re.sub(r'\([^)]*\)', '', loc)
     loc = loc.replace('.', '')
     loc = re.sub(r'\s+', ' ', loc)
     reemplazos = {
@@ -103,7 +105,8 @@ with tab2:
         
         with st.expander("➕ Agregar localidad (separar variantes con /)"):
             with st.form("form_localidad"):
-                localidades = st.text_area("Localidades (ej: BATAN / BARRIO BATAN)", key="nuevas_localidades")
+                st.caption("⚠️ Podés usar paréntesis, ej: SAN BERNARDO (MAR DEL PLATA)")
+                localidades = st.text_area("Localidades (ej: BATAN / BARRIO BATAN / SAN BERNARDO (MAR DEL PLATA))", key="nuevas_localidades")
                 if st.form_submit_button("Guardar"):
                     if localidades:
                         for loc in localidades.split('/'):
