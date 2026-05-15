@@ -180,7 +180,7 @@ def normalizar_localidad(localidad):
     for abrev, completo in reemplazos.items():
         localidad = localidad.replace(abrev, completo)
     localidad = re.sub(r'\s+', ' ', localidad)
-    localidad = localidad.replace('(', '').replace(')', '')
+    # YA NO ELIMINO PARÉNTESIS - los respeto
     return localidad.strip()
 
 def normalizar_calle(calle):
@@ -201,15 +201,20 @@ def normalizar_calle(calle):
     return calle.strip()
 
 # ── FUNCIÓN DE ASIGNACIÓN DE LEGAJO (LEE DESDE SUPABASE) ──────────────────────
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=0)  # 🔥 CAMBIADO: ttl=0 para que siempre busque datos frescos
 def cargar_inspectores_localidad():
     resultado = supabase.table("inspectores_localidad").select("*").execute()
     return resultado.data if resultado.data else []
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=0)  # 🔥 CAMBIADO: ttl=0 para que siempre busque datos frescos
 def cargar_zonas_inspectores():
     resultado = supabase.table("zonas_inspectores").select("*").execute()
     return resultado.data if resultado.data else []
+
+def forzar_recarga_cache():
+    """Fuerza la recarga de todas las funciones cacheadas"""
+    cargar_inspectores_localidad.clear()
+    cargar_zonas_inspectores.clear()
 
 def asignar_legajo_por_direccion(localidad, calle, numero):
     localidad_norm = normalizar_localidad(localidad)
@@ -219,6 +224,7 @@ def asignar_legajo_por_direccion(localidad, calle, numero):
     if localidad_norm != "MAR DEL PLATA":
         inspectores_localidad = cargar_inspectores_localidad()
         for item in inspectores_localidad:
+            # Normalizo también lo que está en la tabla para comparar
             if normalizar_localidad(item['localidad']) == localidad_norm:
                 return item['legajo']
         return None
@@ -243,7 +249,7 @@ def asignar_legajo_por_direccion(localidad, calle, numero):
     return None
 
 # ── Datos cacheados ───────────────────────────────────────────────────────────
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=0)  # 🔥 CAMBIADO: ttl=0
 def get_localidades(_sb):
     r = _sb.table("padron_deuda_presunta").select("localidad").execute()
     locs = sorted({x['localidad'] for x in r.data if x.get('localidad')})
@@ -484,6 +490,9 @@ with tab2:
     # Proceso de asignación de legajos (CON PAGINACIÓN PARA TRAER TODOS)
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Asignando legajos automáticamente..."):
+            # 🔥 LIMPIAR CACHÉ ANTES DE EMPEZAR
+            forzar_recarga_cache()
+            
             # Traer TODOS los registros sin legajo usando paginación
             todos_sin_legajo = []
             offset = 0
@@ -693,4 +702,4 @@ with tab2:
                 st.markdown(f'<div class="msg msg-success">✅ {mods} registros actualizados.</div>', unsafe_allow_html=True)
                 st.rerun()
             else:
-                st.info
+                st.info("Sin cambios")
