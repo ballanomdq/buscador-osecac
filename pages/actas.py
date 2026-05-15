@@ -5,6 +5,7 @@ from datetime import datetime, date
 import re
 import difflib
 import hashlib
+import io
 
 # ── Conexión ──────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -277,7 +278,7 @@ def traer_registros_sin_legajo():
     registros, offset = [], 0
     while True:
         r = supabase.table("padron_deuda_presunta") \
-            .select("id, localidad, calle, numero, razon_social") \
+            .select("id, localidad, calle, numero, razon_social, cuit, tel_dom_legal, tel_dom_real") \
             .is_("leg", "null") \
             .range(offset, offset + 999).execute()
         if not r.data:
@@ -323,6 +324,31 @@ def get_pares_existentes():
         if len(batch.data) < 1000:
             break
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
+
+def generar_informe_txt(registros_sin_legajo):
+    """Genera un archivo TXT con los registros que no se pudieron asignar"""
+    contenido = []
+    contenido.append("=" * 80)
+    contenido.append("INFORME DE REGISTROS SIN LEGAJO ASIGNADO")
+    contenido.append(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    contenido.append(f"Total de registros: {len(registros_sin_legajo)}")
+    contenido.append("=" * 80)
+    contenido.append("")
+    
+    for i, reg in enumerate(registros_sin_legajo, 1):
+        contenido.append(f"--- REGISTRO {i} ---")
+        contenido.append(f"LOCALIDAD: {reg.get('localidad', 'N/D')}")
+        contenido.append(f"CUIT: {reg.get('cuit', 'N/D')}")
+        contenido.append(f"RAZON SOCIAL: {reg.get('razon_social', 'N/D')}")
+        contenido.append(f"CALLE: {reg.get('calle', 'N/D')} {reg.get('numero', '')}")
+        contenido.append(f"TELEFONO LEGAL: {reg.get('tel_dom_legal', 'N/D')}")
+        contenido.append(f"TELEFONO REAL: {reg.get('tel_dom_real', 'N/D')}")
+        contenido.append("")
+    
+    contenido.append("=" * 80)
+    contenido.append("FIN DEL INFORME")
+    
+    return "\n".join(contenido)
 
 # ── Mapeo Excel ───────────────────────────────────────────────────────────────
 COLS_EXCEL = [
@@ -459,7 +485,7 @@ with tab2:
 
     st.markdown("---")
 
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
             ids = st.session_state.get('ids_a_eliminar', [])
@@ -477,12 +503,15 @@ with tab2:
         if st.button("🔍 Buscar calles sin asociar"):
             st.session_state.buscar_sinonimos = True
     with col5:
+        if st.button("📄 Descargar informe TXT"):
+            st.session_state.generar_informe = True
+    with col6:
         if st.button("↺ Resetear filtros"):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
-                      'filtro_mail','filtro_leg','pagina_actual']:
+                      'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
-    with col6:
+    with col7:
         if st.button("⟳ Recargar"):
             st.rerun()
 
@@ -495,6 +524,24 @@ with tab2:
         if st.button("Cancelar"):
             st.session_state.confirmar_del_todo = False
             st.rerun()
+
+    # ── Generar informe TXT ─────────────────────────────────────────────────
+    if st.session_state.get('generar_informe'):
+        with st.spinner("Generando informe..."):
+            registros_sin_legajo = traer_registros_sin_legajo()
+            if registros_sin_legajo:
+                contenido_txt = generar_informe_txt(registros_sin_legajo)
+                st.download_button(
+                    label="📥 DESCARGAR INFORME TXT",
+                    data=contenido_txt.encode('utf-8'),
+                    file_name=f"registros_sin_legajo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain",
+                    key="download_informe"
+                )
+                st.info(f"Se encontraron {len(registros_sin_legajo)} registros sin legajo")
+            else:
+                st.success("✅ No hay registros sin legajo para exportar")
+        st.session_state.generar_informe = False
 
     # ── Asignación automática de legajos ─────────────────────────────────
     if st.session_state.get('asignar_legajos'):
@@ -538,6 +585,9 @@ with tab2:
                         'calle':       reg.get('calle', ''),
                         'numero':      reg.get('numero', ''),
                         'razon_social': reg.get('razon_social', ''),
+                        'cuit':        reg.get('cuit', ''),
+                        'tel_dom_legal': reg.get('tel_dom_legal', ''),
+                        'tel_dom_real': reg.get('tel_dom_real', ''),
                     })
 
             bar.empty()
@@ -666,9 +716,21 @@ with tab2:
     if st.session_state.get('ultima_asignacion'):
         res = st.session_state.ultima_asignacion
         st.success(f"✅ {res['asignados']} legajos asignados · {res['no_asignados']} sin coincidencia.")
+        
+        # Botón para descargar informe de los no asignados
         if res['no_asignados'] > 0:
+            contenido_informe = generar_informe_txt(res['detalle'])
+            st.download_button(
+                label="📄 DESCARGAR INFORME DE NO ASIGNADOS",
+                data=contenido_informe.encode('utf-8'),
+                file_name=f"no_asignados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain",
+                key="download_no_asignados"
+            )
+            
             with st.expander(f"📋 Ver {res['no_asignados']} registros sin legajo"):
                 st.dataframe(pd.DataFrame(res['detalle']), use_container_width=True)
+        
         if st.button("Cerrar resultado"):
             del st.session_state.ultima_asignacion
             st.rerun()
@@ -676,7 +738,7 @@ with tab2:
     st.markdown("---")
 
     # ── Filtros ───────────────────────────────────────────────────────────
-    f1, f2, f3, f4, f5 = st.columns([1.5, 1.5, 1.5, 1, 1])
+    f1, f2, f3, f4, f5, f6 = st.columns([1.2, 1.2, 1.2, 0.8, 0.8, 1.2])
     with f1:
         filtro_cuit  = st.text_input("CUIT",  key="input_filtro_cuit",  placeholder="Ej: 30707685243", label_visibility="collapsed")
     with f2:
@@ -685,9 +747,11 @@ with tab2:
         locs     = get_localidades()
         localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
     with f4:
-        filtro_mail = st.selectbox("Mail",   ["AMBOS","NO","SI"],                       key="filtro_mail", label_visibility="collapsed")
+        filtro_mail = st.selectbox("Mail",   ["AMBOS","NO","SI"], key="filtro_mail", label_visibility="collapsed")
     with f5:
-        filtro_leg  = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"],       key="filtro_leg",  label_visibility="collapsed")
+        filtro_leg  = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
+    with f6:
+        filtro_calle_aprox = st.text_input("🔍 Calle (aproximación)", key="filtro_calle_aproximacion", placeholder="Buscar por calle...", label_visibility="collapsed")
 
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
@@ -711,6 +775,17 @@ with tab2:
             df = df[df['leg'].notna()]
         elif filtro_leg == "SIN LEGAJO":
             df = df[df['leg'].isna()]
+        
+        # ── Filtro por aproximación de calles (búsqueda difusa) ──
+        if filtro_calle_aprox:
+            filtro_norm = normalizar_calle(filtro_calle_aprox)
+            if filtro_norm:
+                # Calcular similitud con cada calle del dataframe
+                df['calle_norm'] = df['calle'].apply(lambda x: normalizar_calle(str(x)) if x else "")
+                df['similitud'] = df['calle_norm'].apply(lambda x: difflib.SequenceMatcher(None, filtro_norm, x).ratio() if x else 0)
+                # Filtrar por similitud > 0.4 (umbral)
+                df = df[df['similitud'] > 0.4].sort_values('similitud', ascending=False)
+                df = df.drop(columns=['calle_norm', 'similitud'])
 
         total = len(df)
         RPP   = 300
