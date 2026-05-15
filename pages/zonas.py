@@ -36,13 +36,6 @@ st.markdown("---")
 def limpiar_y_cargar_datos_oficiales():
     """Elimina datos viejos y carga los 5 inspectores oficiales con todas sus calles"""
     
-    # 1. Eliminar inspectora Morea si existe (legajo 1234 como ejemplo, o cualquier otra)
-    morea = supabase.table("inspectores").select("*").ilike("nombre", "%MOREA%").execute()
-    if morea.data:
-        for m in morea.data:
-            supabase.table("inspectores").delete().eq("id", m['id']).execute()
-    
-    # 2. Datos oficiales
     inspectores = [
         {"legajo": 7713, "nombre": "RODRIGUEZ, Maximiliano"},
         {"legajo": 9513, "nombre": "POLINESSI, Juan José"},
@@ -52,15 +45,12 @@ def limpiar_y_cargar_datos_oficiales():
     ]
     
     zonas = [
-        # RODRIGUEZ (7713)
         (7713, "CATAMARCA", "IMPAR", 2201, 3800),
         (7713, "AV COLON", "IMPAR", 3001, 5400),
         (7713, "AV JARA", "PAR", 2202, 3800),
         (7713, "AV TEJEDOR", "PAR", 1, 2400),
         (7713, "AV PATRICIO PERALTA RAMOS", "AMBOS", 1, 900),
         (7713, "AV FELIX U CAMET", "AMBOS", 1, 1500),
-        
-        # POLINESSI (9513)
         (9513, "AV COLON", "IMPAR", 2401, 3000),
         (9513, "CATAMARCA", "PAR", 1500, 2200),
         (9513, "HIPOLITO YRIGOYEN", "IMPAR", 1501, 2200),
@@ -71,8 +61,6 @@ def limpiar_y_cargar_datos_oficiales():
         (9513, "AV JOSE COELHO DE MEYRELLES", "AMBOS", 1, 4000),
         (9513, "AV FELIX U CAMET", "AMBOS", 1501, 9999),
         (9513, "RUTA 11 NORTE", "AMBOS", 490, 510),
-        
-        # LOPEZ (9983)
         (9983, "AV COLON", "IMPAR", 1401, 1900),
         (9983, "SAN LUIS", "PAR", 1500, 2200),
         (9983, "SANTA FE", "IMPAR", 1501, 2200),
@@ -81,8 +69,6 @@ def limpiar_y_cargar_datos_oficiales():
         (9983, "SAN JUAN", "IMPAR", 2201, 4400),
         (9983, "PEHUAJO", "IMPAR", 4401, 6000),
         (9983, "AV MARIO BRAVO", "AMBOS", 3901, 9999),
-        
-        # CARBAYO (9220)
         (9220, "AV COLON", "PAR", 1002, 3000),
         (9220, "SAN JUAN", "PAR", 2202, 4400),
         (9220, "PEHUAJO", "PAR", 4402, 6000),
@@ -90,8 +76,6 @@ def limpiar_y_cargar_datos_oficiales():
         (9220, "CERRITO", "IMPAR", 1501, 6000),
         (9220, "OLAVARRIA", "IMPAR", 1501, 6000),
         (9220, "AV MARIO BRAVO", "AMBOS", 1, 1000),
-        
-        # GARCIA (7952)
         (7952, "AV COLON", "IMPAR", 1901, 2400),
         (7952, "HIPOLITO YRIGOYEN", "PAR", 1500, 2200),
         (7952, "SAN LUIS", "IMPAR", 1501, 2200),
@@ -109,7 +93,6 @@ def limpiar_y_cargar_datos_oficiales():
         (7952, "AV JORGE NEWBERY", "AMBOS", 1, 6000),
     ]
     
-    # 3. Guardar inspectores
     for ins in inspectores:
         existing = supabase.table("inspectores").select("*").eq("legajo", ins["legajo"]).execute()
         if not existing.data:
@@ -117,20 +100,15 @@ def limpiar_y_cargar_datos_oficiales():
         else:
             supabase.table("inspectores").update({"nombre": ins["nombre"]}).eq("legajo", ins["legajo"]).execute()
     
-    # 4. Borrar TODAS las zonas viejas
     supabase.table("zonas_inspectores").delete().neq("id", 0).execute()
     
-    # 5. Insertar nuevas zonas
     for legajo, calle, lado, desde, hasta in zonas:
         supabase.table("zonas_inspectores").insert({
-            "legajo": legajo,
-            "calle": calle,
-            "lado": lado,
-            "altura_desde": desde,
-            "altura_hasta": hasta
+            "legajo": legajo, "calle": calle, "lado": lado,
+            "altura_desde": desde, "altura_hasta": hasta
         }).execute()
     
-    st.success("✅ DATOS CARGADOS: 5 inspectores y todas sus calles")
+    st.success("✅ DATOS OFICIALES CARGADOS")
     st.balloons()
 
 def forzar_recarga_cache():
@@ -145,8 +123,7 @@ def forzar_recarga_cache():
     except:
         pass
 
-# ==================== INICIALIZAR DATOS AL ARRANCAR ====================
-# Esto corre UNA SOLA VEZ cuando se abre la página
+# Inicializar datos
 if 'datos_cargados' not in st.session_state:
     with st.spinner("Cargando datos oficiales..."):
         limpiar_y_cargar_datos_oficiales()
@@ -154,7 +131,7 @@ if 'datos_cargados' not in st.session_state:
         st.rerun()
 
 # ==================== TABS ====================
-tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ) - Editor"])
+tab1, tab2, tab3, tab4 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)", "🔄 Sinónimos"])
 
 # TAB 1: INSPECTORES
 with tab1:
@@ -177,10 +154,9 @@ with tab1:
             col1.write(f"**{ins['nombre']}**")
             col2.write(f"Legajo: {ins['legajo']}")
             if col3.button("🗑️", key=f"del_insp_{ins['id']}"):
-                # Verificar si tiene zonas
                 zonas_asig = supabase.table("zonas_inspectores").select("*").eq("legajo", ins['legajo']).execute()
                 if zonas_asig.data:
-                    st.warning(f"Este inspector tiene {len(zonas_asig.data)} calles asignadas. Eliminalas primero.")
+                    st.warning(f"Elimine primero las {len(zonas_asig.data)} calles asignadas")
                 else:
                     supabase.table("inspectores").delete().eq("id", ins['id']).execute()
                     forzar_recarga_cache()
@@ -223,7 +199,7 @@ with tab2:
         else:
             st.info("No hay localidades asignadas")
 
-# TAB 3: CALLES - EDITOR FACIL
+# TAB 3: CALLES
 with tab3:
     st.markdown("### 📍 Calles de Mar del Plata - Editor")
     
@@ -233,7 +209,6 @@ with tab3:
     else:
         opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
         
-        # Filtro
         filtro = st.selectbox("Filtrar por inspector", options=["TODOS"] + list(opts.values()), 
                               format_func=lambda x: "TODOS" if x == "TODOS" else [k for k, v in opts.items() if v == x][0])
         
@@ -243,23 +218,15 @@ with tab3:
         zonas = query.order("calle").execute()
         
         if zonas.data:
-            st.markdown("#### 🗑️ Eliminar calles (clic en el tacho)")
-            
-            # Mostrar cada calle con su tacho de basura
             for zona in zonas.data:
                 col1, col2, col3, col4, col5, col6 = st.columns([2, 1, 0.8, 0.8, 1.5, 0.3])
-                
-                # Nombre inspector
                 inspector = next((i for i in inspectores.data if i['legajo'] == zona['legajo']), None)
                 nombre_corto = inspector['nombre'].split(',')[0] if inspector else str(zona['legajo'])
-                
                 col1.write(f"**{zona['calle']}**")
                 col2.write(zona['lado'])
                 col3.write(str(zona['altura_desde']))
                 col4.write(str(zona['altura_hasta']))
                 col5.write(nombre_corto)
-                
-                # Botón eliminar
                 if col6.button("🗑️", key=f"del_{zona['id']}"):
                     supabase.table("zonas_inspectores").delete().eq("id", zona['id']).execute()
                     forzar_recarga_cache()
@@ -268,12 +235,9 @@ with tab3:
             st.markdown("---")
             st.markdown("#### ✏️ EDITAR calle existente")
             
-            # Selector para elegir qué calle editar
             calles_lista = [f"{z['calle']} - {z['lado']} ({z['altura_desde']}-{z['altura_hasta']})" for z in zonas.data]
-            calle_a_editar = st.selectbox("Seleccionar calle para editar", options=calles_lista)
-            
-            if calle_a_editar:
-                # Encontrar la zona seleccionada
+            if calles_lista:
+                calle_a_editar = st.selectbox("Seleccionar calle para editar", options=calles_lista)
                 idx = calles_lista.index(calle_a_editar)
                 zona_edit = zonas.data[idx]
                 
@@ -301,7 +265,6 @@ with tab3:
                             "legajo": nuevo_legajo
                         }).eq("id", zona_edit['id']).execute()
                         forzar_recarga_cache()
-                        st.success("Calle actualizada")
                         st.rerun()
             
             st.markdown("---")
@@ -333,7 +296,99 @@ with tab3:
                             "altura_hasta": int(hasta)
                         }).execute()
                         forzar_recarga_cache()
-                        st.success("Calle agregada")
                         st.rerun()
         else:
             st.info("No hay calles cargadas")
+
+# TAB 4: SINÓNIMOS
+with tab4:
+    st.markdown("### 🔄 Sinónimos de Calles")
+    st.caption("Acá podés agregar sinónimos para que el sistema reconozca formas alternativas de escribir las calles de Mar del Plata")
+    
+    # Asegurar que la tabla existe
+    try:
+        supabase.table("sinonimos_calles").select("id").limit(1).execute()
+    except:
+        st.error("La tabla 'sinonimos_calles' no existe. Ejecutá este SQL en Supabase:")
+        st.code("""
+CREATE TABLE sinonimos_calles (
+  id SERIAL PRIMARY KEY,
+  calle_oficial TEXT NOT NULL,
+  sinonimo TEXT NOT NULL UNIQUE,
+  creado_por TEXT DEFAULT 'usuario',
+  fecha_creacion TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_sinonimos_sinonimo ON sinonimos_calles(sinonimo);
+        """)
+    
+    # Obtener calles oficiales disponibles
+    calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
+    calles_unicas = sorted(list(set([c['calle'] for c in calles_oficiales.data]))) if calles_oficiales.data else []
+    
+    if calles_unicas:
+        # Agregar sinónimo nuevo
+        with st.expander("➕ Agregar nuevo sinónimo"):
+            with st.form("form_sinonimo"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    calle_oficial = st.selectbox("Calle oficial", options=calles_unicas)
+                with col2:
+                    nuevo_sinonimo = st.text_input("Sinónimo (forma alternativa)", placeholder="Ej: H YRIGOREN, YRIGOYEN, IPOLITO")
+                
+                if st.form_submit_button("Guardar sinónimo"):
+                    if nuevo_sinonimo:
+                        try:
+                            supabase.table("sinonimos_calles").insert({
+                                "calle_oficial": calle_oficial,
+                                "sinonimo": nuevo_sinonimo.upper().strip(),
+                                "creado_por": "usuario"
+                            }).execute()
+                            forzar_recarga_cache()
+                            st.success("Sinónimo agregado")
+                            st.rerun()
+                        except Exception as e:
+                            if "duplicate" in str(e).lower():
+                                st.error("Este sinónimo ya existe")
+                            else:
+                                st.error(f"Error: {e}")
+        
+        # Listar sinónimos existentes
+        sinonimos = supabase.table("sinonimos_calles").select("*").order("calle_oficial").execute()
+        
+        if sinonimos.data:
+            st.markdown("#### Lista de sinónimos actuales")
+            
+            for sin in sinonimos.data:
+                col1, col2, col3, col4 = st.columns([2, 2, 1, 0.5])
+                col1.write(f"**{sin['calle_oficial']}**")
+                col2.write(sin['sinonimo'])
+                col3.write(sin['creado_por'] if sin.get('creado_por') else 'sistema')
+                if col4.button("🗑️", key=f"del_sin_{sin['id']}"):
+                    supabase.table("sinonimos_calles").delete().eq("id", sin['id']).execute()
+                    forzar_recarga_cache()
+                    st.rerun()
+            
+            # Editar sinónimo existente
+            with st.expander("✏️ Editar sinónimo existente"):
+                sin_opts = {f"{s['calle_oficial']} → {s['sinonimo']}": s['id'] for s in sinonimos.data}
+                sin_seleccionado = st.selectbox("Seleccionar sinónimo", options=list(sin_opts.keys()))
+                
+                if sin_seleccionado:
+                    sin_id = sin_opts[sin_seleccionado]
+                    sin_data = next(s for s in sinonimos.data if s['id'] == sin_id)
+                    
+                    with st.form("editar_sinonimo"):
+                        nueva_calle_oficial = st.selectbox("Calle oficial", options=calles_unicas, index=calles_unicas.index(sin_data['calle_oficial']) if sin_data['calle_oficial'] in calles_unicas else 0)
+                        nuevo_sinonimo = st.text_input("Sinónimo", value=sin_data['sinonimo'])
+                        
+                        if st.form_submit_button("Actualizar"):
+                            supabase.table("sinonimos_calles").update({
+                                "calle_oficial": nueva_calle_oficial,
+                                "sinonimo": nuevo_sinonimo.upper().strip()
+                            }).eq("id", sin_id).execute()
+                            forzar_recarga_cache()
+                            st.rerun()
+        else:
+            st.info("No hay sinónimos cargados aún. Usá el botón 'BUSCAR CALLES SIN ASOCIAR' en la página principal para generarlos automáticamente.")
+    else:
+        st.info("Primero cargá calles oficiales en la TAB 3")
