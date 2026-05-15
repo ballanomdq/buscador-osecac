@@ -374,7 +374,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON DIAGNÓSTICO)
+# TAB 2 — Editar Legajos y Vtos (CON FILTRO PARA BARRIO BATAN)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -431,7 +431,7 @@ with tab2:
             st.rerun()
 
     # ══════════════════════════════════════════════════════════════
-    # ASIGNACIÓN OPTIMIZADA CON DIAGNÓSTICO
+    # ASIGNACIÓN CON FILTRO PARA BARRIO BATAN
     # ══════════════════════════════════════════════════════════════
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Cargando tablas de inspectores..."):
@@ -440,16 +440,12 @@ with tab2:
             lookup_localidades = construir_lookup_localidades(inspectores_localidad)
             lookup_zonas = construir_lookup_zonas(zonas_inspectores)
 
-        # 🔥 DIAGNÓSTICO: Mostrar qué tiene lookup_localidades para BATAN
+        # DIAGNÓSTICO
         st.write("---")
         st.write("### 🔍 DIAGNÓSTICO - Localidades que contienen 'BATAN'")
-        encontro_batan = False
         for clave, leg in lookup_localidades.items():
             if "BATAN" in clave:
                 st.write(f"   ✅ '{clave}' → legajo {leg}")
-                encontro_batan = True
-        if not encontro_batan:
-            st.error("   ❌ NO se encontró NINGUNA localidad con 'BATAN' en lookup_localidades")
         st.write("---")
 
         with st.spinner("Cargando registros sin legajo..."):
@@ -474,23 +470,18 @@ with tab2:
                 calle = reg.get('calle', '') or ''
                 numero = reg.get('numero', '') or ''
 
-                # 🔥 DIAGNÓSTICO específico para BARRIO BATAN
-                if localidad == "BARRIO BATAN":
-                    st.warning(f"🔍 ENCONTRADO 'BARRIO BATAN' en el padrón")
-                    st.write(f"   Localidad original: '{localidad}'")
-                    st.write(f"   Limpiado: '{limpiar_para_comparar(localidad)}'")
-                    st.write(f"   Buscando en lookup_localidades...")
-                    resultado = lookup_localidades.get(limpiar_para_comparar(localidad))
-                    if resultado:
-                        st.success(f"   ✅ LOOKUP DICE: legajo {resultado}")
-                    else:
-                        st.error(f"   ❌ LOOKUP NO LO ENCONTRÓ")
-                        st.write("   Claves disponibles en lookup_localidades:")
-                        for clave in lookup_localidades.keys():
-                            if "BATAN" in clave:
-                                st.write(f"      - '{clave}'")
+                # 🔥 FILTRO: SOLO procesar BARRIO BATAN
+                if localidad != "BARRIO BATAN":
+                    continue  # Saltea todo lo que no sea BARRIO BATAN
 
+                # Si llegamos acá, es BARRIO BATAN
+                st.warning(f"🔍 PROCESANDO 'BARRIO BATAN'")
+                st.write(f"   Localidad: '{localidad}'")
+                st.write(f"   Limpiado: '{limpiar_para_comparar(localidad)}'")
+                
                 legajo = asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas)
+                
+                st.write(f"   Legajo asignado: {legajo}")
 
                 if legajo:
                     asignaciones.append({'id': reg['id'], 'legajo': legajo})
