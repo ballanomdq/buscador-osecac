@@ -32,13 +32,13 @@ with col_back:
 st.markdown("---")
 
 def normalizar_localidad(loc):
-    """Normaliza localidad: MAYÚSCULAS, sin puntos, sin espacios dobles, respeta paréntesis"""
+    """Normaliza localidad para GUARDAR: MAYÚSCULAS, sin puntos, sin espacios dobles"""
     if not loc:
         return ""
     loc = loc.upper().strip()
-    # YA NO ELIMINO PARÉNTESIS - los respeto
     loc = loc.replace('.', '')
     loc = re.sub(r'\s+', ' ', loc)
+    # Reemplazos comunes
     reemplazos = {
         "GRAL": "GENERAL", "CNEL": "CORONEL", "CTE": "COMANDANTE", "CMTE": "COMANDANTE",
         "DR": "DOCTOR", "ING": "INGENIERO", "PTE": "PRESIDENTE", "STA": "SANTA",
@@ -67,7 +67,6 @@ def normalizar_calle(calle):
 def forzar_recarga_cache_actas():
     """Fuerza la recarga de las funciones cacheadas en actas.py"""
     try:
-        # Intentamos importar actas y limpiar sus cachés
         import sys
         if 'actas' in sys.modules:
             import actas
@@ -78,7 +77,6 @@ def forzar_recarga_cache_actas():
             if hasattr(actas, 'forzar_recarga_cache'):
                 actas.forzar_recarga_cache()
     except Exception as e:
-        # Si no se puede, no pasa nada
         pass
 
 tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)"])
@@ -94,7 +92,6 @@ with tab1:
             if st.form_submit_button("Guardar"):
                 if nombre and legajo:
                     supabase.table("inspectores").insert({"nombre": nombre, "legajo": legajo}).execute()
-                    # 🔥 FORZAR RECARGA DEL CACHÉ
                     forzar_recarga_cache_actas()
                     st.success("Agregado")
                     st.rerun()
@@ -107,7 +104,6 @@ with tab1:
             col2.write(f"Legajo: {ins['legajo']}")
             if col3.button("🗑️", key=f"del_insp_{ins['id']}"):
                 supabase.table("inspectores").delete().eq("id", ins['id']).execute()
-                # 🔥 FORZAR RECARGA DEL CACHÉ
                 forzar_recarga_cache_actas()
                 st.rerun()
     else:
@@ -127,7 +123,7 @@ with tab2:
         with st.expander("➕ Agregar localidad (separar variantes con /)"):
             with st.form("form_localidad"):
                 st.caption("⚠️ Podés usar paréntesis, ej: SAN BERNARDO (MAR DEL PLATA)")
-                localidades = st.text_area("Localidades (ej: BATAN / BARRIO BATAN / SAN BERNARDO (MAR DEL PLATA))", key="nuevas_localidades")
+                localidades = st.text_area("Localidades (ej: BATAN / BARRIO BATAN / MDP)", key="nuevas_localidades")
                 if st.form_submit_button("Guardar"):
                     if localidades:
                         for loc in localidades.split('/'):
@@ -137,7 +133,6 @@ with tab2:
                                     "legajo": legajo_sel,
                                     "localidad": normalizar_localidad(loc)
                                 }).execute()
-                        # 🔥 FORZAR RECARGA DEL CACHÉ
                         forzar_recarga_cache_actas()
                         st.success("Localidades agregadas")
                         st.rerun()
@@ -149,7 +144,6 @@ with tab2:
                 col1.write(loc['localidad'])
                 if col2.button("🗑️", key=f"del_loc_{loc['id']}"):
                     supabase.table("inspectores_localidad").delete().eq("id", loc['id']).execute()
-                    # 🔥 FORZAR RECARGA DEL CACHÉ
                     forzar_recarga_cache_actas()
                     st.rerun()
         else:
@@ -205,7 +199,6 @@ with tab3:
                             "altura_desde": c['desde'],
                             "altura_hasta": c['hasta']
                         }).execute()
-                    # 🔥 FORZAR RECARGA DEL CACHÉ
                     forzar_recarga_cache_actas()
                     st.success("Calles guardadas")
                     st.session_state.calles_temp = None
@@ -213,7 +206,6 @@ with tab3:
                 else:
                     st.warning("Primero hacé clic en Previsualizar")
         
-        # Mostrar calles actuales
         st.markdown("---")
         st.markdown("### 📋 Calles actuales")
         
@@ -233,11 +225,9 @@ with tab3:
                     st.session_state.editando_calle = zona
                 if col5.button("🗑️", key=f"del_calle_{zona['id']}"):
                     supabase.table("zonas_inspectores").delete().eq("id", zona['id']).execute()
-                    # 🔥 FORZAR RECARGA DEL CACHÉ
                     forzar_recarga_cache_actas()
                     st.rerun()
             
-            # Editar calle (para agregar variantes)
             if st.session_state.get('editando_calle'):
                 st.markdown("### ✏️ Agregar variantes a esta calle")
                 editando = st.session_state.editando_calle
@@ -256,7 +246,6 @@ with tab3:
                                     "altura_desde": editando['altura_desde'],
                                     "altura_hasta": editando['altura_hasta']
                                 }).execute()
-                        # 🔥 FORZAR RECARGA DEL CACHÉ
                         forzar_recarga_cache_actas()
                         st.success("Variantes agregadas")
                         del st.session_state.editando_calle
