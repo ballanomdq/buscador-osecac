@@ -180,11 +180,9 @@ def construir_lookup_zonas(zonas_inspectores):
 def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas):
     localidad_cmp = limpiar_para_comparar(localidad)
 
-    # Caso 1: Localidad distinta de Mar del Plata
     if localidad_cmp != "MAR DEL PLATA" and localidad_cmp != "":
         return lookup_localidades.get(localidad_cmp)
 
-    # Caso 2: Mar del Plata → buscar por calle
     calle_norm = normalizar_calle(calle)
     if not calle_norm or not numero:
         return None
@@ -376,7 +374,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN OPTIMIZADA)
+# TAB 2 — Editar Legajos y Vtos (CON DIAGNÓSTICO)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -433,15 +431,26 @@ with tab2:
             st.rerun()
 
     # ══════════════════════════════════════════════════════════════
-    # ASIGNACIÓN OPTIMIZADA (carga tablas UNA VEZ, batch updates)
+    # ASIGNACIÓN OPTIMIZADA CON DIAGNÓSTICO
     # ══════════════════════════════════════════════════════════════
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Cargando tablas de inspectores..."):
-            # Cargar tablas UNA SOLA VEZ
             inspectores_localidad = cargar_inspectores_localidad()
             zonas_inspectores = cargar_zonas_inspectores()
             lookup_localidades = construir_lookup_localidades(inspectores_localidad)
             lookup_zonas = construir_lookup_zonas(zonas_inspectores)
+
+        # 🔥 DIAGNÓSTICO: Mostrar qué tiene lookup_localidades para BATAN
+        st.write("---")
+        st.write("### 🔍 DIAGNÓSTICO - Localidades que contienen 'BATAN'")
+        encontro_batan = False
+        for clave, leg in lookup_localidades.items():
+            if "BATAN" in clave:
+                st.write(f"   ✅ '{clave}' → legajo {leg}")
+                encontro_batan = True
+        if not encontro_batan:
+            st.error("   ❌ NO se encontró NINGUNA localidad con 'BATAN' en lookup_localidades")
+        st.write("---")
 
         with st.spinner("Cargando registros sin legajo..."):
             registros = traer_registros_sin_legajo()
@@ -454,7 +463,7 @@ with tab2:
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            asignaciones = []  # Acumula (id, legajo) para batch update
+            asignaciones = []
             no_asignados = []
 
             for i, reg in enumerate(registros):
@@ -464,6 +473,22 @@ with tab2:
                 localidad = reg.get('localidad', '') or ''
                 calle = reg.get('calle', '') or ''
                 numero = reg.get('numero', '') or ''
+
+                # 🔥 DIAGNÓSTICO específico para BARRIO BATAN
+                if localidad == "BARRIO BATAN":
+                    st.warning(f"🔍 ENCONTRADO 'BARRIO BATAN' en el padrón")
+                    st.write(f"   Localidad original: '{localidad}'")
+                    st.write(f"   Limpiado: '{limpiar_para_comparar(localidad)}'")
+                    st.write(f"   Buscando en lookup_localidades...")
+                    resultado = lookup_localidades.get(limpiar_para_comparar(localidad))
+                    if resultado:
+                        st.success(f"   ✅ LOOKUP DICE: legajo {resultado}")
+                    else:
+                        st.error(f"   ❌ LOOKUP NO LO ENCONTRÓ")
+                        st.write("   Claves disponibles en lookup_localidades:")
+                        for clave in lookup_localidades.keys():
+                            if "BATAN" in clave:
+                                st.write(f"      - '{clave}'")
 
                 legajo = asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas)
 
@@ -481,7 +506,6 @@ with tab2:
             progress_bar.empty()
             status_text.empty()
 
-            # Guardar en batch
             with st.spinner("Guardando legajos..."):
                 guardados = guardar_legajos_en_batch(asignaciones)
 
@@ -493,7 +517,6 @@ with tab2:
             }
             st.rerun()
 
-    # Mostrar resultado de la última asignación
     if st.session_state.get('ultima_asignacion'):
         resultado = st.session_state.ultima_asignacion
         st.success(f"✅ Asignación completada: {resultado['asignados']} legajos asignados, {resultado['no_asignados']} no encontrados.")
