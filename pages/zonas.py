@@ -36,8 +36,7 @@ def normalizar_localidad(loc):
     if not loc:
         return ""
     loc = loc.upper().strip()
-    # ❌ ELIMINÉ esta línea para NO eliminar el contenido de paréntesis:
-    # loc = re.sub(r'\([^)]*\)', '', loc)
+    # YA NO ELIMINO PARÉNTESIS - los respeto
     loc = loc.replace('.', '')
     loc = re.sub(r'\s+', ' ', loc)
     reemplazos = {
@@ -64,6 +63,24 @@ def normalizar_calle(calle):
     calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
+# 🔥 FUNCIÓN PARA FORZAR RECARGA DEL CACHÉ DE ACTAS.PY
+def forzar_recarga_cache_actas():
+    """Fuerza la recarga de las funciones cacheadas en actas.py"""
+    try:
+        # Intentamos importar actas y limpiar sus cachés
+        import sys
+        if 'actas' in sys.modules:
+            import actas
+            if hasattr(actas, 'cargar_inspectores_localidad'):
+                actas.cargar_inspectores_localidad.clear()
+            if hasattr(actas, 'cargar_zonas_inspectores'):
+                actas.cargar_zonas_inspectores.clear()
+            if hasattr(actas, 'forzar_recarga_cache'):
+                actas.forzar_recarga_cache()
+    except Exception as e:
+        # Si no se puede, no pasa nada
+        pass
+
 tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)"])
 
 # ==================== TAB 1: INSPECTORES ====================
@@ -77,6 +94,8 @@ with tab1:
             if st.form_submit_button("Guardar"):
                 if nombre and legajo:
                     supabase.table("inspectores").insert({"nombre": nombre, "legajo": legajo}).execute()
+                    # 🔥 FORZAR RECARGA DEL CACHÉ
+                    forzar_recarga_cache_actas()
                     st.success("Agregado")
                     st.rerun()
     
@@ -88,6 +107,8 @@ with tab1:
             col2.write(f"Legajo: {ins['legajo']}")
             if col3.button("🗑️", key=f"del_insp_{ins['id']}"):
                 supabase.table("inspectores").delete().eq("id", ins['id']).execute()
+                # 🔥 FORZAR RECARGA DEL CACHÉ
+                forzar_recarga_cache_actas()
                 st.rerun()
     else:
         st.info("No hay inspectores")
@@ -116,6 +137,8 @@ with tab2:
                                     "legajo": legajo_sel,
                                     "localidad": normalizar_localidad(loc)
                                 }).execute()
+                        # 🔥 FORZAR RECARGA DEL CACHÉ
+                        forzar_recarga_cache_actas()
                         st.success("Localidades agregadas")
                         st.rerun()
         
@@ -126,6 +149,8 @@ with tab2:
                 col1.write(loc['localidad'])
                 if col2.button("🗑️", key=f"del_loc_{loc['id']}"):
                     supabase.table("inspectores_localidad").delete().eq("id", loc['id']).execute()
+                    # 🔥 FORZAR RECARGA DEL CACHÉ
+                    forzar_recarga_cache_actas()
                     st.rerun()
         else:
             st.info("No hay localidades asignadas")
@@ -180,6 +205,8 @@ with tab3:
                             "altura_desde": c['desde'],
                             "altura_hasta": c['hasta']
                         }).execute()
+                    # 🔥 FORZAR RECARGA DEL CACHÉ
+                    forzar_recarga_cache_actas()
                     st.success("Calles guardadas")
                     st.session_state.calles_temp = None
                     st.rerun()
@@ -206,6 +233,8 @@ with tab3:
                     st.session_state.editando_calle = zona
                 if col5.button("🗑️", key=f"del_calle_{zona['id']}"):
                     supabase.table("zonas_inspectores").delete().eq("id", zona['id']).execute()
+                    # 🔥 FORZAR RECARGA DEL CACHÉ
+                    forzar_recarga_cache_actas()
                     st.rerun()
             
             # Editar calle (para agregar variantes)
@@ -227,6 +256,8 @@ with tab3:
                                     "altura_desde": editando['altura_desde'],
                                     "altura_hasta": editando['altura_hasta']
                                 }).execute()
+                        # 🔥 FORZAR RECARGA DEL CACHÉ
+                        forzar_recarga_cache_actas()
                         st.success("Variantes agregadas")
                         del st.session_state.editando_calle
                         st.rerun()
