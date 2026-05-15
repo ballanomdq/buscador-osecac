@@ -15,12 +15,14 @@ st.markdown("""
 div[data-testid="stButton"] button { background-color: #3b82f6; color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; }
 div[data-testid="stButton"] button:hover { background-color: #2563eb; }
 .stDataFrame { font-size: 0.75rem; }
+div[data-testid="stForm"] button { background-color: #3b82f6; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="main-header">
     <h2 style="color: #ffffff; margin: 0; font-size: 1.2rem;">🗺️ Zonas de Inspectores - Gestión Completa</h2>
+    <p style="color: #94a3b8; margin: 0; font-size: 0.75rem;">Administración de inspectores, localidades y calles (Mar del Plata)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -47,25 +49,10 @@ if st.session_state.get('confirmar_reset'):
 
 st.markdown("---")
 
-def normalizar_calle(calle):
-    if not calle:
-        return ""
-    calle = calle.upper().strip()
-    parentesis = re.search(r'\(([^)]+)\)', calle)
-    if parentesis:
-        calle = parentesis.group(1)
-    for prefijo in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/', 'RUTA ', 'RP ']:
-        if calle.startswith(prefijo):
-            calle = calle[len(prefijo):]
-    calle = re.sub(r'^\d+\s+', '', calle)
-    calle = calle.replace('.', '')
-    calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
-    return calle.strip()
-
 def cargar_datos_oficiales():
     """Carga los 5 inspectores con sus zonas exactas"""
     
-    # Datos oficiales
+    # Datos oficiales de inspectores
     inspectores = [
         {"legajo": 7713, "nombre": "RODRIGUEZ, Maximiliano"},
         {"legajo": 9513, "nombre": "POLINESSI, Juan José"},
@@ -74,9 +61,9 @@ def cargar_datos_oficiales():
         {"legajo": 7952, "nombre": "GARCIA, Juan Paulo"},
     ]
     
-    # Zonas por legajo (calle, lado, desde, hasta)
+    # Zonas por legajo (legajo, calle, lado, desde, hasta)
     zonas = [
-        # Legajo 7713 - RODRIGUEZ
+        # Legajo 7713 - RODRIGUEZ, Maximiliano
         (7713, "CATAMARCA", "IMPAR", 2201, 3800),
         (7713, "AV COLON", "IMPAR", 3001, 5400),
         (7713, "AV JARA", "PAR", 2202, 3800),
@@ -84,7 +71,7 @@ def cargar_datos_oficiales():
         (7713, "AV PATRICIO PERALTA RAMOS", "AMBOS", 1, 900),
         (7713, "AV FELIX U CAMET", "AMBOS", 1, 1500),
         
-        # Legajo 9513 - POLINESSI
+        # Legajo 9513 - POLINESSI, Juan José
         (9513, "AV COLON", "IMPAR", 2401, 3000),
         (9513, "CATAMARCA", "PAR", 1500, 2200),
         (9513, "HIPOLITO YRIGOYEN", "IMPAR", 1501, 2200),
@@ -96,7 +83,7 @@ def cargar_datos_oficiales():
         (9513, "AV FELIX U CAMET", "AMBOS", 1501, 9999),
         (9513, "RUTA 11 NORTE", "AMBOS", 490, 510),
         
-        # Legajo 9983 - LOPEZ
+        # Legajo 9983 - LOPEZ, Martín
         (9983, "AV COLON", "IMPAR", 1401, 1900),
         (9983, "SAN LUIS", "PAR", 1500, 2200),
         (9983, "SANTA FE", "IMPAR", 1501, 2200),
@@ -106,7 +93,7 @@ def cargar_datos_oficiales():
         (9983, "PEHUAJO", "IMPAR", 4401, 6000),
         (9983, "AV MARIO BRAVO", "AMBOS", 3901, 9999),
         
-        # Legajo 9220 - CARBAYO
+        # Legajo 9220 - CARBAYO, Víctor Hugo
         (9220, "AV COLON", "PAR", 1002, 3000),
         (9220, "SAN JUAN", "PAR", 2202, 4400),
         (9220, "PEHUAJO", "PAR", 4402, 6000),
@@ -115,7 +102,7 @@ def cargar_datos_oficiales():
         (9220, "OLAVARRIA", "IMPAR", 1501, 6000),
         (9220, "AV MARIO BRAVO", "AMBOS", 1, 1000),
         
-        # Legajo 7952 - GARCIA
+        # Legajo 7952 - GARCIA, Juan Paulo
         (7952, "AV COLON", "IMPAR", 1901, 2400),
         (7952, "HIPOLITO YRIGOYEN", "PAR", 1500, 2200),
         (7952, "SAN LUIS", "IMPAR", 1501, 2200),
@@ -155,7 +142,11 @@ def cargar_datos_oficiales():
             "altura_hasta": hasta
         }).execute()
     
+    # Limpiar localidades existentes (opcional, comentar si no quieres borrarlas)
+    # supabase.table("inspectores_localidad").delete().neq("id", 0).execute()
+    
     st.success("✅ Datos oficiales cargados correctamente")
+    st.balloons()
 
 def forzar_recarga_cache():
     try:
@@ -171,167 +162,246 @@ def forzar_recarga_cache():
 
 # ==================== INTERFAZ PRINCIPAL ====================
 
-tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)"])
+tab1, tab2, tab3 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ) - Editor"])
 
-# TAB 1: INSPECTORES
+# ==================== TAB 1: INSPECTORES ====================
 with tab1:
-    st.markdown("### 👥 Inspectores")
+    st.markdown("### 👥 Gestión de Inspectores")
     
-    with st.expander("➕ Agregar inspector"):
+    with st.expander("➕ Agregar nuevo inspector", expanded=False):
         with st.form("form_inspector"):
-            nombre = st.text_input("Nombre")
-            legajo = st.text_input("Legajo")
-            if st.form_submit_button("Guardar"):
+            col1, col2 = st.columns(2)
+            with col1:
+                nombre = st.text_input("Nombre completo", placeholder="Ej: GONZALEZ, Juan")
+            with col2:
+                legajo = st.text_input("Número de legajo", placeholder="Ej: 1234")
+            if st.form_submit_button("Guardar inspector"):
                 if nombre and legajo:
-                    supabase.table("inspectores").insert({"nombre": nombre, "legajo": legajo}).execute()
-                    forzar_recarga_cache()
-                    st.success("Agregado")
-                    st.rerun()
+                    # Verificar si ya existe
+                    existe = supabase.table("inspectores").select("*").eq("legajo", legajo).execute()
+                    if existe.data:
+                        st.error(f"Ya existe un inspector con legajo {legajo}")
+                    else:
+                        supabase.table("inspectores").insert({"nombre": nombre.upper(), "legajo": int(legajo)}).execute()
+                        forzar_recarga_cache()
+                        st.success(f"Inspector {nombre} agregado")
+                        st.rerun()
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
         for ins in inspectores.data:
-            col1, col2, col3 = st.columns([3, 2, 1])
-            col1.write(f"**{ins['nombre']}**")
-            col2.write(f"Legajo: {ins['legajo']}")
-            if col3.button("🗑️", key=f"del_insp_{ins['id']}"):
-                supabase.table("inspectores").delete().eq("id", ins['id']).execute()
-                forzar_recarga_cache()
-                st.rerun()
+            with st.container():
+                col1, col2, col3 = st.columns([3, 2, 1])
+                col1.write(f"**{ins['nombre']}**")
+                col2.write(f"Legajo: {ins['legajo']}")
+                if col3.button("🗑️ Eliminar", key=f"del_insp_{ins['id']}"):
+                    # Verificar si tiene zonas o localidades asignadas
+                    zonas_asignadas = supabase.table("zonas_inspectores").select("*").eq("legajo", ins['legajo']).execute()
+                    localidades_asignadas = supabase.table("inspectores_localidad").select("*").eq("legajo", ins['legajo']).execute()
+                    
+                    if zonas_asignadas.data or localidades_asignadas.data:
+                        st.warning(f"El inspector tiene {len(zonas_asignadas.data)} calles y {len(localidades_asignadas.data)} localidades asignadas. Elimínalas primero.")
+                    else:
+                        supabase.table("inspectores").delete().eq("id", ins['id']).execute()
+                        forzar_recarga_cache()
+                        st.success(f"Inspector {ins['nombre']} eliminado")
+                        st.rerun()
+                st.divider()
     else:
-        st.info("No hay inspectores")
+        st.info("No hay inspectores cargados. Usá el botón 'REEMPLAZAR CON DATOS OFICIALES' o agregá manualmente.")
 
-# TAB 2: LOCALIDADES
+# ==================== TAB 2: LOCALIDADES ====================
 with tab2:
     st.markdown("### 📍 Localidades fuera de Mar del Plata")
+    st.caption("Asigná localidades completas a inspectores (ej: 'BATAN', 'SIERRA DE LOS PADRES')")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
-        st.warning("Primero cargá inspectores")
+        st.warning("⚠️ Primero cargá inspectores en la TAB 1")
     else:
         opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
-        legajo_sel = st.selectbox("Seleccionar inspector", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0], key="sel_legajo_localidad")
+        legajo_sel = st.selectbox(
+            "Seleccionar inspector", 
+            options=list(opts.values()), 
+            format_func=lambda x: [k for k, v in opts.items() if v == x][0], 
+            key="sel_legajo_localidad"
+        )
         
-        with st.expander("➕ Agregar localidad"):
+        with st.expander("➕ Agregar localidad", expanded=False):
             with st.form("form_localidad"):
-                localidad = st.text_input("Nombre de la localidad")
-                if st.form_submit_button("Guardar"):
+                localidad = st.text_input("Nombre de la localidad", placeholder="Ej: BATAN")
+                if st.form_submit_button("Guardar localidad"):
                     if localidad:
                         supabase.table("inspectores_localidad").insert({
                             "legajo": legajo_sel,
                             "localidad": localidad.upper().strip()
                         }).execute()
                         forzar_recarga_cache()
-                        st.success("Agregada")
+                        st.success(f"Localidad {localidad.upper()} agregada")
                         st.rerun()
         
         localidades = supabase.table("inspectores_localidad").select("*").eq("legajo", legajo_sel).order("localidad").execute()
         if localidades.data:
+            st.markdown("**Localidades asignadas:**")
             for loc in localidades.data:
                 col1, col2 = st.columns([4, 1])
-                col1.write(loc['localidad'])
+                col1.write(f"📍 {loc['localidad']}")
                 if col2.button("🗑️", key=f"del_loc_{loc['id']}"):
                     supabase.table("inspectores_localidad").delete().eq("id", loc['id']).execute()
                     forzar_recarga_cache()
                     st.rerun()
         else:
-            st.info("No hay localidades asignadas")
+            st.info("No hay localidades asignadas a este inspector")
 
-# TAB 3: CALLES - EDITOR COMPLETO
+# ==================== TAB 3: CALLES - EDITOR COMPLETO ====================
 with tab3:
-    st.markdown("### 📍 Calles (Mar del Plata) - Editor Completo")
+    st.markdown("### 📍 Calles de Mar del Plata - Editor Completo")
+    st.caption("Acá podés EDITAR, AGREGAR o ELIMINAR cualquier calle, rango de altura o lado asignado a cada inspector")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
-        st.warning("Primero cargá inspectores")
+        st.warning("⚠️ Primero cargá inspectores en la TAB 1")
     else:
         opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
-        legajo_sel = st.selectbox("Filtrar por inspector", options=["TODOS"] + list(opts.values()), format_func=lambda x: "TODOS" if x == "TODOS" else [k for k, v in opts.items() if v == x][0], key="sel_legajo_edicion")
+        
+        # Filtro por inspector
+        filtro_legajo = st.selectbox(
+            "Filtrar por inspector", 
+            options=["TODOS"] + list(opts.values()), 
+            format_func=lambda x: "TODOS" if x == "TODOS" else [k for k, v in opts.items() if v == x][0], 
+            key="filtro_legajo_calles"
+        )
         
         # Obtener zonas
         query = supabase.table("zonas_inspectores").select("*")
-        if legajo_sel != "TODOS":
-            query = query.eq("legajo", legajo_sel)
+        if filtro_legajo != "TODOS":
+            query = query.eq("legajo", filtro_legajo)
         zonas = query.order("calle").execute()
         
         if zonas.data:
-            # Mostrar tabla editable
+            # Preparar DataFrame para edición
             df = pd.DataFrame(zonas.data)[['id', 'legajo', 'calle', 'lado', 'altura_desde', 'altura_hasta']]
             df.columns = ['ID', 'Legajo', 'Calle', 'Lado', 'Desde', 'Hasta']
             
-            # Editor en línea
+            # Mostrar tabla editable (sin column_config problemático)
+            st.markdown("#### ✏️ Editar calles directamente en la tabla")
+            st.info("💡 Para editar: hacé doble clic en una celda, modificá el valor y luego presioná 'GUARDAR CAMBIOS'")
+            
             edited_df = st.data_editor(
                 df,
                 use_container_width=True,
                 hide_index=True,
-                column_config={
-                    "ID": st.column_config.NumberColumn("ID", disabled=True),
-                    "Legajo": st.column_config.NumberColumn("Legajo", required=True),
-                    "Calle": st.column_config.TextColumn("Calle", required=True),
-                    "Lado": st.column_config.SelectColumn("Lado", options=["PAR", "IMPAR", "AMBOS"], required=True),
-                    "Desde": st.column_config.NumberColumn("Desde", required=True),
-                    "Hasta": st.column_config.NumberColumn("Hasta", required=True),
-                },
-                key="editor_calles"
+                num_rows="dynamic",
+                key="editor_calles_mdq"
             )
             
-            col_save, col_del = st.columns(2)
+            col_save, col_del, _ = st.columns([1, 1, 2])
+            
             with col_save:
-                if st.button("💾 GUARDAR CAMBIOS", type="primary"):
+                if st.button("💾 GUARDAR CAMBIOS", type="primary", use_container_width=True):
+                    cambios = 0
                     for idx, row in edited_df.iterrows():
-                        original = df.iloc[idx]
-                        if (row['Legajo'] != original['Legajo'] or
-                            row['Calle'] != original['Calle'] or
-                            row['Lado'] != original['Lado'] or
-                            row['Desde'] != original['Desde'] or
-                            row['Hasta'] != original['Hasta']):
-                            
-                            supabase.table("zonas_inspectores").update({
-                                "legajo": row['Legajo'],
-                                "calle": row['Calle'].upper().strip(),
-                                "lado": row['Lado'],
-                                "altura_desde": row['Desde'],
-                                "altura_hasta": row['Hasta']
-                            }).eq("id", row['ID']).execute()
-                    forzar_recarga_cache()
-                    st.success("Cambios guardados")
-                    st.rerun()
+                        if idx < len(df):
+                            original = df.iloc[idx]
+                            # Verificar si hubo cambios
+                            if (row['Legajo'] != original['Legajo'] or
+                                row['Calle'] != original['Calle'] or
+                                row['Lado'] != original['Lado'] or
+                                row['Desde'] != original['Desde'] or
+                                row['Hasta'] != original['Hasta']):
+                                
+                                supabase.table("zonas_inspectores").update({
+                                    "legajo": int(row['Legajo']),
+                                    "calle": str(row['Calle']).upper().strip(),
+                                    "lado": str(row['Lado']).upper().strip(),
+                                    "altura_desde": int(row['Desde']),
+                                    "altura_hasta": int(row['Hasta'])
+                                }).eq("id", int(row['ID'])).execute()
+                                cambios += 1
+                    
+                    # Detectar nuevas filas agregadas
+                    if len(edited_df) > len(df):
+                        for idx in range(len(df), len(edited_df)):
+                            row = edited_df.iloc[idx]
+                            if row['Calle'] and row['Calle'].strip():
+                                supabase.table("zonas_inspectores").insert({
+                                    "legajo": int(row['Legajo']),
+                                    "calle": str(row['Calle']).upper().strip(),
+                                    "lado": str(row['Lado']).upper().strip(),
+                                    "altura_desde": int(row['Desde']) if row['Desde'] else 1,
+                                    "altura_hasta": int(row['Hasta']) if row['Hasta'] else 9999
+                                }).execute()
+                                cambios += 1
+                    
+                    if cambios > 0:
+                        forzar_recarga_cache()
+                        st.success(f"✅ {cambios} cambios guardados")
+                        st.rerun()
+                    else:
+                        st.info("No se detectaron cambios")
             
             with col_del:
-                eliminar_ids = st.multiselect("Seleccionar IDs para eliminar", df['ID'].tolist())
-                if eliminar_ids and st.button("🗑️ ELIMINAR seleccionadas"):
-                    for pid in eliminar_ids:
-                        supabase.table("zonas_inspectores").delete().eq("id", pid).execute()
-                    forzar_recarga_cache()
-                    st.success(f"Eliminadas {len(eliminar_ids)} calles")
-                    st.rerun()
+                if st.button("🗑️ ELIMINAR SELECCIONADAS", use_container_width=True):
+                    # Pedir IDs a eliminar mediante multiselect
+                    ids_a_eliminar = st.multiselect(
+                        "Seleccionar calles para eliminar",
+                        options=df['ID'].tolist(),
+                        format_func=lambda x: f"{df[df['ID']==x]['Calle'].iloc[0]} - {df[df['ID']==x]['Lado'].iloc[0]} {df[df['ID']==x]['Desde'].iloc[0]}-{df[df['ID']==x]['Hasta'].iloc[0]}"
+                    )
+                    
+                    if ids_a_eliminar:
+                        if st.button("⚠️ CONFIRMAR ELIMINACIÓN", type="secondary"):
+                            for pid in ids_a_eliminar:
+                                supabase.table("zonas_inspectores").delete().eq("id", pid).execute()
+                            forzar_recarga_cache()
+                            st.success(f"Eliminadas {len(ids_a_eliminar)} calles")
+                            st.rerun()
         else:
-            st.info("No hay calles cargadas")
+            st.info("No hay calles cargadas. Usá el botón 'REEMPLAZAR CON DATOS OFICIALES' para cargar todas las zonas.")
         
         st.markdown("---")
         st.markdown("### ➕ Agregar nueva calle manualmente")
         
-        with st.form("form_nueva_calle"):
-            col1, col2, col3, col4 = st.columns(4)
+        with st.form("form_nueva_calle", clear_on_submit=True):
+            col1, col2, col3 = st.columns(3)
             with col1:
-                nueva_calle = st.text_input("Calle")
+                nueva_calle = st.text_input("Nombre de la calle", placeholder="Ej: BELGRANO")
             with col2:
-                nuevo_legajo = st.selectbox("Legajo", options=list(opts.values()), format_func=lambda x: [k for k, v in opts.items() if v == x][0])
+                nuevo_legajo = st.selectbox(
+                    "Inspector", 
+                    options=list(opts.values()), 
+                    format_func=lambda x: [k for k, v in opts.items() if v == x][0]
+                )
             with col3:
                 nuevo_lado = st.selectbox("Lado", ["PAR", "IMPAR", "AMBOS"])
-            with col4:
-                nueva_desde = st.number_input("Desde", min_value=0, value=1)
-                nueva_hasta = st.number_input("Hasta", min_value=0, value=9999)
             
-            if st.form_submit_button("Agregar calle"):
+            col4, col5 = st.columns(2)
+            with col4:
+                nueva_desde = st.number_input("Altura desde", min_value=1, value=1, step=1)
+            with col5:
+                nueva_hasta = st.number_input("Altura hasta", min_value=1, value=9999, step=1)
+            
+            if st.form_submit_button("➕ Agregar esta calle"):
                 if nueva_calle:
-                    supabase.table("zonas_inspectores").insert({
-                        "legajo": nuevo_legajo,
-                        "calle": nueva_calle.upper().strip(),
-                        "lado": nuevo_lado,
-                        "altura_desde": nueva_desde,
-                        "altura_hasta": nueva_hasta
-                    }).execute()
-                    forzar_recarga_cache()
-                    st.success("Calle agregada")
-                    st.rerun()
+                    # Verificar si ya existe (misma calle, mismo legajo, mismo lado)
+                    existe = supabase.table("zonas_inspectores").select("*")\
+                        .eq("calle", nueva_calle.upper().strip())\
+                        .eq("legajo", nuevo_legajo)\
+                        .eq("lado", nuevo_lado)\
+                        .execute()
+                    
+                    if existe.data:
+                        st.warning("Esta calle ya existe para este inspector con el mismo lado")
+                    else:
+                        supabase.table("zonas_inspectores").insert({
+                            "legajo": int(nuevo_legajo),
+                            "calle": nueva_calle.upper().strip(),
+                            "lado": nuevo_lado,
+                            "altura_desde": int(nueva_desde),
+                            "altura_hasta": int(nueva_hasta)
+                        }).execute()
+                        forzar_recarga_cache()
+                        st.success(f"Calle {nueva_calle.upper()} agregada correctamente")
+                        st.rerun()
+                else:
+                    st.error("El nombre de la calle es obligatorio")
