@@ -31,16 +31,32 @@ with col_back:
 
 st.markdown("---")
 
-def limpiar_localidad(loc):
+def normalizar_localidad(loc):
     """
-    SOLO limpia espacios y puntos, NO transforma palabras.
-    Lo que escribís es lo que se guarda (en mayúsculas).
+    Normaliza localidad:
+    - MAYÚSCULAS
+    - Elimina espacios dobles
+    - NO elimina puntos (se respetan)
+    - Reemplaza abreviaturas comunes
     """
     if not loc:
         return ""
     loc = loc.upper().strip()
-       loc = re.sub(r'\s+', ' ', loc)
-    # NO hay reemplazos de palabras - se guarda exactamente como se escribe
+    # NO elimino puntos: loc = loc.replace('.', '')
+    loc = re.sub(r'\s+', ' ', loc)
+    reemplazos = {
+        "GRAL": "GENERAL",
+        "CNEL": "CORONEL",
+        "CTE": "COMANDANTE",
+        "CMTE": "COMANDANTE",
+        "DR": "DOCTOR",
+        "ING": "INGENIERO",
+        "PTE": "PRESIDENTE",
+        "STA": "SANTA",
+        "BLNRIO": "BALNEARIO",
+    }
+    for abrev, completo in reemplazos.items():
+        loc = loc.replace(abrev, completo)
     return loc.strip()
 
 def normalizar_calle(calle):
@@ -58,7 +74,7 @@ def normalizar_calle(calle):
     calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
-# 🔥 Función para forzar recarga del caché de actas.py
+# Función para forzar recarga del caché de actas.py
 def forzar_recarga_cache_actas():
     try:
         import sys
@@ -106,7 +122,7 @@ with tab1:
 # ==================== TAB 2: LOCALIDADES ====================
 with tab2:
     st.markdown("### 📍 Localidades")
-    st.caption("⚠️ **Importante:** Las localidades se guardan EXACTAMENTE como las escribís (en mayúsculas). Usá variantes separadas por /")
+    st.caption("⚠️ **Importante:** Las localidades se guardan EXACTAMENTE como las escribís (solo mayúsculas). Los puntos se respetan. Usá variantes separadas por /")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
@@ -117,7 +133,7 @@ with tab2:
         
         with st.expander("➕ Agregar localidad (separar variantes con /)"):
             with st.form("form_localidad"):
-                st.caption("Ejemplo: BATAN / BARRIO BATAN / SAN BERNARDO (MAR DEL PLATA)")
+                st.caption("Ejemplo: BATAN / BARRIO BATAN / GRAL CONESA (BS. AS.)")
                 localidades = st.text_area("Localidades", key="nuevas_localidades")
                 if st.form_submit_button("Guardar"):
                     if localidades:
@@ -126,7 +142,7 @@ with tab2:
                             if loc:
                                 supabase.table("inspectores_localidad").insert({
                                     "legajo": legajo_sel,
-                                    "localidad": limpiar_localidad(loc)
+                                    "localidad": normalizar_localidad(loc)
                                 }).execute()
                         forzar_recarga_cache_actas()
                         st.success("Localidades agregadas")
