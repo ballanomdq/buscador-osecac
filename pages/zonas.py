@@ -39,8 +39,7 @@ def limpiar_localidad(loc):
     if not loc:
         return ""
     loc = loc.upper().strip()
-    loc = loc.replace('.', '')
-    loc = re.sub(r'\s+', ' ', loc)
+       loc = re.sub(r'\s+', ' ', loc)
     # NO hay reemplazos de palabras - se guarda exactamente como se escribe
     return loc.strip()
 
