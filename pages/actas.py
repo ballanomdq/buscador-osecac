@@ -61,6 +61,8 @@ div[data-testid="stSelectbox"] > div { font-size: 0.8rem !important; padding: 0.
 }
 .big-number h1 { margin: 0; font-size: 1.8rem; color: #3b82f6; }
 .big-number p { margin: 0; font-size: 0.7rem; color: #94a3b8; }
+.debug-box { background: #0f172a; border: 1px solid #475569; border-radius: 6px;
+             padding: 0.75rem; font-family: monospace; font-size: 0.75rem; color: #94a3b8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -159,9 +161,8 @@ def limpiar_entero(v):
     except Exception:
         return None
 
-# ── FUNCIONES DE NORMALIZACIÓN ────────────────────────────────────────────────
+# ── NORMALIZACIÓN DE CALLES (solo para calles, no para localidades) ───────────
 def normalizar_calle(calle):
-    """Normaliza calles: limpia prefijos, sufijos, paréntesis, etc."""
     if not calle:
         return ""
     calle = calle.upper().strip()
@@ -190,47 +191,90 @@ def cargar_zonas_inspectores():
     return resultado.data if resultado.data else []
 
 def forzar_recarga_cache():
-    """Fuerza la recarga de todas las funciones cacheadas"""
     cargar_inspectores_localidad.clear()
     cargar_zonas_inspectores.clear()
 
+def limpiar_para_comparar(texto):
+    """
+    Preparación MÍNIMA para comparar: solo mayúsculas y espacios simples.
+    No transforma palabras, no elimina nada más.
+    """
+    if not texto:
+        return ""
+    return re.sub(r'\s+', ' ', str(texto).upper()).strip()
+
 def asignar_legajo_por_direccion(localidad, calle, numero):
     """
-    Asignación CORREGIDA:
-    - Para LOCALIDADES: comparación DIRECTA (solo mayúsculas y espacios)
-    - Para CALLES: se normaliza (para variantes como BELGRANO/BELGRA)
+    Lógica de asignación:
+    1. Si la localidad NO es MAR DEL PLATA → buscar en tabla inspectores_localidad
+       usando comparación directa (solo mayúsculas).
+    2. Si es MAR DEL PLATA → buscar por calle, altura y lado (par/impar).
     """
-    # Solo mayúsculas y espacios - NADA más
-    localidad_upper = localidad.upper().strip() if localidad else ""
+    localidad_cmp = limpiar_para_comparar(localidad)
     calle_norm = normalizar_calle(calle)
-    
-    # 1. Si la localidad NO es MAR DEL PLATA → buscar en inspectores_localidad
-    if localidad_upper != "MAR DEL PLATA" and localidad_upper != "":
+
+    # ── CASO 1: Localidad distinta de Mar del Plata ───────────────
+    if localidad_cmp != "MAR DEL PLATA":
         inspectores_localidad = cargar_inspectores_localidad()
         for item in inspectores_localidad:
-            # Comparación DIRECTA: lo que está en la tabla vs lo que viene del padrón
-            if item['localidad'].upper().strip() == localidad_upper:
+            if limpiar_para_comparar(item['localidad']) == localidad_cmp:
                 return item['legajo']
         return None
-    
-    # 2. Es MAR DEL PLATA → buscar por calle
+
+    # ── CASO 2: Mar del Plata → buscar por calle ─────────────────
     if not calle_norm or not numero:
         return None
-    
+
     try:
         numero_limpio = int(re.sub(r'\D', '', str(numero)))
-    except:
+    except Exception:
         return None
-    
+
     lado = "PAR" if numero_limpio % 2 == 0 else "IMPAR"
-    
+
     zonas = cargar_zonas_inspectores()
     for zona in zonas:
         if normalizar_calle(zona['calle']) == calle_norm:
-            if zona['lado'] == "AMBOS" or zona['lado'] == lado:
+            if zona['lado'] in ("AMBOS", lado):
                 if zona['altura_desde'] <= numero_limpio <= zona['altura_hasta']:
                     return zona['legajo']
     return None
+
+def diagnosticar_localidad(localidad):
+    """
+    Devuelve información detallada de por qué una localidad se encuentra o no.
+    Usado en el buscador de diagnóstico.
+    """
+    localidad_cmp = limpiar_para_comparar(localidad)
+    inspectores_localidad = cargar_inspectores_localidad()
+
+    resultado = {
+        "busqueda": localidad_cmp,
+        "longitud": len(localidad_cmp),
+        "bytes": localidad_cmp.encode('utf-8').hex(),
+        "encontrado": False,
+        "legajo": None,
+        "coincidencias_parciales": [],
+        "todas_las_localidades": []
+    }
+
+    for item in inspectores_localidad:
+        item_cmp = limpiar_para_comparar(item['localidad'])
+        resultado["todas_las_localidades"].append({
+            "guardado_raw": item['localidad'],
+            "guardado_cmp": item_cmp,
+            "legajo": item['legajo'],
+            "longitud": len(item_cmp),
+            "bytes": item_cmp.encode('utf-8').hex(),
+            "es_igual": item_cmp == localidad_cmp,
+        })
+        if item_cmp == localidad_cmp:
+            resultado["encontrado"] = True
+            resultado["legajo"] = item['legajo']
+        elif localidad_cmp in item_cmp or item_cmp in localidad_cmp:
+            resultado["coincidencias_parciales"].append(item_cmp)
+
+    return resultado
 
 # ── Datos cacheados ───────────────────────────────────────────────────────────
 @st.cache_data(ttl=0)
@@ -331,7 +375,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "✏️ Editar Legajos y Vtos",
     "📧 Solicitar Actas",
     "📋 Subir Actas",
-    "🔍 Buscador de Calles",
+    "🔍 Diagnóstico de Localidades",
 ])
 
 # ══════════════════════════════════════════════════════════════════
@@ -393,40 +437,23 @@ with tab1:
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
-    
-    # ── CARTELES CON CONTEO REAL ────────────────────────────────
+
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
     con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
-    
+
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown(f"""
-        <div class="big-number">
-            <h1>{total_general}</h1>
-            <p>TOTAL DE REGISTROS</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL DE REGISTROS</p></div>', unsafe_allow_html=True)
     with col_t2:
-        st.markdown(f"""
-        <div class="big-number">
-            <h1>{con_legajo}</h1>
-            <p>CON LEGAJO</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{con_legajo}</h1><p>CON LEGAJO</p></div>', unsafe_allow_html=True)
     with col_t3:
-        st.markdown(f"""
-        <div class="big-number">
-            <h1>{sin_legajo_total}</h1>
-            <p>SIN LEGAJO</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
+        st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
+
     st.markdown("---")
-    
-    # ── BOTONES ─────────────────────────────────────────────────
+
     col1, col2, col3, col4, col5 = st.columns(5)
-    
+
     with col1:
         if st.button("🗑 Eliminar seleccionados", key="btn_del_sel"):
             ids = st.session_state.get('ids_a_eliminar', [])
@@ -436,27 +463,26 @@ with tab2:
                 st.rerun()
             else:
                 st.warning("Nada seleccionado.")
-    
+
     with col2:
         if st.button("🗑 Eliminar TODO", key="btn_del_todo"):
             st.session_state.confirmar_del_todo = True
-    
+
     with col3:
         if st.button("🤖 Asignar Legajos", key="btn_asignar_legajos"):
             st.session_state.asignar_legajos = True
-    
+
     with col4:
         if st.button("↺ Resetear filtros", key="btn_reset"):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
                       'filtro_mail','filtro_leg','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
-    
+
     with col5:
         if st.button("⟳ Recargar", key="btn_reload"):
             st.rerun()
-    
-    # Confirmación eliminar todo
+
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros. ¿Confirmar?")
         ca, cb = st.columns(2)
@@ -470,18 +496,15 @@ with tab2:
             if st.button("Cancelar"):
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
-    
-    # Proceso de asignación de legajos
+
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Asignando legajos automáticamente..."):
-            # 🔥 LIMPIAR CACHÉ ANTES DE EMPEZAR
             forzar_recarga_cache()
-            
-            # Traer TODOS los registros sin legajo
+
             todos_sin_legajo = []
             offset = 0
             batch_size = 1000
-            
+
             while True:
                 batch = supabase.table("padron_deuda_presunta")\
                     .select("*")\
@@ -494,18 +517,18 @@ with tab2:
                 offset += batch_size
                 if len(batch.data) < batch_size:
                     break
-            
+
             asignados = 0
             no_asignados = 0
             no_asignados_detalle = []
-            
+
             for reg in todos_sin_legajo:
-                localidad = reg.get('localidad', '')
-                calle = reg.get('calle', '')
-                numero = reg.get('numero', '')
-                
+                localidad = reg.get('localidad', '') or ''
+                calle = reg.get('calle', '') or ''
+                numero = reg.get('numero', '') or ''
+
                 legajo_asignado = asignar_legajo_por_direccion(localidad, calle, numero)
-                
+
                 if legajo_asignado:
                     supabase.table("padron_deuda_presunta").update({"leg": legajo_asignado}).eq("id", reg['id']).execute()
                     asignados += 1
@@ -518,7 +541,7 @@ with tab2:
                         "numero": numero,
                         "razon_social": reg.get('razon_social', '')
                     })
-            
+
             st.session_state.asignar_legajos = False
             st.session_state.ultima_asignacion = {
                 "asignados": asignados,
@@ -526,8 +549,7 @@ with tab2:
                 "detalle": no_asignados_detalle
             }
             st.rerun()
-    
-    # Mostrar resultado de la última asignación
+
     if st.session_state.get('ultima_asignacion'):
         resultado = st.session_state.ultima_asignacion
         st.markdown(f"""
@@ -535,25 +557,25 @@ with tab2:
         ✅ Asignación completada: {resultado['asignados']} legajos asignados, {resultado['no_asignados']} no encontrados.
         </div>
         """, unsafe_allow_html=True)
-        
+
         if resultado['no_asignados'] > 0:
             with st.expander(f"📋 Ver {resultado['no_asignados']} registros sin legajo asignado"):
                 df_no_asignados = pd.DataFrame(resultado['detalle'])
                 st.dataframe(df_no_asignados, use_container_width=True)
-                
+                st.caption("💡 Copiá alguna de estas localidades y pegala en la pestaña 'Diagnóstico de Localidades' para ver exactamente por qué no se encontró.")
+
                 if st.button("📋 Copiar direcciones no encontradas"):
                     texto = ""
                     for item in resultado['detalle']:
                         texto += f"{item['localidad']}, {item['calle']} {item['numero']} - {item['razon_social']}\n"
                     st.code(texto)
-        
+
         if st.button("Cerrar resultado"):
             del st.session_state.ultima_asignacion
             st.rerun()
-    
+
     st.markdown("---")
-    
-    # ── FILTROS ─────────────────────────────────────────────────
+
     f1, f2, f3, f4, f5 = st.columns([1.5, 1.5, 1.5, 1, 1])
     with f1:
         filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
@@ -566,8 +588,7 @@ with tab2:
         filtro_mail = st.selectbox("Mail", ["AMBOS","NO","SI"], key="filtro_mail", label_visibility="collapsed")
     with f5:
         filtro_leg = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
-    
-    # ── Consulta Supabase ─────────────────────────────────────────
+
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
@@ -575,14 +596,14 @@ with tab2:
         q = q.eq("mail_enviado","SI")
     elif filtro_mail == "NO":
         q = q.eq("mail_enviado","NO")
-    
+
     datos = q.execute()
-    
+
     if not datos.data:
         st.info("Sin datos.")
     else:
         df = pd.DataFrame(datos.data)
-        
+
         if filtro_cuit:
             df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
         if filtro_razon:
@@ -591,15 +612,15 @@ with tab2:
             df = df[df['leg'].notna()]
         elif filtro_leg == "SIN LEGAJO":
             df = df[df['leg'].isna()]
-        
+
         total = len(df)
         RPP   = 300
         pages = max(1, (total + RPP - 1) // RPP)
-        
+
         if 'pagina_actual' not in st.session_state:
             st.session_state.pagina_actual = 1
         st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
-        
+
         pa, pn, ps = st.columns([1, 3, 1])
         with pa:
             if st.button("◀", key="btn_prev") and st.session_state.pagina_actual > 1:
@@ -611,39 +632,39 @@ with tab2:
             if st.button("▶", key="btn_next") and st.session_state.pagina_actual < pages:
                 st.session_state.pagina_actual += 1
                 st.rerun()
-        
+
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
-        
+
         for col in ['empl_10_2025','emp_11_2025','empl_12_2025']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(limpiar_entero)
         for col in ['fechareldependencia','desde','hasta','fecha_pago_obl','vto','fecha_carga']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(fmt_fecha)
-        
+
         df_orig = df_p.copy()
         df_ed   = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns=TITULOS)
         df_ed.insert(0, "🗑️", False)
-        
+
         sel_todos = st.checkbox("Seleccionar todos (página actual)", key="sel_todos")
         if sel_todos:
             df_ed["🗑️"] = True
-        
+
         edited = st.data_editor(
             df_ed, use_container_width=True, height=550,
             column_config={"🗑️": st.column_config.CheckboxColumn("Elim.", help="Marcar para eliminar")},
             disabled=COLS_DISABLED,
             key=f"editor_{st.session_state.pagina_actual}",
         )
-        
+
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
         if ids_sel:
             st.caption(f"📌 {len(ids_sel)} seleccionado(s) para eliminar.")
-        
+
         st.markdown("---")
-        
+
         if st.button("💾 Guardar cambios", type="primary", key="btn_save"):
             mods = 0
             with st.spinner("Guardando..."):
@@ -652,35 +673,123 @@ with tab2:
                         continue
                     orig = df_orig.iloc[idx]
                     upd  = {}
-                    
+
                     nv = row.get('LEG'); ov = orig.get('leg')
                     nv = None if pd.isna(nv) or nv == '' else nv
                     ov = None if pd.isna(ov) or ov == '' else ov
                     if nv != ov: upd['leg'] = nv
-                    
+
                     nv = row.get('VTO'); ov = orig.get('vto')
                     nv = None if pd.isna(nv) or nv == '' else norm_fecha(nv)
                     ov = None if pd.isna(ov) or ov == '' else ov
                     if nv != ov: upd['vto'] = nv
-                    
+
                     nv = row.get('MAIL ENVIADO') or 'NO'
                     if nv not in ('SI','NO'): nv = 'NO'
                     if nv != orig.get('mail_enviado'): upd['mail_enviado'] = nv
-                    
+
                     nv = row.get('ACTA'); ov = orig.get('acta')
                     nv = None if pd.isna(nv) or nv == '' else nv
                     ov = None if pd.isna(ov) or ov == '' else ov
                     if nv != ov: upd['acta'] = nv
-                    
+
                     nv = row.get('ESTADO GESTION') or 'PENDIENTE'
                     if nv != orig.get('estado_gestion'): upd['estado_gestion'] = nv
-                    
+
                     if upd:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
                         mods += 1
-            
+
             if mods:
                 st.markdown(f'<div class="msg msg-success">✅ {mods} registros actualizados.</div>', unsafe_allow_html=True)
                 st.rerun()
             else:
                 st.info("Sin cambios")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 3 y TAB 4 — Placeholders (sin cambios)
+# ══════════════════════════════════════════════════════════════════
+with tab3:
+    st.info("Solicitar Actas — en construcción")
+
+with tab4:
+    st.info("Subir Actas — en construcción")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — Diagnóstico de Localidades
+# ══════════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown("#### 🔍 Diagnóstico de Localidades")
+    st.markdown("""<div class="msg msg-info">
+    Esta herramienta te muestra <strong>exactamente</strong> qué ve el sistema cuando busca una localidad.
+    Copiá una localidad del padrón que no se está encontrando y pegala acá.
+    </div>""", unsafe_allow_html=True)
+
+    col_diag1, col_diag2 = st.columns([3, 1])
+    with col_diag1:
+        localidad_test = st.text_input("Escribí o pegá la localidad exactamente como aparece en el padrón",
+                                        placeholder="Ej: DOLORES", key="localidad_diagnostico")
+    with col_diag2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        btn_diag = st.button("🔍 Buscar", key="btn_diagnostico", type="primary")
+
+    if btn_diag and localidad_test:
+        forzar_recarga_cache()
+        diag = diagnosticar_localidad(localidad_test)
+
+        st.markdown("---")
+        st.markdown("##### Lo que el sistema busca:")
+
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Texto buscado", f'"{diag["busqueda"]}"')
+        col_b.metric("Cantidad de caracteres", diag["longitud"])
+        col_c.metric("¿Encontrado?", "✅ SÍ" if diag["encontrado"] else "❌ NO")
+
+        if diag["encontrado"]:
+            st.success(f"✅ Encontrado — Legajo asignado: **{diag['legajo']}**")
+        else:
+            st.error("❌ No se encontró ninguna localidad exactamente igual en la tabla de inspectores.")
+
+            if diag["coincidencias_parciales"]:
+                st.warning(f"⚠️ Hay coincidencias PARCIALES (parecidas pero no iguales): {', '.join(diag['coincidencias_parciales'])}")
+
+        st.markdown("---")
+        st.markdown("##### Comparación carácter por carácter con cada localidad guardada:")
+        st.caption("La columna '¿Es igual?' tiene que ser ✅ para que se asigne el legajo.")
+
+        rows = []
+        for item in diag["todas_las_localidades"]:
+            rows.append({
+                "Guardado en Zonas": item["guardado_raw"],
+                "Comparado como": item["guardado_cmp"],
+                "Legajo": item["legajo"],
+                "Largo": item["longitud"],
+                "¿Es igual?": "✅ SÍ" if item["es_igual"] else "❌ NO",
+                # Mostrar bytes ayuda a detectar espacios invisibles o caracteres raros
+                "Bytes (hex)": item["bytes"][:40] + "..." if len(item["bytes"]) > 40 else item["bytes"],
+            })
+
+        if rows:
+            df_diag = pd.DataFrame(rows)
+            # Mostrar primero las que son iguales
+            df_diag = df_diag.sort_values("¿Es igual?", ascending=False)
+            st.dataframe(df_diag, use_container_width=True, hide_index=True)
+        else:
+            st.warning("No hay localidades cargadas en la tabla de inspectores.")
+
+    st.markdown("---")
+    st.markdown("##### 📋 Todas las localidades cargadas en Zonas")
+    st.caption("Esta es la lista completa de lo que el sistema tiene para comparar.")
+
+    if st.button("🔄 Ver todas las localidades guardadas", key="btn_ver_todas"):
+        forzar_recarga_cache()
+        todas = cargar_inspectores_localidad()
+        if todas:
+            df_todas = pd.DataFrame(todas)[['legajo', 'localidad']]
+            df_todas['comparado_como'] = df_todas['localidad'].apply(limpiar_para_comparar)
+            df_todas.columns = ['Legajo', 'Guardado raw', 'Comparado como']
+            df_todas = df_todas.sort_values('Guardado raw')
+            st.dataframe(df_todas, use_container_width=True, hide_index=True)
+            st.caption(f"Total: {len(df_todas)} localidades cargadas.")
+        else:
+            st.warning("No hay localidades cargadas.")
