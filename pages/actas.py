@@ -144,7 +144,7 @@ def limpiar_para_comparar(texto):
         return ""
     return re.sub(r'\s+', ' ', str(texto).upper()).strip()
 
-# ── Carga de datos (sin caché) ──────────────────────────────────────────────
+# ── Carga de datos (SIN CACHÉ - siempre datos frescos) ──────────────────────
 def cargar_inspectores_localidad():
     r = supabase.table("inspectores_localidad").select("*").execute()
     return r.data if r.data else []
@@ -374,12 +374,11 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON FILTRO PARA BARRIO BATAN)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN FINAL - SIN FILTRO)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
 
-    # Contadores
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
     con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
@@ -394,7 +393,6 @@ with tab2:
 
     st.markdown("---")
 
-    # Botones
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
@@ -419,7 +417,6 @@ with tab2:
         if st.button("⟳ Recargar"):
             st.rerun()
 
-    # Confirmar eliminar todo
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
         if st.button("Sí, eliminar todo"):
@@ -431,7 +428,7 @@ with tab2:
             st.rerun()
 
     # ══════════════════════════════════════════════════════════════
-    # ASIGNACIÓN CON FILTRO PARA BARRIO BATAN
+    # ASIGNACIÓN OPTIMIZADA - VERSIÓN FINAL (SIN FILTRO)
     # ══════════════════════════════════════════════════════════════
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Cargando tablas de inspectores..."):
@@ -439,14 +436,6 @@ with tab2:
             zonas_inspectores = cargar_zonas_inspectores()
             lookup_localidades = construir_lookup_localidades(inspectores_localidad)
             lookup_zonas = construir_lookup_zonas(zonas_inspectores)
-
-        # DIAGNÓSTICO
-        st.write("---")
-        st.write("### 🔍 DIAGNÓSTICO - Localidades que contienen 'BATAN'")
-        for clave, leg in lookup_localidades.items():
-            if "BATAN" in clave:
-                st.write(f"   ✅ '{clave}' → legajo {leg}")
-        st.write("---")
 
         with st.spinner("Cargando registros sin legajo..."):
             registros = traer_registros_sin_legajo()
@@ -470,18 +459,7 @@ with tab2:
                 calle = reg.get('calle', '') or ''
                 numero = reg.get('numero', '') or ''
 
-                # 🔥 FILTRO: SOLO procesar BARRIO BATAN
-                if localidad != "BARRIO BATAN":
-                    continue  # Saltea todo lo que no sea BARRIO BATAN
-
-                # Si llegamos acá, es BARRIO BATAN
-                st.warning(f"🔍 PROCESANDO 'BARRIO BATAN'")
-                st.write(f"   Localidad: '{localidad}'")
-                st.write(f"   Limpiado: '{limpiar_para_comparar(localidad)}'")
-                
                 legajo = asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas)
-                
-                st.write(f"   Legajo asignado: {legajo}")
 
                 if legajo:
                     asignaciones.append({'id': reg['id'], 'legajo': legajo})
