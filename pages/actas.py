@@ -160,29 +160,7 @@ def limpiar_entero(v):
         return None
 
 # ── FUNCIONES DE NORMALIZACIÓN ────────────────────────────────────────────────
-def normalizar_localidad(localidad):
-    if not localidad:
-        return ""
-    localidad = localidad.upper().strip()
-    reemplazos = {
-        "BLNRIO": "BALNEARIO",
-        "GRAL": "GENERAL",
-        "CNEL": "CORONEL",
-        "CTE": "COMANDANTE",
-        "BS. AS.": "",
-        "BS AS": "",
-        "PTE": "PRESIDENTE",
-        "DR": "DOCTOR",
-        "ING": "INGENIERO",
-        "STA": "SANTA",
-        "SAN": "SANTO",
-    }
-    for abrev, completo in reemplazos.items():
-        localidad = localidad.replace(abrev, completo)
-    localidad = re.sub(r'\s+', ' ', localidad)
-    # YA NO ELIMINO PARÉNTESIS - los respeto
-    return localidad.strip()
-
+# 🔥 SOLO para calles (MANTENER)
 def normalizar_calle(calle):
     if not calle:
         return ""
@@ -200,13 +178,13 @@ def normalizar_calle(calle):
     calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
     return calle.strip()
 
-# ── FUNCIÓN DE ASIGNACIÓN DE LEGAJO (LEE DESDE SUPABASE) ──────────────────────
-@st.cache_data(ttl=0)  # 🔥 CAMBIADO: ttl=0 para que siempre busque datos frescos
+# ── FUNCIÓN DE ASIGNACIÓN DE LEGAJO ──────────────────────────────────────────
+@st.cache_data(ttl=0)
 def cargar_inspectores_localidad():
     resultado = supabase.table("inspectores_localidad").select("*").execute()
     return resultado.data if resultado.data else []
 
-@st.cache_data(ttl=0)  # 🔥 CAMBIADO: ttl=0 para que siempre busque datos frescos
+@st.cache_data(ttl=0)
 def cargar_zonas_inspectores():
     resultado = supabase.table("zonas_inspectores").select("*").execute()
     return resultado.data if resultado.data else []
@@ -217,15 +195,21 @@ def forzar_recarga_cache():
     cargar_zonas_inspectores.clear()
 
 def asignar_legajo_por_direccion(localidad, calle, numero):
-    localidad_norm = normalizar_localidad(localidad)
+    """
+    ASIGNACIÓN CORREGIDA:
+    - Para LOCALIDADES: comparación DIRECTA (solo mayúsculas y espacios)
+    - Para CALLES: se normaliza (porque hay variantes como BELGRANO/BELGRA)
+    """
+    # 🔥 Solo convierto a mayúsculas y saco espacios - NO normalizo
+    localidad_upper = localidad.upper().strip() if localidad else ""
     calle_norm = normalizar_calle(calle)
     
     # 1. Si la localidad NO es MAR DEL PLATA → buscar en inspectores_localidad
-    if localidad_norm != "MAR DEL PLATA":
+    if localidad_upper != "MAR DEL PLATA":
         inspectores_localidad = cargar_inspectores_localidad()
         for item in inspectores_localidad:
-            # Normalizo también lo que está en la tabla para comparar
-            if normalizar_localidad(item['localidad']) == localidad_norm:
+            # 🔥 Comparación DIRECTA: solo mayúsculas y espacios
+            if item['localidad'].upper().strip() == localidad_upper:
                 return item['legajo']
         return None
     
@@ -249,7 +233,7 @@ def asignar_legajo_por_direccion(localidad, calle, numero):
     return None
 
 # ── Datos cacheados ───────────────────────────────────────────────────────────
-@st.cache_data(ttl=0)  # 🔥 CAMBIADO: ttl=0
+@st.cache_data(ttl=0)
 def get_localidades(_sb):
     r = _sb.table("padron_deuda_presunta").select("localidad").execute()
     locs = sorted({x['localidad'] for x in r.data if x.get('localidad')})
@@ -487,13 +471,13 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
     
-    # Proceso de asignación de legajos (CON PAGINACIÓN PARA TRAER TODOS)
+    # Proceso de asignación de legajos
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Asignando legajos automáticamente..."):
             # 🔥 LIMPIAR CACHÉ ANTES DE EMPEZAR
             forzar_recarga_cache()
             
-            # Traer TODOS los registros sin legajo usando paginación
+            # Traer TODOS los registros sin legajo
             todos_sin_legajo = []
             offset = 0
             batch_size = 1000
@@ -616,7 +600,6 @@ with tab2:
             st.session_state.pagina_actual = 1
         st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
         
-        # Paginación compacta
         pa, pn, ps = st.columns([1, 3, 1])
         with pa:
             if st.button("◀", key="btn_prev") and st.session_state.pagina_actual > 1:
@@ -632,7 +615,6 @@ with tab2:
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
         
-        # Formatear para mostrar
         for col in ['empl_10_2025','emp_11_2025','empl_12_2025']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(limpiar_entero)
@@ -663,7 +645,6 @@ with tab2:
         st.markdown("---")
         
         if st.button("💾 Guardar cambios", type="primary", key="btn_save"):
-            inverso = {v: k for k, v in TITULOS.items()}
             mods = 0
             with st.spinner("Guardando..."):
                 for idx, row in edited.iterrows():
