@@ -160,8 +160,8 @@ def limpiar_entero(v):
         return None
 
 # ── FUNCIONES DE NORMALIZACIÓN ────────────────────────────────────────────────
-# 🔥 SOLO para calles (MANTENER)
 def normalizar_calle(calle):
+    """Normaliza calles: limpia prefijos, sufijos, paréntesis, etc."""
     if not calle:
         return ""
     calle = calle.upper().strip()
@@ -196,19 +196,19 @@ def forzar_recarga_cache():
 
 def asignar_legajo_por_direccion(localidad, calle, numero):
     """
-    ASIGNACIÓN CORREGIDA:
+    Asignación CORREGIDA:
     - Para LOCALIDADES: comparación DIRECTA (solo mayúsculas y espacios)
-    - Para CALLES: se normaliza (porque hay variantes como BELGRANO/BELGRA)
+    - Para CALLES: se normaliza (para variantes como BELGRANO/BELGRA)
     """
-    # 🔥 Solo convierto a mayúsculas y saco espacios - NO normalizo
+    # Solo mayúsculas y espacios - NADA más
     localidad_upper = localidad.upper().strip() if localidad else ""
     calle_norm = normalizar_calle(calle)
     
     # 1. Si la localidad NO es MAR DEL PLATA → buscar en inspectores_localidad
-    if localidad_upper != "MAR DEL PLATA":
+    if localidad_upper != "MAR DEL PLATA" and localidad_upper != "":
         inspectores_localidad = cargar_inspectores_localidad()
         for item in inspectores_localidad:
-            # 🔥 Comparación DIRECTA: solo mayúsculas y espacios
+            # Comparación DIRECTA: lo que está en la tabla vs lo que viene del padrón
             if item['localidad'].upper().strip() == localidad_upper:
                 return item['legajo']
         return None
