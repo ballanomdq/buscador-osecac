@@ -16,7 +16,6 @@ supabase = get_supabase()
 
 st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide", initial_sidebar_state="collapsed")
 
-# ── Estilos ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 13px !important; }
@@ -65,7 +64,7 @@ with col_back:
     if st.button("← Volver"):
         st.switch_page("main.py")
 
-# ── Utilidades ────────────────────────────────────────────────────────────────
+# ── Utilidades generales ──────────────────────────────────────────────────────
 def limpiar_str(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
@@ -124,27 +123,128 @@ def limpiar_entero(v):
     except Exception:
         return None
 
-# ── Normalización ────────────────────────────────────────────────────────────
-def normalizar_calle(calle):
-    if not calle:
-        return ""
-    calle = calle.upper().strip()
-    parentesis = re.search(r'\(([^)]+)\)', calle)
-    if parentesis:
-        calle = parentesis.group(1)
-    for prefijo in ['AV ', 'AV.', 'AVENIDA ', 'CALLE ', 'C/', 'RUTA ', 'RP ']:
-        if calle.startswith(prefijo):
-            calle = calle[len(prefijo):]
-    calle = re.sub(r'^\d+\s+', '', calle)
-    calle = calle.replace("SETIEMBRE", "SEPTIEMBRE")
-    return calle.strip()
-
 def limpiar_para_comparar(texto):
     if not texto:
         return ""
     return re.sub(r'\s+', ' ', str(texto).upper()).strip()
 
-# ── Carga de datos (SIN CACHÉ - siempre datos frescos) ──────────────────────
+# ── Normalización de calles (MEJORADA) ───────────────────────────────────────
+# Tabla de reemplazos aplicada ANTES de quitar caracteres especiales.
+# Orden importa: primero abreviaturas con punto, luego palabras sueltas.
+REEMPLAZOS_CALLE = [
+    # Abreviaturas con punto — van primero para no interferir con las siguientes
+    (r'\bH\.\s*',          'HIPOLITO '),
+    (r'\bGRAL\.\s*',       'GENERAL '),
+    (r'\bGRL\.\s*',        'GENERAL '),
+    (r'\bDR\.\s*',         'DOCTOR '),
+    (r'\bGOB\.\s*',        'GOBERNADOR '),
+    (r'\bPTE\.\s*',        'PRESIDENTE '),
+    (r'\bSTA\.\s*',        'SANTA '),
+    (r'\bSTO\.\s*',        'SANTO '),
+    (r'\bOBISPO\b',        'OBISPO'),
+    # Variantes ortográficas frecuentes
+    (r'\bYRIGOYEN\b',      'IRIGOYEN'),
+    (r'\bIRIGOYEN\b',      'IRIGOYEN'),   # ya normalizado, no hace daño
+    (r'\bSETIEMBRE\b',     'SEPTIEMBRE'),
+    (r'\bSTIEMBRE\b',      'SEPTIEMBRE'),
+    # Números escritos (los más comunes en nombres de calles de MDQ)
+    (r'\b11\b',            'ONCE'),
+    (r'\b12\b',            'DOCE'),
+    (r'\b25\b',            'VEINTICINCO'),
+    (r'\b9\b',             'NUEVE'),
+    # Prefijos de vía — se quitan
+    (r'\bAVENIDA\b',       ''),
+    (r'\bAV\.\s*',         ''),
+    (r'\bAV\s+',           ''),
+    (r'\bCALLE\b',         ''),
+    (r'\bC/\s*',           ''),
+    (r'\bRUTA\b',          ''),
+    (r'\bRP\b',            ''),
+    (r'\bPASAJE\b',        ''),
+    (r'\bBLEVARD\b',       ''),
+    (r'\bBOULEVARD\b',     ''),
+    (r'\bBLVD\.\s*',       ''),
+    (r'\bBLVD\s+',         ''),
+]
+
+def normalizar_calle(calle: str) -> str:
+    """
+    Normaliza el nombre de una calle para comparación fuzzy:
+    - Todo en mayúsculas
+    - Elimina texto entre paréntesis
+    - Aplica reemplazos de abreviaturas y variantes ortográficas
+    - Elimina caracteres no alfanuméricos (excepto espacios)
+    - Colapsa espacios múltiples
+    """
+    if not calle:
+        return ""
+
+    calle = str(calle).upper().strip()
+
+    # Quitar texto entre paréntesis (ej: "HIPOLITO (H) IRIGOYEN")
+    calle = re.sub(r'\(.*?\)', '', calle)
+
+    # Aplicar tabla de reemplazos en orden
+    for patron, reemplazo in REEMPLAZOS_CALLE:
+        calle = re.sub(patron, reemplazo, calle)
+
+    # Eliminar caracteres que no sean letras, dígitos o espacios
+    calle = re.sub(r'[^A-ZÁÉÍÓÚÜÑ0-9 ]', '', calle)
+
+    # Colapsar espacios y recortar
+    return re.sub(r'\s+', ' ', calle).strip()
+
+
+# ── Asignación de legajo (MEJORADA) ──────────────────────────────────────────
+def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas):
+    """
+    Asigna el legajo del inspector correspondiente.
+    - Localidades distintas de Mar del Plata: búsqueda directa por localidad.
+    - Mar del Plata: búsqueda por calle + altura + lado (PAR/IMPAR/AMBOS).
+      Acepta "P", "PAR", "I", "IMPAR", "AMBOS", "A" como valores de lado.
+    """
+    localidad_cmp = limpiar_para_comparar(localidad)
+
+    # ── Localidades fuera de Mar del Plata (no tocar) ──────────────────────
+    if localidad_cmp not in ("MAR DEL PLATA", ""):
+        return lookup_localidades.get(localidad_cmp)
+
+    # ── Mar del Plata: búsqueda por zona ──────────────────────────────────
+    calle_norm = normalizar_calle(calle)
+    if not calle_norm:
+        return None
+
+    try:
+        num = int(re.sub(r'\D', '', str(numero)))
+    except Exception:
+        return None
+
+    lado_actual = "PAR" if num % 2 == 0 else "IMPAR"
+
+    for zona in lookup_zonas.get(calle_norm, []):
+        # Normalizar el valor de "lado" guardado en la BD:
+        # acepta "PAR"/"P", "IMPAR"/"I", "AMBOS"/"A" (y combinaciones en mayúsc/minúsc)
+        lado_db = str(zona['lado']).upper().strip()
+        es_mismo_lado = (
+            lado_db in ("AMBOS", "A")
+            or (lado_actual == "PAR"   and lado_db in ("PAR",   "P"))
+            or (lado_actual == "IMPAR" and lado_db in ("IMPAR", "I"))
+        )
+
+        # Comparar altura dentro del rango
+        try:
+            desde = int(zona['desde'])
+            hasta = int(zona['hasta'])
+        except (TypeError, ValueError):
+            continue
+
+        if es_mismo_lado and desde <= num <= hasta:
+            return zona['legajo']
+
+    return None
+
+
+# ── Carga de datos ────────────────────────────────────────────────────────────
 def cargar_inspectores_localidad():
     r = supabase.table("inspectores_localidad").select("*").execute()
     return r.data if r.data else []
@@ -153,7 +253,6 @@ def cargar_zonas_inspectores():
     r = supabase.table("zonas_inspectores").select("*").execute()
     return r.data if r.data else []
 
-# ── Optimización: diccionarios para búsqueda rápida ─────────────────────────
 def construir_lookup_localidades(inspectores_localidad):
     lookup = {}
     for item in inspectores_localidad:
@@ -163,66 +262,30 @@ def construir_lookup_localidades(inspectores_localidad):
     return lookup
 
 def construir_lookup_zonas(zonas_inspectores):
+    """
+    Construye el diccionario de zonas normalizando la clave de calle
+    con la misma función que se usa al buscar, garantizando coincidencia.
+    """
     lookup = {}
     for zona in zonas_inspectores:
-        clave = normalizar_calle(zona['calle'])
+        clave = normalizar_calle(zona.get('calle', ''))
         if not clave:
             continue
         lookup.setdefault(clave, []).append({
             'legajo': zona['legajo'],
-            'lado': zona['lado'],
-            'desde': zona['altura_desde'],
-            'hasta': zona['altura_hasta'],
+            'lado':   zona['lado'],
+            'desde':  zona['altura_desde'],
+            'hasta':  zona['altura_hasta'],
         })
     return lookup
 
-# ── Asignación optimizada (usa diccionarios) ────────────────────────────────
-def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas):
-    localidad_cmp = limpiar_para_comparar(localidad)
-
-    if localidad_cmp != "MAR DEL PLATA" and localidad_cmp != "":
-        return lookup_localidades.get(localidad_cmp)
-
-    calle_norm = normalizar_calle(calle)
-    if not calle_norm or not numero:
-        return None
-
-    try:
-        num = int(re.sub(r'\D', '', str(numero)))
-    except Exception:
-        return None
-
-    lado = "PAR" if num % 2 == 0 else "IMPAR"
-    for zona in lookup_zonas.get(calle_norm, []):
-        if zona['lado'] in ("AMBOS", lado) and zona['desde'] <= num <= zona['hasta']:
-            return zona['legajo']
-    return None
-
-# ── Batch update optimizado ─────────────────────────────────────────────────
-def guardar_legajos_en_batch(asignaciones, batch_size=100):
-    if not asignaciones:
-        return 0
-    por_legajo = {}
-    for a in asignaciones:
-        por_legajo.setdefault(a['legajo'], []).append(a['id'])
-
-    total = 0
-    for legajo, ids in por_legajo.items():
-        for i in range(0, len(ids), batch_size):
-            chunk = ids[i:i + batch_size]
-            supabase.table("padron_deuda_presunta").update({"leg": legajo}).in_("id", chunk).execute()
-            total += len(chunk)
-    return total
-
-# ── Carga de registros sin legajo ────────────────────────────────────────────
 def traer_registros_sin_legajo():
     registros, offset = [], 0
     while True:
-        r = supabase.table("padron_deuda_presunta")\
-            .select("id, localidad, calle, numero, razon_social")\
-            .is_("leg", "null")\
-            .range(offset, offset + 999)\
-            .execute()
+        r = supabase.table("padron_deuda_presunta") \
+            .select("id, localidad, calle, numero, razon_social") \
+            .is_("leg", "null") \
+            .range(offset, offset + 999).execute()
         if not r.data:
             break
         registros.extend(r.data)
@@ -231,7 +294,20 @@ def traer_registros_sin_legajo():
             break
     return registros
 
-# ── Datos para la tabla de edición ──────────────────────────────────────────
+def guardar_legajos_en_batch(asignaciones, batch_size=100):
+    if not asignaciones:
+        return 0
+    por_legajo = {}
+    for a in asignaciones:
+        por_legajo.setdefault(a['legajo'], []).append(a['id'])
+    total = 0
+    for legajo, ids in por_legajo.items():
+        for i in range(0, len(ids), batch_size):
+            chunk = ids[i:i + batch_size]
+            supabase.table("padron_deuda_presunta").update({"leg": legajo}).in_("id", chunk).execute()
+            total += len(chunk)
+    return total
+
 def get_localidades():
     r = supabase.table("padron_deuda_presunta").select("localidad").execute()
     locs = sorted({x['localidad'] for x in r.data if x.get('localidad')})
@@ -254,7 +330,7 @@ def get_pares_existentes():
             break
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
 
-# ── Mapeo Excel ──────────────────────────────────────────────────────────────
+# ── Mapeo Excel ───────────────────────────────────────────────────────────────
 COLS_EXCEL = [
     "DELEGACION","LOCALIDAD","CUIT","RAZON SOCIAL","DEUDA PRESUNTA",
     "CP","CALLE","NUMERO","PISO","DPTO","FECHARELDEPENDENCIA",
@@ -262,7 +338,6 @@ COLS_EXCEL = [
     "HASTA","DETECTADO","ESTADO","FECHA_PAGO_OBL",
     "EMPL 10-2025","EMP 11-2025","EMPL 12-2025","ACTIVIDAD","SITUACION",
 ]
-
 MAPA = {
     "DELEGACION":"delegacion","LOCALIDAD":"localidad","CUIT":"cuit",
     "RAZON SOCIAL":"razon_social","DEUDA PRESUNTA":"deuda_presunta",
@@ -274,10 +349,8 @@ MAPA = {
     "EMPL 10-2025":"empl_10_2025","EMP 11-2025":"emp_11_2025","EMPL 12-2025":"empl_12_2025",
     "ACTIVIDAD":"actividad","SITUACION":"situacion",
 }
-
-COLS_FECHA = {"fechareldependencia","desde","hasta","fecha_pago_obl"}
+COLS_FECHA  = {"fechareldependencia","desde","hasta","fecha_pago_obl"}
 COLS_MONEDA = {"deuda_presunta","detectado"}
-
 TITULOS = {
     'id':'ID','delegacion':'DELEGACION','localidad':'LOCALIDAD','cuit':'CUIT',
     'razon_social':'RAZON SOCIAL','deuda_presunta':'DEUDA PRESUNTA','cp':'CP',
@@ -291,7 +364,6 @@ TITULOS = {
     'leg':'LEG','vto':'VTO','mail_enviado':'MAIL ENVIADO',
     'acta':'ACTA','estado_gestion':'ESTADO GESTION',
 }
-
 COLS_DISABLED = [
     'ID','CUIT','RAZON SOCIAL','DEUDA PRESUNTA','CP','CALLE','NUMERO','PISO','DPTO',
     'FECHARELDEPENDENCIA','EMAIL','TEL_DOM_LEGAL','TEL_DOM_REAL','ULTIMA ACTA',
@@ -326,7 +398,7 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
-# ==================== PESTAÑAS ====================
+# ── Pestañas ──────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
@@ -374,18 +446,18 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN FINAL - SIN FILTRO)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
 
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
-    con_legajo = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
+    con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL DE REGISTROS</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL</p></div>', unsafe_allow_html=True)
     with col_t2:
         st.markdown(f'<div class="big-number"><h1>{con_legajo}</h1><p>CON LEGAJO</p></div>', unsafe_allow_html=True)
     with col_t3:
@@ -427,101 +499,95 @@ with tab2:
             st.session_state.confirmar_del_todo = False
             st.rerun()
 
-    # ══════════════════════════════════════════════════════════════
-    # ASIGNACIÓN OPTIMIZADA - VERSIÓN FINAL (SIN FILTRO)
-    # ══════════════════════════════════════════════════════════════
+    # ── Asignación automática de legajos ─────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         with st.spinner("Cargando tablas de inspectores..."):
-            inspectores_localidad = cargar_inspectores_localidad()
-            zonas_inspectores = cargar_zonas_inspectores()
-            lookup_localidades = construir_lookup_localidades(inspectores_localidad)
-            lookup_zonas = construir_lookup_zonas(zonas_inspectores)
+            insp_loc   = cargar_inspectores_localidad()
+            insp_zonas = cargar_zonas_inspectores()
+            lkp_loc    = construir_lookup_localidades(insp_loc)
+            lkp_zonas  = construir_lookup_zonas(insp_zonas)
 
         with st.spinner("Cargando registros sin legajo..."):
             registros = traer_registros_sin_legajo()
 
         if not registros:
-            st.info("No hay registros sin legajo para asignar.")
+            st.info("No hay registros sin legajo.")
             st.session_state.asignar_legajos = False
         else:
-            total = len(registros)
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-
-            asignaciones = []
-            no_asignados = []
+            total    = len(registros)
+            bar      = st.progress(0)
+            status   = st.empty()
+            asig     = []
+            no_asig  = []
 
             for i, reg in enumerate(registros):
-                progress_bar.progress((i + 1) / total)
-                status_text.text(f"Procesando {i+1} de {total}...")
+                bar.progress((i + 1) / total)
+                status.text(f"Procesando {i+1} de {total}…")
 
-                localidad = reg.get('localidad', '') or ''
-                calle = reg.get('calle', '') or ''
-                numero = reg.get('numero', '') or ''
-
-                legajo = asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas)
-
+                legajo = asignar_legajo(
+                    reg.get('localidad', '') or '',
+                    reg.get('calle',     '') or '',
+                    reg.get('numero',    '') or '',
+                    lkp_loc, lkp_zonas
+                )
                 if legajo:
-                    asignaciones.append({'id': reg['id'], 'legajo': legajo})
+                    asig.append({'id': reg['id'], 'legajo': legajo})
                 else:
-                    no_asignados.append({
-                        'id': reg['id'],
-                        'localidad': localidad,
-                        'calle': calle,
-                        'numero': numero,
-                        'razon_social': reg.get('razon_social', '')
+                    no_asig.append({
+                        'id':          reg['id'],
+                        'localidad':   reg.get('localidad', ''),
+                        'calle':       reg.get('calle', ''),
+                        'numero':      reg.get('numero', ''),
+                        'razon_social': reg.get('razon_social', ''),
                     })
 
-            progress_bar.empty()
-            status_text.empty()
+            bar.empty()
+            status.empty()
 
-            with st.spinner("Guardando legajos..."):
-                guardados = guardar_legajos_en_batch(asignaciones)
+            with st.spinner("Guardando legajos…"):
+                guardados = guardar_legajos_en_batch(asig)
 
-            st.session_state.asignar_legajos = False
+            st.session_state.asignar_legajos   = False
             st.session_state.ultima_asignacion = {
-                "asignados": guardados,
-                "no_asignados": len(no_asignados),
-                "detalle": no_asignados
+                "asignados":    guardados,
+                "no_asignados": len(no_asig),
+                "detalle":      no_asig,
             }
             st.rerun()
 
     if st.session_state.get('ultima_asignacion'):
-        resultado = st.session_state.ultima_asignacion
-        st.success(f"✅ Asignación completada: {resultado['asignados']} legajos asignados, {resultado['no_asignados']} no encontrados.")
-
-        if resultado['no_asignados'] > 0:
-            with st.expander(f"📋 Ver {resultado['no_asignados']} registros sin legajo"):
-                df_no = pd.DataFrame(resultado['detalle'])
-                st.dataframe(df_no, use_container_width=True)
-
+        res = st.session_state.ultima_asignacion
+        st.success(f"✅ {res['asignados']} legajos asignados · {res['no_asignados']} sin coincidencia.")
+        if res['no_asignados'] > 0:
+            with st.expander(f"📋 Ver {res['no_asignados']} registros sin legajo"):
+                st.dataframe(pd.DataFrame(res['detalle']), use_container_width=True)
         if st.button("Cerrar resultado"):
             del st.session_state.ultima_asignacion
             st.rerun()
 
     st.markdown("---")
 
-    # ── FILTROS Y EDICIÓN ─────────────────────────────────────────────────
+    # ── Filtros ───────────────────────────────────────────────────────────
     f1, f2, f3, f4, f5 = st.columns([1.5, 1.5, 1.5, 1, 1])
     with f1:
-        filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
+        filtro_cuit  = st.text_input("CUIT",  key="input_filtro_cuit",  placeholder="Ej: 30707685243", label_visibility="collapsed")
     with f2:
-        filtro_razon = st.text_input("Razón social", key="input_filtro_razon", placeholder="Razón social", label_visibility="collapsed")
+        filtro_razon = st.text_input("Razón", key="input_filtro_razon", placeholder="Razón social",    label_visibility="collapsed")
     with f3:
-        locs = get_localidades()
+        locs     = get_localidades()
         localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
     with f4:
-        filtro_mail = st.selectbox("Mail", ["AMBOS","NO","SI"], key="filtro_mail", label_visibility="collapsed")
+        filtro_mail = st.selectbox("Mail",   ["AMBOS","NO","SI"],                       key="filtro_mail", label_visibility="collapsed")
     with f5:
-        filtro_leg = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
+        filtro_leg  = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"],       key="filtro_leg",  label_visibility="collapsed")
 
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
     if filtro_mail == "SI":
-        q = q.eq("mail_enviado","SI")
+        q = q.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
-        q = q.eq("mail_enviado","NO")
+        q = q.eq("mail_enviado", "NO")
 
     datos = q.execute()
 
@@ -529,7 +595,6 @@ with tab2:
         st.info("Sin datos.")
     else:
         df = pd.DataFrame(datos.data)
-
         if filtro_cuit:
             df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
         if filtro_razon:
@@ -540,7 +605,7 @@ with tab2:
             df = df[df['leg'].isna()]
 
         total = len(df)
-        RPP = 300
+        RPP   = 300
         pages = max(1, (total + RPP - 1) // RPP)
 
         if 'pagina_actual' not in st.session_state:
@@ -559,7 +624,7 @@ with tab2:
                 st.session_state.pagina_actual += 1
                 st.rerun()
 
-        off = (st.session_state.pagina_actual - 1) * RPP
+        off  = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
         for col in ['empl_10_2025','emp_11_2025','empl_12_2025']:
@@ -570,7 +635,7 @@ with tab2:
                 df_p[col] = df_p[col].apply(fmt_fecha)
 
         df_orig = df_p.copy()
-        df_ed = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns=TITULOS)
+        df_ed   = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns=TITULOS)
         df_ed.insert(0, "🗑️", False)
 
         if st.checkbox("Seleccionar todos (página actual)"):
@@ -593,7 +658,7 @@ with tab2:
                     if idx >= len(df_orig):
                         continue
                     orig = df_orig.iloc[idx]
-                    upd = {}
+                    upd  = {}
 
                     nv = row.get('LEG')
                     if nv != orig.get('leg'):
