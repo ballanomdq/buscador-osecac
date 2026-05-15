@@ -3,7 +3,8 @@ import pandas as pd
 from supabase import create_client
 from datetime import datetime, date
 import re
-import difflib  # Para búsqueda de similitud
+import difflib
+import hashlib
 
 # ── Conexión ──────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -128,6 +129,10 @@ def limpiar_para_comparar(texto):
     if not texto:
         return ""
     return re.sub(r'\s+', ' ', str(texto).upper()).strip()
+
+def generar_key_segura(texto):
+    """Genera una clave segura para session_state a partir de un texto"""
+    return hashlib.md5(texto.encode()).hexdigest()
 
 # ── Normalización de calles ───────────────────────────────────────────────────
 REEMPLAZOS_CALLE = [
@@ -585,6 +590,8 @@ with tab2:
                 st.warning(f"🔍 Se encontraron {len(calles_sin_asociar)} calles únicas sin asociar")
                 
                 for calle_problema in sorted(calles_sin_asociar):
+                    key_segura = generar_key_segura(calle_problema)
+                    
                     with st.container():
                         st.markdown(f"**Calle en el padrón:** `{calle_problema}`")
                         
@@ -602,7 +609,7 @@ with tab2:
                             cols = st.columns(min(len(coincidencias) + 1, 4))
                             for i, (oficial, ratio) in enumerate(coincidencias[:3]):
                                 porcentaje = int(ratio * 100)
-                                if cols[i].button(f"✅ Asociar a '{oficial}' ({porcentaje}%)", key=f"asoc_{calle_problema}_{i}"):
+                                if cols[i].button(f"✅ Asociar a '{oficial}' ({porcentaje}%)", key=f"asoc_{key_segura}_{i}"):
                                     try:
                                         supabase.table("sinonimos_calles").insert({
                                             "calle_oficial": oficial,
@@ -619,16 +626,16 @@ with tab2:
                             
                             # Opción manual
                             idx_manual = min(len(coincidencias), 3)
-                            if cols[idx_manual].button("✏️ Asociar manualmente", key=f"manual_{calle_problema}"):
-                                st.session_state[f"manual_{calle_problema}"] = True
+                            if cols[idx_manual].button("✏️ Asociar manualmente", key=f"manual_{key_segura}"):
+                                st.session_state[f"manual_{key_segura}"] = calle_problema
                         else:
                             st.info("No se encontraron coincidencias automáticas")
-                            if st.button("✏️ Asociar manualmente", key=f"manual2_{calle_problema}"):
-                                st.session_state[f"manual_{calle_problema}"] = True
+                            if st.button("✏️ Asociar manualmente", key=f"manual2_{key_segura}"):
+                                st.session_state[f"manual_{key_segura}"] = calle_problema
                         
                         # Formulario manual
-                        if st.session_state.get(f"manual_{calle_problema}"):
-                            with st.form(key=f"form_manual_{calle_problema}"):
+                        if st.session_state.get(f"manual_{key_segura}"):
+                            with st.form(key=f"form_manual_{key_segura}"):
                                 oficial_manual = st.selectbox("Seleccionar calle oficial", options=sorted(calles_oficiales_set))
                                 if st.form_submit_button("Guardar asociación"):
                                     try:
@@ -638,7 +645,7 @@ with tab2:
                                             "creado_por": "usuario"
                                         }).execute()
                                         st.success(f"Sinónimo guardado manualmente")
-                                        del st.session_state[f"manual_{calle_problema}"]
+                                        del st.session_state[f"manual_{key_segura}"]
                                         st.rerun()
                                     except Exception as e:
                                         if "duplicate" in str(e).lower():
@@ -646,8 +653,8 @@ with tab2:
                                         else:
                                             st.error(f"Error: {e}")
                             
-                            if st.button("Cancelar", key=f"cancel_{calle_problema}"):
-                                del st.session_state[f"manual_{calle_problema}"]
+                            if st.button("Cancelar", key=f"cancel_{key_segura}"):
+                                del st.session_state[f"manual_{key_segura}"]
                                 st.rerun()
                         
                         st.markdown("---")
