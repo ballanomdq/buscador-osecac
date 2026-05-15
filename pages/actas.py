@@ -679,4 +679,124 @@ with tab2:
         localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
     with f4:
         filtro_mail = st.selectbox("Mail",   ["AMBOS","NO","SI"],                       key="filtro_mail", label_visibility="collapsed")
-    with f5
+    with f5:
+        filtro_leg  = st.selectbox("Legajo", ["TODOS","CON LEGAJO","SIN LEGAJO"],       key="filtro_leg",  label_visibility="collapsed")
+
+    q = supabase.table("padron_deuda_presunta").select("*")
+    if localidad != "TODAS":
+        q = q.eq("localidad", localidad)
+    if filtro_mail == "SI":
+        q = q.eq("mail_enviado", "SI")
+    elif filtro_mail == "NO":
+        q = q.eq("mail_enviado", "NO")
+
+    datos = q.execute()
+
+    if not datos.data:
+        st.info("Sin datos.")
+    else:
+        df = pd.DataFrame(datos.data)
+        if filtro_cuit:
+            df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
+        if filtro_razon:
+            df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
+        if filtro_leg == "CON LEGAJO":
+            df = df[df['leg'].notna()]
+        elif filtro_leg == "SIN LEGAJO":
+            df = df[df['leg'].isna()]
+
+        total = len(df)
+        RPP   = 300
+        pages = max(1, (total + RPP - 1) // RPP)
+
+        if 'pagina_actual' not in st.session_state:
+            st.session_state.pagina_actual = 1
+        st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
+
+        pa, pn, ps = st.columns([1, 3, 1])
+        with pa:
+            if st.button("◀") and st.session_state.pagina_actual > 1:
+                st.session_state.pagina_actual -= 1
+                st.rerun()
+        with pn:
+            st.caption(f"Página {st.session_state.pagina_actual} / {pages} | {total} registros")
+        with ps:
+            if st.button("▶") and st.session_state.pagina_actual < pages:
+                st.session_state.pagina_actual += 1
+                st.rerun()
+
+        off  = (st.session_state.pagina_actual - 1) * RPP
+        df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
+
+        for col in ['empl_10_2025','emp_11_2025','empl_12_2025']:
+            if col in df_p.columns:
+                df_p[col] = df_p[col].apply(limpiar_entero)
+        for col in ['fechareldependencia','desde','hasta','fecha_pago_obl','vto','fecha_carga']:
+            if col in df_p.columns:
+                df_p[col] = df_p[col].apply(fmt_fecha)
+
+        df_orig = df_p.copy()
+        df_ed   = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns=TITULOS)
+        df_ed.insert(0, "🗑️", False)
+
+        if st.checkbox("Seleccionar todos (página actual)"):
+            df_ed["🗑️"] = True
+
+        edited = st.data_editor(
+            df_ed, use_container_width=True, height=550,
+            column_config={"🗑️": st.column_config.CheckboxColumn("Elim.")},
+            disabled=COLS_DISABLED,
+            key=f"editor_{st.session_state.pagina_actual}",
+        )
+
+        ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
+        st.session_state.ids_a_eliminar = ids_sel
+
+        if st.button("💾 Guardar cambios", type="primary"):
+            mods = 0
+            with st.spinner("Guardando..."):
+                for idx, row in edited.iterrows():
+                    if idx >= len(df_orig):
+                        continue
+                    orig = df_orig.iloc[idx]
+                    upd  = {}
+
+                    nv = row.get('LEG')
+                    if nv != orig.get('leg'):
+                        upd['leg'] = nv if nv and nv != '' else None
+
+                    nv = row.get('VTO')
+                    if nv != orig.get('vto'):
+                        upd['vto'] = norm_fecha(nv) if nv else None
+
+                    nv = row.get('MAIL ENVIADO') or 'NO'
+                    if nv != orig.get('mail_enviado'):
+                        upd['mail_enviado'] = nv
+
+                    nv = row.get('ACTA')
+                    if nv != orig.get('acta'):
+                        upd['acta'] = nv if nv and nv != '' else None
+
+                    nv = row.get('ESTADO GESTION') or 'PENDIENTE'
+                    if nv != orig.get('estado_gestion'):
+                        upd['estado_gestion'] = nv
+
+                    if upd:
+                        supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
+                        mods += 1
+
+            if mods:
+                st.success(f"✅ {mods} registros actualizados.")
+                st.rerun()
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 3 — Solicitar Actas
+# ══════════════════════════════════════════════════════════════════
+with tab3:
+    st.info("📧 Solicitar Actas — en construcción")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 4 — Subir Actas
+# ══════════════════════════════════════════════════════════════════
+with tab4:
+    st.info("📋 Subir Actas — en construcción")
