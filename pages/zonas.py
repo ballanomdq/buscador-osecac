@@ -320,7 +320,6 @@ def forzar_recarga_cache():
 # Inicializar datos si no están cargados
 if 'datos_cargados' not in st.session_state:
     with st.spinner("Cargando datos..."):
-        # Verificar si hay datos, si no hay, cargar backup automáticamente
         zonas_existentes = supabase.table("zonas_inspectores").select("id", count="exact").execute()
         if zonas_existentes.count == 0:
             cargar_backup_oficial()
@@ -396,10 +395,10 @@ with tab2:
         else:
             st.info("No hay localidades asignadas")
 
-# TAB 3: CALLES - EDITOR COMPLETO CON TACHO DE BASURA
+# TAB 3: CALLES - EDITOR CON FORMULARIOS POR FILA
 with tab3:
     st.markdown("### 📍 Calles de Mar del Plata - Editor Completo")
-    st.caption("📝 Podés editar cualquier campo directamente en la tabla. Usá el 🗑️ para eliminar una calle.")
+    st.caption("📝 Usá los botones ✏️ para editar cada calle, 🗑️ para eliminar con confirmación.")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
@@ -422,76 +421,90 @@ with tab3:
         zonas = query.order("calle").execute()
         
         if zonas.data:
-            # Preparar DataFrame para edición
-            df = pd.DataFrame(zonas.data)[['id', 'legajo', 'calle', 'lado', 'altura_desde', 'altura_hasta']]
-            df.columns = ['ID', 'Legajo', 'Calle', 'Lado', 'Desde', 'Hasta']
-            
-            # Agregar columna para el inspector
-            inspector_dict = {ins['legajo']: ins['nombre'].split(',')[0] for ins in inspectores.data}
-            df['Inspector'] = df['Legajo'].map(inspector_dict)
-            
-            # Mostrar editor
-            st.info("💡 Hacé doble clic en cualquier celda para editar. Los cambios se guardan automáticamente al salir de la celda.")
-            
-            edited_df = st.data_editor(
-                df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "ID": st.column_config.NumberColumn("ID", disabled=True),
-                    "Legajo": st.column_config.NumberColumn("Legajo", required=True),
-                    "Calle": st.column_config.TextColumn("Calle", required=True),
-                    "Lado": st.column_config.SelectColumn("Lado", options=["PAR", "IMPAR", "AMBOS"], required=True),
-                    "Desde": st.column_config.NumberColumn("Desde", required=True),
-                    "Hasta": st.column_config.NumberColumn("Hasta", required=True),
-                    "Inspector": st.column_config.TextColumn("Inspector", disabled=True),
-                },
-                key="editor_calles_completo"
-            )
-            
-            # Guardar cambios automáticamente
-            for idx, row in edited_df.iterrows():
-                original = df.iloc[idx]
-                if (row['Legajo'] != original['Legajo'] or
-                    row['Calle'] != original['Calle'] or
-                    row['Lado'] != original['Lado'] or
-                    row['Desde'] != original['Desde'] or
-                    row['Hasta'] != original['Hasta']):
-                    
-                    supabase.table("zonas_inspectores").update({
-                        "legajo": int(row['Legajo']),
-                        "calle": row['Calle'].upper().strip(),
-                        "lado": row['Lado'],
-                        "altura_desde": int(row['Desde']),
-                        "altura_hasta": int(row['Hasta'])
-                    }).eq("id", int(row['ID'])).execute()
-                    forzar_recarga_cache()
-                    st.toast(f"✅ Actualizado: {row['Calle']}", icon="✅")
-                    st.rerun()
-            
-            st.markdown("---")
-            st.markdown("#### 🗑️ Eliminar calle")
-            
-            # Selector para eliminar con confirmación
-            calle_a_eliminar = st.selectbox("Seleccionar calle para eliminar", options=df['Calle'].tolist())
-            if calle_a_eliminar:
-                fila = df[df['Calle'] == calle_a_eliminar].iloc[0]
-                st.warning(f"⚠️ **Eliminar:** {fila['Calle']} - {fila['Lado']} ({fila['Desde']}-{fila['Hasta']}) - Inspector: {fila['Inspector']}")
+            # Mostrar cada calle con botones de editar y eliminar
+            for zona in zonas.data:
+                col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1, 0.8, 0.8, 1.2, 0.5, 0.5])
                 
-                col_confirm, col_cancel = st.columns(2)
-                with col_confirm:
-                    if st.button("🗑️ SÍ, ELIMINAR", type="secondary"):
-                        supabase.table("zonas_inspectores").delete().eq("id", int(fila['ID'])).execute()
-                        forzar_recarga_cache()
-                        st.success(f"✅ Eliminada: {fila['Calle']}")
-                        st.rerun()
-                with col_cancel:
-                    if st.button("❌ Cancelar"):
-                        st.rerun()
+                # Buscar nombre del inspector
+                inspector = next((i for i in inspectores.data if i['legajo'] == zona['legajo']), None)
+                nombre_inspector = inspector['nombre'].split(',')[0] if inspector else str(zona['legajo'])
+                
+                col1.write(f"**{zona['calle']}**")
+                col2.write(zona['lado'])
+                col3.write(str(zona['altura_desde']))
+                col4.write(str(zona['altura_hasta']))
+                col5.write(nombre_inspector)
+                
+                # Botón Editar
+                if col6.button("✏️", key=f"edit_{zona['id']}"):
+                    st.session_state[f"editando_{zona['id']}"] = True
+                
+                # Botón Eliminar con confirmación
+                if col7.button("🗑️", key=f"del_{zona['id']}"):
+                    st.session_state[f"confirmar_del_{zona['id']}"] = True
+                
+                # Confirmación de eliminación
+                if st.session_state.get(f"confirmar_del_{zona['id']}"):
+                    st.warning(f"⚠️ ¿Eliminar '{zona['calle']}'?")
+                    col_ok, col_cancel = st.columns(2)
+                    with col_ok:
+                        if st.button("✅ Sí, eliminar", key=f"confirm_ok_{zona['id']}"):
+                            supabase.table("zonas_inspectores").delete().eq("id", zona['id']).execute()
+                            forzar_recarga_cache()
+                            del st.session_state[f"confirmar_del_{zona['id']}"]
+                            st.rerun()
+                    with col_cancel:
+                        if st.button("❌ Cancelar", key=f"confirm_cancel_{zona['id']}"):
+                            del st.session_state[f"confirmar_del_{zona['id']}"]
+                            st.rerun()
+                    st.markdown("---")
+                
+                # Formulario de edición
+                if st.session_state.get(f"editando_{zona['id']}"):
+                    with st.expander(f"✏️ Editando: {zona['calle']}", expanded=True):
+                        with st.form(key=f"form_edit_{zona['id']}"):
+                            col_a, col_b, col_c = st.columns(3)
+                            with col_a:
+                                nueva_calle = st.text_input("Calle", value=zona['calle'])
+                            with col_b:
+                                nuevo_lado = st.selectbox("Lado", ["PAR", "IMPAR", "AMBOS"], index=["PAR", "IMPAR", "AMBOS"].index(zona['lado']))
+                            with col_c:
+                                nuevo_legajo = st.selectbox(
+                                    "Inspector", 
+                                    options=list(opts.values()), 
+                                    format_func=lambda x: [k for k, v in opts.items() if v == x][0],
+                                    index=list(opts.values()).index(zona['legajo'])
+                                )
+                            
+                            col_d, col_e = st.columns(2)
+                            with col_d:
+                                nueva_desde = st.number_input("Altura desde", value=int(zona['altura_desde']), min_value=1)
+                            with col_e:
+                                nueva_hasta = st.number_input("Altura hasta", value=int(zona['altura_hasta']), min_value=1)
+                            
+                            col_btn1, col_btn2 = st.columns(2)
+                            with col_btn1:
+                                if st.form_submit_button("💾 GUARDAR"):
+                                    supabase.table("zonas_inspectores").update({
+                                        "calle": nueva_calle.upper().strip(),
+                                        "lado": nuevo_lado,
+                                        "legajo": nuevo_legajo,
+                                        "altura_desde": int(nueva_desde),
+                                        "altura_hasta": int(nueva_hasta)
+                                    }).eq("id", zona['id']).execute()
+                                    forzar_recarga_cache()
+                                    del st.session_state[f"editando_{zona['id']}"]
+                                    st.success("✅ Guardado")
+                                    st.rerun()
+                            with col_btn2:
+                                if st.form_submit_button("❌ Cancelar"):
+                                    del st.session_state[f"editando_{zona['id']}"]
+                                    st.rerun()
+                
+                st.markdown("---")
             
-            st.markdown("---")
-            st.markdown("#### ➕ Agregar nueva calle")
-            
+            # Agregar nueva calle
+            st.markdown("### ➕ Agregar nueva calle")
             with st.form("form_nueva_calle", clear_on_submit=True):
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -500,10 +513,11 @@ with tab3:
                     nuevo_legajo = st.selectbox(
                         "Inspector", 
                         options=list(opts.values()), 
-                        format_func=lambda x: [k for k, v in opts.items() if v == x][0]
+                        format_func=lambda x: [k for k, v in opts.items() if v == x][0],
+                        key="nuevo_legajo"
                     )
                 with col3:
-                    nuevo_lado = st.selectbox("Lado", ["PAR", "IMPAR", "AMBOS"])
+                    nuevo_lado = st.selectbox("Lado", ["PAR", "IMPAR", "AMBOS"], key="nuevo_lado")
                 
                 col4, col5 = st.columns(2)
                 with col4:
