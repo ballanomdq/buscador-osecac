@@ -460,10 +460,10 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN FINAL DEFINITIVA)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN SIMPLE Y FUNCIONAL)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("#### Edición de Datos")
+    st.markdown("#### Editar Legajos y Fechas de Vencimiento")
 
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
@@ -479,17 +479,12 @@ with tab2:
 
     st.markdown("---")
 
-    # ── Botones principales ───────────────────────────────────────────────────
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
             ids = st.session_state.get('ids_a_eliminar', [])
             if ids:
                 supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
-                if 'cambios_pendientes' in st.session_state:
-                    for id_del in ids:
-                        if str(id_del) in st.session_state.cambios_pendientes:
-                            del st.session_state.cambios_pendientes[str(id_del)]
                 st.session_state.ids_a_eliminar = []
                 st.rerun()
     with col2:
@@ -514,34 +509,12 @@ with tab2:
         if st.button("⟳ Recargar"):
             st.rerun()
 
-    # ── Botón GUARDAR CAMBIOS (se activa con 1 solo cambio) ───────────────────
-    st.markdown("---")
-    col_btn1, col_btn2 = st.columns([1, 5])
-    
-    cambios_count = len(st.session_state.get('cambios_pendientes', {}))
-    
-    with col_btn1:
-        if cambios_count > 0:
-            if st.button(f"💾 GUARDAR CAMBIOS ({cambios_count})", type="primary", use_container_width=True):
-                with st.spinner(f"Guardando {cambios_count} cambios..."):
-                    for id_reg, cambios in st.session_state.cambios_pendientes.items():
-                        if cambios:
-                            supabase.table("padron_deuda_presunta").update(cambios).eq("id", int(id_reg)).execute()
-                    st.session_state.cambios_pendientes = {}
-                    st.success(f"✅ {cambios_count} cambios guardados")
-                    st.rerun()
-        else:
-            st.button("💾 GUARDAR CAMBIOS", disabled=True, use_container_width=True)
-    
-    st.markdown("---")
-
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
         col_si, col_no = st.columns(2)
         with col_si:
             if st.button("Sí, eliminar todo"):
                 supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
-                st.session_state.cambios_pendientes = {}
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
         with col_no:
@@ -634,7 +607,7 @@ with tab2:
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia")
             st.rerun()
 
-    # ── Buscar calles sin asociar (COMPACTO + PORCENTAJES + EDITABLE) ─────────
+    # ── Buscar calles sin asociar (VERSIÓN ORIGINAL PERO COMPACTA) ─────────
     if st.session_state.get('buscar_sinonimos'):
         with st.spinner("Analizando calles..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
@@ -665,57 +638,57 @@ with tab2:
             else:
                 st.warning(f"🔍 {len(calles_sin_asociar)} calles sin asociar")
                 
-                # Tabla compacta con 4 columnas
+                # Mostrar de forma compacta
                 for calle_problema in calles_sin_asociar:
-                    # Buscar coincidencias y porcentajes
+                    # Buscar coincidencias
                     coincidencias = []
                     for oficial in calles_oficiales_list:
                         ratio = difflib.SequenceMatcher(None, calle_problema, oficial).ratio()
-                        if ratio > 0.4:
+                        if ratio > 0.5:
                             coincidencias.append((oficial, ratio))
                     coincidencias.sort(key=lambda x: x[1], reverse=True)
                     
                     with st.container():
-                        cols = st.columns([1.5, 1.5, 1.5, 1])
+                        col_a, col_b, col_c = st.columns([1.5, 2, 1])
                         
-                        # Calle problema
-                        with cols[0]:
+                        with col_a:
                             st.markdown(f"**{calle_problema}**")
                         
-                        # Sugerencias con porcentajes (solo si hay)
-                        with cols[1]:
+                        with col_b:
                             if coincidencias:
                                 sugerencias = ", ".join([f"{c[0]} ({int(c[1]*100)}%)" for c in coincidencias[:2]])
-                                st.markdown(f"💡 {sugerencias}")
+                                st.markdown(sugerencias)
                             else:
                                 st.markdown("*Sin sugerencias*")
                         
-                        # Input para editar/ingresar calle correcta
-                        with cols[2]:
-                            calle_correcta = st.text_input("Corregir a", key=f"corregir_{generar_key_segura(calle_problema)}", placeholder="Escribir calle correcta...", label_visibility="collapsed")
+                        with col_c:
+                            if st.button("✓ Asociar", key=f"asoc_{generar_key_segura(calle_problema)}"):
+                                st.session_state[f"asoc_{generar_key_segura(calle_problema)}"] = calle_problema
                         
-                        # Botón guardar
-                        with cols[3]:
-                            if calle_correcta:
-                                if st.button("✓ Guardar", key=f"guardar_{generar_key_segura(calle_problema)}"):
+                        if st.session_state.get(f"asoc_{generar_key_segura(calle_problema)}"):
+                            col_d, col_e, col_f = st.columns([2, 2, 1])
+                            with col_d:
+                                seleccion = st.selectbox("Calle oficial", calles_oficiales_list, key=f"sel_{generar_key_segura(calle_problema)}", label_visibility="collapsed")
+                            with col_f:
+                                if st.button("Guardar", key=f"save_{generar_key_segura(calle_problema)}"):
                                     try:
                                         supabase.table("sinonimos_calles").insert({
-                                            "calle_oficial": calle_correcta.upper().strip(),
+                                            "calle_oficial": seleccion,
                                             "sinonimo": calle_problema,
                                             "creado_por": "usuario"
                                         }).execute()
-                                        st.success(f"✓ {calle_problema} → {calle_correcta.upper()}")
+                                        st.success(f"✓ Guardado")
+                                        del st.session_state[f"asoc_{generar_key_segura(calle_problema)}"]
                                         st.rerun()
-                                    except Exception as e:
-                                        if "duplicate" in str(e).lower():
-                                            st.warning("Ya existe")
-                                        else:
-                                            st.error("Error")
-                            else:
-                                st.markdown("---")
+                                    except:
+                                        st.warning("Error")
+                            with col_e:
+                                if st.button("Cancelar", key=f"cancel_{generar_key_segura(calle_problema)}"):
+                                    del st.session_state[f"asoc_{generar_key_segura(calle_problema)}"]
+                                    st.rerun()
                         
                         st.markdown("---")
-
+                
                 if st.button("Cerrar búsqueda"):
                     st.session_state.buscar_sinonimos = False
                     st.rerun()
@@ -826,116 +799,76 @@ with tab2:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(fmt_fecha)
 
-        # Preparar DataFrame para mostrar
-        columnas_mostrar = {
-            'id': 'ID', 'cuit': 'CUIT', 'razon_social': 'RAZON SOCIAL',
-            'localidad': 'LOCALIDAD', 'calle': 'CALLE', 'numero': 'NRO',
-            'leg': 'LEG', 'vto': 'VTO', 'mail_enviado': 'MAIL',
-            'acta': 'ACTA', 'estado_gestion': 'ESTADO',
-            'tel_dom_legal': 'TEL LEGAL', 'tel_dom_real': 'TEL REAL'
-        }
-        
-        df_mostrar = df_p[[c for c in columnas_mostrar.keys() if c in df_p.columns]].copy()
-        df_mostrar = df_mostrar.rename(columns=columnas_mostrar)
-        
-        # Aplicar cambios pendientes
-        if 'cambios_pendientes' in st.session_state:
-            for id_reg, cambios in st.session_state.cambios_pendientes.items():
-                for idx, row in df_mostrar.iterrows():
-                    if str(row['ID']) == str(id_reg):
-                        for campo, valor in cambios.items():
-                            mapeo_inverso = {
-                                'leg': 'LEG', 'vto': 'VTO', 'mail_enviado': 'MAIL',
-                                'acta': 'ACTA', 'estado_gestion': 'ESTADO',
-                                'localidad': 'LOCALIDAD', 'cuit': 'CUIT',
-                                'razon_social': 'RAZON SOCIAL', 'calle': 'CALLE',
-                                'numero': 'NRO', 'tel_dom_legal': 'TEL LEGAL',
-                                'tel_dom_real': 'TEL REAL'
-                            }
-                            col_mostrar = mapeo_inverso.get(campo, campo.upper())
-                            if col_mostrar in df_mostrar.columns:
-                                if campo == 'vto' and valor:
-                                    valor = fmt_fecha(valor)
-                                df_mostrar.at[idx, col_mostrar] = valor
-        
-        # Agregar columna de selección para eliminar
-        df_mostrar.insert(0, "🗑️", False)
-        
-        # Mostrar tabla completamente editable
-        edited_df = st.data_editor(
-            df_mostrar,
-            use_container_width=True,
-            height=550,
-            column_config={
-                "🗑️": st.column_config.CheckboxColumn("Eliminar"),
-                "LEG": st.column_config.NumberColumn("Legajo", step=1),
-                "VTO": st.column_config.TextColumn("Vencimiento (DD/MM/YYYY)"),
-            },
-            key=f"tabla_editable_{st.session_state.pagina_actual}",
-            num_rows="fixed"
+        # TABLA EDITABLE TRADICIONAL (como al principio)
+        df_orig = df_p.copy()
+        df_ed = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns={
+            'id':'ID','delegacion':'DELEGACION','localidad':'LOCALIDAD','cuit':'CUIT',
+            'razon_social':'RAZON SOCIAL','deuda_presunta':'DEUDA PRESUNTA','cp':'CP',
+            'calle':'CALLE','numero':'NUMERO','piso':'PISO','dpto':'DPTO',
+            'fechareldependencia':'FECHARELDEPENDENCIA','email':'EMAIL',
+            'tel_dom_legal':'TEL_DOM_LEGAL','tel_dom_real':'TEL_DOM_REAL',
+            'ultima_acta':'ULTIMA ACTA','desde':'DESDE','hasta':'HASTA',
+            'detectado':'DETECTADO','estado':'ESTADO','fecha_pago_obl':'FECHA PAGO OBL',
+            'empl_10_2025':'EMPL 10-2025','emp_11_2025':'EMP 11-2025','empl_12_2025':'EMPL 12-2025',
+            'actividad':'ACTIVIDAD','situacion':'SITUACION',
+            'leg':'LEG','vto':'VTO','mail_enviado':'MAIL ENVIADO',
+            'acta':'ACTA','estado_gestion':'ESTADO GESTION',
+        })
+        df_ed.insert(0, "🗑️", False)
+
+        if st.checkbox("Seleccionar todos (página actual)"):
+            df_ed["🗑️"] = True
+
+        edited = st.data_editor(
+            df_ed, use_container_width=True, height=550,
+            column_config={"🗑️": st.column_config.CheckboxColumn("Elim.")},
+            disabled=['ID','CUIT','RAZON SOCIAL','DEUDA PRESUNTA','CP','CALLE','NUMERO','PISO','DPTO',
+                      'FECHARELDEPENDENCIA','EMAIL','TEL_DOM_LEGAL','TEL_DOM_REAL','ULTIMA ACTA',
+                      'DESDE','HASTA','DETECTADO','ESTADO','FECHA PAGO OBL',
+                      'EMPL 10-2025','EMP 11-2025','EMPL 12-2025','ACTIVIDAD','SITUACION'],
+            key=f"editor_{st.session_state.pagina_actual}",
         )
-        
-        # Detectar cambios y guardarlos en session_state (UN SOLO CAMBIO ACTIVA EL BOTÓN)
-        hay_cambios = False
-        for idx, row in edited_df.iterrows():
-            if idx >= len(df_mostrar):
-                continue
-            id_registro = row['ID']
-            cambios_registro = {}
-            
-            for col in df_mostrar.columns:
-                if col not in ['🗑️', 'ID']:
-                    valor_original = df_mostrar.at[idx, col] if idx < len(df_mostrar) else None
-                    valor_nuevo = row[col]
-                    
-                    # Normalizar
-                    if pd.isna(valor_original) or valor_original == "" or valor_original == "None":
-                        valor_original = None
-                    if pd.isna(valor_nuevo) or valor_nuevo == "" or valor_nuevo == "None":
-                        valor_nuevo = None
-                    
-                    if valor_original != valor_nuevo:
-                        hay_cambios = True
-                        # Mapear columna mostrada a campo DB
-                        mapeo_campos = {
-                            'LEG': 'leg', 'VTO': 'vto', 'MAIL': 'mail_enviado',
-                            'ACTA': 'acta', 'ESTADO': 'estado_gestion',
-                            'LOCALIDAD': 'localidad', 'CUIT': 'cuit',
-                            'RAZON SOCIAL': 'razon_social', 'CALLE': 'calle',
-                            'NRO': 'numero', 'TEL LEGAL': 'tel_dom_legal',
-                            'TEL REAL': 'tel_dom_real'
-                        }
-                        campo_db = mapeo_campos.get(col, col.lower())
-                        
-                        # Normalizar valores especiales
-                        if campo_db == 'vto' and valor_nuevo:
-                            valor_nuevo = norm_fecha(str(valor_nuevo))
-                        if campo_db == 'leg' and valor_nuevo:
-                            try:
-                                valor_nuevo = int(valor_nuevo)
-                            except:
-                                valor_nuevo = None
-                        if campo_db == 'mail_enviado' and valor_nuevo:
-                            valor_nuevo = 'SI' if str(valor_nuevo).upper() == 'SI' else 'NO'
-                        
-                        cambios_registro[campo_db] = valor_nuevo
-            
-            if cambios_registro:
-                if 'cambios_pendientes' not in st.session_state:
-                    st.session_state.cambios_pendientes = {}
-                st.session_state.cambios_pendientes[str(id_registro)] = cambios_registro
-            else:
-                if 'cambios_pendientes' in st.session_state and str(id_registro) in st.session_state.cambios_pendientes:
-                    del st.session_state.cambios_pendientes[str(id_registro)]
-        
-        # Si no hay cambios, limpiar el diccionario
-        if not hay_cambios and 'cambios_pendientes' in st.session_state:
-            if len(st.session_state.cambios_pendientes) == 0:
-                st.session_state.cambios_pendientes = {}
-        
-        # IDs seleccionados para eliminar
-        ids_sel = edited_df[edited_df["🗑️"]]["ID"].tolist() if "ID" in edited_df.columns else []
+
+        ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
+
+        # Botón GUARDAR CAMBIOS (simple y directo)
+        if st.button("💾 Guardar cambios", type="primary"):
+            mods = 0
+            with st.spinner("Guardando..."):
+                for idx, row in edited.iterrows():
+                    if idx >= len(df_orig):
+                        continue
+                    orig = df_orig.iloc[idx]
+                    upd = {}
+
+                    nv = row.get('LEG')
+                    if nv != orig.get('leg'):
+                        upd['leg'] = nv if nv and nv != '' else None
+
+                    nv = row.get('VTO')
+                    if nv != orig.get('vto'):
+                        upd['vto'] = norm_fecha(nv) if nv else None
+
+                    nv = row.get('MAIL ENVIADO') or 'NO'
+                    if nv != orig.get('mail_enviado'):
+                        upd['mail_enviado'] = nv
+
+                    nv = row.get('ACTA')
+                    if nv != orig.get('acta'):
+                        upd['acta'] = nv if nv and nv != '' else None
+
+                    nv = row.get('ESTADO GESTION') or 'PENDIENTE'
+                    if nv != orig.get('estado_gestion'):
+                        upd['estado_gestion'] = nv
+
+                    if upd:
+                        supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
+                        mods += 1
+
+            if mods:
+                st.success(f"✅ {mods} registros actualizados.")
+                st.rerun()
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 3 — Solicitar Actas
