@@ -11,16 +11,22 @@ supabase = create_client(SUPABASE_URL_ACTAS, SUPABASE_KEY_ACTAS)
 
 st.markdown("""
 <style>
-.main-header { background-color: #1e293b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #3b82f6; }
-div[data-testid="stButton"] button { background-color: #3b82f6; color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; }
+.main-header { background-color: #1e293b; padding: 0.8rem; border-radius: 8px; margin-bottom: 1rem; border-left: 4px solid #3b82f6; }
+.main-header h2 { color: #ffffff; margin: 0; font-size: 1.2rem; }
+.main-header p { color: #94a3b8; margin: 0; font-size: 0.75rem; }
+div[data-testid="stButton"] button { background-color: #3b82f6; color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 4px; }
 div[data-testid="stButton"] button:hover { background-color: #2563eb; }
+div[data-testid="stButton"] button[kind="secondary"] { background-color: #dc2626; }
+div[data-testid="stButton"] button[kind="secondary"]:hover { background-color: #b91c1c; }
+.stDataFrame { font-size: 0.75rem; }
+hr { margin: 0.5rem 0; }
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="main-header">
-    <h2 style="color: #ffffff; margin: 0; font-size: 1.2rem;">🗺️ Zonas de Inspectores - Gestión Completa</h2>
-    <p style="color: #94a3b8; margin: 0; font-size: 0.75rem;">Administración de inspectores, localidades y calles (Mar del Plata)</p>
+    <h2>🗺️ Zonas de Inspectores - Gestión Completa</h2>
+    <p>Administración de inspectores, localidades y calles (Mar del Plata)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -29,17 +35,23 @@ with col_back:
     if st.button("← Volver", key="btn_volver_zonas"):
         st.switch_page("main.py")
 with col_reset:
-    if st.button("🚀 CARGAR DATOS OFICIALES (COMPLETO)", key="btn_reset_oficial", type="primary"):
+    if st.button("🚀 BACKUP DE SEGURIDAD", key="btn_reset_oficial", type="primary"):
         st.session_state.confirmar_reset = True
 
 if st.session_state.get('confirmar_reset'):
-    st.warning("⚠️ Esto BORRARÁ TODAS las zonas actuales y las REEMPLAZARÁ con los 5 inspectores oficiales (TODAS las calles).")
+    st.warning("⚠️ Esta acción BORRARÁ TODAS las zonas actuales y las REEMPLAZARÁ con los datos oficiales de respaldo.")
+    
     col_si, col_no = st.columns(2)
     with col_si:
-        if st.button("✅ SÍ, CARGAR TODO"):
-            cargar_datos_oficiales()
-            st.session_state.confirmar_reset = False
-            st.rerun()
+        clave_ingresada = st.text_input("Ingrese la clave de seguridad:", type="password", key="clave_seguridad")
+        if st.button("✅ SÍ, RESTAURAR BACKUP"):
+            if clave_ingresada == "shaolin1976":
+                with st.spinner("Restaurando backup de seguridad..."):
+                    cargar_backup_oficial()
+                    st.session_state.confirmar_reset = False
+                    st.rerun()
+            else:
+                st.error("❌ Clave de seguridad incorrecta")
     with col_no:
         if st.button("❌ Cancelar"):
             st.session_state.confirmar_reset = False
@@ -47,8 +59,8 @@ if st.session_state.get('confirmar_reset'):
 
 st.markdown("---")
 
-def cargar_datos_oficiales():
-    """Carga los 5 inspectores con TODAS las calles proporcionadas"""
+def cargar_backup_oficial():
+    """Carga los 5 inspectores con TODAS las calles (BACKUP COMPLETO)"""
     
     inspectores = [
         {"legajo": 7713, "nombre": "RODRIGUEZ, Maximiliano"},
@@ -58,16 +70,16 @@ def cargar_datos_oficiales():
         {"legajo": 7952, "nombre": "GARCIA, Juan Paulo"},
     ]
     
-    # TODAS las zonas - INSPECTOR 1: RODRIGUEZ (7713)
+    # BACKUP COMPLETO DE CALLES
     zonas = [
-        # Perimetrales
+        # INSPECTOR 1: RODRIGUEZ (7713) - Perimetrales
         (7713, "CATAMARCA", "IMPAR", 2201, 3800),
         (7713, "AV COLON", "IMPAR", 3001, 5400),
         (7713, "AV JARA", "PAR", 2202, 3800),
         (7713, "AV TEJEDOR CARLOS", "PAR", 1, 2400),
         (7713, "AV PATRICIO PERALTA RAMOS", "AMBOS", 1, 900),
         (7713, "AV FELIX U CAMET", "AMBOS", 1, 1500),
-        # Internas (2201-3800)
+        # Internas 2201-3800
         (7713, "LA RIOJA", "AMBOS", 2201, 3800),
         (7713, "HNO INDALECIO", "AMBOS", 2201, 3800),
         (7713, "HIPOLITO YRIGOYEN", "AMBOS", 2201, 3800),
@@ -102,7 +114,7 @@ def cargar_datos_oficiales():
         (7713, "20 DE SEPTIEMBRE", "AMBOS", 2201, 3800),
         (7713, "14 DE JULIO", "AMBOS", 2201, 3800),
         (7713, "DORREGO", "AMBOS", 2201, 3800),
-        # Internas (3001-5400)
+        # Internas 3001-5400
         (7713, "HERNANDARIAS", "AMBOS", 3001, 5400),
         (7713, "DON ORIONE", "AMBOS", 3001, 5400),
         (7713, "LUIS AGOTE", "AMBOS", 3001, 5400),
@@ -118,10 +130,8 @@ def cargar_datos_oficiales():
         (7713, "CHACO", "AMBOS", 3001, 5400),
         (7713, "LA PAMPA", "AMBOS", 3001, 5400),
         (7713, "SAN JUAN", "AMBOS", 3001, 5400),
-        (7713, "LA RIOJA", "AMBOS", 3001, 5400),
         
         # INSPECTOR 2: POLINESSI (9513)
-        # Perimetrales
         (9513, "AV COLON", "IMPAR", 2401, 3000),
         (9513, "CATAMARCA", "PAR", 1500, 2200),
         (9513, "HIPOLITO YRIGOYEN", "IMPAR", 1501, 2200),
@@ -146,7 +156,6 @@ def cargar_datos_oficiales():
         (9513, "C LOS DURAZNOS", "AMBOS", 1, 9999),
         (9513, "MAHATMA GHANDI", "AMBOS", 1, 9999),
         (9513, "SALVADOR VIVA", "IMPAR", 1, 2500),
-        # Internas Polinessi
         (9513, "LA RIOJA", "AMBOS", 1501, 2200),
         (9513, "MITRE", "AMBOS", 1501, 2200),
         (9513, "MORENO", "AMBOS", 2401, 3000),
@@ -161,7 +170,6 @@ def cargar_datos_oficiales():
         (9513, "BALCARCE", "AMBOS", 2401, 3000),
         
         # INSPECTOR 3: LOPEZ (9983)
-        # Perimetrales
         (9983, "AV COLON", "IMPAR", 1401, 1900),
         (9983, "SAN LUIS", "PAR", 1500, 2200),
         (9983, "SANTA FE", "IMPAR", 1501, 2200),
@@ -181,7 +189,6 @@ def cargar_datos_oficiales():
         (9983, "SAN FRANCISCO JAVIER", "AMBOS", 1, 9999),
         (9983, "AV JUAN B JUSTO", "AMBOS", 3001, 9999),
         (9983, "SALVADOR VIVA", "AMBOS", 2501, 6000),
-        # Internas Lopez
         (9983, "MITRE", "AMBOS", 1401, 1900),
         (9983, "SANTIAGO DEL ESTERO", "AMBOS", 1401, 1900),
         (9983, "CORDOBA", "AMBOS", 1401, 1900),
@@ -201,7 +208,6 @@ def cargar_datos_oficiales():
         (9983, "DEAN FUNES", "AMBOS", 2201, 4400),
         
         # INSPECTOR 4: CARBAYO (9220)
-        # Perimetrales
         (9220, "AV COLON", "PAR", 1002, 3000),
         (9220, "SAN JUAN", "PAR", 3902, 4400),
         (9220, "PEHUAJO", "PAR", 4402, 6000),
@@ -210,7 +216,6 @@ def cargar_datos_oficiales():
         (9220, "OLAVARRIA", "IMPAR", 1501, 6000),
         (9220, "AV PATRICIO PERALTA RAMOS", "AMBOS", 2801, 3500),
         (9220, "SANTA FE", "PAR", 1500, 2200),
-        # Internas Carbayo
         (9220, "SARMIENTO", "AMBOS", 1501, 2200),
         (9220, "LAS HERAS", "AMBOS", 1501, 2200),
         (9220, "LAMADRID", "AMBOS", 1501, 2200),
@@ -238,7 +243,6 @@ def cargar_datos_oficiales():
         (9220, "MATHEU", "AMBOS", 1002, 3000),
         
         # INSPECTOR 5: GARCIA (7952)
-        # Perimetrales
         (7952, "AV COLON", "IMPAR", 1901, 2400),
         (7952, "HIPOLITO YRIGOYEN", "PAR", 1500, 2200),
         (7952, "SAN LUIS", "IMPAR", 1501, 2200),
@@ -258,7 +262,6 @@ def cargar_datos_oficiales():
         (7952, "CERRITO", "PAR", 1502, 6000),
         (7952, "OLAVARRIA", "PAR", 1502, 6000),
         (7952, "AV PATRICIO PERALTA RAMOS", "AMBOS", 3501, 4500),
-        # Internas Garcia
         (7952, "CORDOBA", "AMBOS", 1901, 2400),
         (7952, "SANTIAGO DEL ESTERO", "AMBOS", 1901, 2400),
         (7952, "SANTA FE", "AMBOS", 1901, 2400),
@@ -299,7 +302,7 @@ def cargar_datos_oficiales():
             "altura_desde": desde, "altura_hasta": hasta
         }).execute()
     
-    st.success(f"✅ DATOS OFICIALES CARGADOS: {len(zonas)} calles asignadas a 5 inspectores")
+    st.success(f"✅ BACKUP RESTAURADO: {len(zonas)} calles asignadas a 5 inspectores")
     st.balloons()
 
 def forzar_recarga_cache():
@@ -316,13 +319,16 @@ def forzar_recarga_cache():
 
 # Inicializar datos si no están cargados
 if 'datos_cargados' not in st.session_state:
-    with st.spinner("Cargando datos oficiales..."):
-        cargar_datos_oficiales()
+    with st.spinner("Cargando datos..."):
+        # Verificar si hay datos, si no hay, cargar backup automáticamente
+        zonas_existentes = supabase.table("zonas_inspectores").select("id", count="exact").execute()
+        if zonas_existentes.count == 0:
+            cargar_backup_oficial()
         st.session_state.datos_cargados = True
         st.rerun()
 
 # ==================== TABS ====================
-tab1, tab2, tab3, tab4 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)", "🔄 Sinónimos"])
+tab1, tab2, tab3, tab4 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ) - Editor", "🔄 Sinónimos"])
 
 # TAB 1: INSPECTORES
 with tab1:
@@ -390,47 +396,135 @@ with tab2:
         else:
             st.info("No hay localidades asignadas")
 
-# TAB 3: CALLES (solo vista y eliminación rápida)
+# TAB 3: CALLES - EDITOR COMPLETO CON TACHO DE BASURA
 with tab3:
-    st.markdown("### 📍 Calles de Mar del Plata - Listado completo")
+    st.markdown("### 📍 Calles de Mar del Plata - Editor Completo")
+    st.caption("📝 Podés editar cualquier campo directamente en la tabla. Usá el 🗑️ para eliminar una calle.")
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if not inspectores.data:
-        st.warning("Cargando inspectores...")
+        st.warning("Primero cargá inspectores")
     else:
         opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
         
-        filtro = st.selectbox("Filtrar por inspector", options=["TODOS"] + list(opts.values()), 
-                              format_func=lambda x: "TODOS" if x == "TODOS" else [k for k, v in opts.items() if v == x][0])
+        # Filtro por inspector
+        filtro_legajo = st.selectbox(
+            "Filtrar por inspector", 
+            options=["TODOS"] + list(opts.values()), 
+            format_func=lambda x: "TODOS" if x == "TODOS" else [k for k, v in opts.items() if v == x][0], 
+            key="filtro_legajo_calles"
+        )
         
+        # Obtener zonas
         query = supabase.table("zonas_inspectores").select("*")
-        if filtro != "TODOS":
-            query = query.eq("legajo", filtro)
+        if filtro_legajo != "TODOS":
+            query = query.eq("legajo", filtro_legajo)
         zonas = query.order("calle").execute()
         
         if zonas.data:
-            # Mostrar en tabla
+            # Preparar DataFrame para edición
             df = pd.DataFrame(zonas.data)[['id', 'legajo', 'calle', 'lado', 'altura_desde', 'altura_hasta']]
             df.columns = ['ID', 'Legajo', 'Calle', 'Lado', 'Desde', 'Hasta']
             
-            # Agregar nombre del inspector
+            # Agregar columna para el inspector
             inspector_dict = {ins['legajo']: ins['nombre'].split(',')[0] for ins in inspectores.data}
             df['Inspector'] = df['Legajo'].map(inspector_dict)
             
-            st.dataframe(df[['Calle', 'Lado', 'Desde', 'Hasta', 'Inspector']], use_container_width=True, hide_index=True)
+            # Mostrar editor
+            st.info("💡 Hacé doble clic en cualquier celda para editar. Los cambios se guardan automáticamente al salir de la celda.")
+            
+            edited_df = st.data_editor(
+                df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", disabled=True),
+                    "Legajo": st.column_config.NumberColumn("Legajo", required=True),
+                    "Calle": st.column_config.TextColumn("Calle", required=True),
+                    "Lado": st.column_config.SelectColumn("Lado", options=["PAR", "IMPAR", "AMBOS"], required=True),
+                    "Desde": st.column_config.NumberColumn("Desde", required=True),
+                    "Hasta": st.column_config.NumberColumn("Hasta", required=True),
+                    "Inspector": st.column_config.TextColumn("Inspector", disabled=True),
+                },
+                key="editor_calles_completo"
+            )
+            
+            # Guardar cambios automáticamente
+            for idx, row in edited_df.iterrows():
+                original = df.iloc[idx]
+                if (row['Legajo'] != original['Legajo'] or
+                    row['Calle'] != original['Calle'] or
+                    row['Lado'] != original['Lado'] or
+                    row['Desde'] != original['Desde'] or
+                    row['Hasta'] != original['Hasta']):
+                    
+                    supabase.table("zonas_inspectores").update({
+                        "legajo": int(row['Legajo']),
+                        "calle": row['Calle'].upper().strip(),
+                        "lado": row['Lado'],
+                        "altura_desde": int(row['Desde']),
+                        "altura_hasta": int(row['Hasta'])
+                    }).eq("id", int(row['ID'])).execute()
+                    forzar_recarga_cache()
+                    st.toast(f"✅ Actualizado: {row['Calle']}", icon="✅")
+                    st.rerun()
             
             st.markdown("---")
-            st.markdown("#### 🗑️ Eliminar calle específica")
+            st.markdown("#### 🗑️ Eliminar calle")
             
-            # Selector para eliminar
+            # Selector para eliminar con confirmación
             calle_a_eliminar = st.selectbox("Seleccionar calle para eliminar", options=df['Calle'].tolist())
             if calle_a_eliminar:
                 fila = df[df['Calle'] == calle_a_eliminar].iloc[0]
-                st.warning(f"Vas a eliminar: {fila['Calle']} - {fila['Lado']} ({fila['Desde']}-{fila['Hasta']}) - Inspector: {fila['Inspector']}")
-                if st.button("🗑️ CONFIRMAR ELIMINACIÓN", type="secondary"):
-                    supabase.table("zonas_inspectores").delete().eq("id", int(fila['ID'])).execute()
-                    forzar_recarga_cache()
-                    st.rerun()
+                st.warning(f"⚠️ **Eliminar:** {fila['Calle']} - {fila['Lado']} ({fila['Desde']}-{fila['Hasta']}) - Inspector: {fila['Inspector']}")
+                
+                col_confirm, col_cancel = st.columns(2)
+                with col_confirm:
+                    if st.button("🗑️ SÍ, ELIMINAR", type="secondary"):
+                        supabase.table("zonas_inspectores").delete().eq("id", int(fila['ID'])).execute()
+                        forzar_recarga_cache()
+                        st.success(f"✅ Eliminada: {fila['Calle']}")
+                        st.rerun()
+                with col_cancel:
+                    if st.button("❌ Cancelar"):
+                        st.rerun()
+            
+            st.markdown("---")
+            st.markdown("#### ➕ Agregar nueva calle")
+            
+            with st.form("form_nueva_calle", clear_on_submit=True):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    nueva_calle = st.text_input("Nombre de la calle", placeholder="Ej: BELGRANO")
+                with col2:
+                    nuevo_legajo = st.selectbox(
+                        "Inspector", 
+                        options=list(opts.values()), 
+                        format_func=lambda x: [k for k, v in opts.items() if v == x][0]
+                    )
+                with col3:
+                    nuevo_lado = st.selectbox("Lado", ["PAR", "IMPAR", "AMBOS"])
+                
+                col4, col5 = st.columns(2)
+                with col4:
+                    nueva_desde = st.number_input("Altura desde", min_value=1, value=1, step=1)
+                with col5:
+                    nueva_hasta = st.number_input("Altura hasta", min_value=1, value=9999, step=1)
+                
+                if st.form_submit_button("➕ AGREGAR CALLE"):
+                    if nueva_calle:
+                        supabase.table("zonas_inspectores").insert({
+                            "legajo": int(nuevo_legajo),
+                            "calle": nueva_calle.upper().strip(),
+                            "lado": nuevo_lado,
+                            "altura_desde": int(nueva_desde),
+                            "altura_hasta": int(nueva_hasta)
+                        }).execute()
+                        forzar_recarga_cache()
+                        st.success(f"✅ Calle {nueva_calle.upper()} agregada")
+                        st.rerun()
+                    else:
+                        st.error("El nombre de la calle es obligatorio")
         else:
             st.info("No hay calles cargadas")
 
