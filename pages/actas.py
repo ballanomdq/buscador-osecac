@@ -23,10 +23,19 @@ st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide", initial_
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 13px !important; }
-.app-header { padding: 0.3rem 1rem; background: #1e293b; border-left: 3px solid #3b82f6;
-              border-radius: 6px; margin-bottom: 0.5rem; }
-.app-header h3 { color: #fff; margin: 0; font-size: 1rem; font-weight: 500; }
-.app-header p  { color: #94a3b8; margin: 0; font-size: 0.7rem; }
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 1rem;
+    background: #1e293b;
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+.app-header h3 { color: #fff; margin: 0; font-size: 1.2rem; font-weight: 500; }
+.app-header p { color: #94a3b8; margin: 0; font-size: 0.7rem; }
+.app-header .volver-btn { margin-left: auto; }
 div[data-testid="stButton"] > button {
     padding: 0.2rem 0.6rem !important;
     font-size: 0.75rem !important;
@@ -40,29 +49,40 @@ div[data-testid="stButton"] > button[kind="primary"] {
     background: #2563eb !important;
     border-color: #1d4ed8 !important;
 }
+div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8 !important; }
+/* Botón Guardar Cambios VERDE */
+div[data-testid="stButton"] > button[kind="secondary"] {
+    background: #10b981 !important;
+    border-color: #059669 !important;
+}
+div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #059669 !important; }
 #MainMenu, footer, header { display: none !important; }
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 10px;
-    padding: 0.2rem 0.5rem;
+    padding: 0.15rem 0.3rem;
     text-align: center;
     border: 1px solid #3b82f6;
 }
-.big-number h1 { margin: 0; font-size: 1.6rem !important; color: #3b82f6; }
-.big-number p { margin: 0; font-size: 0.65rem !important; color: #94a3b8; }
+.big-number h1 { margin: 0; font-size: 2.5rem !important; color: #3b82f6; font-weight: 700; }
+.big-number p { margin: 0; font-size: 0.7rem !important; color: #94a3b8; }
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
 hr { margin: 0.3rem 0 !important; }
 div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# Header con título y botón Volver dentro
 st.markdown("""
 <div class="app-header">
-  <h3>Fiscalización — Deuda Presunta</h3>
-  <p>Sistema de gestión y seguimiento</p>
+    <div>
+        <h3>Fiscalización — Deuda Presunta</h3>
+        <p>Sistema de gestión y seguimiento</p>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
+# Botón Volver (ahora dentro de una columna pequeña, justo debajo del header pero pegado)
 col_back, _ = st.columns([1, 11])
 with col_back:
     if st.button("← Volver"):
@@ -490,7 +510,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN COMPACTA)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN COMPACTA Y FINAL)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -499,49 +519,50 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
-    # Tres cuadros grandes (más compactos)
+    # Tres cuadros grandes con números GRANDES
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
     with col_t2:
         st.markdown(f'<div class="big-number"><h1>{con_legajo}</h1><p>CON LEGAJO</p></div>', unsafe_allow_html=True)
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    # ── FILA DE BOTONES (incluye GUARDAR CAMBIOS) ──────────────────────────────
-    col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns(9)
-    with col1:
-        if st.button("🗑 Eliminar seleccionados"):
+    # ── FILA DE BOTONES (GUARDAR CAMBIOS VERDE al PRINCIPIO) ──────────────────
+    col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_reset, col_recargar = st.columns(9)
+    
+    with col_guardar:
+        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True)
+    with col_elim_sel:
+        if st.button("🗑 Eliminar sel.", use_container_width=True):
             ids = st.session_state.get('ids_a_eliminar', [])
             if ids:
                 supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
                 st.session_state.ids_a_eliminar = []
                 st.rerun()
-    with col2:
-        if st.button("🗑 Eliminar TODO"):
+    with col_elim_todo:
+        if st.button("🗑 Eliminar TODO", use_container_width=True):
             st.session_state.confirmar_del_todo = True
-    with col3:
-        if st.button("🤖 Asignar Legajos"):
+    with col_asignar:
+        if st.button("🤖 Asignar Legajos", use_container_width=True):
             st.session_state.asignar_legajos = True
-    with col4:
-        if st.button("🔍 Calles sin asoc."):
+    with col_buscar:
+        if st.button("🔍 Calles sin asoc.", use_container_width=True):
             st.session_state.buscar_sinonimos = True
-    with col5:
-        if st.button("📄 Inf. NO asig."):
+    with col_inf_no:
+        if st.button("📄 Inf. NO asig.", use_container_width=True):
             st.session_state.generar_informe = True
-    with col6:
-        if st.button("📊 Inf. ASIGNADOS"):
+    with col_inf_si:
+        if st.button("📊 Inf. ASIGNADOS", use_container_width=True):
             st.session_state.generar_informe_asignados = True
-    with col7:
-        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="primary")
-    with col8:
-        if st.button("↺ Resetear filtros"):
+    with col_reset:
+        if st.button("↺ Resetear filtros", use_container_width=True):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
                       'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
-    with col9:
-        if st.button("⟳ Recargar"):
+    with col_recargar:
+        if st.button("⟳ Recargar", use_container_width=True):
             st.rerun()
 
     if st.session_state.get('confirmar_del_todo'):
@@ -769,7 +790,7 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS (más compactos) ──────────────────────────────────────────────
+    # ── FILTROS (compactos) ──────────────────────────────────────────────────
     st.markdown("### 📋 Filtros")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
