@@ -29,14 +29,15 @@ html, body, [class*="css"] { font-size: 13px !important; }
 div[data-testid="stButton"] > button {
     padding: 0.25rem 0.75rem !important;
     font-size: 0.78rem !important;
-    background: #2563eb !important;
-    color: white !important;
-    border: none !important;
+    background: #334155 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #475569 !important;
     border-radius: 4px !important;
 }
-div[data-testid="stButton"] > button:hover { background: #1d4ed8 !important; }
+div[data-testid="stButton"] > button:hover { background: #475569 !important; }
 div[data-testid="stButton"] > button[kind="primary"] {
     background: #2563eb !important;
+    border-color: #1d4ed8 !important;
 }
 #MainMenu, footer, header { display: none !important; }
 .big-number {
@@ -459,7 +460,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN DEFINITIVA)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN FINAL DEFINITIVA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Edición de Datos")
@@ -478,7 +479,7 @@ with tab2:
 
     st.markdown("---")
 
-    # ── Botones principales (TODOS AZULES) ───────────────────────────────────
+    # ── Botones principales ───────────────────────────────────────────────────
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
@@ -513,7 +514,7 @@ with tab2:
         if st.button("⟳ Recargar"):
             st.rerun()
 
-    # ── Botón GUARDAR CAMBIOS (arriba, para TODA la tabla) ───────────────────
+    # ── Botón GUARDAR CAMBIOS (se activa con 1 solo cambio) ───────────────────
     st.markdown("---")
     col_btn1, col_btn2 = st.columns([1, 5])
     
@@ -633,7 +634,7 @@ with tab2:
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia")
             st.rerun()
 
-    # ── Buscar calles sin asociar (VERSIÓN SIMPLE Y COMPACTA) ───────────────
+    # ── Buscar calles sin asociar (COMPACTO + PORCENTAJES + EDITABLE) ─────────
     if st.session_state.get('buscar_sinonimos'):
         with st.spinner("Analizando calles..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
@@ -664,36 +665,57 @@ with tab2:
             else:
                 st.warning(f"🔍 {len(calles_sin_asociar)} calles sin asociar")
                 
-                # Mostrar cada calle con un selector (COMPACTO)
+                # Tabla compacta con 4 columnas
                 for calle_problema in calles_sin_asociar:
-                    col_a, col_b, col_c = st.columns([2, 2, 1])
-                    with col_a:
-                        st.markdown(f"**{calle_problema}**")
-                    with col_b:
-                        oficial_seleccionado = st.selectbox(
-                            "Asociar a",
-                            options=[""] + calles_oficiales_list,
-                            key=f"select_{generar_key_segura(calle_problema)}",
-                            label_visibility="collapsed"
-                        )
-                    with col_c:
-                        if oficial_seleccionado:
-                            if st.button("✓ Guardar", key=f"save_{generar_key_segura(calle_problema)}"):
-                                try:
-                                    supabase.table("sinonimos_calles").insert({
-                                        "calle_oficial": oficial_seleccionado,
-                                        "sinonimo": calle_problema,
-                                        "creado_por": "usuario"
-                                    }).execute()
-                                    st.success(f"✓ Asociado: {calle_problema} → {oficial_seleccionado}")
-                                    st.rerun()
-                                except Exception as e:
-                                    if "duplicate" in str(e).lower():
-                                        st.warning("Ya existe")
-                                    else:
-                                        st.error(f"Error")
-                    st.markdown("---")
-                
+                    # Buscar coincidencias y porcentajes
+                    coincidencias = []
+                    for oficial in calles_oficiales_list:
+                        ratio = difflib.SequenceMatcher(None, calle_problema, oficial).ratio()
+                        if ratio > 0.4:
+                            coincidencias.append((oficial, ratio))
+                    coincidencias.sort(key=lambda x: x[1], reverse=True)
+                    
+                    with st.container():
+                        cols = st.columns([1.5, 1.5, 1.5, 1])
+                        
+                        # Calle problema
+                        with cols[0]:
+                            st.markdown(f"**{calle_problema}**")
+                        
+                        # Sugerencias con porcentajes (solo si hay)
+                        with cols[1]:
+                            if coincidencias:
+                                sugerencias = ", ".join([f"{c[0]} ({int(c[1]*100)}%)" for c in coincidencias[:2]])
+                                st.markdown(f"💡 {sugerencias}")
+                            else:
+                                st.markdown("*Sin sugerencias*")
+                        
+                        # Input para editar/ingresar calle correcta
+                        with cols[2]:
+                            calle_correcta = st.text_input("Corregir a", key=f"corregir_{generar_key_segura(calle_problema)}", placeholder="Escribir calle correcta...", label_visibility="collapsed")
+                        
+                        # Botón guardar
+                        with cols[3]:
+                            if calle_correcta:
+                                if st.button("✓ Guardar", key=f"guardar_{generar_key_segura(calle_problema)}"):
+                                    try:
+                                        supabase.table("sinonimos_calles").insert({
+                                            "calle_oficial": calle_correcta.upper().strip(),
+                                            "sinonimo": calle_problema,
+                                            "creado_por": "usuario"
+                                        }).execute()
+                                        st.success(f"✓ {calle_problema} → {calle_correcta.upper()}")
+                                        st.rerun()
+                                    except Exception as e:
+                                        if "duplicate" in str(e).lower():
+                                            st.warning("Ya existe")
+                                        else:
+                                            st.error("Error")
+                            else:
+                                st.markdown("---")
+                        
+                        st.markdown("---")
+
                 if st.button("Cerrar búsqueda"):
                     st.session_state.buscar_sinonimos = False
                     st.rerun()
@@ -853,7 +875,8 @@ with tab2:
             num_rows="fixed"
         )
         
-        # Detectar cambios y guardarlos en session_state
+        # Detectar cambios y guardarlos en session_state (UN SOLO CAMBIO ACTIVA EL BOTÓN)
+        hay_cambios = False
         for idx, row in edited_df.iterrows():
             if idx >= len(df_mostrar):
                 continue
@@ -872,6 +895,7 @@ with tab2:
                         valor_nuevo = None
                     
                     if valor_original != valor_nuevo:
+                        hay_cambios = True
                         # Mapear columna mostrada a campo DB
                         mapeo_campos = {
                             'LEG': 'leg', 'VTO': 'vto', 'MAIL': 'mail_enviado',
@@ -903,6 +927,11 @@ with tab2:
             else:
                 if 'cambios_pendientes' in st.session_state and str(id_registro) in st.session_state.cambios_pendientes:
                     del st.session_state.cambios_pendientes[str(id_registro)]
+        
+        # Si no hay cambios, limpiar el diccionario
+        if not hay_cambios and 'cambios_pendientes' in st.session_state:
+            if len(st.session_state.cambios_pendientes) == 0:
+                st.session_state.cambios_pendientes = {}
         
         # IDs seleccionados para eliminar
         ids_sel = edited_df[edited_df["🗑️"]]["ID"].tolist() if "ID" in edited_df.columns else []
