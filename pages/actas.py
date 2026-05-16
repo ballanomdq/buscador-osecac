@@ -29,22 +29,14 @@ html, body, [class*="css"] { font-size: 13px !important; }
 div[data-testid="stButton"] > button {
     padding: 0.25rem 0.75rem !important;
     font-size: 0.78rem !important;
-    background: #334155 !important;
-    color: #e2e8f0 !important;
-    border: 1px solid #475569 !important;
+    background: #2563eb !important;
+    color: white !important;
+    border: none !important;
     border-radius: 4px !important;
 }
-div[data-testid="stButton"] > button:hover { background: #475569 !important; }
+div[data-testid="stButton"] > button:hover { background: #1d4ed8 !important; }
 div[data-testid="stButton"] > button[kind="primary"] {
     background: #2563eb !important;
-    border-color: #1d4ed8 !important;
-}
-div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #dc2626 !important;
-    border-color: #b91c1c !important;
-}
-div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background: #ef4444 !important;
 }
 #MainMenu, footer, header { display: none !important; }
 .big-number {
@@ -467,7 +459,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN FINAL)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN DEFINITIVA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Edición de Datos")
@@ -486,21 +478,21 @@ with tab2:
 
     st.markdown("---")
 
-    # ── Botones principales ─────────────────────────────────────────────────
+    # ── Botones principales (TODOS AZULES) ───────────────────────────────────
     col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     with col1:
-        if st.button("🗑 Eliminar seleccionados", type="secondary"):
+        if st.button("🗑 Eliminar seleccionados"):
             ids = st.session_state.get('ids_a_eliminar', [])
             if ids:
                 supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
                 if 'cambios_pendientes' in st.session_state:
                     for id_del in ids:
-                        if id_del in st.session_state.cambios_pendientes:
-                            del st.session_state.cambios_pendientes[id_del]
+                        if str(id_del) in st.session_state.cambios_pendientes:
+                            del st.session_state.cambios_pendientes[str(id_del)]
                 st.session_state.ids_a_eliminar = []
                 st.rerun()
     with col2:
-        if st.button("🗑 Eliminar TODO", type="secondary"):
+        if st.button("🗑 Eliminar TODO"):
             st.session_state.confirmar_del_todo = True
     with col3:
         if st.button("🤖 Asignar Legajos"):
@@ -521,9 +513,9 @@ with tab2:
         if st.button("⟳ Recargar"):
             st.rerun()
 
-    # ── Botones de guardar/cancelar cambios (ARRIBA) ────────────────────────
+    # ── Botón GUARDAR CAMBIOS (arriba, para TODA la tabla) ───────────────────
     st.markdown("---")
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 4])
+    col_btn1, col_btn2 = st.columns([1, 5])
     
     cambios_count = len(st.session_state.get('cambios_pendientes', {}))
     
@@ -535,16 +527,10 @@ with tab2:
                         if cambios:
                             supabase.table("padron_deuda_presunta").update(cambios).eq("id", int(id_reg)).execute()
                     st.session_state.cambios_pendientes = {}
-                    st.success(f"✅ {cambios_count} cambios guardados correctamente")
+                    st.success(f"✅ {cambios_count} cambios guardados")
                     st.rerun()
         else:
             st.button("💾 GUARDAR CAMBIOS", disabled=True, use_container_width=True)
-    
-    with col_btn2:
-        if cambios_count > 0:
-            if st.button("❌ CANCELAR CAMBIOS", use_container_width=True):
-                st.session_state.cambios_pendientes = {}
-                st.rerun()
     
     st.markdown("---")
 
@@ -552,7 +538,7 @@ with tab2:
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
         col_si, col_no = st.columns(2)
         with col_si:
-            if st.button("Sí, eliminar todo", type="secondary"):
+            if st.button("Sí, eliminar todo"):
                 supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
                 st.session_state.cambios_pendientes = {}
                 st.session_state.confirmar_del_todo = False
@@ -647,14 +633,16 @@ with tab2:
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia")
             st.rerun()
 
-    # ── Buscar calles sin asociar (VERSIÓN COMPACTA CON BOTONES) ────────────
+    # ── Buscar calles sin asociar (TABLA COMPACTA) ───────────────────────────
     if st.session_state.get('buscar_sinonimos'):
         with st.spinner("Analizando calles..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
-            calles_oficiales_set = set([normalizar_calle(c['calle']) for c in calles_oficiales.data]) if calles_oficiales.data else set()
+            calles_oficiales_set = sorted(list(set([normalizar_calle(c['calle']) for c in calles_oficiales.data]))) if calles_oficiales.data else []
             
-            sinonimos_existentes = supabase.table("sinonimos_calles").select("sinonimo").execute()
-            sinonimos_set = set([normalizar_calle(s['sinonimo']) for s in sinonimos_existentes.data]) if sinonimos_existentes.data else set()
+            sinonimos_existentes = supabase.table("sinonimos_calles").select("sinonimo, calle_oficial").execute()
+            sinonimos_dict = {}
+            for s in sinonimos_existentes.data or []:
+                sinonimos_dict[normalizar_calle(s['sinonimo'])] = s['calle_oficial']
             
             registros_mdq = supabase.table("padron_deuda_presunta")\
                 .select("calle")\
@@ -667,68 +655,65 @@ with tab2:
                 if calle_norm:
                     calles_en_padron.add(calle_norm)
             
-            calles_sin_asociar = []
-            for calle in calles_en_padron:
-                if calle not in calles_oficiales_set and calle not in sinonimos_set:
-                    calles_sin_asociar.append(calle)
-            
-            if not calles_sin_asociar:
-                st.success("✅ Todas las calles están correctamente asociadas")
-                st.session_state.buscar_sinonimos = False
-            else:
-                st.warning(f"🔍 {len(calles_sin_asociar)} calles sin asociar")
-                
-                # Mostrar cada calle con su botón (COMPACTO)
-                for calle_problema in sorted(calles_sin_asociar):
-                    # Buscar mejor coincidencia
+            # Preparar datos para la tabla compacta
+            datos_tabla = []
+            for calle in sorted(calles_en_padron):
+                if calle not in calles_oficiales_set and calle not in sinonimos_dict:
+                    # Buscar sugerencia
                     mejor_coincidencia = None
                     mejor_ratio = 0
                     for oficial in calles_oficiales_set:
-                        ratio = difflib.SequenceMatcher(None, calle_problema, oficial).ratio()
+                        ratio = difflib.SequenceMatcher(None, calle, oficial).ratio()
                         if ratio > mejor_ratio and ratio > 0.5:
                             mejor_ratio = ratio
                             mejor_coincidencia = oficial
                     
-                    col_a, col_b, col_c = st.columns([2, 1.5, 1])
-                    with col_a:
-                        st.markdown(f"`{calle_problema}`")
-                    with col_b:
-                        if mejor_coincidencia:
-                            st.markdown(f"Sugerencia: {mejor_coincidencia} ({int(mejor_ratio*100)}%)")
-                        else:
-                            st.markdown("*Sin sugerencia*")
-                    with col_c:
-                        # Botón para asociar manualmente
-                        if st.button(f"✏️ Asociar", key=f"asoc_{generar_key_segura(calle_problema)}"):
-                            st.session_state[f"asociar_{generar_key_segura(calle_problema)}"] = calle_problema
-                    
-                    # Formulario de asociación (se abre solo si se clickeó)
-                    if st.session_state.get(f"asociar_{generar_key_segura(calle_problema)}"):
-                        col_d, col_e, col_f = st.columns([2, 2, 1])
-                        with col_d:
-                            oficial_sel = st.selectbox("Calle oficial", options=sorted(calles_oficiales_set), 
-                                                       key=f"oficial_{generar_key_segura(calle_problema)}")
-                        with col_e:
-                            pass
-                        with col_f:
-                            if st.button("✅ Guardar", key=f"guardar_{generar_key_segura(calle_problema)}"):
-                                try:
-                                    supabase.table("sinonimos_calles").insert({
-                                        "calle_oficial": oficial_sel,
-                                        "sinonimo": calle_problema,
-                                        "creado_por": "usuario"
-                                    }).execute()
-                                    st.success(f"✓ Asociado: {calle_problema} → {oficial_sel}")
-                                    del st.session_state[f"asociar_{generar_key_segura(calle_problema)}"]
-                                    st.rerun()
-                                except:
-                                    st.warning("Ya existe o error")
-                        
-                        if st.button("❌ Cancelar", key=f"cancelar_{generar_key_segura(calle_problema)}"):
-                            del st.session_state[f"asociar_{generar_key_segura(calle_problema)}"]
-                            st.rerun()
-                    
-                    st.markdown("---")
+                    datos_tabla.append({
+                        "Calle problema": calle,
+                        "Asociar a": mejor_coincidencia if mejor_coincidencia else "",
+                        "Acción": False
+                    })
+            
+            if not datos_tabla:
+                st.success("✅ Todas las calles están correctamente asociadas")
+                st.session_state.buscar_sinonimos = False
+            else:
+                st.warning(f"🔍 {len(datos_tabla)} calles sin asociar")
+                
+                # Mostrar tabla compacta con input para asociar
+                df_sinonimos = pd.DataFrame(datos_tabla)
+                
+                edited_sinonimos = st.data_editor(
+                    df_sinonimos,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Calle problema": st.column_config.TextColumn("Calle problema", disabled=True),
+                        "Asociar a": st.column_config.SelectColumn("Asociar a", options=calles_oficiales_set, required=False),
+                        "Acción": st.column_config.CheckboxColumn("✓ Guardar")
+                    },
+                    key="editor_sinonimos"
+                )
+                
+                # Botón para guardar las asociaciones marcadas
+                if st.button("💾 Guardar asociaciones seleccionadas", type="primary"):
+                    guardadas = 0
+                    for idx, row in edited_sinonimos.iterrows():
+                        if row.get("Acción") and row.get("Asociar a"):
+                            try:
+                                supabase.table("sinonimos_calles").insert({
+                                    "calle_oficial": row["Asociar a"],
+                                    "sinonimo": row["Calle problema"],
+                                    "creado_por": "usuario"
+                                }).execute()
+                                guardadas += 1
+                            except:
+                                pass
+                    if guardadas > 0:
+                        st.success(f"✅ {guardadas} asociaciones guardadas")
+                        st.rerun()
+                    else:
+                        st.warning("No se seleccionó ninguna asociación")
                 
                 if st.button("Cerrar búsqueda"):
                     st.session_state.buscar_sinonimos = False
@@ -858,7 +843,6 @@ with tab2:
                 for idx, row in df_mostrar.iterrows():
                     if str(row['ID']) == str(id_reg):
                         for campo, valor in cambios.items():
-                            # Mapear campo DB a columna mostrada
                             mapeo_inverso = {
                                 'leg': 'LEG', 'vto': 'VTO', 'mail_enviado': 'MAIL',
                                 'acta': 'ACTA', 'estado_gestion': 'ESTADO',
@@ -869,12 +853,11 @@ with tab2:
                             }
                             col_mostrar = mapeo_inverso.get(campo, campo.upper())
                             if col_mostrar in df_mostrar.columns:
-                                # Formatear valores especiales
                                 if campo == 'vto' and valor:
                                     valor = fmt_fecha(valor)
                                 df_mostrar.at[idx, col_mostrar] = valor
         
-        # Agregar columna de selección
+        # Agregar columna de selección para eliminar
         df_mostrar.insert(0, "🗑️", False)
         
         # Mostrar tabla completamente editable
