@@ -6,6 +6,7 @@ import re
 import difflib
 import hashlib
 import time
+import io
 
 # ── Conexión ──────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -284,6 +285,21 @@ def traer_registros_sin_legajo():
             break
     return registros
 
+def traer_registros_con_legajo():
+    registros, offset = [], 0
+    while True:
+        r = supabase.table("padron_deuda_presunta") \
+            .select("*") \
+            .not_.is_("leg", "null") \
+            .range(offset, offset + 999).execute()
+        if not r.data:
+            break
+        registros.extend(r.data)
+        offset += 1000
+        if len(r.data) < 1000:
+            break
+    return registros
+
 def guardar_legajos_en_batch(asignaciones, batch_size=100):
     if not asignaciones:
         return 0
@@ -362,6 +378,20 @@ def generar_informe_txt(registros_sin_legajo):
     contenido.append("=" * 80)
     
     return "\n".join(contenido)
+
+def generar_excel_asignados(registros):
+    """Genera un archivo Excel con los registros que tienen legajo asignado"""
+    df = pd.DataFrame(registros)
+    # Seleccionar columnas relevantes
+    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
+                'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion',
+                'tel_dom_legal', 'tel_dom_real', 'email']
+    df_excel = df[[c for c in columnas if c in df.columns]]
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_excel.to_excel(writer, sheet_name='Asignados', index=False)
+    return output.getvalue()
 
 # ── Mapeo Excel ───────────────────────────────────────────────────────────────
 COLS_EXCEL = [
@@ -460,7 +490,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN CON TABLA TOTALMENTE EDITABLE)
+# TAB 2 — Editar Legajos y Vtos (CON TABLA TOTALMENTE EDITABLE)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -479,7 +509,8 @@ with tab2:
 
     st.markdown("---")
 
-    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
+    # ── Primera fila de botones ──────────────────────────────────────────────
+    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
             ids = st.session_state.get('ids_a_eliminar', [])
@@ -500,14 +531,24 @@ with tab2:
         if st.button("📄 INFORME NO ASIGNADOS"):
             st.session_state.generar_informe = True
     with col6:
+        if st.button("📊 INFORME ASIGNADOS"):
+            st.session_state.generar_informe_asignados = True
+    with col7:
         if st.button("↺ Resetear filtros"):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
                       'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
-    with col7:
+    with col8:
         if st.button("⟳ Recargar"):
             st.rerun()
+
+    # ── Botón GUARDAR CAMBIOS (ARRIBA de la tabla) ───────────────────────────
+    st.markdown("---")
+    col_guardar1, col_guardar2 = st.columns([1, 5])
+    with col_guardar1:
+        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="primary", use_container_width=True)
+    st.markdown("---")
 
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
@@ -522,7 +563,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── Generar informe TXT ─────────────────────────────────────────────────
+    # ── Generar informe TXT (NO ASIGNADOS) ───────────────────────────────────
     if st.session_state.get('generar_informe'):
         with st.spinner("Generando informe de no asignados..."):
             registros_sin_legajo = traer_registros_sin_legajo()
@@ -540,7 +581,25 @@ with tab2:
                 st.success("✅ No hay registros sin legajo para exportar")
         st.session_state.generar_informe = False
 
-    # ── Asignación automática de legajos ─────────────────────────────────
+    # ── Generar informe EXCEL (ASIGNADOS) ────────────────────────────────────
+    if st.session_state.get('generar_informe_asignados'):
+        with st.spinner("Generando informe de asignados..."):
+            registros_con_legajo = traer_registros_con_legajo()
+            if registros_con_legajo:
+                excel_data = generar_excel_asignados(registros_con_legajo)
+                st.download_button(
+                    label="📥 DESCARGAR EXCEL (ASIGNADOS)",
+                    data=excel_data,
+                    file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="download_excel_asignados"
+                )
+                st.info(f"📊 Se encontraron {len(registros_con_legajo)} registros con legajo asignado")
+            else:
+                st.success("✅ No hay registros con legajo asignado")
+        st.session_state.generar_informe_asignados = False
+
+    # ── Asignación automática de legajos ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ INICIANDO ASIGNACIÓN DE LEGAJOS... Esto puede tomar unos minutos.")
         
@@ -608,7 +667,7 @@ with tab2:
             st.success(f"✅ ASIGNACIÓN COMPLETADA: {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
             st.rerun()
 
-    # ── Buscar calles sin asociar ──────────────────────────────────────────
+    # ── Buscar calles sin asociar ────────────────────────────────────────────
     if st.session_state.get('buscar_sinonimos'):
         with st.spinner("Analizando calles de Mar del Plata..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
@@ -737,7 +796,7 @@ with tab2:
 
     st.markdown("---")
 
-    # ── Filtros ───────────────────────────────────────────────────────────
+    # ── Filtros ─────────────────────────────────────────────────────────────
     st.markdown("### 📋 Filtros de búsqueda")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
@@ -815,18 +874,15 @@ with tab2:
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
-        # ==================== CLAVE: CONVERTIR TODO A STRING ====================
-        # Esto evita TODOS los errores de tipos en el data_editor
+        # ==================== CONVERTIR TODO A STRING ====================
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
         
-        # Formatear fechas para mostrar bonito (solo visual)
         for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(lambda x: fmt_fecha(x) if x and x != "" else "")
-        # =======================================================================
+        # =================================================================
 
-        # Renombrar columnas para la tabla
         df_orig = df_p.copy()
         df_ed = df_p.rename(columns={
             'id':'ID','delegacion':'DELEGACION','localidad':'LOCALIDAD','cuit':'CUIT',
@@ -846,7 +902,7 @@ with tab2:
         if st.checkbox("Seleccionar todos (página actual)"):
             df_ed["🗑️"] = True
 
-        # TABLA COMPLETAMENTE EDITABLE (todas las columnas)
+        # TABLA COMPLETAMENTE EDITABLE
         edited = st.data_editor(
             df_ed, use_container_width=True, height=550,
             column_config={"🗑️": st.column_config.CheckboxColumn("Elim.")},
@@ -856,8 +912,8 @@ with tab2:
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
 
-        # ==================== GUARDAR CAMBIOS CON CONVERSIÓN DE TIPOS ====================
-        if st.button("💾 GUARDAR CAMBIOS", type="primary"):
+        # ==================== GUARDAR CAMBIOS ====================
+        if guardar_click:
             mods = 0
             with st.spinner("Guardando cambios..."):
                 for idx, row in edited.iterrows():
@@ -866,26 +922,14 @@ with tab2:
                     orig = df_orig.iloc[idx]
                     upd = {}
                     
-                    # Mapeo de columnas editables a campos de la base de datos
                     mapeo = {
-                        'LEG': 'leg',
-                        'VTO': 'vto',
-                        'MAIL ENVIADO': 'mail_enviado',
-                        'ACTA': 'acta',
-                        'ESTADO GESTION': 'estado_gestion',
-                        'LOCALIDAD': 'localidad',
-                        'CUIT': 'cuit',
-                        'RAZON SOCIAL': 'razon_social',
-                        'CALLE': 'calle',
-                        'NUMERO': 'numero',
-                        'PISO': 'piso',
-                        'DPTO': 'dpto',
-                        'TEL_DOM_LEGAL': 'tel_dom_legal',
-                        'TEL_DOM_REAL': 'tel_dom_real',
-                        'EMAIL': 'email',
-                        'ULTIMA ACTA': 'ultima_acta',
-                        'DEUDA PRESUNTA': 'deuda_presunta',
-                        'DETECTADO': 'detectado',
+                        'LEG': 'leg', 'VTO': 'vto', 'MAIL ENVIADO': 'mail_enviado',
+                        'ACTA': 'acta', 'ESTADO GESTION': 'estado_gestion',
+                        'LOCALIDAD': 'localidad', 'CUIT': 'cuit', 'RAZON SOCIAL': 'razon_social',
+                        'CALLE': 'calle', 'NUMERO': 'numero', 'PISO': 'piso', 'DPTO': 'dpto',
+                        'TEL_DOM_LEGAL': 'tel_dom_legal', 'TEL_DOM_REAL': 'tel_dom_real',
+                        'EMAIL': 'email', 'ULTIMA ACTA': 'ultima_acta',
+                        'DEUDA PRESUNTA': 'deuda_presunta', 'DETECTADO': 'detectado',
                     }
                     
                     for col_mostrada, campo_db in mapeo.items():
@@ -893,21 +937,17 @@ with tab2:
                             valor_nuevo = row.get(col_mostrada)
                             valor_original = orig.get(col_mostrada)
                             
-                            # Normalizar (string vacío = None)
                             if valor_nuevo == "" or valor_nuevo is None:
                                 valor_nuevo = None
                             if valor_original == "" or valor_original is None:
                                 valor_original = None
                             
-                            # Si cambió, procesar según el tipo de campo
                             if valor_nuevo != valor_original:
-                                # Para fechas
                                 if campo_db in ['vto', 'fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
                                     if valor_nuevo:
                                         valor_nuevo = norm_fecha(str(valor_nuevo))
                                     else:
                                         valor_nuevo = None
-                                # Para números (legajo, numero)
                                 elif campo_db in ['leg', 'numero']:
                                     if valor_nuevo and str(valor_nuevo).strip():
                                         try:
@@ -916,10 +956,8 @@ with tab2:
                                             valor_nuevo = None
                                     else:
                                         valor_nuevo = None
-                                # Para mail enviado (SI/NO)
                                 elif campo_db == 'mail_enviado':
                                     valor_nuevo = 'SI' if str(valor_nuevo).upper() == 'SI' else 'NO'
-                                # Para el resto, texto plano
                                 else:
                                     valor_nuevo = limpiar_str(str(valor_nuevo)) if valor_nuevo else None
                                 
@@ -932,7 +970,6 @@ with tab2:
             if mods:
                 st.success(f"✅ {mods} registros actualizados.")
                 st.rerun()
-        # ===================================================================================
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 3 — Solicitar Actas
