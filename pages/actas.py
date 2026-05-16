@@ -4,7 +4,6 @@ from supabase import create_client
 from datetime import datetime, date
 import re
 import difflib
-import hashlib
 import time
 
 # ── Conexión ──────────────────────────────────────────────────────────────────
@@ -128,9 +127,6 @@ def limpiar_para_comparar(texto):
     if not texto:
         return ""
     return re.sub(r'\s+', ' ', str(texto).upper()).strip()
-
-def generar_key_segura(texto):
-    return hashlib.md5(texto.encode()).hexdigest()
 
 # ── Normalización de calles ───────────────────────────────────────────────────
 REEMPLAZOS_CALLE = [
@@ -607,92 +603,6 @@ with tab2:
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia")
             st.rerun()
 
-    # ── Buscar calles sin asociar (VERSIÓN ORIGINAL PERO COMPACTA) ─────────
-    if st.session_state.get('buscar_sinonimos'):
-        with st.spinner("Analizando calles..."):
-            calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
-            calles_oficiales_list = sorted(list(set([normalizar_calle(c['calle']) for c in calles_oficiales.data]))) if calles_oficiales.data else []
-            
-            sinonimos_existentes = supabase.table("sinonimos_calles").select("sinonimo").execute()
-            sinonimos_set = set([normalizar_calle(s['sinonimo']) for s in sinonimos_existentes.data]) if sinonimos_existentes.data else set()
-            
-            registros_mdq = supabase.table("padron_deuda_presunta")\
-                .select("calle")\
-                .eq("localidad", "MAR DEL PLATA")\
-                .execute()
-            
-            calles_en_padron = set()
-            for r in registros_mdq.data:
-                calle_norm = normalizar_calle(r.get('calle', ''))
-                if calle_norm:
-                    calles_en_padron.add(calle_norm)
-            
-            calles_sin_asociar = []
-            for calle in sorted(calles_en_padron):
-                if calle not in calles_oficiales_list and calle not in sinonimos_set:
-                    calles_sin_asociar.append(calle)
-            
-            if not calles_sin_asociar:
-                st.success("✅ Todas las calles están correctamente asociadas")
-                st.session_state.buscar_sinonimos = False
-            else:
-                st.warning(f"🔍 {len(calles_sin_asociar)} calles sin asociar")
-                
-                # Mostrar de forma compacta
-                for calle_problema in calles_sin_asociar:
-                    # Buscar coincidencias
-                    coincidencias = []
-                    for oficial in calles_oficiales_list:
-                        ratio = difflib.SequenceMatcher(None, calle_problema, oficial).ratio()
-                        if ratio > 0.5:
-                            coincidencias.append((oficial, ratio))
-                    coincidencias.sort(key=lambda x: x[1], reverse=True)
-                    
-                    with st.container():
-                        col_a, col_b, col_c = st.columns([1.5, 2, 1])
-                        
-                        with col_a:
-                            st.markdown(f"**{calle_problema}**")
-                        
-                        with col_b:
-                            if coincidencias:
-                                sugerencias = ", ".join([f"{c[0]} ({int(c[1]*100)}%)" for c in coincidencias[:2]])
-                                st.markdown(sugerencias)
-                            else:
-                                st.markdown("*Sin sugerencias*")
-                        
-                        with col_c:
-                            if st.button("✓ Asociar", key=f"asoc_{generar_key_segura(calle_problema)}"):
-                                st.session_state[f"asoc_{generar_key_segura(calle_problema)}"] = calle_problema
-                        
-                        if st.session_state.get(f"asoc_{generar_key_segura(calle_problema)}"):
-                            col_d, col_e, col_f = st.columns([2, 2, 1])
-                            with col_d:
-                                seleccion = st.selectbox("Calle oficial", calles_oficiales_list, key=f"sel_{generar_key_segura(calle_problema)}", label_visibility="collapsed")
-                            with col_f:
-                                if st.button("Guardar", key=f"save_{generar_key_segura(calle_problema)}"):
-                                    try:
-                                        supabase.table("sinonimos_calles").insert({
-                                            "calle_oficial": seleccion,
-                                            "sinonimo": calle_problema,
-                                            "creado_por": "usuario"
-                                        }).execute()
-                                        st.success(f"✓ Guardado")
-                                        del st.session_state[f"asoc_{generar_key_segura(calle_problema)}"]
-                                        st.rerun()
-                                    except:
-                                        st.warning("Error")
-                            with col_e:
-                                if st.button("Cancelar", key=f"cancel_{generar_key_segura(calle_problema)}"):
-                                    del st.session_state[f"asoc_{generar_key_segura(calle_problema)}"]
-                                    st.rerun()
-                        
-                        st.markdown("---")
-                
-                if st.button("Cerrar búsqueda"):
-                    st.session_state.buscar_sinonimos = False
-                    st.rerun()
-
     if st.session_state.get('ultima_asignacion'):
         res = st.session_state.ultima_asignacion
         col_res1, col_res2 = st.columns(2)
@@ -791,7 +701,6 @@ with tab2:
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
-        # Formatear fechas
         for col in ['empl_10_2025', 'emp_11_2025', 'empl_12_2025']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(limpiar_entero)
@@ -799,7 +708,7 @@ with tab2:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(fmt_fecha)
 
-        # TABLA EDITABLE TRADICIONAL (como al principio)
+        # TABLA EDITABLE TRADICIONAL
         df_orig = df_p.copy()
         df_ed = df_p.drop(columns=['fecha_carga'], errors='ignore').rename(columns={
             'id':'ID','delegacion':'DELEGACION','localidad':'LOCALIDAD','cuit':'CUIT',
@@ -832,7 +741,6 @@ with tab2:
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
 
-        # Botón GUARDAR CAMBIOS (simple y directo)
         if st.button("💾 Guardar cambios", type="primary"):
             mods = 0
             with st.spinner("Guardando..."):
