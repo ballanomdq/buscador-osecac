@@ -50,12 +50,13 @@ div[data-testid="stButton"] > button[kind="primary"] {
     border-color: #1d4ed8 !important;
 }
 div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8 !important; }
-/* Botón Guardar Cambios VERDE */
+/* Botón Guardar Cambios VERDE OSCURO */
 div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #10b981 !important;
-    border-color: #059669 !important;
+    background: #059669 !important;
+    border-color: #047857 !important;
+    color: white !important;
 }
-div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #059669 !important; }
+div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #047857 !important; }
 #MainMenu, footer, header { display: none !important; }
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
@@ -69,6 +70,10 @@ div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #0596
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
 hr { margin: 0.3rem 0 !important; }
 div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+/* Estilo para pestañas */
+.stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+    font-size: 0.85rem !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -463,11 +468,12 @@ def procesar_excel(archivo):
     return out
 
 # ── Pestañas ──────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
     "📧 Solicitar Actas",
     "📋 Subir Actas",
+    "👥 INSPECTORES"
 ])
 
 # ══════════════════════════════════════════════════════════════════
@@ -528,7 +534,7 @@ with tab2:
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    # ── FILA DE BOTONES (GUARDAR CAMBIOS VERDE al PRINCIPIO) ──────────────────
+    # ── FILA DE BOTONES (GUARDAR CAMBIOS VERDE OSCURO al PRINCIPIO) ─────────────
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_reset, col_recargar = st.columns(9)
     
     with col_guardar:
@@ -973,3 +979,27 @@ with tab3:
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.info("📋 Subir Actas — En construcción")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — INSPECTORES (acceso directo a zonas)
+# ══════════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown("### 👥 Gestión de Inspectores y Zonas")
+    st.markdown("Acceda al panel completo de administración de inspectores, localidades y calles de Mar del Plata.")
+    
+    # URL de la página de zonas
+    url_zonas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/zonas"
+    
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid #3b82f6; margin: 1rem 0;">
+        <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">🗺️ Ir a Zonas de Inspectores</h3>
+        <p style="color: #94a3b8; margin-bottom: 1rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
+        <a href="{url_zonas}" target="_blank">
+            <button style="background: #2563eb; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+                🔗 IR A INSPECTORES Y ZONAS
+            </button>
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.caption("💡 También puede acceder directamente desde el enlace: " + url_zonas)
