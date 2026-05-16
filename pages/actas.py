@@ -633,16 +633,14 @@ with tab2:
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia")
             st.rerun()
 
-    # ── Buscar calles sin asociar (TABLA COMPACTA) ───────────────────────────
+    # ── Buscar calles sin asociar (VERSIÓN SIMPLE Y COMPACTA) ───────────────
     if st.session_state.get('buscar_sinonimos'):
         with st.spinner("Analizando calles..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
-            calles_oficiales_set = sorted(list(set([normalizar_calle(c['calle']) for c in calles_oficiales.data]))) if calles_oficiales.data else []
+            calles_oficiales_list = sorted(list(set([normalizar_calle(c['calle']) for c in calles_oficiales.data]))) if calles_oficiales.data else []
             
-            sinonimos_existentes = supabase.table("sinonimos_calles").select("sinonimo, calle_oficial").execute()
-            sinonimos_dict = {}
-            for s in sinonimos_existentes.data or []:
-                sinonimos_dict[normalizar_calle(s['sinonimo'])] = s['calle_oficial']
+            sinonimos_existentes = supabase.table("sinonimos_calles").select("sinonimo").execute()
+            sinonimos_set = set([normalizar_calle(s['sinonimo']) for s in sinonimos_existentes.data]) if sinonimos_existentes.data else set()
             
             registros_mdq = supabase.table("padron_deuda_presunta")\
                 .select("calle")\
@@ -655,65 +653,46 @@ with tab2:
                 if calle_norm:
                     calles_en_padron.add(calle_norm)
             
-            # Preparar datos para la tabla compacta
-            datos_tabla = []
+            calles_sin_asociar = []
             for calle in sorted(calles_en_padron):
-                if calle not in calles_oficiales_set and calle not in sinonimos_dict:
-                    # Buscar sugerencia
-                    mejor_coincidencia = None
-                    mejor_ratio = 0
-                    for oficial in calles_oficiales_set:
-                        ratio = difflib.SequenceMatcher(None, calle, oficial).ratio()
-                        if ratio > mejor_ratio and ratio > 0.5:
-                            mejor_ratio = ratio
-                            mejor_coincidencia = oficial
-                    
-                    datos_tabla.append({
-                        "Calle problema": calle,
-                        "Asociar a": mejor_coincidencia if mejor_coincidencia else "",
-                        "Acción": False
-                    })
+                if calle not in calles_oficiales_list and calle not in sinonimos_set:
+                    calles_sin_asociar.append(calle)
             
-            if not datos_tabla:
+            if not calles_sin_asociar:
                 st.success("✅ Todas las calles están correctamente asociadas")
                 st.session_state.buscar_sinonimos = False
             else:
-                st.warning(f"🔍 {len(datos_tabla)} calles sin asociar")
+                st.warning(f"🔍 {len(calles_sin_asociar)} calles sin asociar")
                 
-                # Mostrar tabla compacta con input para asociar
-                df_sinonimos = pd.DataFrame(datos_tabla)
-                
-                edited_sinonimos = st.data_editor(
-                    df_sinonimos,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Calle problema": st.column_config.TextColumn("Calle problema", disabled=True),
-                        "Asociar a": st.column_config.SelectColumn("Asociar a", options=calles_oficiales_set, required=False),
-                        "Acción": st.column_config.CheckboxColumn("✓ Guardar")
-                    },
-                    key="editor_sinonimos"
-                )
-                
-                # Botón para guardar las asociaciones marcadas
-                if st.button("💾 Guardar asociaciones seleccionadas", type="primary"):
-                    guardadas = 0
-                    for idx, row in edited_sinonimos.iterrows():
-                        if row.get("Acción") and row.get("Asociar a"):
-                            try:
-                                supabase.table("sinonimos_calles").insert({
-                                    "calle_oficial": row["Asociar a"],
-                                    "sinonimo": row["Calle problema"],
-                                    "creado_por": "usuario"
-                                }).execute()
-                                guardadas += 1
-                            except:
-                                pass
-                    if guardadas > 0:
-                        st.success(f"✅ {guardadas} asociaciones guardadas")
-                        st.rerun()
-                    else:
-                        st.warning("No se seleccionó ninguna asociación")
+                # Mostrar cada calle con un selector (COMPACTO)
+                for calle_problema in calles_sin_asociar:
+                    col_a, col_b, col_c = st.columns([2, 2, 1])
+                    with col_a:
+                        st.markdown(f"**{calle_problema}**")
+                    with col_b:
+                        oficial_seleccionado = st.selectbox(
+                            "Asociar a",
+                            options=[""] + calles_oficiales_list,
+                            key=f"select_{generar_key_segura(calle_problema)}",
+                            label_visibility="collapsed"
+                        )
+                    with col_c:
+                        if oficial_seleccionado:
+                            if st.button("✓ Guardar", key=f"save_{generar_key_segura(calle_problema)}"):
+                                try:
+                                    supabase.table("sinonimos_calles").insert({
+                                        "calle_oficial": oficial_seleccionado,
+                                        "sinonimo": calle_problema,
+                                        "creado_por": "usuario"
+                                    }).execute()
+                                    st.success(f"✓ Asociado: {calle_problema} → {oficial_seleccionado}")
+                                    st.rerun()
+                                except Exception as e:
+                                    if "duplicate" in str(e).lower():
+                                        st.warning("Ya existe")
+                                    else:
+                                        st.error(f"Error")
+                    st.markdown("---")
                 
                 if st.button("Cerrar búsqueda"):
                     st.session_state.buscar_sinonimos = False
