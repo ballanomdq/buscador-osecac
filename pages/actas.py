@@ -23,13 +23,13 @@ st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide", initial_
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-size: 13px !important; }
-.app-header { padding: 0.6rem 1rem; background: #1e293b; border-left: 3px solid #3b82f6;
-              border-radius: 6px; margin-bottom: 0.8rem; }
+.app-header { padding: 0.3rem 1rem; background: #1e293b; border-left: 3px solid #3b82f6;
+              border-radius: 6px; margin-bottom: 0.5rem; }
 .app-header h3 { color: #fff; margin: 0; font-size: 1rem; font-weight: 500; }
-.app-header p  { color: #94a3b8; margin: 0; font-size: 0.75rem; }
+.app-header p  { color: #94a3b8; margin: 0; font-size: 0.7rem; }
 div[data-testid="stButton"] > button {
-    padding: 0.25rem 0.75rem !important;
-    font-size: 0.78rem !important;
+    padding: 0.2rem 0.6rem !important;
+    font-size: 0.75rem !important;
     background: #334155 !important;
     color: #e2e8f0 !important;
     border: 1px solid #475569 !important;
@@ -43,14 +43,16 @@ div[data-testid="stButton"] > button[kind="primary"] {
 #MainMenu, footer, header { display: none !important; }
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 12px;
-    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    padding: 0.2rem 0.5rem;
     text-align: center;
     border: 1px solid #3b82f6;
 }
-.big-number h1 { margin: 0; font-size: 2.2rem !important; color: #3b82f6; }
-.big-number p { margin: 0; font-size: 0.8rem !important; color: #94a3b8; }
-.filtro-titulo { font-size: 0.7rem; color: #94a3b8; margin-bottom: 0.2rem; }
+.big-number h1 { margin: 0; font-size: 1.6rem !important; color: #3b82f6; }
+.big-number p { margin: 0; font-size: 0.65rem !important; color: #94a3b8; }
+.filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
+hr { margin: 0.3rem 0 !important; }
+div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -380,9 +382,7 @@ def generar_informe_txt(registros_sin_legajo):
     return "\n".join(contenido)
 
 def generar_excel_asignados(registros):
-    """Genera un archivo Excel con los registros que tienen legajo asignado"""
     df = pd.DataFrame(registros)
-    # Seleccionar columnas relevantes
     columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
                 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion',
                 'tel_dom_legal', 'tel_dom_real', 'email']
@@ -490,7 +490,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON TABLA TOTALMENTE EDITABLE)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN COMPACTA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -499,6 +499,7 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
+    # Tres cuadros grandes (más compactos)
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL</p></div>', unsafe_allow_html=True)
@@ -507,10 +508,8 @@ with tab2:
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-
-    # ── Primera fila de botones ──────────────────────────────────────────────
-    col1, col2, col3, col4, col5, col6, col7, col8 = st.columns(8)
+    # ── FILA DE BOTONES (incluye GUARDAR CAMBIOS) ──────────────────────────────
+    col1, col2, col3, col4, col5, col6, col7, col8, col9 = st.columns(9)
     with col1:
         if st.button("🗑 Eliminar seleccionados"):
             ids = st.session_state.get('ids_a_eliminar', [])
@@ -525,30 +524,25 @@ with tab2:
         if st.button("🤖 Asignar Legajos"):
             st.session_state.asignar_legajos = True
     with col4:
-        if st.button("🔍 Buscar calles sin asociar"):
+        if st.button("🔍 Calles sin asoc."):
             st.session_state.buscar_sinonimos = True
     with col5:
-        if st.button("📄 INFORME NO ASIGNADOS"):
+        if st.button("📄 Inf. NO asig."):
             st.session_state.generar_informe = True
     with col6:
-        if st.button("📊 INFORME ASIGNADOS"):
+        if st.button("📊 Inf. ASIGNADOS"):
             st.session_state.generar_informe_asignados = True
     with col7:
+        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="primary")
+    with col8:
         if st.button("↺ Resetear filtros"):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
                       'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
-    with col8:
+    with col9:
         if st.button("⟳ Recargar"):
             st.rerun()
-
-    # ── Botón GUARDAR CAMBIOS (ARRIBA de la tabla) ───────────────────────────
-    st.markdown("---")
-    col_guardar1, col_guardar2 = st.columns([1, 5])
-    with col_guardar1:
-        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="primary", use_container_width=True)
-    st.markdown("---")
 
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
@@ -563,47 +557,44 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── Generar informe TXT (NO ASIGNADOS) ───────────────────────────────────
+    # ── Generar informes ─────────────────────────────────────────────────────
     if st.session_state.get('generar_informe'):
-        with st.spinner("Generando informe de no asignados..."):
+        with st.spinner("Generando informe..."):
             registros_sin_legajo = traer_registros_sin_legajo()
             if registros_sin_legajo:
                 contenido_txt = generar_informe_txt(registros_sin_legajo)
                 st.download_button(
-                    label="📥 DESCARGAR INFORME (TXT)",
+                    label="📥 DESCARGAR TXT",
                     data=contenido_txt.encode('utf-8'),
                     file_name=f"INFORME_NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    key="download_informe"
+                    mime="text/plain"
                 )
-                st.info(f"📊 Se encontraron {len(registros_sin_legajo)} registros sin legajo")
+                st.info(f"📊 {len(registros_sin_legajo)} registros sin legajo")
             else:
-                st.success("✅ No hay registros sin legajo para exportar")
+                st.success("✅ No hay registros sin legajo")
         st.session_state.generar_informe = False
 
-    # ── Generar informe EXCEL (ASIGNADOS) ────────────────────────────────────
     if st.session_state.get('generar_informe_asignados'):
-        with st.spinner("Generando informe de asignados..."):
+        with st.spinner("Generando informe..."):
             registros_con_legajo = traer_registros_con_legajo()
             if registros_con_legajo:
                 excel_data = generar_excel_asignados(registros_con_legajo)
                 st.download_button(
-                    label="📥 DESCARGAR EXCEL (ASIGNADOS)",
+                    label="📥 DESCARGAR EXCEL",
                     data=excel_data,
                     file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key="download_excel_asignados"
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                st.info(f"📊 Se encontraron {len(registros_con_legajo)} registros con legajo asignado")
+                st.info(f"📊 {len(registros_con_legajo)} registros con legajo")
             else:
-                st.success("✅ No hay registros con legajo asignado")
+                st.success("✅ No hay registros con legajo")
         st.session_state.generar_informe_asignados = False
 
     # ── Asignación automática de legajos ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
-        st.info("⏳ INICIANDO ASIGNACIÓN DE LEGAJOS... Esto puede tomar unos minutos.")
+        st.info("⏳ Asignando legajos...")
         
-        with st.spinner("Cargando tablas de inspectores..."):
+        with st.spinner("Cargando..."):
             insp_loc   = cargar_inspectores_localidad()
             insp_zonas = cargar_zonas_inspectores()
             sinonimos  = cargar_sinonimos()
@@ -611,7 +602,7 @@ with tab2:
             lkp_zonas  = construir_lookup_zonas(insp_zonas)
             lkp_sin    = construir_lookup_sinonimos(sinonimos)
 
-        with st.spinner("Cargando registros sin legajo..."):
+        with st.spinner("Cargando registros..."):
             registros = traer_registros_sin_legajo()
 
         if not registros:
@@ -627,7 +618,7 @@ with tab2:
             for i, reg in enumerate(registros):
                 percent = (i + 1) / total
                 progress_bar.progress(percent)
-                status_text.markdown(f"🔄 Progreso: {int(percent * 100)}% - {reg.get('razon_social', 'Sin nombre')[:40]}...")
+                status_text.markdown(f"🔄 {int(percent * 100)}% - {reg.get('razon_social', 'Sin nombre')[:40]}...")
                 
                 legajo = asignar_legajo(
                     reg.get('localidad', '') or '',
@@ -655,7 +646,7 @@ with tab2:
             progress_bar.empty()
             status_text.empty()
 
-            with st.spinner("Guardando legajos..."):
+            with st.spinner("Guardando..."):
                 guardados = guardar_legajos_en_batch(asig)
 
             st.session_state.asignar_legajos = False
@@ -664,12 +655,12 @@ with tab2:
                 "no_asignados": len(no_asig),
                 "detalle": no_asig,
             }
-            st.success(f"✅ ASIGNACIÓN COMPLETADA: {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
+            st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
             st.rerun()
 
     # ── Buscar calles sin asociar ────────────────────────────────────────────
     if st.session_state.get('buscar_sinonimos'):
-        with st.spinner("Analizando calles de Mar del Plata..."):
+        with st.spinner("Analizando calles..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
             calles_oficiales_set = set([normalizar_calle(c['calle']) for c in calles_oficiales.data]) if calles_oficiales.data else set()
             
@@ -693,17 +684,16 @@ with tab2:
                     calles_sin_asociar.append(calle)
             
             if not calles_sin_asociar:
-                st.success("✅ Todas las calles de Mar del Plata están correctamente asociadas")
+                st.success("✅ Todas las calles están correctamente asociadas")
                 st.session_state.buscar_sinonimos = False
             else:
-                st.warning(f"🔍 Se encontraron {len(calles_sin_asociar)} calles únicas sin asociar")
+                st.warning(f"🔍 {len(calles_sin_asociar)} calles sin asociar")
                 
                 for calle_problema in sorted(calles_sin_asociar):
                     key_segura = generar_key_segura(calle_problema)
                     
                     with st.container():
-                        st.markdown(f"**Calle en el padrón:** `{calle_problema}`")
-                        
+                        st.markdown(f"**Calle:** `{calle_problema}`")
                         coincidencias = []
                         for oficial in calles_oficiales_set:
                             ratio = difflib.SequenceMatcher(None, calle_problema, oficial).ratio()
@@ -713,59 +703,46 @@ with tab2:
                         coincidencias.sort(key=lambda x: x[1], reverse=True)
                         
                         if coincidencias:
-                            st.markdown("**Posibles coincidencias:**")
+                            st.markdown("**Sugerencias:**")
                             cols = st.columns(min(len(coincidencias) + 1, 4))
                             for i, (oficial, ratio) in enumerate(coincidencias[:3]):
-                                porcentaje = int(ratio * 100)
-                                if cols[i].button(f"✅ Asociar a '{oficial}' ({porcentaje}%)", key=f"asoc_{key_segura}_{i}"):
+                                if cols[i].button(f"✅ {oficial} ({int(ratio*100)}%)", key=f"asoc_{key_segura}_{i}"):
                                     try:
                                         supabase.table("sinonimos_calles").insert({
                                             "calle_oficial": oficial,
                                             "sinonimo": calle_problema,
-                                            "creado_por": "auto_detectado"
+                                            "creado_por": "auto"
                                         }).execute()
-                                        st.success(f"Sinónimo guardado: {calle_problema} → {oficial}")
                                         st.rerun()
-                                    except Exception as e:
-                                        if "duplicate" in str(e).lower():
-                                            st.warning("Este sinónimo ya existe")
-                                        else:
-                                            st.error(f"Error: {e}")
-                            
-                            idx_manual = min(len(coincidencias), 3)
-                            if cols[idx_manual].button("✏️ Asociar manualmente", key=f"manual_{key_segura}"):
+                                    except:
+                                        st.warning("Ya existe")
+                            if cols[min(len(coincidencias), 3)].button("✏️ Manual", key=f"manual_{key_segura}"):
                                 st.session_state[f"manual_{key_segura}"] = calle_problema
                         else:
-                            st.info("No se encontraron coincidencias automáticas")
                             if st.button("✏️ Asociar manualmente", key=f"manual2_{key_segura}"):
                                 st.session_state[f"manual_{key_segura}"] = calle_problema
                         
                         if st.session_state.get(f"manual_{key_segura}"):
                             with st.form(key=f"form_manual_{key_segura}"):
-                                oficial_manual = st.selectbox("Seleccionar calle oficial", options=sorted(calles_oficiales_set))
-                                if st.form_submit_button("Guardar asociación"):
+                                oficial_manual = st.selectbox("Calle oficial", options=sorted(calles_oficiales_set))
+                                if st.form_submit_button("Guardar"):
                                     try:
                                         supabase.table("sinonimos_calles").insert({
                                             "calle_oficial": oficial_manual,
                                             "sinonimo": calle_problema,
                                             "creado_por": "usuario"
                                         }).execute()
-                                        st.success(f"Sinónimo guardado manualmente")
                                         del st.session_state[f"manual_{key_segura}"]
                                         st.rerun()
-                                    except Exception as e:
-                                        if "duplicate" in str(e).lower():
-                                            st.warning("Este sinónimo ya existe")
-                                        else:
-                                            st.error(f"Error: {e}")
-                            
+                                    except:
+                                        st.warning("Error")
                             if st.button("Cancelar", key=f"cancel_{key_segura}"):
                                 del st.session_state[f"manual_{key_segura}"]
                                 st.rerun()
                         
                         st.markdown("---")
                 
-                if st.button("Cerrar búsqueda", key="cerrar_busqueda"):
+                if st.button("Cerrar búsqueda"):
                     st.session_state.buscar_sinonimos = False
                     st.rerun()
 
@@ -775,29 +752,25 @@ with tab2:
         with col_res1:
             st.success(f"✅ {res['asignados']} legajos asignados")
         with col_res2:
-            st.warning(f"⚠️ {res['no_asignados']} registros sin coincidencia")
+            st.warning(f"⚠️ {res['no_asignados']} sin coincidencia")
         
         if res['no_asignados'] > 0:
             contenido_informe = generar_informe_txt(res['detalle'])
             st.download_button(
-                label="📥 DESCARGAR INFORME DE NO ASIGNADOS",
+                label="📥 DESCARGAR INFORME",
                 data=contenido_informe.encode('utf-8'),
                 file_name=f"NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                mime="text/plain",
-                key="download_no_asignados"
+                mime="text/plain"
             )
-            
-            with st.expander(f"📋 Ver detalle de {res['no_asignados']} registros sin legajo"):
+            with st.expander(f"📋 Ver {res['no_asignados']} registros"):
                 st.dataframe(pd.DataFrame(res['detalle']), use_container_width=True)
         
         if st.button("Cerrar resultado"):
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    st.markdown("---")
-
-    # ── Filtros ─────────────────────────────────────────────────────────────
-    st.markdown("### 📋 Filtros de búsqueda")
+    # ── FILTROS (más compactos) ──────────────────────────────────────────────
+    st.markdown("### 📋 Filtros")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
     with f1:
@@ -811,14 +784,14 @@ with tab2:
         locs = get_localidades()
         localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
     with f4:
-        st.markdown('<p class="filtro-titulo">MAIL ENVIADO</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">MAIL</p>', unsafe_allow_html=True)
         filtro_mail = st.selectbox("Mail", ["AMBOS", "NO", "SI"], key="filtro_mail", label_visibility="collapsed")
     with f5:
         st.markdown('<p class="filtro-titulo">LEGAJO</p>', unsafe_allow_html=True)
         filtro_leg = st.selectbox("Legajo", ["TODOS", "CON LEGAJO", "SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
     with f6:
-        st.markdown('<p class="filtro-titulo">CALLE (APROXIMACIÓN)</p>', unsafe_allow_html=True)
-        filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen, Colon...", label_visibility="collapsed")
+        st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
+        filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
 
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
@@ -861,27 +834,26 @@ with tab2:
 
         pa, pn, ps = st.columns([1, 3, 1])
         with pa:
-            if st.button("◀ ANTERIOR") and st.session_state.pagina_actual > 1:
+            if st.button("◀") and st.session_state.pagina_actual > 1:
                 st.session_state.pagina_actual -= 1
                 st.rerun()
         with pn:
-            st.caption(f"📄 Página {st.session_state.pagina_actual} / {pages} | {total} registros totales")
+            st.caption(f"Pág. {st.session_state.pagina_actual} / {pages} | {total} registros")
         with ps:
-            if st.button("SIGUIENTE ▶") and st.session_state.pagina_actual < pages:
+            if st.button("▶") and st.session_state.pagina_actual < pages:
                 st.session_state.pagina_actual += 1
                 st.rerun()
 
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
-        # ==================== CONVERTIR TODO A STRING ====================
+        # Convertir todo a string para evitar errores
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
         
         for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(lambda x: fmt_fecha(x) if x and x != "" else "")
-        # =================================================================
 
         df_orig = df_p.copy()
         df_ed = df_p.rename(columns={
@@ -899,12 +871,11 @@ with tab2:
         })
         df_ed.insert(0, "🗑️", False)
 
-        if st.checkbox("Seleccionar todos (página actual)"):
+        if st.checkbox("Seleccionar todos"):
             df_ed["🗑️"] = True
 
-        # TABLA COMPLETAMENTE EDITABLE
         edited = st.data_editor(
-            df_ed, use_container_width=True, height=550,
+            df_ed, use_container_width=True, height=500,
             column_config={"🗑️": st.column_config.CheckboxColumn("Elim.")},
             key=f"editor_{st.session_state.pagina_actual}",
         )
@@ -912,10 +883,10 @@ with tab2:
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
 
-        # ==================== GUARDAR CAMBIOS ====================
+        # Guardar cambios
         if guardar_click:
             mods = 0
-            with st.spinner("Guardando cambios..."):
+            with st.spinner("Guardando..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
                         continue
@@ -929,7 +900,6 @@ with tab2:
                         'CALLE': 'calle', 'NUMERO': 'numero', 'PISO': 'piso', 'DPTO': 'dpto',
                         'TEL_DOM_LEGAL': 'tel_dom_legal', 'TEL_DOM_REAL': 'tel_dom_real',
                         'EMAIL': 'email', 'ULTIMA ACTA': 'ultima_acta',
-                        'DEUDA PRESUNTA': 'deuda_presunta', 'DETECTADO': 'detectado',
                     }
                     
                     for col_mostrada, campo_db in mapeo.items():
