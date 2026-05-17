@@ -1,8 +1,9 @@
 import streamlit as st
 import folium
-from streamlit_folium import st_folium
 from supabase import create_client
 import random
+import tempfile
+import os
 
 st.set_page_config(page_title="Mapa de Zonas - OSECAC", layout="wide", initial_sidebar_state="collapsed")
 
@@ -48,22 +49,13 @@ if not inspectores:
     st.warning("No hay inspectores cargados en la base de datos")
     st.stop()
 
-# ── Obtener calles por inspector (para saber qué zonas tiene cada uno) ────────
+# ── Obtener calles por inspector ──────────────────────────────────────────────
 def get_calles_por_inspector(legajo):
     calles = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo).execute()
     return calles.data if calles.data else []
 
 # ── Colores para cada inspector ───────────────────────────────────────────────
-colores = [
-    "#FF6B6B",  # Rojo claro
-    "#4ECDC4",  # Turquesa
-    "#45B7D1",  # Celeste
-    "#96CEB4",  # Verde claro
-    "#FFEAA7",  # Amarillo
-    "#DDA0DD",  # Lila
-    "#F0B27A",  # Naranja
-    "#85C1E9",  # Azul claro
-]
+colores = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#F0B27A", "#85C1E9"]
 
 colores_inspectores = {}
 for i, ins in enumerate(inspectores):
@@ -73,7 +65,6 @@ for i, ins in enumerate(inspectores):
 centro_mdp = [-38.0055, -57.5426]
 
 # ── Diccionario de calles principales con coordenadas aproximadas ─────────────
-# Esto es para mostrar las calles que tiene cada inspector en el mapa
 calles_coordenadas = {
     "AV COLON": [-38.0000, -57.5600],
     "CATAMARCA": [-37.9980, -57.5550],
@@ -92,10 +83,9 @@ calles_coordenadas = {
 # ── Crear el mapa ────────────────────────────────────────────────────────────
 st.info("🗺️ Generando mapa interactivo...")
 
-# Crear mapa base
 m = folium.Map(location=centro_mdp, zoom_start=13, tiles="cartodbpositron")
 
-# Agregar marcador en el centro
+# Marcador centro
 folium.Marker(
     location=centro_mdp,
     popup="<b>Mar del Plata</b><br>Centro",
@@ -110,7 +100,6 @@ for ins in inspectores:
     calles = get_calles_por_inspector(legajo)
     
     if calles:
-        # Crear un grupo para este inspector (para poder ocultar/mostrar)
         grupo = folium.FeatureGroup(name=f"👤 {nombre_corto} (Legajo {legajo})")
         
         for calle in calles:
@@ -119,16 +108,12 @@ for ins in inspectores:
             desde = calle['altura_desde']
             hasta = calle['altura_hasta']
             
-            # Buscar coordenadas de la calle (si no está, usar random cerca del centro)
             if nombre_calle in calles_coordenadas:
                 coords = calles_coordenadas[nombre_calle]
             else:
-                # Coordenadas aleatorias dentro del área de MDP
-                import random
                 coords = [centro_mdp[0] + random.uniform(-0.05, 0.05), 
                           centro_mdp[1] + random.uniform(-0.05, 0.05)]
             
-            # Popup con información
             popup_text = f"""
             <b>Inspector:</b> {nombre_corto}<br>
             <b>Calle:</b> {nombre_calle}<br>
@@ -136,7 +121,6 @@ for ins in inspectores:
             <b>Alturas:</b> {desde} a {hasta}
             """
             
-            # Agregar marcador
             folium.CircleMarker(
                 location=coords,
                 radius=8,
@@ -148,7 +132,6 @@ for ins in inspectores:
                 tooltip=f"{nombre_calle} ({lado})"
             ).add_to(grupo)
         
-        # Agregar un círculo de área alrededor del inspector
         folium.Circle(
             location=centro_mdp,
             radius=2000,
@@ -161,18 +144,16 @@ for ins in inspectores:
         
         grupo.add_to(m)
 
-# ── Agregar control de capas ─────────────────────────────────────────────────
 folium.LayerControl(collapsed=False).add_to(m)
 
-# ── Mostrar el mapa ──────────────────────────────────────────────────────────
-st.markdown("### 🗺️ Mapa Interactivo")
-st.markdown("💡 **Instrucciones:**")
-st.markdown("- Haga clic en los marcadores para ver los detalles de cada calle")
-st.markdown("- Use el control de capas (☰) en la esquina superior derecha para ocultar/mostrar inspectores")
-st.markdown("- Puede hacer zoom y arrastrar para explorar")
+# ── Guardar y mostrar el mapa como HTML ──────────────────────────────────────
+with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as tmp:
+    m.save(tmp.name)
+    with open(tmp.name, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    os.unlink(tmp.name)
 
-# Renderizar el mapa
-st_folium(m, width=900, height=600, returned_objects=[])
+st.components.v1.html(html_content, height=650, width=900)
 
 st.markdown("---")
-st.caption("📌 Los marcadores representan las calles asignadas a cada inspector. Los círculos grandes muestran el área aproximada de influencia.")
+st.caption("📌 Los marcadores representan las calles asignadas a cada inspector. Use el ☰ arriba a la derecha para ocultar/mostrar inspectores.")
