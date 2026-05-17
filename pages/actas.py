@@ -58,23 +58,23 @@ div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #0478
 #MainMenu, footer, header { display: none !important; }
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 10px;
-    padding: 0.15rem 0.3rem;
+    border-radius: 8px;
+    padding: 0.1rem 0.2rem;
     text-align: center;
     border: 1px solid #3b82f6;
 }
-.big-number h1 { margin: 0; font-size: 2.5rem !important; color: #3b82f6; font-weight: 700; }
-.big-number p { margin: 0; font-size: 0.7rem !important; color: #94a3b8; }
+.big-number h1 { margin: 0; font-size: 2rem !important; color: #3b82f6; font-weight: 700; line-height: 1.2; }
+.big-number p { margin: 0; font-size: 0.65rem !important; color: #94a3b8; }
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 10px;
-    padding: 0.3rem 0.5rem;
+    border-radius: 8px;
+    padding: 0.1rem 0.2rem;
     text-align: center;
     border: 1px solid #10b981;
 }
-.inspector-card h3 { margin: 0; font-size: 1rem; color: #10b981; }
-.inspector-card h1 { margin: 0; font-size: 1.8rem; color: #e2e8f0; }
-.inspector-card p { margin: 0; font-size: 0.65rem; color: #94a3b8; }
+.inspector-card h3 { margin: 0; font-size: 0.85rem; color: #10b981; }
+.inspector-card h1 { margin: 0; font-size: 1.6rem; color: #e2e8f0; font-weight: 700; line-height: 1.2; }
+.inspector-card p { margin: 0; font-size: 0.6rem; color: #94a3b8; }
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
 hr { margin: 0.3rem 0 !important; }
 div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
@@ -441,7 +441,6 @@ def generar_excel_asignados(registros):
     return output.getvalue()
 
 def generar_excel_por_inspector():
-    """Genera un Excel con una hoja por cada inspector que tiene empresas asignadas"""
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     
     output = io.BytesIO()
@@ -566,6 +565,7 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
+    # Tres cuadros grandes compactos
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
@@ -574,7 +574,7 @@ with tab2:
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    # ── TARJETAS DE INSPECTORES ──────────────────────────────────────────────
+    # ── TARJETAS DE INSPECTORES (compactas) ──────────────────────────────────
     st.markdown("---")
     st.markdown("### 👥 Empresas asignadas por Inspector")
     
@@ -1053,7 +1053,7 @@ with tab4:
     st.info("📋 Subir Actas — En construcción")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 5 — INSPECTORES (acceso directo a zonas SIN redirección automática)
+# TAB 5 — INSPECTORES
 # ══════════════════════════════════════════════════════════════════
 with tab5:
     st.markdown("### 👥 Gestión de Inspectores y Zonas")
@@ -1064,11 +1064,11 @@ with tab5:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid #3b82f6; margin: 1rem 0;">
-            <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">🗺️ Zonas de Inspectores</h3>
-            <p style="color: #94a3b8; margin-bottom: 1rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6; margin: 0.5rem 0;">
+            <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">🗺️ Zonas de Inspectores</h3>
+            <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
             <a href="{url_zonas}" target="_blank">
-                <button style="background: #2563eb; color: white; border: none; padding: 0.6rem 2rem; border-radius: 8px; cursor: pointer; font-size: 1rem;">
+                <button style="background: #2563eb; color: white; border: none; padding: 0.4rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
                     🔗 IR A INSPECTORES Y ZONAS
                 </button>
             </a>
