@@ -35,7 +35,6 @@ html, body, [class*="css"] { font-size: 13px !important; }
 }
 .app-header h3 { color: #fff; margin: 0; font-size: 1.2rem; font-weight: 500; }
 .app-header p { color: #94a3b8; margin: 0; font-size: 0.7rem; }
-.app-header .volver-btn { margin-left: auto; }
 div[data-testid="stButton"] > button {
     padding: 0.2rem 0.6rem !important;
     font-size: 0.75rem !important;
@@ -50,7 +49,6 @@ div[data-testid="stButton"] > button[kind="primary"] {
     border-color: #1d4ed8 !important;
 }
 div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8 !important; }
-/* Botón Guardar Cambios VERDE OSCURO */
 div[data-testid="stButton"] > button[kind="secondary"] {
     background: #059669 !important;
     border-color: #047857 !important;
@@ -67,17 +65,26 @@ div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #0478
 }
 .big-number h1 { margin: 0; font-size: 2.5rem !important; color: #3b82f6; font-weight: 700; }
 .big-number p { margin: 0; font-size: 0.7rem !important; color: #94a3b8; }
+.inspector-card {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 10px;
+    padding: 0.3rem 0.5rem;
+    text-align: center;
+    border: 1px solid #10b981;
+}
+.inspector-card h3 { margin: 0; font-size: 1rem; color: #10b981; }
+.inspector-card h1 { margin: 0; font-size: 1.8rem; color: #e2e8f0; }
+.inspector-card p { margin: 0; font-size: 0.65rem; color: #94a3b8; }
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
 hr { margin: 0.3rem 0 !important; }
 div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
-/* Estilo para pestañas */
 .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
     font-size: 0.85rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# Header con título y botón Volver dentro
+# Header con título
 st.markdown("""
 <div class="app-header">
     <div>
@@ -87,7 +94,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Botón Volver (ahora dentro de una columna pequeña, justo debajo del header pero pegado)
+# Botón Volver
 col_back, _ = st.columns([1, 11])
 with col_back:
     if st.button("← Volver"):
@@ -327,6 +334,21 @@ def traer_registros_con_legajo():
             break
     return registros
 
+def traer_registros_por_inspector(legajo):
+    registros, offset = [], 0
+    while True:
+        r = supabase.table("padron_deuda_presunta") \
+            .select("*") \
+            .eq("leg", legajo) \
+            .range(offset, offset + 999).execute()
+        if not r.data:
+            break
+        registros.extend(r.data)
+        offset += 1000
+        if len(r.data) < 1000:
+            break
+    return registros
+
 def guardar_legajos_en_batch(asignaciones, batch_size=100):
     if not asignaciones:
         return 0
@@ -416,6 +438,26 @@ def generar_excel_asignados(registros):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_excel.to_excel(writer, sheet_name='Asignados', index=False)
+    return output.getvalue()
+
+def generar_excel_por_inspector():
+    """Genera un Excel con una hoja por cada inspector que tiene empresas asignadas"""
+    # Obtener inspectores
+    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for ins in inspectores.data:
+            registros = traer_registros_por_inspector(ins['legajo'])
+            if registros:
+                df = pd.DataFrame(registros)
+                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
+                            'vto', 'mail_enviado', 'acta', 'estado_gestion',
+                            'tel_dom_legal', 'tel_dom_real', 'email']
+                df_excel = df[[c for c in columnas if c in df.columns]]
+                nombre_hoja = f"{ins['nombre'].split(',')[0][:20]} {ins['legajo']}"
+                df_excel.to_excel(writer, sheet_name=nombre_hoja, index=False)
+    
     return output.getvalue()
 
 # ── Mapeo Excel ───────────────────────────────────────────────────────────────
@@ -516,7 +558,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN COMPACTA Y FINAL)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN CON INSPECTORES)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -534,8 +576,30 @@ with tab2:
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    # ── FILA DE BOTONES (GUARDAR CAMBIOS VERDE OSCURO al PRINCIPIO) ─────────────
-    col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_reset, col_recargar = st.columns(9)
+    # ── TARJETAS DE INSPECTORES (cuántas empresas tiene cada uno) ─────────────
+    st.markdown("---")
+    st.markdown("### 👥 Empresas asignadas por Inspector")
+    
+    # Obtener inspectores y contar empresas
+    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    if inspectores.data:
+        # Crear columnas dinámicas
+        cols_inspectores = st.columns(len(inspectores.data))
+        for idx, ins in enumerate(inspectores.data):
+            # Contar empresas asignadas a este inspector
+            count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
+            with cols_inspectores[idx]:
+                st.markdown(f"""
+                <div class="inspector-card">
+                    <h3>{ins['nombre'].split(',')[0]}</h3>
+                    <h1>{count}</h1>
+                    <p>Legajo: {ins['legajo']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+    st.markdown("---")
+
+    # ── FILA DE BOTONES ──────────────────────────────────────────────────────
+    col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
         guardar_click = st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True)
@@ -561,6 +625,9 @@ with tab2:
     with col_inf_si:
         if st.button("📊 Inf. ASIGNADOS", use_container_width=True):
             st.session_state.generar_informe_asignados = True
+    with col_inf_insp:
+        if st.button("📊 Inf. POR INSPECTOR", use_container_width=True):
+            st.session_state.generar_informe_por_inspector = True
     with col_reset:
         if st.button("↺ Resetear filtros", use_container_width=True):
             for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
@@ -607,7 +674,7 @@ with tab2:
             if registros_con_legajo:
                 excel_data = generar_excel_asignados(registros_con_legajo)
                 st.download_button(
-                    label="📥 DESCARGAR EXCEL",
+                    label="📥 DESCARGAR EXCEL (TODOS)",
                     data=excel_data,
                     file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -616,6 +683,18 @@ with tab2:
             else:
                 st.success("✅ No hay registros con legajo")
         st.session_state.generar_informe_asignados = False
+
+    if st.session_state.get('generar_informe_por_inspector'):
+        with st.spinner("Generando informe por inspector..."):
+            excel_data = generar_excel_por_inspector()
+            st.download_button(
+                label="📥 DESCARGAR EXCEL (POR INSPECTOR)",
+                data=excel_data,
+                file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            st.success("✅ Informe generado - Una hoja por inspector")
+        st.session_state.generar_informe_por_inspector = False
 
     # ── Asignación automática de legajos ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
@@ -874,7 +953,6 @@ with tab2:
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
-        # Convertir todo a string para evitar errores
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
         
@@ -910,7 +988,6 @@ with tab2:
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
 
-        # Guardar cambios
         if guardar_click:
             mods = 0
             with st.spinner("Guardando..."):
@@ -990,16 +1067,12 @@ with tab5:
     # URL de la página de zonas
     url_zonas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/zonas"
     
+    # Redirección directa con JavaScript
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid #3b82f6; margin: 1rem 0;">
-        <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">🗺️ Ir a Zonas de Inspectores</h3>
-        <p style="color: #94a3b8; margin-bottom: 1rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
-        <a href="{url_zonas}" target="_blank">
-            <button style="background: #2563eb; color: white; border: none; padding: 0.5rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
-                🔗 IR A INSPECTORES Y ZONAS
-            </button>
-        </a>
+    <meta http-equiv="refresh" content="0; url={url_zonas}" />
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 2rem; text-align: center; border: 1px solid #3b82f6; margin: 1rem 0;">
+        <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">🗺️ Redirigiendo a Zonas de Inspectores...</h3>
+        <p style="color: #94a3b8; margin-bottom: 1rem;">Si no es redirigido automáticamente, haga clic en el enlace:</p>
+        <a href="{url_zonas}" target="_blank" style="color: #3b82f6;">🔗 Ir a INSPECTORES Y ZONAS</a>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.caption("💡 También puede acceder directamente desde el enlace: " + url_zonas)
