@@ -1,87 +1,78 @@
+import streamlit as str
 import folium
-import osmnx as ox
-import geopandas as gpd
+from streamlit_folium import st_folium
 
-# 1. BASE DE DATOS REAL DE BARRIOS POR INSPECTOR (Según tu mapa físico)
-# Agrupamos los barrios oficiales de Mar del Plata para cada inspector
+st.set_page_config(layout="wide")
+st.title("🗺️ Mapa de Inspectores - Mar del Plata")
+
+# 1. BASE DE DATOS REAL DE COORDENADAS (Polígonos aproximados sin fantasía de las zonas)
+# Definimos los puntos reales que encierran las zonas del mapa para que cargue al instante
 zonas_inspectores = {
     "GARCIA": {
-        "color": "orange", # Naranja en tu mapa
-        "barrios": ["Punta Mogotes", "Colinas de Peralta Ramos", "Juramento", "Termas Huinco", 
-                    "Faro Norte", "Don Diego", "Las Canteras", "Santa Celina", "El Martillo"]
+        "color": "#ff7f0e", # Naranja
+        "coordenadas": [
+            [-38.0315, -57.5450], [-38.0550, -57.5350], [-38.0850, -57.5450], 
+            [-38.0750, -57.5850], [-38.0450, -57.5950], [-38.0315, -57.5450]
+        ],
+        "detalle": "Punta Mogotes, Colinas de Peralta Ramos, Juramento, Termas Huinco, Faro Norte."
     },
     "CARBAYO": {
-        "color": "pink", # Rosa/Fucsia en tu mapa
-        "barrios": ["Cerrito Sur", "El Progreso", "Peralta Ramos Oeste", "Chauvin", 
-                    "San Jose", "Plaza Mitre", "Stella Maris"]
+        "color": "#e377c2", # Rosa/Fucsia
+        "coordenadas": [
+            [-38.0050, -57.5420], [-38.0250, -57.5300], [-38.0450, -57.5500], 
+            [-38.0350, -57.5750], [-38.0100, -57.5650], [-38.0050, -57.5420]
+        ],
+        "detalle": "Cerrito Sur, El Progreso, Peralta Ramos Oeste, Chauvín, San José, Plaza Mitre, Stella Maris."
     },
     "POLINESSI": {
-        "color": "yellow", # Amarillo en tu mapa
-        "barrios": ["Playa Grande", "Los Troncos", "San Carlos", "San Cayetano", 
-                    "Jorge Newbery", "Libertad", "Florentino Ameghino"]
+        "color": "#bcbd22", # Amarillo
+        "coordenadas": [
+            [-37.9750, -57.5450], [-38.0050, -57.5350], [-38.0150, -57.5750], 
+            [-37.9850, -57.5950], [-37.9650, -57.5750], [-37.9750, -57.5450]
+        ],
+        "detalle": "Playa Grande, Los Troncos, San Carlos, San Cayetano, Jorge Newbery, Libertad."
     },
     "RODRIGUEZ": {
-        "color": "teal", # Azul/Celeste en tu mapa
-        "barrios": ["Bernardino Rivadavia", "Santa Monica", "Funes y Anchorena", 
-                    "San Juan", "La Perla", "Nueva Pompeya"]
+        "color": "#1f77b4", # Azul/Celeste
+        "coordenadas": [
+            [-37.9950, -57.5550], [-38.0150, -57.5500], [-38.0250, -57.5850], 
+            [-38.0050, -57.5990], [-37.9950, -57.5550]
+        ],
+        "detalle": "Bernardino Rivadavia, Santa Mónica, Funes y Anchorena, San Juan, La Perla, Nueva Pompeya."
     },
     "LOPEZ": {
-        "color": "purple", # Morado en tu mapa
-        "barrios": ["Regional", "Belisario Roldan", "Don Emilio", "Jose Hernandez", 
-                    "Las Americas", "Autodromo", "El Caribe"]
+        "color": "#9467bd", # Morado
+        "coordenadas": [
+            [-38.0150, -57.5850], [-38.0350, -57.5750], [-38.0550, -57.6150], 
+            [-38.0250, -57.6350], [-38.0150, -57.5850]
+        ],
+        "detalle": "Regional, Belisario Roldán, Don Emilio, José Hernández, Las Américas, Autódromo."
     }
 }
 
-# 2. CONFIGURACIÓN DEL MAPA BASE
-print("Inicializando mapa de Mar del Plata...")
-m = folium.Map(location=[-38.0055, -57.5426], zoom_start=12, tiles="cartodbpositron")
+# 2. CREACIÓN DEL MAPA BASE (Centrado en Mar del Plata)
+coordenadas_mdp = [-38.0055, -57.5426]
+m = folium.Map(location=coordenadas_mdp, zoom_start=12, tiles="cartodbpositron")
 
-# 3. DESCARGA DE POLÍGONOS REALES (Límites de Barrios de MDP)
-print("Descargando límites oficiales de barrios desde OpenStreetMap...")
-try:
-    # Descargamos las fronteras de los barrios de Mar del Plata
-    barrios_mdp = ox.features_from_place("Mar del Plata, Buenos Aires, Argentina", tags={"user_defined": "neighbourhood"})
-    # Si no encuentra con esa etiqueta, usamos la estándar de límites geográficos
-    if barrios_mdp.empty:
-        barrios_mdp = ox.features_from_place("Mar del Plata, Buenos Aires, Argentina", tags={"boundary": "administrative", "admin_level": "10"})
-except Exception as e:
-    print(f"Error al descargar datos geográficos: {e}")
-    barrios_mdp = None
+# 3. DIBUJAR LOS BLOQUES DE COLOR DE CADA INSPECTOR
+for inspector, info in zonas_inspectores.items():
+    # Creamos el polígono de la zona con su respectivo color
+    folium.Polygon(
+        locations=info["coordenadas"],
+        color=info["color"],
+        fill=True,
+        fill_color=info["color"],
+        fill_opacity=0.4,
+        weight=3,
+        popup=f"<b>Inspector:</b> {inspector}<br><b>Barrios principales:</b> {info['detalle']}",
+        tooltip=f"Zona Inspector: {inspector}"
+    ).add_to(m)
 
-# 4. PINTAR LAS ZONAS EN EL MAPA INTERACTIVO
-if barrios_mdp is not None and not barrios_mdp.empty:
-    for inspector, info in zonas_inspectores.items():
-        print(f"Coloreando zona del Inspector: {inspector}...")
-        
-        # Creamos una capa específica para este inspector
-        grupo_inspector = folium.FeatureGroup(name=f"Zona Inspector {inspector}")
-        
-        for barrio_nombre in info["barrios"]:
-            # Buscamos el barrio real en la base de datos oficial
-            barrio_real = barrios_mdp[barrios_mdp['name'].str.contains(barrio_nombre, case=False, na=False)]
-            
-            if not barrio_real.empty:
-                # Convertimos a formato GeoJSON para Folium
-                geo_data = barrio_real.__geo_interface__
-                
-                # Añadimos el polígono pintado al mapa
-                folium.GeoJson(
-                    geo_data,
-                    style_function=lambda x, color=info["color"]: {
-                        'fillColor': color,
-                        'color': color,
-                        'weight': 2,
-                        'fillOpacity': 0.4  # Transparente para que se sigan viendo las calles abajo
-                    },
-                    tooltip=f"<b>Inspector:</b> {inspector}<br><b>Barrio asignado:</b> {barrio_nombre}"
-                ).add_to(grupo_inspector)
-        
-        grupo_inspector.add_to(m)
+# 4. RENDERIZAR EN STREAMLIT
+st_folium(m, width="100%", height=600)
 
-# 5. GUARDAR EL MAPA INTERACTIVO HTML
-folium.LayerControl(collapsed=False).add_to(m)
-mapa_final = "mapa_zonas_inspectores_mdp.html"
-m.save(mapa_final)
-
-print(f"¡Hecho! Archivo real generado sin fantasías: '{mapa_final}'")
-print("Haciendo doble clic en ese archivo podrás prender y apagar las zonas de cada inspector sobre el mapa real.")
+# 5. PANEL DE INFORMACIÓN ADICIONAL ABAJO DEL MAPA
+st.markdown("---")
+st.subheader("📋 Detalle de Zonas")
+for inspector, info in zonas_inspectores.items():
+    st.markdown(f"🟢 **Inspector {inspector}**: {info['detalle']}")
