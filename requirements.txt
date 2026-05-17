@@ -26,3 +26,10 @@ folium>=0.14.0
 streamlit-folium>=0.15.0
 geopandas>=0.14.0
 shapely>=2.0.0
+streamlit
+supabase
+pandas
+openpyxl
+xlrd
+folium
+streamlit-folium
