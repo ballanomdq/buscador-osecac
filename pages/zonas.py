@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 import re
+from datetime import datetime
 
 st.set_page_config(page_title="Zonas de Inspectores - OSECAC", layout="wide", initial_sidebar_state="collapsed")
 
@@ -30,14 +31,120 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col_back, col_reset = st.columns([1, 5])
+# ── FILA DE BOTONES: Volver, Actas, Backup, Informe ──────────────────────────
+col_back, col_actas, col_reset, col_informe = st.columns([1, 1, 1.5, 1.5])
+
 with col_back:
     if st.button("← Volver", key="btn_volver_zonas"):
         st.switch_page("main.py")
+
+with col_actas:
+    # Botón que redirige a la página de actas
+    url_actas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/actas"
+    st.markdown(f'<a href="{url_actas}" target="_blank" style="text-decoration: none;"><button style="background-color: #3b82f6; color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer; width: 100%;">📋 ACTAS</button></a>', unsafe_allow_html=True)
+
 with col_reset:
     if st.button("🚀 BACKUP DE SEGURIDAD", key="btn_reset_oficial", type="primary"):
         st.session_state.confirmar_reset = True
 
+with col_informe:
+    if st.button("📄 INFORME COMPLETO", key="btn_informe_completo"):
+        st.session_state.generar_informe_completo = True
+
+st.markdown("---")
+
+# ── Generar informe completo de inspectores ──────────────────────────────────
+def generar_informe_completo():
+    """Genera un informe TXT detallado de todos los inspectores con sus localidades y calles"""
+    
+    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    
+    contenido = []
+    contenido.append("=" * 80)
+    contenido.append("              INFORME COMPLETO DE INSPECTORES - ZONAS Y LOCALIDADES")
+    contenido.append(f"                        Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    contenido.append("=" * 80)
+    contenido.append("")
+    
+    for ins in inspectores.data:
+        legajo = ins['legajo']
+        nombre = ins['nombre']
+        
+        contenido.append("")
+        contenido.append("█" * 80)
+        contenido.append(f"  INSPECTOR: {nombre}")
+        contenido.append(f"  LEGAJO: {legajo}")
+        contenido.append("█" * 80)
+        contenido.append("")
+        
+        # ── LOCALIDADES ASIGNADAS (fuera de Mar del Plata) ──
+        localidades = supabase.table("inspectores_localidad").select("*").eq("legajo", legajo).order("localidad").execute()
+        
+        contenido.append("")
+        contenido.append("┌" + "─" * 78 + "┐")
+        contenido.append("│ 📍 LOCALIDADES ASIGNADAS (Fuera de Mar del Plata)")
+        contenido.append("├" + "─" * 78 + "┤")
+        
+        if localidades.data:
+            for loc in localidades.data:
+                contenido.append(f"│   • {loc['localidad']}")
+        else:
+            contenido.append("│   • Sin localidades asignadas")
+        contenido.append("└" + "─" * 78 + "┘")
+        contenido.append("")
+        
+        # ── CALLES ASIGNADAS (Mar del Plata) ──
+        calles = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo).order("calle").execute()
+        
+        contenido.append("")
+        contenido.append("┌" + "─" * 78 + "┐")
+        contenido.append("│ 🏠 CALLES ASIGNADAS (Mar del Plata)")
+        contenido.append("├" + "─" * 78 + "┤")
+        
+        if calles.data:
+            # Agrupar por calle (pueden tener múltiples rangos)
+            calles_agrupadas = {}
+            for calle in calles.data:
+                clave = calle['calle']
+                if clave not in calles_agrupadas:
+                    calles_agrupadas[clave] = []
+                calles_agrupadas[clave].append({
+                    'lado': calle['lado'],
+                    'desde': calle['altura_desde'],
+                    'hasta': calle['altura_hasta']
+                })
+            
+            for calle_nombre, rangos in sorted(calles_agrupadas.items()):
+                contenido.append(f"│")
+                contenido.append(f"│  📌 {calle_nombre}")
+                for r in rangos:
+                    contenido.append(f"│      Lado: {r['lado']} - Alturas: {r['desde']} a {r['hasta']}")
+        else:
+            contenido.append("│   • Sin calles asignadas")
+        contenido.append("└" + "─" * 78 + "┘")
+        contenido.append("")
+    
+    contenido.append("")
+    contenido.append("=" * 80)
+    contenido.append("                      FIN DEL INFORME")
+    contenido.append("=" * 80)
+    
+    return "\n".join(contenido)
+
+if st.session_state.get('generar_informe_completo'):
+    with st.spinner("Generando informe completo..."):
+        contenido_txt = generar_informe_completo()
+        st.download_button(
+            label="📥 DESCARGAR INFORME COMPLETO (TXT)",
+            data=contenido_txt.encode('utf-8'),
+            file_name=f"INFORME_INSPECTORES_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain",
+            key="download_informe_completo"
+        )
+        st.success("✅ Informe generado correctamente")
+        st.session_state.generar_informe_completo = False
+
+# ── Confirmación de Backup ───────────────────────────────────────────────────
 if st.session_state.get('confirmar_reset'):
     st.warning("⚠️ Esta acción BORRARÁ TODAS las zonas actuales y las REEMPLAZARÁ con los datos oficiales de respaldo.")
     
