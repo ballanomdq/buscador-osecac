@@ -31,24 +31,27 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── FILA DE BOTONES: Volver, Actas, Backup, Informe ──────────────────────────
-col_back, col_actas, col_reset, col_informe = st.columns([1, 1, 1.5, 1.5])
+# ── FILA DE BOTONES: Volver, Actas, Mapa, Backup, Informe ─────────────────────
+col_back, col_actas, col_mapa, col_reset, col_informe = st.columns([1, 1, 1, 1.5, 1.5])
 
 with col_back:
     if st.button("← Volver", key="btn_volver_zonas"):
         st.switch_page("main.py")
 
 with col_actas:
-    # Botón que redirige a la página de actas
     url_actas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/actas"
     st.markdown(f'<a href="{url_actas}" target="_blank" style="text-decoration: none;"><button style="background-color: #3b82f6; color: white; border: none; padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer; width: 100%;">📋 ACTAS</button></a>', unsafe_allow_html=True)
+
+with col_mapa:
+    if st.button("🗺️ MAPA", key="btn_mapa"):
+        st.switch_page("pages/mapazona.py")
 
 with col_reset:
     if st.button("🚀 BACKUP DE SEGURIDAD", key="btn_reset_oficial", type="primary"):
         st.session_state.confirmar_reset = True
 
 with col_informe:
-    if st.button("📄 INFORME COMPLETO", key="btn_informe_completo"):
+    if st.button("📄 INFORME ZONAS POR INSPECTOR", key="btn_informe_completo"):
         st.session_state.generar_informe_completo = True
 
 st.markdown("---")
@@ -135,9 +138,9 @@ if st.session_state.get('generar_informe_completo'):
     with st.spinner("Generando informe completo..."):
         contenido_txt = generar_informe_completo()
         st.download_button(
-            label="📥 DESCARGAR INFORME COMPLETO (TXT)",
+            label="📥 DESCARGAR INFORME ZONAS POR INSPECTOR (TXT)",
             data=contenido_txt.encode('utf-8'),
-            file_name=f"INFORME_INSPECTORES_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            file_name=f"INFORME_ZONAS_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
             mime="text/plain",
             key="download_informe_completo"
         )
