@@ -258,6 +258,28 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
     
     return None
 
+# ── Función para subir archivo a Supabase Storage ─────────────────────────────
+def subir_archivo_acta(file_bytes, file_name, registro_id):
+    """Sube un archivo a Supabase Storage y retorna la URL pública"""
+    try:
+        # Nombre único para el archivo
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        nombre_unico = f"acta_{registro_id}_{timestamp}_{file_name}"
+        
+        # Subir a Supabase Storage (bucket 'actas')
+        supabase.storage.from_("actas").upload(
+            path=nombre_unico,
+            file=file_bytes,
+            file_options={"content-type": "application/octet-stream"}
+        )
+        
+        # Obtener URL pública
+        url_publica = supabase.storage.from_("actas").get_public_url(nombre_unico)
+        return url_publica
+    except Exception as e:
+        st.error(f"Error al subir archivo: {str(e)}")
+        return None
+
 # ── Carga de datos ────────────────────────────────────────────────────────────
 def cargar_inspectores_localidad():
     r = supabase.table("inspectores_localidad").select("*").execute()
@@ -556,7 +578,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (idéntico a tu código original)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -565,7 +587,6 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
-    # Tres cuadros grandes compactos
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
@@ -574,7 +595,6 @@ with tab2:
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    # ── TARJETAS DE INSPECTORES (compactas) ──────────────────────────────────
     st.markdown("---")
     st.markdown("### 👥 Empresas asignadas por Inspector")
     
@@ -593,7 +613,6 @@ with tab2:
                 """, unsafe_allow_html=True)
     st.markdown("---")
 
-    # ── FILA DE BOTONES ──────────────────────────────────────────────────────
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -646,7 +665,6 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── Generar informes ─────────────────────────────────────────────────────
     if st.session_state.get('generar_informe'):
         with st.spinner("Generando informe..."):
             registros_sin_legajo = traer_registros_sin_legajo()
@@ -691,7 +709,6 @@ with tab2:
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
-    # ── Asignación automática de legajos ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
         
@@ -759,7 +776,6 @@ with tab2:
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
             st.rerun()
 
-    # ── Buscar calles sin asociar ────────────────────────────────────────────
     if st.session_state.get('buscar_sinonimos'):
         with st.spinner("Analizando calles..."):
             calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
@@ -870,7 +886,6 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS ──────────────────────────────────────────────────────────────
     st.markdown("### 📋 Filtros")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
@@ -1047,10 +1062,90 @@ with tab3:
     st.info("📧 Solicitar Actas — En construcción")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Subir Actas
+# TAB 4 — Subir Actas (NUEVO - FUNCIONAL)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
-    st.info("📋 Subir Actas — En construcción")
+    st.markdown("#### 📋 Subir Acta")
+    
+    st.markdown("### 🔍 Buscar registro")
+    buscar_por = st.radio("Buscar por:", ["ID", "CUIT"], horizontal=True)
+    
+    registro_encontrado = None
+    
+    if buscar_por == "ID":
+        id_busqueda = st.text_input("ID del registro", placeholder="Ej: 123")
+        if st.button("🔍 Buscar por ID"):
+            if id_busqueda and id_busqueda.isdigit():
+                resultado = supabase.table("padron_deuda_presunta").select("*").eq("id", int(id_busqueda)).execute()
+                if resultado.data:
+                    registro_encontrado = resultado.data[0]
+                    st.success(f"✅ Registro encontrado: ID {registro_encontrado['id']} - {registro_encontrado.get('razon_social', 'Sin nombre')}")
+                else:
+                    st.warning("No se encontró el registro")
+            else:
+                st.warning("Ingrese un ID válido")
+    
+    else:  # BUSCAR POR CUIT
+        cuit_busqueda = st.text_input("CUIT del registro", placeholder="Ej: 30707685243")
+        if st.button("🔍 Buscar por CUIT"):
+            if cuit_busqueda:
+                resultado = supabase.table("padron_deuda_presunta").select("*").eq("cuit", cuit_busqueda).execute()
+                if resultado.data:
+                    registro_encontrado = resultado.data[0]
+                    st.success(f"✅ Registro encontrado: {registro_encontrado.get('razon_social', 'Sin nombre')}")
+                else:
+                    st.warning("No se encontró el registro")
+            else:
+                st.warning("Ingrese un CUIT válido")
+    
+    # Mostrar datos del registro encontrado
+    if registro_encontrado:
+        st.markdown("---")
+        st.markdown("### 📄 Datos del registro")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.write(f"**ID:** {registro_encontrado.get('id')}")
+            st.write(f"**Razón Social:** {registro_encontrado.get('razon_social', 'N/D')}")
+            st.write(f"**CUIT:** {registro_encontrado.get('cuit', 'N/D')}")
+            st.write(f"**Localidad:** {registro_encontrado.get('localidad', 'N/D')}")
+        with col2:
+            st.write(f"**Calle:** {registro_encontrado.get('calle', 'N/D')} {registro_encontrado.get('numero', '')}")
+            st.write(f"**Legajo asignado:** {registro_encontrado.get('leg', 'Sin asignar')}")
+            st.write(f"**Acta actual:** {registro_encontrado.get('acta', 'Sin acta')}")
+        
+        st.markdown("---")
+        st.markdown("### 📎 Subir archivo de acta")
+        
+        archivo_acta = st.file_uploader(
+            "Seleccionar archivo (PDF, JPG, PNG)",
+            type=["pdf", "jpg", "jpeg", "png"],
+            key="upload_acta"
+        )
+        
+        if archivo_acta:
+            st.info(f"Archivo seleccionado: {archivo_acta.name} ({archivo_acta.size} bytes)")
+            
+            col_subir, _ = st.columns([1, 3])
+            with col_subir:
+                if st.button("📤 SUBIR ACTA", type="primary"):
+                    with st.spinner("Subiendo archivo..."):
+                        # Subir archivo a Supabase Storage
+                        file_bytes = archivo_acta.getvalue()
+                        url_publica = subir_archivo_acta(file_bytes, archivo_acta.name, registro_encontrado['id'])
+                        
+                        if url_publica:
+                            # Actualizar el campo 'acta' en la base de datos
+                            supabase.table("padron_deuda_presunta").update({
+                                "acta": url_publica,
+                                "estado_gestion": "ACTA_SUBIDA"
+                            }).eq("id", registro_encontrado['id']).execute()
+                            
+                            st.success(f"✅ Acta subida correctamente")
+                            st.markdown(f"📎 [Ver acta subida]({url_publica})")
+                            st.balloons()
+                        else:
+                            st.error("❌ Error al subir el archivo")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 5 — INSPECTORES
