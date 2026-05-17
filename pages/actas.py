@@ -442,7 +442,6 @@ def generar_excel_asignados(registros):
 
 def generar_excel_por_inspector():
     """Genera un Excel con una hoja por cada inspector que tiene empresas asignadas"""
-    # Obtener inspectores
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     
     output = io.BytesIO()
@@ -558,7 +557,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN CON INSPECTORES)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -567,7 +566,6 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
-    # Tres cuadros grandes con números GRANDES
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
@@ -576,17 +574,14 @@ with tab2:
     with col_t3:
         st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    # ── TARJETAS DE INSPECTORES (cuántas empresas tiene cada uno) ─────────────
+    # ── TARJETAS DE INSPECTORES ──────────────────────────────────────────────
     st.markdown("---")
     st.markdown("### 👥 Empresas asignadas por Inspector")
     
-    # Obtener inspectores y contar empresas
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
-        # Crear columnas dinámicas
         cols_inspectores = st.columns(len(inspectores.data))
         for idx, ins in enumerate(inspectores.data):
-            # Contar empresas asignadas a este inspector
             count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
             with cols_inspectores[idx]:
                 st.markdown(f"""
@@ -875,7 +870,7 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS (compactos) ──────────────────────────────────────────────────
+    # ── FILTROS ──────────────────────────────────────────────────────────────
     st.markdown("### 📋 Filtros")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
@@ -1058,21 +1053,26 @@ with tab4:
     st.info("📋 Subir Actas — En construcción")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 5 — INSPECTORES (acceso directo a zonas)
+# TAB 5 — INSPECTORES (acceso directo a zonas SIN redirección automática)
 # ══════════════════════════════════════════════════════════════════
 with tab5:
     st.markdown("### 👥 Gestión de Inspectores y Zonas")
     st.markdown("Acceda al panel completo de administración de inspectores, localidades y calles de Mar del Plata.")
     
-    # URL de la página de zonas
     url_zonas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/zonas"
     
-    # Redirección directa con JavaScript
-    st.markdown(f"""
-    <meta http-equiv="refresh" content="0; url={url_zonas}" />
-    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 2rem; text-align: center; border: 1px solid #3b82f6; margin: 1rem 0;">
-        <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">🗺️ Redirigiendo a Zonas de Inspectores...</h3>
-        <p style="color: #94a3b8; margin-bottom: 1rem;">Si no es redirigido automáticamente, haga clic en el enlace:</p>
-        <a href="{url_zonas}" target="_blank" style="color: #3b82f6;">🔗 Ir a INSPECTORES Y ZONAS</a>
-    </div>
-    """, unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1.5rem; text-align: center; border: 1px solid #3b82f6; margin: 1rem 0;">
+            <h3 style="color: #3b82f6; margin: 0 0 0.5rem 0;">🗺️ Zonas de Inspectores</h3>
+            <p style="color: #94a3b8; margin-bottom: 1rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
+            <a href="{url_zonas}" target="_blank">
+                <button style="background: #2563eb; color: white; border: none; padding: 0.6rem 2rem; border-radius: 8px; cursor: pointer; font-size: 1rem;">
+                    🔗 IR A INSPECTORES Y ZONAS
+                </button>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.caption("💡 También puede acceder directamente desde el enlace: " + url_zonas)
