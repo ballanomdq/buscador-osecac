@@ -21,3 +21,8 @@ openpyxl
 playwright
 folium
 streamlit-folium
+osmnx==1.9.4
+folium>=0.14.0
+streamlit-folium>=0.15.0
+geopandas>=0.14.0
+shapely>=2.0.0
