@@ -5,9 +5,9 @@ openpyxl
 xlrd
 gspread
 google-auth
+google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
-google-api-python-client
 requests
 beautifulsoup4
 pytz
@@ -15,6 +15,3 @@ pdfplumber
 plotly
 matplotlib
 reportlab
-selenium
-webdriver-manager
-playwright
