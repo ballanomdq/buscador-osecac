@@ -107,6 +107,18 @@ def limpiar_str(v):
     s = re.sub(r'\s+', ' ', str(v)).strip()
     return None if s.lower() in ('', 'nan', 'none', 'null', 'nat') else s
 
+def limpiar_cuit(v):
+    """Limpia el CUIT para comparación"""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    s = str(v).strip()
+    if 'E' in s.upper():
+        try:
+            return str(int(float(s)))
+        except Exception:
+            pass
+    return re.sub(r'[\.\-,\s]', '', s)
+
 def norm_fecha(v):
     if not v:
         return None
@@ -257,28 +269,6 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
             return zona['legajo']
     
     return None
-
-# ── Función para subir archivo a Supabase Storage ─────────────────────────────
-def subir_archivo_acta(file_bytes, file_name, registro_id):
-    """Sube un archivo a Supabase Storage y retorna la URL pública"""
-    try:
-        # Nombre único para el archivo
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        nombre_unico = f"acta_{registro_id}_{timestamp}_{file_name}"
-        
-        # Subir a Supabase Storage (bucket 'actas')
-        supabase.storage.from_("actas").upload(
-            path=nombre_unico,
-            file=file_bytes,
-            file_options={"content-type": "application/octet-stream"}
-        )
-        
-        # Obtener URL pública
-        url_publica = supabase.storage.from_("actas").get_public_url(nombre_unico)
-        return url_publica
-    except Exception as e:
-        st.error(f"Error al subir archivo: {str(e)}")
-        return None
 
 # ── Carga de datos ────────────────────────────────────────────────────────────
 def cargar_inspectores_localidad():
@@ -578,7 +568,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (idéntico a tu código original)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -1062,90 +1052,91 @@ with tab3:
     st.info("📧 Solicitar Actas — En construcción")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Subir Actas (NUEVO - FUNCIONAL)
+# TAB 4 — Subir Actas (FUNCIONAL - CSV + 3 CAMPOS)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
-    st.markdown("#### 📋 Subir Acta")
-    
-    st.markdown("### 🔍 Buscar registro")
-    buscar_por = st.radio("Buscar por:", ["ID", "CUIT"], horizontal=True)
-    
-    registro_encontrado = None
-    
-    if buscar_por == "ID":
-        id_busqueda = st.text_input("ID del registro", placeholder="Ej: 123")
-        if st.button("🔍 Buscar por ID"):
-            if id_busqueda and id_busqueda.isdigit():
-                resultado = supabase.table("padron_deuda_presunta").select("*").eq("id", int(id_busqueda)).execute()
-                if resultado.data:
-                    registro_encontrado = resultado.data[0]
-                    st.success(f"✅ Registro encontrado: ID {registro_encontrado['id']} - {registro_encontrado.get('razon_social', 'Sin nombre')}")
+    st.markdown("#### 📋 Subir Actas (CSV)")
+    st.markdown("""<div class="msg msg-info">
+    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
+    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
+    </div>""", unsafe_allow_html=True)
+
+    csv_file = st.file_uploader("Archivo CSV", type=["csv"], key="upload_actas_csv")
+
+    if csv_file:
+        st.caption(f"Archivo: **{csv_file.name}**")
+
+        try:
+            df_prev = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+            with st.expander("Vista previa (5 primeras filas)"):
+                st.dataframe(df_prev.head(5), use_container_width=True, height=200)
+        except Exception:
+            pass
+
+        if st.button("📋 Procesar y actualizar actas", type="primary"):
+            with st.spinner("Procesando..."):
+                try:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+                except Exception:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
+
+                df4.columns = [str(c).strip().upper() for c in df4.columns]
+
+                # Detectar columnas automáticamente
+                col_cuit = col_leg = col_vto = col_acta = None
+                for c in df4.columns:
+                    cu = c.upper()
+                    if 'CUIT' in cu and not col_cuit:         col_cuit = c
+                    if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
+                    if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
+                    if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
+
+                if not all([col_cuit, col_leg, col_vto]):
+                    st.error(f"❌ Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
+                    st.info("El archivo debe contener columnas: CUIT, LEGAJO, VTO (y opcional NRO_ACTA)")
                 else:
-                    st.warning("No se encontró el registro")
-            else:
-                st.warning("Ingrese un ID válido")
-    
-    else:  # BUSCAR POR CUIT
-        cuit_busqueda = st.text_input("CUIT del registro", placeholder="Ej: 30707685243")
-        if st.button("🔍 Buscar por CUIT"):
-            if cuit_busqueda:
-                resultado = supabase.table("padron_deuda_presunta").select("*").eq("cuit", cuit_busqueda).execute()
-                if resultado.data:
-                    registro_encontrado = resultado.data[0]
-                    st.success(f"✅ Registro encontrado: {registro_encontrado.get('razon_social', 'Sin nombre')}")
-                else:
-                    st.warning("No se encontró el registro")
-            else:
-                st.warning("Ingrese un CUIT válido")
-    
-    # Mostrar datos del registro encontrado
-    if registro_encontrado:
-        st.markdown("---")
-        st.markdown("### 📄 Datos del registro")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.write(f"**ID:** {registro_encontrado.get('id')}")
-            st.write(f"**Razón Social:** {registro_encontrado.get('razon_social', 'N/D')}")
-            st.write(f"**CUIT:** {registro_encontrado.get('cuit', 'N/D')}")
-            st.write(f"**Localidad:** {registro_encontrado.get('localidad', 'N/D')}")
-        with col2:
-            st.write(f"**Calle:** {registro_encontrado.get('calle', 'N/D')} {registro_encontrado.get('numero', '')}")
-            st.write(f"**Legajo asignado:** {registro_encontrado.get('leg', 'Sin asignar')}")
-            st.write(f"**Acta actual:** {registro_encontrado.get('acta', 'Sin acta')}")
-        
-        st.markdown("---")
-        st.markdown("### 📎 Subir archivo de acta")
-        
-        archivo_acta = st.file_uploader(
-            "Seleccionar archivo (PDF, JPG, PNG)",
-            type=["pdf", "jpg", "jpeg", "png"],
-            key="upload_acta"
-        )
-        
-        if archivo_acta:
-            st.info(f"Archivo seleccionado: {archivo_acta.name} ({archivo_acta.size} bytes)")
-            
-            col_subir, _ = st.columns([1, 3])
-            with col_subir:
-                if st.button("📤 SUBIR ACTA", type="primary"):
-                    with st.spinner("Subiendo archivo..."):
-                        # Subir archivo a Supabase Storage
-                        file_bytes = archivo_acta.getvalue()
-                        url_publica = subir_archivo_acta(file_bytes, archivo_acta.name, registro_encontrado['id'])
-                        
-                        if url_publica:
-                            # Actualizar el campo 'acta' en la base de datos
-                            supabase.table("padron_deuda_presunta").update({
-                                "acta": url_publica,
-                                "estado_gestion": "ACTA_SUBIDA"
-                            }).eq("id", registro_encontrado['id']).execute()
-                            
-                            st.success(f"✅ Acta subida correctamente")
-                            st.markdown(f"📎 [Ver acta subida]({url_publica})")
-                            st.balloons()
-                        else:
-                            st.error("❌ Error al subir el archivo")
+                    st.caption(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                    
+                    actualizados = 0
+                    no_encontrados = 0
+                    bar = st.progress(0)
+
+                    for i, row in df4.iterrows():
+                        cuit = limpiar_cuit(row[col_cuit])
+                        leg = limpiar_str(row[col_leg])
+                        vto = norm_fecha(row[col_vto])
+                        acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+
+                        if cuit and leg and vto:
+                            try:
+                                resultado = (supabase.table("padron_deuda_presunta")
+                                           .select("id")
+                                           .eq("cuit", cuit)
+                                           .eq("leg", leg)
+                                           .eq("vto", vto)
+                                           .eq("mail_enviado", "SI")
+                                           .execute())
+                                
+                                if resultado.data:
+                                    for reg in resultado.data:
+                                        supabase.table("padron_deuda_presunta") \
+                                            .update({"acta": acta, "estado_gestion": "FINALIZADO"}) \
+                                            .eq("id", reg['id']).execute()
+                                    actualizados += len(resultado.data)
+                                else:
+                                    no_encontrados += 1
+                            except Exception as e:
+                                st.error(f"Error fila {i}: {e}")
+
+                        bar.progress((i + 1) / len(df4))
+
+                    bar.empty()
+                    col_ok, col_no = st.columns(2)
+                    col_ok.metric("✅ Actualizados", actualizados)
+                    col_no.metric("❌ No encontrados", no_encontrados)
+
+                    if no_encontrados > 0:
+                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia. Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado y que tengan MAIL ENVIADO = SI.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 5 — INSPECTORES
