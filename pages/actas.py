@@ -38,23 +38,35 @@ html, body, [class*="css"] { font-size: 13px !important; }
 div[data-testid="stButton"] > button {
     padding: 0.2rem 0.6rem !important;
     font-size: 0.75rem !important;
-    background: #334155 !important;
-    color: #e2e8f0 !important;
-    border: 1px solid #475569 !important;
     border-radius: 4px !important;
 }
-div[data-testid="stButton"] > button:hover { background: #475569 !important; }
+/* Botón GUARDAR CAMBIOS - VERDE DESTACADO */
+div[data-testid="stButton"] > button[kind="secondary"] {
+    background: #059669 !important;
+    color: white !important;
+    border: 1px solid #047857 !important;
+}
+div[data-testid="stButton"] > button[kind="secondary"]:hover {
+    background: #047857 !important;
+}
+/* Botones normales - GRIS OSCURO */
+div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]) {
+    background: #475569 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+}
+div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]):hover {
+    background: #334155 !important;
+}
+/* Botones primarios (confirmar carga, etc.) - AZUL */
 div[data-testid="stButton"] > button[kind="primary"] {
     background: #2563eb !important;
     border-color: #1d4ed8 !important;
-}
-div[data-testid="stButton"] > button[kind="primary"]:hover { background: #1d4ed8 !important; }
-div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #059669 !important;
-    border-color: #047857 !important;
     color: white !important;
 }
-div[data-testid="stButton"] > button[kind="secondary"]:hover { background: #047857 !important; }
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: #1d4ed8 !important;
+}
 #MainMenu, footer, header { display: none !important; }
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
@@ -108,7 +120,6 @@ def limpiar_str(v):
     return None if s.lower() in ('', 'nan', 'none', 'null', 'nat') else s
 
 def limpiar_cuit(v):
-    """Limpia el CUIT para comparación"""
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
     s = str(v).strip()
@@ -120,6 +131,7 @@ def limpiar_cuit(v):
     return re.sub(r'[\.\-,\s]', '', s)
 
 def norm_fecha(v):
+    """Convierte cualquier formato de fecha a YYYY-MM-DD"""
     if not v:
         return None
     s = limpiar_str(v)
@@ -127,11 +139,19 @@ def norm_fecha(v):
         return None
     if re.match(r'^\d{4}-\d{2}-\d{2}$', s):
         return s
-    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y', '%m/%d/%Y'):
+    # DD/MM/YYYY o DD-MM-YYYY
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y'):
         try:
             return datetime.strptime(s, fmt).strftime('%Y-%m-%d')
         except ValueError:
             continue
+    # Si es número de Excel
+    if s.isdigit():
+        try:
+            fecha = datetime(1899, 12, 30) + pd.Timedelta(days=int(s))
+            return fecha.strftime('%Y-%m-%d')
+        except:
+            pass
     try:
         return pd.to_datetime(s, dayfirst=True).strftime('%Y-%m-%d')
     except Exception:
@@ -603,6 +623,7 @@ with tab2:
                 """, unsafe_allow_html=True)
     st.markdown("---")
 
+    # BOTONES: GUARDAR CAMBIOS (verde) al PRINCIPIO
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -988,8 +1009,12 @@ with tab2:
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
 
+        # ══════════════════════════════════════════════════════════════════
+        # GUARDAR CAMBIOS - CORREGIDO PARA VTO
+        # ══════════════════════════════════════════════════════════════════
         if guardar_click:
             mods = 0
+            errores_fecha = 0
             with st.spinner("Guardando..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
@@ -997,45 +1022,46 @@ with tab2:
                     orig = df_orig.iloc[idx]
                     upd = {}
                     
-                    mapeo = {
-                        'LEG': 'leg', 'VTO': 'vto', 'MAIL ENVIADO': 'mail_enviado',
-                        'ACTA': 'acta', 'ESTADO GESTION': 'estado_gestion',
-                        'LOCALIDAD': 'localidad', 'CUIT': 'cuit', 'RAZON SOCIAL': 'razon_social',
-                        'CALLE': 'calle', 'NUMERO': 'numero', 'PISO': 'piso', 'DPTO': 'dpto',
-                        'TEL_DOM_LEGAL': 'tel_dom_legal', 'TEL_DOM_REAL': 'tel_dom_real',
-                        'EMAIL': 'email', 'ULTIMA ACTA': 'ultima_acta',
-                    }
+                    # LEGAJO
+                    nv = row.get('LEG')
+                    if nv != orig.get('leg'):
+                        if nv and str(nv).strip():
+                            try:
+                                upd['leg'] = int(float(str(nv)))
+                            except:
+                                upd['leg'] = None
+                        else:
+                            upd['leg'] = None
                     
-                    for col_mostrada, campo_db in mapeo.items():
-                        if col_mostrada in row.index and col_mostrada in orig.index:
-                            valor_nuevo = row.get(col_mostrada)
-                            valor_original = orig.get(col_mostrada)
-                            
-                            if valor_nuevo == "" or valor_nuevo is None:
-                                valor_nuevo = None
-                            if valor_original == "" or valor_original is None:
-                                valor_original = None
-                            
-                            if valor_nuevo != valor_original:
-                                if campo_db in ['vto', 'fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl']:
-                                    if valor_nuevo:
-                                        valor_nuevo = norm_fecha(str(valor_nuevo))
-                                    else:
-                                        valor_nuevo = None
-                                elif campo_db in ['leg', 'numero']:
-                                    if valor_nuevo and str(valor_nuevo).strip():
-                                        try:
-                                            valor_nuevo = int(float(str(valor_nuevo)))
-                                        except:
-                                            valor_nuevo = None
-                                    else:
-                                        valor_nuevo = None
-                                elif campo_db == 'mail_enviado':
-                                    valor_nuevo = 'SI' if str(valor_nuevo).upper() == 'SI' else 'NO'
-                                else:
-                                    valor_nuevo = limpiar_str(str(valor_nuevo)) if valor_nuevo else None
-                                
-                                upd[campo_db] = valor_nuevo
+                    # VTO - CORREGIDO (convierte la fecha al formato correcto)
+                    nv = row.get('VTO')
+                    if nv != orig.get('vto'):
+                        if nv and str(nv).strip():
+                            fecha_ok = norm_fecha(str(nv))
+                            if fecha_ok:
+                                upd['vto'] = fecha_ok
+                            else:
+                                errores_fecha += 1
+                                st.warning(f"Fila {idx+1}: '{nv}' no es una fecha válida. Se ignoró.")
+                        else:
+                            upd['vto'] = None
+                    
+                    # MAIL ENVIADO
+                    nv = row.get('MAIL ENVIADO') or 'NO'
+                    if nv not in ('SI', 'NO'):
+                        nv = 'NO'
+                    if nv != orig.get('mail_enviado'):
+                        upd['mail_enviado'] = nv
+                    
+                    # ACTA
+                    nv = row.get('ACTA')
+                    if nv != orig.get('acta'):
+                        upd['acta'] = nv if nv and str(nv).strip() else None
+                    
+                    # ESTADO GESTION
+                    nv = row.get('ESTADO GESTION') or 'PENDIENTE'
+                    if nv != orig.get('estado_gestion'):
+                        upd['estado_gestion'] = nv
                     
                     if upd:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
@@ -1043,7 +1069,11 @@ with tab2:
 
             if mods:
                 st.success(f"✅ {mods} registros actualizados.")
+                if errores_fecha:
+                    st.warning(f"⚠️ {errores_fecha} fechas no se pudieron guardar (formato incorrecto)")
                 st.rerun()
+            elif errores_fecha:
+                st.warning("No se guardaron cambios. Verificá el formato de las fechas (DD/MM/YYYY).")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 3 — Solicitar Actas
@@ -1082,7 +1112,6 @@ with tab4:
 
                 df4.columns = [str(c).strip().upper() for c in df4.columns]
 
-                # Detectar columnas automáticamente
                 col_cuit = col_leg = col_vto = col_acta = None
                 for c in df4.columns:
                     cu = c.upper()
@@ -1093,7 +1122,6 @@ with tab4:
 
                 if not all([col_cuit, col_leg, col_vto]):
                     st.error(f"❌ Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
-                    st.info("El archivo debe contener columnas: CUIT, LEGAJO, VTO (y opcional NRO_ACTA)")
                 else:
                     st.caption(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
                     
@@ -1136,7 +1164,7 @@ with tab4:
                     col_no.metric("❌ No encontrados", no_encontrados)
 
                     if no_encontrados > 0:
-                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia. Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado y que tengan MAIL ENVIADO = SI.")
+                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia. Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 5 — INSPECTORES
