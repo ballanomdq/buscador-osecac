@@ -35,21 +35,17 @@ html, body, [class*="css"] { font-size: 13px !important; }
 }
 .app-header h3 { color: #fff; margin: 0; font-size: 1.2rem; font-weight: 500; }
 .app-header p { color: #94a3b8; margin: 0; font-size: 0.7rem; }
-div[data-testid="stButton"] > button {
-    padding: 0.2rem 0.6rem !important;
-    font-size: 0.75rem !important;
-    border-radius: 4px !important;
-}
-/* Botón GUARDAR CAMBIOS - VERDE DESTACADO */
+/* BOTÓN GUARDAR CAMBIOS - VERDE DESTACADO (ÚNICO COLOR VERDE) */
 div[data-testid="stButton"] > button[kind="secondary"] {
-    background: #059669 !important;
+    background: #10b981 !important;
     color: white !important;
-    border: 1px solid #047857 !important;
+    border: 1px solid #059669 !important;
+    font-weight: bold !important;
 }
 div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background: #047857 !important;
+    background: #059669 !important;
 }
-/* Botones normales - GRIS OSCURO */
+/* BOTONES NORMALES - GRIS OSCURO */
 div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]) {
     background: #475569 !important;
     color: #e2e8f0 !important;
@@ -58,7 +54,7 @@ div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"
 div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]):hover {
     background: #334155 !important;
 }
-/* Botones primarios (confirmar carga, etc.) - AZUL */
+/* BOTONES PRIMARIOS - AZUL */
 div[data-testid="stButton"] > button[kind="primary"] {
     background: #2563eb !important;
     border-color: #1d4ed8 !important;
@@ -139,13 +135,11 @@ def norm_fecha(v):
         return None
     if re.match(r'^\d{4}-\d{2}-\d{2}$', s):
         return s
-    # DD/MM/YYYY o DD-MM-YYYY
     for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d/%m/%y', '%d-%m-%y'):
         try:
             return datetime.strptime(s, fmt).strftime('%Y-%m-%d')
         except ValueError:
             continue
-    # Si es número de Excel
     if s.isdigit():
         try:
             fecha = datetime(1899, 12, 30) + pd.Timedelta(days=int(s))
@@ -588,7 +582,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (CON GUARDAR VERDE Y MENSAJES)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -1010,12 +1004,12 @@ with tab2:
         st.session_state.ids_a_eliminar = ids_sel
 
         # ══════════════════════════════════════════════════════════════════
-        # GUARDAR CAMBIOS - CORREGIDO PARA VTO
+        # GUARDAR CAMBIOS - CON MENSAJE DE ÉXITO
         # ══════════════════════════════════════════════════════════════════
         if guardar_click:
             mods = 0
             errores_fecha = 0
-            with st.spinner("Guardando..."):
+            with st.spinner("Guardando cambios..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
                         continue
@@ -1033,7 +1027,7 @@ with tab2:
                         else:
                             upd['leg'] = None
                     
-                    # VTO - CORREGIDO (convierte la fecha al formato correcto)
+                    # VTO - Convierte fecha al formato correcto
                     nv = row.get('VTO')
                     if nv != orig.get('vto'):
                         if nv and str(nv).strip():
@@ -1042,7 +1036,6 @@ with tab2:
                                 upd['vto'] = fecha_ok
                             else:
                                 errores_fecha += 1
-                                st.warning(f"Fila {idx+1}: '{nv}' no es una fecha válida. Se ignoró.")
                         else:
                             upd['vto'] = None
                     
@@ -1067,13 +1060,15 @@ with tab2:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
                         mods += 1
 
-            if mods:
-                st.success(f"✅ {mods} registros actualizados.")
-                if errores_fecha:
-                    st.warning(f"⚠️ {errores_fecha} fechas no se pudieron guardar (formato incorrecto)")
+            if mods > 0:
+                st.success(f"✅ {mods} registros actualizados correctamente.")
+                if errores_fecha > 0:
+                    st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
                 st.rerun()
-            elif errores_fecha:
-                st.warning("No se guardaron cambios. Verificá el formato de las fechas (DD/MM/YYYY).")
+            elif errores_fecha > 0:
+                st.warning(f"No se guardaron cambios. {errores_fecha} fecha(s) con formato incorrecto.")
+            else:
+                st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 3 — Solicitar Actas
@@ -1163,8 +1158,10 @@ with tab4:
                     col_ok.metric("✅ Actualizados", actualizados)
                     col_no.metric("❌ No encontrados", no_encontrados)
 
+                    if actualizados > 0:
+                        st.success(f"✅ {actualizados} actas actualizadas correctamente.")
                     if no_encontrados > 0:
-                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia. Verificá que CUIT/LEG/VTO coincidan exactamente con lo guardado.")
+                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia. Verificá que CUIT/LEG/VTO coincidan exactamente y tengan MAIL ENVIADO = SI.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 5 — INSPECTORES
