@@ -37,7 +37,6 @@ div[data-testid="stButton"] button[kind="secondary"] {
 div[data-testid="stButton"] button[kind="secondary"]:hover {
     background: #059669 !important;
 }
-/* Quitar márgenes del mapa */
 iframe {
     width: 100% !important;
     height: 70vh !important;
@@ -97,28 +96,80 @@ def obtener_hash_direccion(calle, numero, localidad):
     direccion = f"{calle}|{numero}|{localidad}".upper().strip()
     return hashlib.md5(direccion.encode()).hexdigest()
 
+# ── Coordenadas de fallback por localidad ────────────────────────────────────
+FALLBACK_LOCALIDADES = {
+    "MAR DEL PLATA": (-38.0055, -57.5426),
+    "BATAN": (-37.9333, -57.7333),
+    "SIERRA DE LOS PADRES": (-37.9167, -57.6833),
+    "CHAPADMALAL": (-38.1500, -57.6167),
+    "MIRAMAR": (-38.2750, -57.8417),
+    "NECOCHEA": (-38.5550, -58.7374),
+    "BALCARCE": (-37.8400, -58.2550),
+}
+
 def geocodificar_direccion(calle, numero, localidad):
-    """Obtiene coordenadas reales usando Nominatim"""
-    if not calle or calle == "":
-        return None
-    
-    direccion = f"{calle} {numero}, {localidad}, Buenos Aires, Argentina"
-    direccion_encoded = quote(direccion)
-    url = f"https://nominatim.openstreetmap.org/search?q={direccion_encoded}&format=json&limit=1"
-    
-    try:
-        time.sleep(0.3)  # Respetar política de uso
-        response = requests.get(url, headers={"User-Agent": "OSECAC-Fiscalizacion/1.0"})
-        data = response.json()
-        
-        if data and len(data) > 0:
-            return (float(data[0]['lat']), float(data[0]['lon']))
-        return None
-    except Exception:
+    """
+    Geocodifica usando tres fuentes en cascada:
+    1. API georef del gobierno argentino (mejor cobertura local)
+    2. Nominatim (OpenStreetMap) como fallback global
+    3. Coordenadas aproximadas de la localidad si todo falla
+    """
+    if not calle or str(calle).strip() == "":
         return None
 
+    calle_str = str(calle).strip()
+    numero_str = str(numero).strip() if numero and str(numero).strip() != "" else ""
+    localidad_str = str(localidad).strip().upper() if localidad else "MAR DEL PLATA"
+
+    # ── 1. API georef (Argentina) ────────────────────────────────────────────
+    try:
+        direccion_completa = f"{calle_str} {numero_str}".strip()
+        params = {
+            "direccion": direccion_completa,
+            "provincia": "Buenos Aires",
+            "localidad": localidad_str.title(),
+            "max": 1,
+            "formato": "json"
+        }
+        url = "https://apis.datos.gob.ar/georef/api/direcciones"
+        response = requests.get(url, params=params, timeout=5)
+        data = response.json()
+
+        if (data.get("direcciones") 
+                and len(data["direcciones"]) > 0
+                and data["direcciones"][0].get("ubicacion")):
+            ub = data["direcciones"][0]["ubicacion"]
+            return (float(ub["lat"]), float(ub["lon"]))
+    except Exception:
+        pass
+
+    time.sleep(0.5)
+
+    # ── 2. Nominatim (OpenStreetMap) ─────────────────────────────────────────
+    try:
+        query = f"{calle_str} {numero_str}, {localidad_str.title()}, Buenos Aires, Argentina"
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {"q": query, "format": "json", "limit": 1, "countrycodes": "ar"}
+        headers = {"User-Agent": "OSECAC-Fiscalizacion/1.0"}
+        response = requests.get(url, params=params, headers=headers, timeout=5)
+        data = response.json()
+
+        if data and len(data) > 0:
+            return (float(data[0]["lat"]), float(data[0]["lon"]))
+    except Exception:
+        pass
+
+    time.sleep(1.0)
+
+    # ── 3. Fallback: centro de la localidad ──────────────────────────────────
+    for key, coords in FALLBACK_LOCALIDADES.items():
+        if key in localidad_str:
+            return coords
+
+    return FALLBACK_LOCALIDADES["MAR DEL PLATA"]
+
 def actualizar_coordenadas(empresas_df, progress_bar, status_text):
-    """Actualiza coordenadas en Supabase solo para empresas nuevas o con dirección modificada"""
+    """Actualiza coordenadas en Supabase usando georef + Nominatim + fallback"""
     
     # Obtener coordenadas existentes
     existentes = supabase.table("coordenadas_empresas").select("id_empresa, direccion_hash").execute()
@@ -147,11 +198,10 @@ def actualizar_coordenadas(empresas_df, progress_bar, status_text):
                 necesita_actualizar = False
         
         if necesita_actualizar:
-            status_text.markdown(f"📍 Procesando: {calle} {numero} - {row.get('razon_social', '')[:30]}...")
+            status_text.markdown(f"📍 Procesando: {calle} {numero} - {row.get('razon_social', '')[:35]}...")
             coords = geocodificar_direccion(calle, numero, localidad)
             
             if coords:
-                # Guardar o actualizar en Supabase
                 supabase.table("coordenadas_empresas").upsert({
                     "id_empresa": id_empresa,
                     "lat": coords[0],
@@ -162,7 +212,6 @@ def actualizar_coordenadas(empresas_df, progress_bar, status_text):
                 actualizados += 1
             else:
                 no_encontrados += 1
-                # Marcar como sin coordenadas (con hash especial)
                 supabase.table("coordenadas_empresas").upsert({
                     "id_empresa": id_empresa,
                     "lat": None,
@@ -192,7 +241,7 @@ if df_empresas.empty:
 # ── Actualizar coordenadas si se pide ────────────────────────────────────────
 if actualizar_click:
     with st.spinner("Preparando actualización..."):
-        st.info("⏳ Geocodificando direcciones... esto puede tomar varios minutos.")
+        st.info("⏳ Geocodificando direcciones usando georef + Nominatim... puede tomar varios minutos.")
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -207,7 +256,6 @@ if actualizar_click:
         if no_encontrados > 0:
             st.warning(f"⚠️ {no_encontrados} direcciones no se encontraron.")
         
-        # Limpiar caché para recargar coordenadas
         st.cache_data.clear()
         st.rerun()
 
@@ -221,7 +269,7 @@ colores_inspectores = {
     "POLINESSI": "#10b981",   # Verde
     "LOPEZ": "#f59e0b",       # Naranja
     "CARBAYO": "#8b5cf6",     # Morado
-    "GARCIA": "#fcd34d",      # Amarillo/Ámbar
+    "GARCIA": "#fcd34d",      # Amarillo
 }
 color_sin_legajo = "#ef4444"  # Rojo
 
@@ -258,7 +306,6 @@ for _, row in df_empresas.iterrows():
     
     lat, lon = coords
     
-    # Determinar color y grupo
     if pd.isna(legajo) or legajo is None:
         color = color_sin_legajo
         grupo = "SIN LEGAJO"
@@ -275,7 +322,6 @@ for _, row in df_empresas.iterrows():
             nombre_inspector = "Desconocido"
             grupo = "Sin inspector"
     
-    # Aplicar filtro
     if inspector_seleccionado == "TODOS":
         pasar = True
     elif inspector_seleccionado == "SIN LEGAJO":
@@ -318,7 +364,7 @@ with col_stats4:
     st.metric("⚠️ Sin coordenadas", total_sin_coords)
 
 if total_sin_coords > 0:
-    st.warning(f"⚠️ {total_sin_coords} empresas no tienen coordenadas. Usá el botón 'ACTUALIZAR COORDENADAS' para geocodificarlas.")
+    st.warning(f"⚠️ {total_sin_coords} empresas sin coordenadas. Usá 'ACTUALIZAR COORDENADAS'.")
 
 st.markdown("---")
 
@@ -327,13 +373,12 @@ if not datos_mapa:
     st.stop()
 
 st.markdown("### 🗺️ Mapa interactivo")
-st.caption("💡 Podés hacer zoom, arrastrar y hacer clic en los puntos para ver los detalles")
+st.caption("💡 Zoom, arrastrar, clic para detalles. Pantalla completa (☐ arriba a la izquierda)")
 
 # ── Crear el mapa ────────────────────────────────────────────────────────────
 centro_mdp = [-38.0055, -57.5426]
 m = folium.Map(location=centro_mdp, zoom_start=12, tiles="cartodbpositron")
 
-# Agregar marcadores por grupo
 grupos = {}
 for dato in datos_mapa:
     grupo = dato["grupo"]
@@ -354,14 +399,11 @@ for dato in datos_mapa:
 for grupo, feature_group in grupos.items():
     feature_group.add_to(m)
 
-# Botón de pantalla completa
 from folium.plugins import Fullscreen
 Fullscreen(position="topleft", title="Pantalla completa", title_cancel="Salir").add_to(m)
 
-# Control de capas
 folium.LayerControl(collapsed=False).add_to(m)
 
-# Marcador central
 folium.Marker(
     location=centro_mdp,
     popup="<b>Mar del Plata</b><br>Centro",
@@ -381,7 +423,6 @@ st.components.v1.html(html_content, height=600, width=None)
 st.markdown("---")
 st.markdown("### 🎨 Leyenda de inspectores")
 
-# Mostrar leyenda con los colores fijos
 col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
@@ -397,4 +438,4 @@ with col5:
 with col6:
     st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#ef4444; border-radius:50%; margin-right:8px;"></span> ❌ Sin legajo', unsafe_allow_html=True)
 
-st.caption(f"📊 Total de empresas en la base: {len(df_empresas)} | Mostradas en el mapa: {len(datos_mapa)} | Actualice coordenadas si faltan direcciones")
+st.caption(f"📊 Total: {len(df_empresas)} empresas | En mapa: {len(datos_mapa)} | Sin coordenadas: {total_sin_coords}")
