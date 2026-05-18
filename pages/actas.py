@@ -91,6 +91,12 @@ div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !im
 .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
     font-size: 0.85rem !important;
 }
+/* Estilo para el diálogo flotante */
+div[role="dialog"] {
+    background: #0f172a !important;
+    border-radius: 16px !important;
+    border: 1px solid #3b82f6 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -572,7 +578,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS)
+# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS EN MODAL)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -647,161 +653,7 @@ with tab2:
         if st.button("⟳ Recargar", use_container_width=True):
             st.rerun()
 
-    # ── MODAL DE PREPARAR MAILS ──────────────────────────────────────────────
-    if st.session_state.get('preparar_mails'):
-        st.markdown("---")
-        st.markdown("### 📧 Preparar Mailing")
-        
-        # Obtener registros candidatos
-        query = supabase.table("padron_deuda_presunta")\
-            .select("*")\
-            .not_.is_("leg", "null")\
-            .eq("mail_enviado", "NO")\
-            .is_("vto", "null")\
-            .execute()
-        
-        df_candidatos = pd.DataFrame(query.data) if query.data else pd.DataFrame()
-        
-        if df_candidatos.empty:
-            st.warning("No hay registros que cumplan las condiciones: legajo asignado, mail NO enviado, VTO vacío.")
-            if st.button("Cerrar"):
-                st.session_state.preparar_mails = False
-                st.rerun()
-        else:
-            st.info(f"📊 Total de registros candidatos: {len(df_candidatos)}")
-            
-            # ── Filtros ──────────────────────────────────────────────────────
-            col_f1, col_f2 = st.columns(2)
-            
-            with col_f1:
-                # Filtrar por localidad
-                localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
-                localidad_filtro = st.selectbox("📍 Filtrar por localidad", localidades)
-                
-                # Cantidad de registros
-                cantidad_opciones = ["TODOS"] + [100, 250, 500, 1000, 2000, 5000]
-                cantidad_seleccion = st.selectbox("🔢 Cantidad de registros", cantidad_opciones)
-                
-                # Ordenar por deuda presunta (mayor a menor)
-                ordenar_por_deuda = st.checkbox("💰 Ordenar por DEUDA PRESUNTA (mayor a menor)", value=True)
-                
-                # Ordenar por fecha HASTA (más antiguos)
-                ordenar_por_hasta = st.checkbox("📅 Ordenar por fecha HASTA (más antiguos primero)")
-                
-                if ordenar_por_deuda and ordenar_por_hasta:
-                    st.warning("Solo se puede aplicar un ordenamiento. Se usará el primero seleccionado.")
-                    ordenar_por_hasta = False
-            
-            with col_f2:
-                # Fecha a asignar
-                nueva_fecha_vto = st.date_input("📅 Asignar fecha de VTO", value=date.today())
-                
-                # Mostrar resumen
-                st.markdown("---")
-                st.markdown("**Resumen de selección:**")
-                
-                # Aplicar filtros
-                df_filtrado = df_candidatos.copy()
-                if localidad_filtro != "TODAS":
-                    df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
-                
-                st.write(f"- Localidad: {localidad_filtro}")
-                st.write(f"- Registros después de filtro: {len(df_filtrado)}")
-            
-            # ── Ordenamiento ─────────────────────────────────────────────────
-            if ordenar_por_deuda:
-                # Convertir deuda_presunta a número para ordenar
-                def parse_deuda(val):
-                    if val is None:
-                        return 0
-                    try:
-                        if isinstance(val, str):
-                            val = val.replace('$', '').replace('.', '').replace(',', '.').strip()
-                        return float(val)
-                    except:
-                        return 0
-                
-                df_filtrado['deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
-                df_filtrado = df_filtrado.sort_values('deuda_num', ascending=False)
-                df_filtrado = df_filtrado.drop(columns=['deuda_num'])
-                st.write("- Orden: Por DEUDA PRESUNTA (mayor a menor)")
-            
-            if ordenar_por_hasta:
-                # Ordenar por fecha HASTA (más antiguos primero)
-                def parse_hasta(val):
-                    if val is None:
-                        return datetime.max
-                    try:
-                        if isinstance(val, str):
-                            if '/' in val:
-                                return datetime.strptime(val, '%d/%m/%Y')
-                            if '-' in val:
-                                return datetime.strptime(val, '%Y-%m-%d')
-                        return val
-                    except:
-                        return datetime.max
-                
-                df_filtrado['hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
-                df_filtrado = df_filtrado.sort_values('hasta_date', ascending=True)
-                df_filtrado = df_filtrado.drop(columns=['hasta_date'])
-                st.write("- Orden: Por fecha HASTA (más antiguos primero)")
-            
-            if not ordenar_por_deuda and not ordenar_por_hasta:
-                st.write("- Orden: Sin ordenamiento específico")
-            
-            # ── Seleccionar cantidad ─────────────────────────────────────────
-            if cantidad_seleccion == "TODOS":
-                df_seleccionado = df_filtrado.copy()
-            else:
-                df_seleccionado = df_filtrado.head(cantidad_seleccion)
-            
-            st.markdown(f"**📌 Registros a procesar: {len(df_seleccionado)}**")
-            
-            # ── Mostrar vista previa ─────────────────────────────────────────
-            with st.expander("📋 Vista previa de registros seleccionados"):
-                df_preview = df_seleccionado[['id', 'cuit', 'razon_social', 'localidad', 'deuda_presunta', 'hasta']].copy()
-                st.dataframe(df_preview, use_container_width=True)
-            
-            # ── Botones de acción ────────────────────────────────────────────
-            col_accion1, col_accion2, col_accion3 = st.columns(3)
-            
-            with col_accion1:
-                if st.button("💾 ACTUALIZAR FECHAS VTO", type="primary"):
-                    with st.spinner(f"Actualizando {len(df_seleccionado)} registros..."):
-                        fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
-                        actualizados = 0
-                        
-                        for idx, row in df_seleccionado.iterrows():
-                            supabase.table("padron_deuda_presunta").update({
-                                "vto": fecha_str
-                            }).eq("id", row['id']).execute()
-                            actualizados += 1
-                        
-                        st.success(f"✅ {actualizados} registros actualizados con fecha VTO: {nueva_fecha_vto.strftime('%d/%m/%Y')}")
-                        
-                        # Limpiar estado
-                        st.session_state.preparar_mails = False
-                        st.rerun()
-            
-            with col_accion2:
-                if st.button("📥 DESCARGAR EXCEL"):
-                    excel_data = generar_excel_asignados(df_seleccionado.to_dict('records'))
-                    fecha_descarga = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    st.download_button(
-                        label="📥 HACER CLIC PARA DESCARGAR",
-                        data=excel_data,
-                        file_name=f"REGISTROS_CON_LEGAJO_{fecha_descarga}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="download_preparar_mails"
-                    )
-                    st.info(f"Archivo: REGISTROS_CON_LEGAJO_{fecha_descarga}.xlsx")
-            
-            with col_accion3:
-                if st.button("❌ Cancelar"):
-                    st.session_state.preparar_mails = False
-                    st.rerun()
-
-    # ── Confirmación eliminar todo ───────────────────────────────────────────
+    # ── CONFIRMACIÓN ELIMINAR TODO ───────────────────────────────────────────
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
         col_si, col_no = st.columns(2)
@@ -815,7 +667,175 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── Generar informes ─────────────────────────────────────────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS ───────────────────────────────────
+    if st.session_state.get('preparar_mails'):
+        @st.dialog("📧 PREPARAR MAILS")
+        def mostrar_dialogo_preparar_mails():
+            st.markdown("Seleccioná los criterios para generar el mailing")
+            
+            # Obtener registros candidatos
+            query = supabase.table("padron_deuda_presunta")\
+                .select("*")\
+                .not_.is_("leg", "null")\
+                .eq("mail_enviado", "NO")\
+                .is_("vto", "null")\
+                .execute()
+            
+            df_candidatos = pd.DataFrame(query.data) if query.data else pd.DataFrame()
+            
+            if df_candidatos.empty:
+                st.warning("No hay registros que cumplan las condiciones: legajo asignado, mail NO enviado, VTO vacío.")
+                if st.button("Cerrar"):
+                    st.session_state.preparar_mails = False
+                    st.rerun()
+                return
+            
+            st.info(f"📊 Total de registros candidatos: {len(df_candidatos)}")
+            
+            # ── FILTROS ──────────────────────────────────────────────────────
+            col_f1, col_f2 = st.columns(2)
+            
+            with col_f1:
+                # Filtrar por localidad
+                localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
+                localidad_filtro = st.selectbox("📍 Localidad", localidades, key="dialog_localidad")
+                
+                # Cantidad de registros (con opción de escribir número)
+                cantidad_opciones = ["TODOS", "100", "250", "500", "1000", "2000", "5000", "OTRO"]
+                cantidad_seleccion = st.selectbox("🔢 Cantidad de registros", cantidad_opciones, key="dialog_cantidad")
+                
+                cantidad_personalizada = None
+                if cantidad_seleccion == "OTRO":
+                    cantidad_personalizada = st.number_input("Escribí la cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad_pers")
+                
+                # Ordenar por deuda presunta (mayor a menor)
+                ordenar_deuda = st.checkbox("💰 Ordenar por DEUDA PRESUNTA (mayor a menor)", value=True, key="dialog_deuda")
+                
+                # Ordenar por fecha HASTA (más antiguos)
+                ordenar_hasta = st.checkbox("📅 Ordenar por fecha HASTA (más antiguos primero)", value=False, key="dialog_hasta")
+            
+            with col_f2:
+                # Fecha a asignar
+                nueva_fecha_vto = st.date_input("📅 Asignar fecha de VTO", value=date.today(), key="dialog_fecha")
+                
+                st.markdown("---")
+                st.markdown("**Resumen de selección:**")
+                
+                # Aplicar filtros
+                df_filtrado = df_candidatos.copy()
+                if localidad_filtro != "TODAS":
+                    df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
+                
+                st.write(f"- Localidad: {localidad_filtro}")
+                st.write(f"- Registros después de filtro: {len(df_filtrado)}")
+            
+            # ── ORDENAMIENTO MÚLTIPLE ────────────────────────────────────────
+            if ordenar_deuda or ordenar_hasta:
+                st.write("- Orden aplicado:")
+                
+                # Convertir deuda_presunta a número
+                def parse_deuda(val):
+                    if val is None:
+                        return 0
+                    try:
+                        if isinstance(val, str):
+                            val = val.replace('$', '').replace('.', '').replace(',', '.').strip()
+                        return float(val)
+                    except:
+                        return 0
+                
+                # Convertir fecha HASTA
+                def parse_hasta(val):
+                    if val is None:
+                        return datetime.max
+                    try:
+                        if isinstance(val, str):
+                            if '/' in val:
+                                return datetime.strptime(val, '%d/%m/%Y')
+                            if '-' in val:
+                                return datetime.strptime(val, '%Y-%m-%d')
+                        return val
+                    except:
+                        return datetime.max
+                
+                # Aplicar ordenamientos en secuencia
+                if ordenar_deuda:
+                    df_filtrado['deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
+                    df_filtrado = df_filtrado.sort_values('deuda_num', ascending=False)
+                    st.write("  ✓ Por DEUDA PRESUNTA (mayor a menor)")
+                
+                if ordenar_hasta:
+                    df_filtrado['hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
+                    df_filtrado = df_filtrado.sort_values('hasta_date', ascending=True)
+                    st.write("  ✓ Por fecha HASTA (más antiguos primero)")
+                
+                # Limpiar columnas temporales
+                if 'deuda_num' in df_filtrado.columns:
+                    df_filtrado = df_filtrado.drop(columns=['deuda_num'])
+                if 'hasta_date' in df_filtrado.columns:
+                    df_filtrado = df_filtrado.drop(columns=['hasta_date'])
+            else:
+                st.write("- Sin ordenamiento específico")
+            
+            # ── SELECCIONAR CANTIDAD ─────────────────────────────────────────
+            if cantidad_seleccion == "TODOS":
+                df_seleccionado = df_filtrado.copy()
+            elif cantidad_seleccion == "OTRO":
+                df_seleccionado = df_filtrado.head(cantidad_personalizada)
+            else:
+                df_seleccionado = df_filtrado.head(int(cantidad_seleccion))
+            
+            st.markdown(f"**📌 Registros a procesar: {len(df_seleccionado)}**")
+            
+            # ── MOSTRAR VISTA PREVIA ─────────────────────────────────────────
+            with st.expander("📋 Vista previa de registros seleccionados"):
+                df_preview = df_seleccionado[['id', 'cuit', 'razon_social', 'localidad', 'deuda_presunta', 'hasta']].copy()
+                st.dataframe(df_preview, use_container_width=True)
+            
+            # ── BOTONES DE ACCIÓN ────────────────────────────────────────────
+            col_accion1, col_accion2 = st.columns(2)
+            
+            with col_accion1:
+                if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
+                    with st.spinner(f"Procesando {len(df_seleccionado)} registros..."):
+                        fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
+                        actualizados = 0
+                        
+                        # Actualizar VTO y MAIL ENVIADO en la base
+                        for idx, row in df_seleccionado.iterrows():
+                            supabase.table("padron_deuda_presunta").update({
+                                "vto": fecha_str,
+                                "mail_enviado": "SI"
+                            }).eq("id", row['id']).execute()
+                            actualizados += 1
+                        
+                        # Generar Excel
+                        excel_data = generar_excel_asignados(df_seleccionado.to_dict('records'))
+                        
+                        st.success(f"✅ {actualizados} registros actualizados con fecha VTO: {nueva_fecha_vto.strftime('%d/%m/%Y')} y MAIL ENVIADO = SI")
+                        
+                        # Descargar Excel
+                        fecha_descarga = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        st.download_button(
+                            label="📥 DESCARGAR EXCEL",
+                            data=excel_data,
+                            file_name=f"REGISTROS_CON_LEGAJO_{fecha_descarga}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="download_after_process"
+                        )
+                        
+                        # Cerrar el diálogo después de procesar
+                        st.session_state.preparar_mails = False
+                        st.rerun()
+            
+            with col_accion2:
+                if st.button("❌ Cancelar", use_container_width=True):
+                    st.session_state.preparar_mails = False
+                    st.rerun()
+        
+        mostrar_dialogo_preparar_mails()
+
+    # ── GENERAR INFORMES ─────────────────────────────────────────────────────
     if st.session_state.get('generar_informe'):
         with st.spinner("Generando informe..."):
             registros_sin_legajo = traer_registros_sin_legajo()
@@ -860,7 +880,7 @@ with tab2:
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
-    # ── Asignación automática de legajos ─────────────────────────────────────
+    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
         
