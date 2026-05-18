@@ -62,7 +62,7 @@ with col_actas:
         st.switch_page("pages/actas.py")
 
 with col_actualizar:
-    actualizar_click = st.button("🔄 ACTUALIZAR COORDENADAS", type="secondary")
+    actualizar_click = st.button("🔄 ACTUALIZAR COORDENADAS (FORZADO)", type="secondary")
 
 with col_volver:
     if st.button("← Volver a Fiscalización"):
@@ -108,12 +108,7 @@ FALLBACK_LOCALIDADES = {
 }
 
 def geocodificar_direccion(calle, numero, localidad):
-    """
-    Geocodifica usando tres fuentes en cascada:
-    1. API georef del gobierno argentino (mejor cobertura local)
-    2. Nominatim (OpenStreetMap) como fallback global
-    3. Coordenadas aproximadas de la localidad si todo falla
-    """
+    """Geocodifica usando georef + Nominatim + fallback"""
     if not calle or str(calle).strip() == "":
         return None
 
@@ -168,12 +163,11 @@ def geocodificar_direccion(calle, numero, localidad):
 
     return FALLBACK_LOCALIDADES["MAR DEL PLATA"]
 
-def actualizar_coordenadas(empresas_df, progress_bar, status_text):
-    """Actualiza coordenadas en Supabase usando georef + Nominatim + fallback"""
+def actualizar_coordenadas_forzado(empresas_df, progress_bar, status_text):
+    """Actualiza TODAS las coordenadas (ignora hash, borra y regenera todo)"""
     
-    # Obtener coordenadas existentes
-    existentes = supabase.table("coordenadas_empresas").select("id_empresa, direccion_hash").execute()
-    existentes_dict = {e['id_empresa']: e.get('direccion_hash', '') for e in existentes.data} if existentes.data else {}
+    # Primero, borrar todas las coordenadas existentes
+    supabase.table("coordenadas_empresas").delete().neq("id_empresa", 0).execute()
     
     actualizados = 0
     no_encontrados = 0
@@ -187,38 +181,29 @@ def actualizar_coordenadas(empresas_df, progress_bar, status_text):
         calle = row.get('calle', '')
         numero = row.get('numero', '')
         localidad = row.get('localidad', 'MAR DEL PLATA')
-        
-        # Generar hash de la dirección actual
         hash_actual = obtener_hash_direccion(calle, numero, localidad)
         
-        # Verificar si necesita actualización
-        necesita_actualizar = True
-        if id_empresa in existentes_dict:
-            if existentes_dict[id_empresa] == hash_actual:
-                necesita_actualizar = False
+        status_text.markdown(f"📍 {calle} {numero} - {row.get('razon_social', '')[:35]}...")
+        coords = geocodificar_direccion(calle, numero, localidad)
         
-        if necesita_actualizar:
-            status_text.markdown(f"📍 Procesando: {calle} {numero} - {row.get('razon_social', '')[:35]}...")
-            coords = geocodificar_direccion(calle, numero, localidad)
-            
-            if coords:
-                supabase.table("coordenadas_empresas").upsert({
-                    "id_empresa": id_empresa,
-                    "lat": coords[0],
-                    "lon": coords[1],
-                    "direccion_hash": hash_actual,
-                    "ultima_actualizacion": "now()"
-                }).execute()
-                actualizados += 1
-            else:
-                no_encontrados += 1
-                supabase.table("coordenadas_empresas").upsert({
-                    "id_empresa": id_empresa,
-                    "lat": None,
-                    "lon": None,
-                    "direccion_hash": hash_actual,
-                    "ultima_actualizacion": "now()"
-                }).execute()
+        if coords:
+            supabase.table("coordenadas_empresas").insert({
+                "id_empresa": id_empresa,
+                "lat": coords[0],
+                "lon": coords[1],
+                "direccion_hash": hash_actual,
+                "ultima_actualizacion": "now()"
+            }).execute()
+            actualizados += 1
+        else:
+            no_encontrados += 1
+            supabase.table("coordenadas_empresas").insert({
+                "id_empresa": id_empresa,
+                "lat": None,
+                "lon": None,
+                "direccion_hash": hash_actual,
+                "ultima_actualizacion": "now()"
+            }).execute()
     
     return actualizados, no_encontrados
 
@@ -238,26 +223,25 @@ if df_empresas.empty:
     st.warning("No hay empresas cargadas en la base de datos.")
     st.stop()
 
-# ── Actualizar coordenadas si se pide ────────────────────────────────────────
+# ── Actualizar coordenadas FORZADO si se pide ────────────────────────────────
 if actualizar_click:
-    with st.spinner("Preparando actualización..."):
-        st.info("⏳ Geocodificando direcciones usando georef + Nominatim... puede tomar varios minutos.")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        actualizados, no_encontrados = actualizar_coordenadas(df_empresas, progress_bar, status_text)
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        if actualizados > 0:
-            st.success(f"✅ {actualizados} coordenadas actualizadas correctamente.")
-        if no_encontrados > 0:
-            st.warning(f"⚠️ {no_encontrados} direcciones no se encontraron.")
-        
-        st.cache_data.clear()
-        st.rerun()
+    st.info("⏳ Geocodificando TODAS las direcciones desde cero... puede tomar varios minutos.")
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    actualizados, no_encontrados = actualizar_coordenadas_forzado(df_empresas, progress_bar, status_text)
+    
+    progress_bar.empty()
+    status_text.empty()
+    
+    if actualizados > 0:
+        st.success(f"✅ {actualizados} coordenadas actualizadas correctamente.")
+    if no_encontrados > 0:
+        st.warning(f"⚠️ {no_encontrados} direcciones no se encontraron.")
+    
+    st.cache_data.clear()
+    st.rerun()
 
 # ── Cargar coordenadas guardadas ─────────────────────────────────────────────
 with st.spinner("Cargando coordenadas..."):
@@ -364,7 +348,7 @@ with col_stats4:
     st.metric("⚠️ Sin coordenadas", total_sin_coords)
 
 if total_sin_coords > 0:
-    st.warning(f"⚠️ {total_sin_coords} empresas sin coordenadas. Usá 'ACTUALIZAR COORDENADAS'.")
+    st.warning(f"⚠️ {total_sin_coords} empresas sin coordenadas. Usá 'ACTUALIZAR COORDENADAS (FORZADO)'.")
 
 st.markdown("---")
 
