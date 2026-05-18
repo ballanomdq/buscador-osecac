@@ -31,8 +31,8 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── FILA DE BOTONES: Volver, Actas, Mapa, Backup, Informe ─────────────────────
-col_back, col_actas, col_mapa, col_reset, col_informe = st.columns([1, 1, 1, 1.5, 1.5])
+# ── FILA DE BOTONES: Volver, Actas, Mapa, Editor Zonas, Backup, Informe ───────
+col_back, col_actas, col_mapa, col_editor, col_reset, col_informe = st.columns([1, 1, 1, 1, 1.5, 1.5])
 
 with col_back:
     if st.button("← Volver", key="btn_volver_zonas"):
@@ -45,6 +45,10 @@ with col_actas:
 with col_mapa:
     if st.button("🗺️ MAPA", key="btn_mapa"):
         st.switch_page("pages/mapazona.py")
+
+with col_editor:
+    if st.button("🎨 EDITAR ZONAS", key="btn_editor_zonas"):
+        st.switch_page("pages/editor_zonas.py")
 
 with col_reset:
     if st.button("🚀 BACKUP DE SEGURIDAD", key="btn_reset_oficial", type="primary"):
@@ -105,7 +109,6 @@ def generar_informe_completo():
         contenido.append("├" + "─" * 78 + "┤")
         
         if calles.data:
-            # Agrupar por calle (pueden tener múltiples rangos)
             calles_agrupadas = {}
             for calle in calles.data:
                 clave = calle['calle']
