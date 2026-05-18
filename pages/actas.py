@@ -91,11 +91,20 @@ div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !im
 .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
     font-size: 0.85rem !important;
 }
-/* Estilo para el diálogo flotante */
+/* Estilo para el diálogo flotante - MEJOR CONTRASTE */
 div[role="dialog"] {
-    background: #0f172a !important;
+    background: #1e293b !important;
     border-radius: 16px !important;
     border: 1px solid #3b82f6 !important;
+}
+div[role="dialog"] .stMarkdown p,
+div[role="dialog"] label,
+div[role="dialog"] .st-emotion-cache-1v0mbdj,
+div[role="dialog"] .st-emotion-cache-ue6h4q {
+    color: #f1f5f9 !important;
+}
+div[role="dialog"] .st-emotion-cache-1wivap2 {
+    color: #cbd5e1 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -450,6 +459,17 @@ def generar_informe_txt(registros_sin_legajo):
     
     return "\n".join(contenido)
 
+def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
+    """Genera Excel con columnas limpias: CUIT, RAZON SOCIAL, LEGAJO, VTO"""
+    df_export = df_seleccionado[['cuit', 'razon_social', 'leg', 'vto']].copy()
+    df_export['vto'] = fecha_vto_str
+    df_export.columns = ['CUIT', 'RAZON SOCIAL', 'LEGAJO', 'VTO ASIGNADO']
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_export.to_excel(writer, sheet_name='Mailing', index=False)
+    return output.getvalue()
+
 def generar_excel_asignados(registros):
     df = pd.DataFrame(registros)
     columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
@@ -700,7 +720,7 @@ with tab2:
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                 localidad_filtro = st.selectbox("📍 Localidad", localidades, key="dialog_localidad")
                 
-                # Cantidad de registros (con opción de escribir número)
+                # Cantidad de registros
                 cantidad_opciones = ["TODOS", "100", "250", "500", "1000", "2000", "5000", "OTRO"]
                 cantidad_seleccion = st.selectbox("🔢 Cantidad de registros", cantidad_opciones, key="dialog_cantidad")
                 
@@ -716,23 +736,21 @@ with tab2:
             
             with col_f2:
                 # Fecha a asignar
-                nueva_fecha_vto = st.date_input("📅 Asignar fecha de VTO", value=date.today(), key="dialog_fecha")
+                nueva_fecha_vto = st.date_input("📅 Fecha VTO a asignar", value=date.today(), key="dialog_fecha")
                 
                 st.markdown("---")
-                st.markdown("**Resumen de selección:**")
+                st.markdown("**Resumen:**")
                 
                 # Aplicar filtros
                 df_filtrado = df_candidatos.copy()
                 if localidad_filtro != "TODAS":
                     df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
                 
-                st.write(f"- Localidad: {localidad_filtro}")
-                st.write(f"- Registros después de filtro: {len(df_filtrado)}")
+                st.write(f"📌 Localidad: {localidad_filtro}")
+                st.write(f"📌 Registros después de filtro: {len(df_filtrado)}")
             
             # ── ORDENAMIENTO MÚLTIPLE ────────────────────────────────────────
             if ordenar_deuda or ordenar_hasta:
-                st.write("- Orden aplicado:")
-                
                 # Convertir deuda_presunta a número
                 def parse_deuda(val):
                     if val is None:
@@ -758,24 +776,16 @@ with tab2:
                     except:
                         return datetime.max
                 
-                # Aplicar ordenamientos en secuencia
                 if ordenar_deuda:
                     df_filtrado['deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
                     df_filtrado = df_filtrado.sort_values('deuda_num', ascending=False)
-                    st.write("  ✓ Por DEUDA PRESUNTA (mayor a menor)")
                 
                 if ordenar_hasta:
                     df_filtrado['hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
                     df_filtrado = df_filtrado.sort_values('hasta_date', ascending=True)
-                    st.write("  ✓ Por fecha HASTA (más antiguos primero)")
                 
                 # Limpiar columnas temporales
-                if 'deuda_num' in df_filtrado.columns:
-                    df_filtrado = df_filtrado.drop(columns=['deuda_num'])
-                if 'hasta_date' in df_filtrado.columns:
-                    df_filtrado = df_filtrado.drop(columns=['hasta_date'])
-            else:
-                st.write("- Sin ordenamiento específico")
+                df_filtrado = df_filtrado.drop(columns=[c for c in ['deuda_num', 'hasta_date'] if c in df_filtrado.columns])
             
             # ── SELECCIONAR CANTIDAD ─────────────────────────────────────────
             if cantidad_seleccion == "TODOS":
@@ -785,11 +795,12 @@ with tab2:
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_seleccion))
             
-            st.markdown(f"**📌 Registros a procesar: {len(df_seleccionado)}**")
+            st.markdown(f"**📌 Registros seleccionados: {len(df_seleccionado)}**")
             
-            # ── MOSTRAR VISTA PREVIA ─────────────────────────────────────────
+            # ── VISTA PREVIA (SOLO CUIT, RAZON SOCIAL, LEGAJO) ────────────────
             with st.expander("📋 Vista previa de registros seleccionados"):
-                df_preview = df_seleccionado[['id', 'cuit', 'razon_social', 'localidad', 'deuda_presunta', 'hasta']].copy()
+                df_preview = df_seleccionado[['cuit', 'razon_social', 'leg']].copy()
+                df_preview.columns = ['CUIT', 'RAZON SOCIAL', 'LEGAJO']
                 st.dataframe(df_preview, use_container_width=True)
             
             # ── BOTONES DE ACCIÓN ────────────────────────────────────────────
@@ -799,6 +810,7 @@ with tab2:
                 if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
                     with st.spinner(f"Procesando {len(df_seleccionado)} registros..."):
                         fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
+                        fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
                         actualizados = 0
                         
                         # Actualizar VTO y MAIL ENVIADO en la base
@@ -809,22 +821,22 @@ with tab2:
                             }).eq("id", row['id']).execute()
                             actualizados += 1
                         
-                        # Generar Excel
-                        excel_data = generar_excel_asignados(df_seleccionado.to_dict('records'))
+                        # Generar Excel LIMPIO
+                        excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
                         
-                        st.success(f"✅ {actualizados} registros actualizados con fecha VTO: {nueva_fecha_vto.strftime('%d/%m/%Y')} y MAIL ENVIADO = SI")
+                        st.success(f"✅ {actualizados} registros actualizados con fecha VTO: {fecha_mostrar}")
                         
                         # Descargar Excel
                         fecha_descarga = datetime.now().strftime("%Y%m%d_%H%M%S")
                         st.download_button(
                             label="📥 DESCARGAR EXCEL",
                             data=excel_data,
-                            file_name=f"REGISTROS_CON_LEGAJO_{fecha_descarga}.xlsx",
+                            file_name=f"MAILING_{fecha_descarga}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             key="download_after_process"
                         )
                         
-                        # Cerrar el diálogo después de procesar
+                        # Cerrar el diálogo
                         st.session_state.preparar_mails = False
                         st.rerun()
             
