@@ -13,3 +13,4 @@ requests
 pytz
 plotly
 matplotlib
+folium
