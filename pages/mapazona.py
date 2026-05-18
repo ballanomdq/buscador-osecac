@@ -7,6 +7,7 @@ import time
 from urllib.parse import quote
 import tempfile
 import os
+import hashlib
 
 st.set_page_config(page_title="Mapa de Empresas - OSECAC", layout="wide")
 
@@ -16,7 +17,7 @@ st.markdown("""
     background: linear-gradient(135deg, #1e293b, #0f172a);
     padding: 1rem;
     border-radius: 10px;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     border-left: 4px solid #3b82f6;
 }
 .main-header h2 { color: white; margin: 0; font-size: 1.3rem; }
@@ -27,8 +28,23 @@ div[data-testid="stButton"] button {
     border: none !important;
     padding: 0.3rem 1rem !important;
     font-size: 0.8rem !important;
+    border-radius: 6px !important;
 }
 div[data-testid="stButton"] button:hover { background: #2563eb !important; }
+div[data-testid="stButton"] button[kind="secondary"] {
+    background: #10b981 !important;
+}
+div[data-testid="stButton"] button[kind="secondary"]:hover {
+    background: #059669 !important;
+}
+/* Quitar márgenes del mapa */
+iframe {
+    width: 100% !important;
+    height: 70vh !important;
+    min-height: 500px !important;
+    border: none !important;
+    border-radius: 8px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -39,6 +55,22 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ── Botones superiores ───────────────────────────────────────────────────────
+col_actas, col_actualizar, col_volver = st.columns([1, 1, 4])
+
+with col_actas:
+    if st.button("📋 IR A ACTAS", type="primary"):
+        st.switch_page("pages/actas.py")
+
+with col_actualizar:
+    actualizar_click = st.button("🔄 ACTUALIZAR COORDENADAS", type="secondary")
+
+with col_volver:
+    if st.button("← Volver a Fiscalización"):
+        st.switch_page("pages/actas.py")
+
+st.markdown("---")
+
 # ── Conexión a Supabase ──────────────────────────────────────────────────────
 @st.cache_resource
 def get_supabase():
@@ -48,14 +80,6 @@ def get_supabase():
     )
 
 supabase = get_supabase()
-
-# ── Botón volver ─────────────────────────────────────────────────────────────
-col_back, _ = st.columns([1, 11])
-with col_back:
-    if st.button("← Volver a Fiscalización"):
-        st.switch_page("pages/actas.py")
-
-st.markdown("---")
 
 # ── Obtener datos de la base ─────────────────────────────────────────────────
 @st.cache_data(ttl=300)
@@ -68,85 +92,143 @@ def cargar_inspectores():
     datos = supabase.table("inspectores").select("*").order("legajo").execute()
     return datos.data if datos.data else []
 
-# ── Función para geocodificar una dirección (obtener coordenadas reales) ─────
+def obtener_hash_direccion(calle, numero, localidad):
+    """Genera un hash único para la dirección"""
+    direccion = f"{calle}|{numero}|{localidad}".upper().strip()
+    return hashlib.md5(direccion.encode()).hexdigest()
+
 def geocodificar_direccion(calle, numero, localidad):
-    """Obtiene coordenadas reales usando Nominatim (OpenStreetMap)"""
+    """Obtiene coordenadas reales usando Nominatim"""
     if not calle or calle == "":
         return None
     
-    # Construir dirección completa
     direccion = f"{calle} {numero}, {localidad}, Buenos Aires, Argentina"
     direccion_encoded = quote(direccion)
-    
     url = f"https://nominatim.openstreetmap.org/search?q={direccion_encoded}&format=json&limit=1"
     
     try:
-        # Respetar la política de uso de Nominatim
-        time.sleep(0.5)
-        
+        time.sleep(0.3)  # Respetar política de uso
         response = requests.get(url, headers={"User-Agent": "OSECAC-Fiscalizacion/1.0"})
         data = response.json()
         
         if data and len(data) > 0:
-            lat = float(data[0]['lat'])
-            lon = float(data[0]['lon'])
-            return [lat, lon]
-        else:
-            return None
-    except Exception as e:
+            return (float(data[0]['lat']), float(data[0]['lon']))
+        return None
+    except Exception:
         return None
 
-# ── Cargar y geocodificar empresas con caché ─────────────────────────────────
-@st.cache_data(ttl=86400)  # Cache por 24 horas
-def cargar_empresas_con_coordenadas():
-    df = cargar_empresas()
+def actualizar_coordenadas(empresas_df, progress_bar, status_text):
+    """Actualiza coordenadas en Supabase solo para empresas nuevas o con dirección modificada"""
     
-    if df.empty:
-        return df
+    # Obtener coordenadas existentes
+    existentes = supabase.table("coordenadas_empresas").select("id_empresa, direccion_hash").execute()
+    existentes_dict = {e['id_empresa']: e.get('direccion_hash', '') for e in existentes.data} if existentes.data else {}
     
-    # Agregar columnas de coordenadas
-    df['lat'] = None
-    df['lon'] = None
+    actualizados = 0
+    no_encontrados = 0
+    total = len(empresas_df)
     
-    # Barra de progreso
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    for idx, row in df.iterrows():
-        status_text.text(f"Geocodificando: {row.get('calle', '')} {row.get('numero', '')}")
+    for idx, row in empresas_df.iterrows():
+        progreso = (idx + 1) / total
+        progress_bar.progress(progreso, text=f"Geocodificando {idx+1} de {total}...")
         
-        coords = geocodificar_direccion(
-            row.get('calle', ''),
-            row.get('numero', ''),
-            row.get('localidad', 'MAR DEL PLATA')
-        )
+        id_empresa = row['id']
+        calle = row.get('calle', '')
+        numero = row.get('numero', '')
+        localidad = row.get('localidad', 'MAR DEL PLATA')
         
-        if coords:
-            df.at[idx, 'lat'] = coords[0]
-            df.at[idx, 'lon'] = coords[1]
+        # Generar hash de la dirección actual
+        hash_actual = obtener_hash_direccion(calle, numero, localidad)
         
-        progress_bar.progress((idx + 1) / len(df))
+        # Verificar si necesita actualización
+        necesita_actualizar = True
+        if id_empresa in existentes_dict:
+            if existentes_dict[id_empresa] == hash_actual:
+                necesita_actualizar = False
+        
+        if necesita_actualizar:
+            status_text.markdown(f"📍 Procesando: {calle} {numero} - {row.get('razon_social', '')[:30]}...")
+            coords = geocodificar_direccion(calle, numero, localidad)
+            
+            if coords:
+                # Guardar o actualizar en Supabase
+                supabase.table("coordenadas_empresas").upsert({
+                    "id_empresa": id_empresa,
+                    "lat": coords[0],
+                    "lon": coords[1],
+                    "direccion_hash": hash_actual,
+                    "ultima_actualizacion": "now()"
+                }).execute()
+                actualizados += 1
+            else:
+                no_encontrados += 1
+                # Marcar como sin coordenadas (con hash especial)
+                supabase.table("coordenadas_empresas").upsert({
+                    "id_empresa": id_empresa,
+                    "lat": None,
+                    "lon": None,
+                    "direccion_hash": hash_actual,
+                    "ultima_actualizacion": "now()"
+                }).execute()
     
-    progress_bar.empty()
-    status_text.empty()
-    
-    return df
+    return actualizados, no_encontrados
 
-# ── Obtener datos ────────────────────────────────────────────────────────────
-with st.spinner("Cargando datos y geocodificando direcciones..."):
-    df_empresas = cargar_empresas_con_coordenadas()
+def cargar_coordenadas():
+    """Carga coordenadas desde Supabase"""
+    datos = supabase.table("coordenadas_empresas").select("id_empresa, lat, lon").execute()
+    if datos.data:
+        return {d['id_empresa']: (d['lat'], d['lon']) for d in datos.data if d['lat'] is not None}
+    return {}
+
+# ── Cargar datos ─────────────────────────────────────────────────────────────
+with st.spinner("Cargando empresas..."):
+    df_empresas = cargar_empresas()
     inspectores = cargar_inspectores()
 
 if df_empresas.empty:
     st.warning("No hay empresas cargadas en la base de datos.")
     st.stop()
 
-# ── Colores para inspectores ─────────────────────────────────────────────────
-paleta_colores = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#F0B27A", "#85C1E9"]
+# ── Actualizar coordenadas si se pide ────────────────────────────────────────
+if actualizar_click:
+    with st.spinner("Preparando actualización..."):
+        st.info("⏳ Geocodificando direcciones... esto puede tomar varios minutos.")
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        actualizados, no_encontrados = actualizar_coordenadas(df_empresas, progress_bar, status_text)
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        if actualizados > 0:
+            st.success(f"✅ {actualizados} coordenadas actualizadas correctamente.")
+        if no_encontrados > 0:
+            st.warning(f"⚠️ {no_encontrados} direcciones no se encontraron.")
+        
+        # Limpiar caché para recargar coordenadas
+        st.cache_data.clear()
+        st.rerun()
+
+# ── Cargar coordenadas guardadas ─────────────────────────────────────────────
+with st.spinner("Cargando coordenadas..."):
+    coordenadas = cargar_coordenadas()
+
+# ── Colores fijos para inspectores ───────────────────────────────────────────
+colores_inspectores = {
+    "RODRIGUEZ": "#2563eb",   # Azul
+    "POLINESSI": "#10b981",   # Verde
+    "LOPEZ": "#f59e0b",       # Naranja
+    "CARBAYO": "#8b5cf6",     # Morado
+    "GARCIA": "#fcd34d",      # Amarillo/Ámbar
+}
+color_sin_legajo = "#ef4444"  # Rojo
 
 color_por_legajo = {}
-for idx, ins in enumerate(inspectores):
-    color_por_legajo[ins['legajo']] = paleta_colores[idx % len(paleta_colores)]
+for ins in inspectores:
+    nombre_corto = ins['nombre'].split(',')[0].upper()
+    color_por_legajo[ins['legajo']] = colores_inspectores.get(nombre_corto, "#6b7280")
 
 # ── Filtros ──────────────────────────────────────────────────────────────────
 st.markdown("### 🔍 Filtrar por Inspector")
@@ -157,35 +239,39 @@ inspector_seleccionado = st.selectbox("Seleccionar inspector", opciones_inspecto
 # ── Preparar datos para el mapa ──────────────────────────────────────────────
 datos_mapa = []
 total_sin_coords = 0
+total_sin_legajo_mapa = 0
 
 for _, row in df_empresas.iterrows():
+    id_empresa = row['id']
     legajo = row.get('leg')
     razon_social = row.get('razon_social', 'Sin nombre')
     calle = row.get('calle', '')
     numero = row.get('numero', '')
     localidad = row.get('localidad', '')
     cuit = row.get('cuit', '')
-    lat = row.get('lat')
-    lon = row.get('lon')
     
-    # Solo mostrar empresas con coordenadas válidas
-    if lat is None or lon is None:
+    coords = coordenadas.get(id_empresa)
+    
+    if not coords:
         total_sin_coords += 1
         continue
     
+    lat, lon = coords
+    
     # Determinar color y grupo
     if pd.isna(legajo) or legajo is None:
-        color = "#FF0000"  # ROJO para sin legajo
+        color = color_sin_legajo
         grupo = "SIN LEGAJO"
         nombre_inspector = "Sin asignar"
+        total_sin_legajo_mapa += 1
     else:
         inspector = next((ins for ins in inspectores if ins['legajo'] == legajo), None)
         if inspector:
             nombre_inspector = inspector['nombre'].split(',')[0]
-            color = color_por_legajo.get(legajo, "#888888")
+            color = color_por_legajo.get(legajo, "#6b7280")
             grupo = f"{nombre_inspector} (Legajo {legajo})"
         else:
-            color = "#888888"
+            color = "#6b7280"
             nombre_inspector = "Desconocido"
             grupo = "Sin inspector"
     
@@ -199,12 +285,12 @@ for _, row in df_empresas.iterrows():
     
     if pasar:
         popup_text = f"""
-        <div style="min-width: 200px;">
+        <div style="min-width: 220px;">
             <b>{razon_social}</b><br>
             <b>CUIT:</b> {cuit}<br>
             <b>Dirección:</b> {calle} {numero}<br>
             <b>Localidad:</b> {localidad}<br>
-            <b>Inspector:</b> {nombre_inspector}<br>
+            <b style="color:{color}">●</b> <b>Inspector:</b> {nombre_inspector}<br>
             <b>Legajo:</b> {legajo if not pd.isna(legajo) else 'Sin asignar'}
         </div>
         """
@@ -220,25 +306,28 @@ for _, row in df_empresas.iterrows():
 # ── Mostrar estadísticas ─────────────────────────────────────────────────────
 st.markdown("---")
 
-if total_sin_coords > 0:
-    st.warning(f"⚠️ {total_sin_coords} empresas no tienen coordenadas (dirección no encontrada)")
-
-if not datos_mapa:
-    st.info(f"No hay empresas para mostrar con el filtro '{inspector_seleccionado}'")
-    st.stop()
-
-col_stats1, col_stats2, col_stats3 = st.columns(3)
+col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
 with col_stats1:
     st.metric("📍 Empresas en mapa", len(datos_mapa))
 with col_stats2:
     con_legajo = sum(1 for d in datos_mapa if d["grupo"] != "SIN LEGAJO")
     st.metric("✅ Con legajo", con_legajo)
 with col_stats3:
-    sin_legajo = sum(1 for d in datos_mapa if d["grupo"] == "SIN LEGAJO")
-    st.metric("❌ Sin legajo", sin_legajo)
+    st.metric("❌ Sin legajo", total_sin_legajo_mapa)
+with col_stats4:
+    st.metric("⚠️ Sin coordenadas", total_sin_coords)
+
+if total_sin_coords > 0:
+    st.warning(f"⚠️ {total_sin_coords} empresas no tienen coordenadas. Usá el botón 'ACTUALIZAR COORDENADAS' para geocodificarlas.")
 
 st.markdown("---")
+
+if not datos_mapa:
+    st.info(f"No hay empresas para mostrar con el filtro '{inspector_seleccionado}'")
+    st.stop()
+
 st.markdown("### 🗺️ Mapa interactivo")
+st.caption("💡 Podés hacer zoom, arrastrar y hacer clic en los puntos para ver los detalles")
 
 # ── Crear el mapa ────────────────────────────────────────────────────────────
 centro_mdp = [-38.0055, -57.5426]
@@ -253,47 +342,59 @@ for dato in datos_mapa:
     
     folium.CircleMarker(
         location=dato["coords"],
-        radius=6,
-        popup=folium.Popup(dato["popup"], max_width=300),
+        radius=7,
+        popup=folium.Popup(dato["popup"], max_width=350),
         color=dato["color"],
         fill=True,
         fill_color=dato["color"],
         fill_opacity=0.7,
-        tooltip=dato["razon_social"][:30]
+        tooltip=dato["razon_social"][:35]
     ).add_to(grupos[grupo])
 
 for grupo, feature_group in grupos.items():
     feature_group.add_to(m)
 
-folium.LayerControl(collapsed=False).add_to(m)
-folium.Marker(location=centro_mdp, popup="<b>Mar del Plata</b><br>Centro", icon=folium.Icon(color="blue", icon="info-sign")).add_to(m)
+# Botón de pantalla completa
+from folium.plugins import Fullscreen
+Fullscreen(position="topleft", title="Pantalla completa", title_cancel="Salir").add_to(m)
 
-# ── Guardar y mostrar el mapa como HTML ──────────────────────────────────────
+# Control de capas
+folium.LayerControl(collapsed=False).add_to(m)
+
+# Marcador central
+folium.Marker(
+    location=centro_mdp,
+    popup="<b>Mar del Plata</b><br>Centro",
+    icon=folium.Icon(color="blue", icon="info-sign")
+).add_to(m)
+
+# ── Guardar y mostrar el mapa ────────────────────────────────────────────────
 with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as tmp:
     m.save(tmp.name)
     with open(tmp.name, 'r', encoding='utf-8') as f:
         html_content = f.read()
     os.unlink(tmp.name)
 
-st.components.v1.html(html_content, height=600, width=1000)
+st.components.v1.html(html_content, height=600, width=None)
 
-# ── Leyenda ──────────────────────────────────────────────────────────────────
+# ── Leyenda de colores ───────────────────────────────────────────────────────
 st.markdown("---")
-st.markdown("### 🎨 Leyenda de colores")
+st.markdown("### 🎨 Leyenda de inspectores")
 
-colores_mostrados = {}
-for dato in datos_mapa:
-    if dato["grupo"] != "SIN LEGAJO" and dato["grupo"] not in colores_mostrados:
-        colores_mostrados[dato["grupo"]] = dato["color"]
+# Mostrar leyenda con los colores fijos
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
-cols_leyenda = st.columns(min(len(colores_mostrados) + 2, 4))
-idx = 0
-for grupo, color in colores_mostrados.items():
-    with cols_leyenda[idx % 4]:
-        st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:{color}; border-radius:50%; margin-right:8px;"></span> {grupo}', unsafe_allow_html=True)
-    idx += 1
+with col1:
+    st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#2563eb; border-radius:50%; margin-right:8px;"></span> RODRIGUEZ', unsafe_allow_html=True)
+with col2:
+    st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#10b981; border-radius:50%; margin-right:8px;"></span> POLINESSI', unsafe_allow_html=True)
+with col3:
+    st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#f59e0b; border-radius:50%; margin-right:8px;"></span> LOPEZ', unsafe_allow_html=True)
+with col4:
+    st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#8b5cf6; border-radius:50%; margin-right:8px;"></span> CARBAYO', unsafe_allow_html=True)
+with col5:
+    st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#fcd34d; border-radius:50%; margin-right:8px;"></span> GARCIA', unsafe_allow_html=True)
+with col6:
+    st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:#ef4444; border-radius:50%; margin-right:8px;"></span> ❌ Sin legajo', unsafe_allow_html=True)
 
-with cols_leyenda[idx % 4]:
-    st.markdown('<span style="display:inline-block; width:20px; height:20px; background:#FF0000; border-radius:50%; margin-right:8px;"></span> ❌ Sin legajo', unsafe_allow_html=True)
-
-st.caption(f"📊 Total de empresas en la base: {len(df_empresas)} | Mostradas en el mapa: {len(datos_mapa)} | Sin coordenadas: {total_sin_coords}")
+st.caption(f"📊 Total de empresas en la base: {len(df_empresas)} | Mostradas en el mapa: {len(datos_mapa)} | Actualice coordenadas si faltan direcciones")
