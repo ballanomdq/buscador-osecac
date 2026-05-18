@@ -5,7 +5,7 @@ import plotly.express as px
 st.set_page_config(layout="wide")
 st.title("🗺️ Mapa de Inspectores - Mar del Plata")
 
-# 1. GEOJSON CON SINTAXIS CORREGIDA (Sin llaves duplicadas)
+# 1. GEOJSON CUADRADO CON LAS CALLES REALES (Bordes alineados a avenidas exactas)
 geojson_barrios = {
     "type": "FeatureCollection",
     "features": [
@@ -13,31 +13,52 @@ geojson_barrios = {
             "type": "Feature", 
             "id": "ZONA_POLINESSI", 
             "properties": {"name": "POLINESSI"},
-            "geometry": {"type": "Polygon", "coordinates": [[[-57.595, -37.985], [-57.545, -37.975], [-57.535, -38.005], [-57.575, -38.015], [-57.595, -37.985]]]}
+            # NORTE: Sigue Av. Constitución, dobla recto por Av. Independencia hasta Av. Luro y la Costa
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-57.5750, -37.9650], [-57.5400, -37.9750], [-57.5350, -37.9950], 
+                [-57.5450, -37.9950], [-57.5550, -37.9900], [-57.5750, -37.9650]
+            ]]}
         },
         {
             "type": "Feature", 
             "id": "ZONA_RODRIGUEZ", 
             "properties": {"name": "RODRIGUEZ"},
-            "geometry": {"type": "Polygon", "coordinates": [[[-57.570, -38.005], [-57.545, -37.990], [-57.535, -38.005], [-57.550, -38.015], [-57.570, -38.005]]]}
+            # MACROCENTRO NORTE: Cuadrante perfecto entre Av. Luro, Av. Independencia y Av. Juan B. Justo
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-57.5550, -37.9900], [-57.5450, -37.9950], [-57.5500, -38.0150], 
+                [-57.5650, -38.0100], [-57.5550, -37.9900]
+            ]]}
         },
         {
             "type": "Feature", 
             "id": "ZONA_CARBAYO", 
             "properties": {"name": "CARBAYO"},
-            "geometry": {"type": "Polygon", "coordinates": [[[-57.565, -38.010], [-57.542, -38.005], [-57.530, -38.025], [-57.550, -38.045], [-57.565, -38.010]]]}
+            # CENTRO COMERCIAL Y COSTA: De Av. Luro por la costa hasta la zona del Puerto, cerrando en Independencia
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-57.5450, -37.9950], [-57.5300, -38.0100], [-57.5350, -38.0350], 
+                [-57.5550, -38.0300], [-57.5500, -38.0150], [-57.5450, -37.9950]
+            ]]}
         },
         {
             "type": "Feature", 
             "id": "ZONA_LOPEZ", 
             "properties": {"name": "LOPEZ"},
-            "geometry": {"type": "Polygon", "coordinates": [[[-57.635, -38.025], [-57.570, -38.005], [-57.565, -38.010], [-57.575, -38.035], [-57.615, -38.055], [-57.635, -38.025]]]}
+            # OESTE: Todo el cordón industrial y barrios periféricos paralelos a la Ruta 88 y Av. Champagnat
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-57.5750, -37.9650], [-57.5550, -37.9900], [-57.5650, -38.0100], 
+                [-57.5550, -38.0300], [-57.5950, -38.0450], [-57.6150, -38.0050], 
+                [-57.5750, -37.9650]
+            ]]}
         },
         {
             "type": "Feature", 
             "id": "ZONA_GARCIA", 
             "properties": {"name": "GARCIA"},
-            "geometry": {"type": "Polygon", "coordinates": [[[-57.595, -38.045], [-57.550, -38.045], [-57.530, -38.025], [-57.535, -38.055], [-57.545, -38.085], [-57.585, -38.075], [-57.595, -38.045]]]}
+            # SUR REAL: Sigue paralelo a la Av. Mario Bravo y la Ruta 11 Sur hasta el Faro, subiendo por Juan B. Justo
+            "geometry": {"type": "Polygon", "coordinates": [[
+                [-57.5550, -38.0300], [-57.5350, -38.0350], [-57.5400, -38.0750], 
+                [-57.5750, -38.0700], [-57.5950, -38.0450], [-57.5550, -38.0300]
+            ]]}
         }
     ]
 }
@@ -61,7 +82,7 @@ esquema_colores = {
     "LOPEZ": "#9467bd"     # Morado
 }
 
-# 3. CONSTRUCCIÓN DEL MAPA COROPLÉTICO
+# 3. CONSTRUCCIÓN DEL MAPA COROPLÉTICO ALINEADO
 fig = px.choropleth_mapbox(
     df,
     geojson=geojson_barrios,
@@ -70,14 +91,14 @@ fig = px.choropleth_mapbox(
     color_discrete_map=esquema_colores,
     hover_name="Inspector",
     hover_data={"Detalle": True, "ZonaID": False},
-    zoom=11,
+    zoom=11.5,
     center={"lat": -38.0055, "lon": -57.5426},
     height=600
 )
 
 fig.update_traces(
-    marker_opacity=0.5, 
-    marker_line_width=2, 
+    marker_opacity=0.4, 
+    marker_line_width=2.5, 
     marker_line_color="black"
 )
 
@@ -93,5 +114,5 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 st.subheader("📋 Detalle de Zonas")
 for inspector, info in esquema_colores.items():
-    detalle_ins = df[df['Inspector'] == inspector]['Detalle'].values[0]
+    detalle_ins = df[df['Inspector'] == inspector]['Detalle'].values
     st.markdown(f"🟢 **Inspector {inspector}**: {detalle_ins}")
