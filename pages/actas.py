@@ -35,14 +35,16 @@ html, body, [class*="css"] { font-size: 13px !important; }
 }
 .app-header h3 { color: #fff; margin: 0; font-size: 1.2rem; font-weight: 500; }
 .app-header p { color: #94a3b8; margin: 0; font-size: 0.7rem; }
-/* BOTÓN GUARDAR CAMBIOS - VERDE DESTACADO (ÚNICO COLOR VERDE) */
-div[data-testid="stButton"] > button[kind="secondary"] {
+
+/* BOTÓN GUARDAR CAMBIOS - VERDE DESTACADO */
+div[data-testid="stButton"]:has(button[kind="secondary"]) button {
     background: #10b981 !important;
     color: white !important;
-    border: 1px solid #059669 !important;
-    font-weight: bold !important;
+    border: 2px solid #059669 !important;
+    font-weight: 700 !important;
+    font-size: 0.95rem !important;
 }
-div[data-testid="stButton"] > button[kind="secondary"]:hover {
+div[data-testid="stButton"]:has(button[kind="secondary"]) button:hover {
     background: #059669 !important;
 }
 /* BOTONES NORMALES - GRIS OSCURO */
@@ -73,16 +75,19 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 .big-number h1 { margin: 0; font-size: 2rem !important; color: #3b82f6; font-weight: 700; line-height: 1.2; }
 .big-number p { margin: 0; font-size: 0.65rem !important; color: #94a3b8; }
+
+/* CARDS DE INSPECTOR — más compactas, texto más grande */
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.1rem 0.2rem;
+    padding: 0.4rem 0.6rem;
     text-align: center;
     border: 1px solid #10b981;
 }
-.inspector-card h3 { margin: 0; font-size: 0.85rem; color: #10b981; }
-.inspector-card h1 { margin: 0; font-size: 1.6rem; color: #e2e8f0; font-weight: 700; line-height: 1.2; }
-.inspector-card p { margin: 0; font-size: 0.6rem; color: #94a3b8; }
+.inspector-card h3 { margin: 0; font-size: 1rem; color: #10b981; }
+.inspector-card h1 { margin: 0; font-size: 2rem; color: #e2e8f0; font-weight: 700; line-height: 1.3; }
+.inspector-card p  { margin: 0; font-size: 0.75rem; color: #94a3b8; }
+
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
 hr { margin: 0.3rem 0 !important; }
 div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
@@ -582,7 +587,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON GUARDAR VERDE Y MENSAJES)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -617,7 +622,7 @@ with tab2:
                 """, unsafe_allow_html=True)
     st.markdown("---")
 
-    # BOTONES: GUARDAR CAMBIOS (verde) al PRINCIPIO
+    # BOTONES — GUARDAR CAMBIOS (verde/secondary) destacado entre los demás
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_buscar, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -670,49 +675,60 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
+    # ── FIX: resetear flags ANTES de ejecutar para evitar KeyError en rerun ──
+
     if st.session_state.get('generar_informe'):
+        st.session_state.generar_informe = False  # resetear primero
         with st.spinner("Generando informe..."):
-            registros_sin_legajo = traer_registros_sin_legajo()
-            if registros_sin_legajo:
-                contenido_txt = generar_informe_txt(registros_sin_legajo)
-                st.download_button(
-                    label="📥 DESCARGAR TXT",
-                    data=contenido_txt.encode('utf-8'),
-                    file_name=f"INFORME_NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
-                )
-                st.info(f"📊 {len(registros_sin_legajo)} registros sin legajo")
-            else:
-                st.success("✅ No hay registros sin legajo")
-        st.session_state.generar_informe = False
+            try:
+                registros_sin_legajo = traer_registros_sin_legajo()
+                if registros_sin_legajo:
+                    contenido_txt = generar_informe_txt(registros_sin_legajo)
+                    st.download_button(
+                        label="📥 DESCARGAR TXT",
+                        data=contenido_txt.encode('utf-8'),
+                        file_name=f"INFORME_NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain"
+                    )
+                    st.info(f"📊 {len(registros_sin_legajo)} registros sin legajo")
+                else:
+                    st.success("✅ No hay registros sin legajo")
+            except Exception as e:
+                st.error(f"Error generando informe: {e}")
 
     if st.session_state.get('generar_informe_asignados'):
+        st.session_state.generar_informe_asignados = False  # resetear primero
         with st.spinner("Generando informe..."):
-            registros_con_legajo = traer_registros_con_legajo()
-            if registros_con_legajo:
-                excel_data = generar_excel_asignados(registros_con_legajo)
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL (TODOS)",
-                    data=excel_data,
-                    file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-                st.info(f"📊 {len(registros_con_legajo)} registros con legajo")
-            else:
-                st.success("✅ No hay registros con legajo")
-        st.session_state.generar_informe_asignados = False
+            try:
+                registros_con_legajo = traer_registros_con_legajo()
+                if registros_con_legajo:
+                    excel_data = generar_excel_asignados(registros_con_legajo)
+                    st.download_button(
+                        label="📥 DESCARGAR EXCEL (TODOS)",
+                        data=excel_data,
+                        file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    st.info(f"📊 {len(registros_con_legajo)} registros con legajo")
+                else:
+                    st.success("✅ No hay registros con legajo")
+            except Exception as e:
+                st.error(f"Error generando informe: {e}")
 
     if st.session_state.get('generar_informe_por_inspector'):
+        st.session_state.generar_informe_por_inspector = False  # resetear primero
         with st.spinner("Generando informe por inspector..."):
-            excel_data = generar_excel_por_inspector()
-            st.download_button(
-                label="📥 DESCARGAR EXCEL (POR INSPECTOR)",
-                data=excel_data,
-                file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            st.success("✅ Informe generado - Una hoja por inspector")
-        st.session_state.generar_informe_por_inspector = False
+            try:
+                excel_data = generar_excel_por_inspector()
+                st.download_button(
+                    label="📥 DESCARGAR EXCEL (POR INSPECTOR)",
+                    data=excel_data,
+                    file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+                st.success("✅ Informe generado - Una hoja por inspector")
+            except Exception as e:
+                st.error(f"Error generando informe por inspector: {e}")
 
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
@@ -1003,9 +1019,7 @@ with tab2:
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
 
-        # ══════════════════════════════════════════════════════════════════
-        # GUARDAR CAMBIOS - CON MENSAJE DE ÉXITO
-        # ══════════════════════════════════════════════════════════════════
+        # ── GUARDAR CAMBIOS ────────────────────────────────────────────────
         if guardar_click:
             mods = 0
             errores_fecha = 0
@@ -1027,7 +1041,7 @@ with tab2:
                         else:
                             upd['leg'] = None
                     
-                    # VTO - Convierte fecha al formato correcto
+                    # VTO
                     nv = row.get('VTO')
                     if nv != orig.get('vto'):
                         if nv and str(nv).strip():
@@ -1077,7 +1091,7 @@ with tab3:
     st.info("📧 Solicitar Actas — En construcción")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Subir Actas (FUNCIONAL - CSV + 3 CAMPOS)
+# TAB 4 — Subir Actas
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("#### 📋 Subir Actas (CSV)")
