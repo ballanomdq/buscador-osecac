@@ -1,77 +1,79 @@
 import streamlit as st
-import folium
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components
 
 st.set_page_config(layout="wide")
 st.title("🗺️ Mapa de Inspectores - Mar del Plata")
 
-# 1. BASE DE DATOS REAL DE COORDENADAS (Polígonos de las zonas según tu mapa físico)
-zonas_inspectores = {
-    "GARCIA": {
-        "color": "#ff7f0e", # Naranja
-        "coordenadas": [
+# Creamos el mapa directamente con código HTML y Leaflet estándar de internet
+# Esto corre en el navegador del usuario, el servidor de Streamlit ni se entera
+html_mapa = """
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://unpkg.com" />
+    <script src="https://unpkg.com"></script>
+    <style>
+        #map { height: 550px; width: 100%; margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        // Centrar en Mar del Plata
+        var map = L.map('map').setView([-38.0055, -57.5426], 12);
+        
+        L.tileLayer('https://{s}://{z}/{x}/{y}{r}.png', {
+            attribution: 'OpenStreetMap'
+        }).addTo(map);
+
+        // 1. ZONA GARCIA (Naranja)
+        var garcia = L.polygon([
             [-38.0315, -57.5450], [-38.0550, -57.5350], [-38.0850, -57.5450], 
-            [-38.0750, -57.5850], [-38.0450, -57.5950], [-38.0315, -57.5450]
-        ],
-        "detalle": "Punta Mogotes, Colinas de Peralta Ramos, Juramento, Termas Huinco, Faro Norte."
-    },
-    "CARBAYO": {
-        "color": "#e377c2", # Rosa/Fucsia
-        "coordenadas": [
+            [-38.0750, -57.5850], [-38.0450, -57.5950]
+        ], {color: '#ff7f0e', fillColor: '#ff7f0e', fillOpacity: 0.4, weight: 3}).addTo(map);
+        garcia.bindPopup("<b>Inspector:</b> GARCIA<br><b>Zonas:</b> Punta Mogotes, Colinas, Juramento, Faro Norte.");
+
+        // 2. ZONA CARBAYO (Rosa)
+        var carbayo = L.polygon([
             [-38.0050, -57.5420], [-38.0250, -57.5300], [-38.0450, -57.5500], 
-            [-38.0350, -57.5750], [-38.0100, -57.5650], [-38.0050, -57.5420]
-        ],
-        "detalle": "Cerrito Sur, El Progreso, Peralta Ramos Oeste, Chauvín, San José, Plaza Mitre, Stella Maris."
-    },
-    "POLINESSI": {
-        "color": "#bcbd22", # Amarillo
-        "coordenadas": [
+            [-38.0350, -57.5750], [-38.0100, -57.5650]
+        ], {color: '#e377c2', fillColor: '#e377c2', fillOpacity: 0.4, weight: 3}).addTo(map);
+        carbayo.bindPopup("<b>Inspector:</b> CARBAYO<br><b>Zonas:</b> Cerrito Sur, El Progreso, Chauvín, Plaza Mitre, Stella Maris.");
+
+        // 3. ZONA POLINESSI (Amarillo)
+        var polinessi = L.polygon([
             [-37.9750, -57.5450], [-38.0050, -57.5350], [-38.0150, -57.5750], 
-            [-37.9850, -57.5950], [-37.9650, -57.5750], [-37.9750, -57.5450]
-        ],
-        "detalle": "Playa Grande, Los Troncos, San Carlos, San Cayetano, Jorge Newbery, Libertad."
-    },
-    "RODRIGUEZ": {
-        "color": "#1f77b4", # Azul/Celeste
-        "coordenadas": [
+            [-37.9850, -57.5950], [-37.9650, -57.5750]
+        ], {color: '#bcbd22', fillColor: '#bcbd22', fillOpacity: 0.4, weight: 3}).addTo(map);
+        polinessi.bindPopup("<b>Inspector:</b> POLINESSI<br><b>Zonas:</b> Playa Grande, Los Troncos, San Carlos, San Cayetano, Libertad.");
+
+        // 4. ZONA RODRIGUEZ (Azul)
+        var rodriguez = L.polygon([
             [-37.9950, -57.5550], [-38.0150, -57.5500], [-38.0250, -57.5850], 
-            [-38.0050, -57.5990], [-37.9950, -57.5550]
-        ],
-        "detalle": "Bernardino Rivadavia, Santa Mónica, Funes y Anchorena, San Juan, La Perla, Nueva Pompeya."
-    },
-    "LOPEZ": {
-        "color": "#9467bd", # Morado
-        "coordenadas": [
+            [-38.0050, -57.5990]
+        ], {color: '#1f77b4', fillColor: '#1f77b4', fillOpacity: 0.4, weight: 3}).addTo(map);
+        rodriguez.bindPopup("<b>Inspector:</b> RODRIGUEZ<br><b>Zonas:</b> Bernardino Rivadavia, Santa Mónica, San Juan, La Perla.");
+
+        // 5. ZONA LOPEZ (Morado)
+        var lopez = L.polygon([
             [-38.0150, -57.5850], [-38.0350, -57.5750], [-38.0550, -57.6150], 
-            [-38.0250, -57.6350], [-38.0150, -57.5850]
-        ],
-        "detalle": "Regional, Belisario Roldán, Don Emilio, José Hernández, Las Américas, Autódromo."
-    }
-}
+            [-38.0250, -57.6350]
+        ], {color: '#9467bd', fillColor: '#9467bd', fillOpacity: 0.4, weight: 3}).addTo(map);
+        lopez.bindPopup("<b>Inspector:</b> LOPEZ<br><b>Zonas:</b> Regional, Belisario Roldán, Don Emilio, Las Américas.");
 
-# 2. CREACIÓN DEL MAPA BASE (Centrado en Mar del Plata)
-coordenadas_mdp = [-38.0055, -57.5426]
-m = folium.Map(location=coordenadas_mdp, zoom_start=12, tiles="cartodbpositron")
+    </script>
+</body>
+</html>
+"""
 
-# 3. DIBUJAR LOS BLOQUES DE COLOR DE CADA INSPECTOR
-for inspector, info in zonas_inspectores.items():
-    # Creamos el polígono de la zona con su respectivo color
-    folium.Polygon(
-        locations=info["coordenadas"],
-        color=info["color"],
-        fill=True,
-        fill_color=info["color"],
-        fill_opacity=0.4,
-        weight=3,
-        popup=f"<b>Inspector:</b> {inspector}<br><b>Barrios principales:</b> {info['detalle']}",
-        tooltip=f"Zona Inspector: {inspector}"
-    ).add_to(m)
+# Renderizamos el mapa usando el componente nativo de Streamlit
+components.html(html_mapa, height=570)
 
-# 4. RENDERIZAR EN STREAMLIT
-st_folium(m, width="100%", height=600)
-
-# 5. PANEL DE INFORMACIÓN ADICIONAL ABAJO DEL MAPA
+# Panel de información complementario
 st.markdown("---")
 st.subheader("📋 Detalle de Zonas")
-for inspector, info in zonas_inspectores.items():
-    st.markdown(f"🟢 **Inspector {inspector}**: {info['detalle']}")
+st.markdown("🟢 **Inspector GARCIA**: Punta Mogotes, Colinas, Juramento, Faro Norte.")
+st.markdown("🟢 **Inspector CARBAYO**: Cerrito Sur, El Progreso, Chauvín, Plaza Mitre, Stella Maris.")
+st.markdown("🟢 **Inspector POLINESSI**: Playa Grande, Los Troncos, San Carlos, San Cayetano, Libertad.")
+st.markdown("🟢 **Inspector RODRIGUEZ**: Bernardino Rivadavia, Santa Mónica, San Juan, La Perla.")
+st.markdown("🟢 **Inspector LOPEZ**: Regional, Belisario Roldán, Don Emilio, Las Américas.")
