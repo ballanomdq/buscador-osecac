@@ -14,3 +14,4 @@ pytz
 plotly
 matplotlib
 folium
+streamlit-folium
