@@ -91,20 +91,38 @@ div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !im
 .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
     font-size: 0.85rem !important;
 }
-/* Estilo para el diálogo flotante - MEJOR CONTRASTE */
+
+/* ── Diálogo flotante: fondo oscuro con texto BIEN VISIBLE ── */
 div[role="dialog"] {
-    background: #1e293b !important;
+    background: #0f172a !important;
     border-radius: 16px !important;
     border: 1px solid #3b82f6 !important;
 }
-div[role="dialog"] .stMarkdown p,
+div[role="dialog"] p,
+div[role="dialog"] span,
 div[role="dialog"] label,
+div[role="dialog"] div,
+div[role="dialog"] h1,
+div[role="dialog"] h2,
+div[role="dialog"] h3,
+div[role="dialog"] .stMarkdown p,
 div[role="dialog"] .st-emotion-cache-1v0mbdj,
 div[role="dialog"] .st-emotion-cache-ue6h4q {
     color: #f1f5f9 !important;
 }
-div[role="dialog"] .st-emotion-cache-1wivap2 {
-    color: #cbd5e1 !important;
+div[role="dialog"] .stSelectbox label,
+div[role="dialog"] .stTextInput label,
+div[role="dialog"] .stNumberInput label,
+div[role="dialog"] .stDateInput label,
+div[role="dialog"] .stCheckbox label {
+    color: #e2e8f0 !important;
+    font-weight: 500 !important;
+}
+div[role="dialog"] hr {
+    border-color: #334155 !important;
+}
+div[role="dialog"] .stAlert p {
+    color: #1e293b !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -460,11 +478,9 @@ def generar_informe_txt(registros_sin_legajo):
     return "\n".join(contenido)
 
 def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
-    """Genera Excel con columnas limpias: CUIT, RAZON SOCIAL, LEGAJO, VTO"""
-    df_export = df_seleccionado[['cuit', 'razon_social', 'leg', 'vto']].copy()
+    df_export = df_seleccionado[['cuit', 'razon_social', 'leg']].copy()
     df_export['vto'] = fecha_vto_str
     df_export.columns = ['CUIT', 'RAZON SOCIAL', 'LEGAJO', 'VTO ASIGNADO']
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_export.to_excel(writer, sheet_name='Mailing', index=False)
@@ -476,7 +492,6 @@ def generar_excel_asignados(registros):
                 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion',
                 'tel_dom_legal', 'tel_dom_real', 'email']
     df_excel = df[[c for c in columnas if c in df.columns]]
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_excel.to_excel(writer, sheet_name='Seleccionados', index=False)
@@ -484,7 +499,6 @@ def generar_excel_asignados(registros):
 
 def generar_excel_por_inspector():
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         for ins in inspectores.data:
@@ -497,7 +511,6 @@ def generar_excel_por_inspector():
                 df_excel = df[[c for c in columnas if c in df.columns]]
                 nombre_hoja = f"{ins['nombre'].split(',')[0][:20]} {ins['legajo']}"
                 df_excel.to_excel(writer, sheet_name=nombre_hoja, index=False)
-    
     return output.getvalue()
 
 # ── Mapeo Excel ───────────────────────────────────────────────────────────────
@@ -633,7 +646,6 @@ with tab2:
                 """, unsafe_allow_html=True)
     st.markdown("---")
 
-    # ── BOTONES ──────────────────────────────────────────────────────────────
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -673,7 +685,6 @@ with tab2:
         if st.button("⟳ Recargar", use_container_width=True):
             st.rerun()
 
-    # ── CONFIRMACIÓN ELIMINAR TODO ───────────────────────────────────────────
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
         col_si, col_no = st.columns(2)
@@ -693,7 +704,6 @@ with tab2:
         def mostrar_dialogo_preparar_mails():
             st.markdown("Seleccioná los criterios para generar el mailing")
             
-            # Obtener registros candidatos
             query = supabase.table("padron_deuda_presunta")\
                 .select("*")\
                 .not_.is_("leg", "null")\
@@ -712,46 +722,35 @@ with tab2:
             
             st.info(f"📊 Total de registros candidatos: {len(df_candidatos)}")
             
-            # ── FILTROS ──────────────────────────────────────────────────────
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
-                # Filtrar por localidad
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                 localidad_filtro = st.selectbox("📍 Localidad", localidades, key="dialog_localidad")
                 
-                # Cantidad de registros
-                cantidad_opciones = ["TODOS", "100", "250", "500", "1000", "2000", "5000", "OTRO"]
-                cantidad_seleccion = st.selectbox("🔢 Cantidad de registros", cantidad_opciones, key="dialog_cantidad")
-                
+                usar_todos = st.checkbox("Seleccionar TODOS los registros", value=True, key="dialog_usar_todos")
                 cantidad_personalizada = None
-                if cantidad_seleccion == "OTRO":
-                    cantidad_personalizada = st.number_input("Escribí la cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad_pers")
+                if not usar_todos:
+                    cantidad_personalizada = st.number_input("Cantidad de registros", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad_pers")
                 
-                # Ordenar por deuda presunta (mayor a menor)
                 ordenar_deuda = st.checkbox("💰 Ordenar por DEUDA PRESUNTA (mayor a menor)", value=True, key="dialog_deuda")
-                
-                # Ordenar por fecha HASTA (más antiguos)
                 ordenar_hasta = st.checkbox("📅 Ordenar por fecha HASTA (más antiguos primero)", value=False, key="dialog_hasta")
             
             with col_f2:
-                # Fecha a asignar
                 nueva_fecha_vto = st.date_input("📅 Fecha VTO a asignar", value=date.today(), key="dialog_fecha")
-                
                 st.markdown("---")
-                st.markdown("**Resumen:**")
                 
-                # Aplicar filtros
-                df_filtrado = df_candidatos.copy()
+                df_preview_count = df_candidatos.copy()
                 if localidad_filtro != "TODAS":
-                    df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
-                
-                st.write(f"📌 Localidad: {localidad_filtro}")
-                st.write(f"📌 Registros después de filtro: {len(df_filtrado)}")
+                    df_preview_count = df_preview_count[df_preview_count['localidad'] == localidad_filtro]
+                st.markdown(f"📌 Localidad: {localidad_filtro}")
+                st.markdown(f"📌 Registros en filtro: {len(df_preview_count)}")
             
-            # ── ORDENAMIENTO MÚLTIPLE ────────────────────────────────────────
+            df_filtrado = df_candidatos.copy()
+            if localidad_filtro != "TODAS":
+                df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
+            
             if ordenar_deuda or ordenar_hasta:
-                # Convertir deuda_presunta a número
                 def parse_deuda(val):
                     if val is None:
                         return 0
@@ -762,7 +761,6 @@ with tab2:
                     except:
                         return 0
                 
-                # Convertir fecha HASTA
                 def parse_hasta(val):
                     if val is None:
                         return datetime.max
@@ -777,33 +775,25 @@ with tab2:
                         return datetime.max
                 
                 if ordenar_deuda:
-                    df_filtrado['deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
-                    df_filtrado = df_filtrado.sort_values('deuda_num', ascending=False)
-                
+                    df_filtrado['_deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
+                    df_filtrado = df_filtrado.sort_values('_deuda_num', ascending=False)
                 if ordenar_hasta:
-                    df_filtrado['hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
-                    df_filtrado = df_filtrado.sort_values('hasta_date', ascending=True)
-                
-                # Limpiar columnas temporales
-                df_filtrado = df_filtrado.drop(columns=[c for c in ['deuda_num', 'hasta_date'] if c in df_filtrado.columns])
+                    df_filtrado['_hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
+                    df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
+                df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
             
-            # ── SELECCIONAR CANTIDAD ─────────────────────────────────────────
-            if cantidad_seleccion == "TODOS":
+            if usar_todos or cantidad_personalizada is None:
                 df_seleccionado = df_filtrado.copy()
-            elif cantidad_seleccion == "OTRO":
-                df_seleccionado = df_filtrado.head(cantidad_personalizada)
             else:
-                df_seleccionado = df_filtrado.head(int(cantidad_seleccion))
+                df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
             st.markdown(f"**📌 Registros seleccionados: {len(df_seleccionado)}**")
             
-            # ── VISTA PREVIA (SOLO CUIT, RAZON SOCIAL, LEGAJO) ────────────────
             with st.expander("📋 Vista previa de registros seleccionados"):
                 df_preview = df_seleccionado[['cuit', 'razon_social', 'leg']].copy()
                 df_preview.columns = ['CUIT', 'RAZON SOCIAL', 'LEGAJO']
                 st.dataframe(df_preview, use_container_width=True)
             
-            # ── BOTONES DE ACCIÓN ────────────────────────────────────────────
             col_accion1, col_accion2 = st.columns(2)
             
             with col_accion1:
@@ -812,33 +802,24 @@ with tab2:
                         fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
                         fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
                         actualizados = 0
-                        
-                        # Actualizar VTO y MAIL ENVIADO en la base
-                        for idx, row in df_seleccionado.iterrows():
+                        for _, row in df_seleccionado.iterrows():
                             supabase.table("padron_deuda_presunta").update({
                                 "vto": fecha_str,
                                 "mail_enviado": "SI"
                             }).eq("id", row['id']).execute()
                             actualizados += 1
-                        
-                        # Generar Excel LIMPIO
                         excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
-                        
-                        st.success(f"✅ {actualizados} registros actualizados con fecha VTO: {fecha_mostrar}")
-                        
-                        # Descargar Excel
-                        fecha_descarga = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        st.download_button(
-                            label="📥 DESCARGAR EXCEL",
-                            data=excel_data,
-                            file_name=f"MAILING_{fecha_descarga}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key="download_after_process"
-                        )
-                        
-                        # Cerrar el diálogo
-                        st.session_state.preparar_mails = False
-                        st.rerun()
+                    st.success(f"✅ {actualizados} registros actualizados con VTO: {fecha_mostrar}")
+                    fecha_descarga = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    st.download_button(
+                        label="📥 DESCARGAR EXCEL",
+                        data=excel_data,
+                        file_name=f"MAILING_{fecha_descarga}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="download_after_process"
+                    )
+                    st.session_state.preparar_mails = False
+                    st.rerun()
             
             with col_accion2:
                 if st.button("❌ Cancelar", use_container_width=True):
@@ -1164,7 +1145,90 @@ with tab3:
 # TAB 4 — Subir Actas
 # ══════════════════════════════════════════════════════════════════
 with tab4:
-    st.info("📋 Subir Actas — En construcción")
+    st.markdown("#### 📋 Subir Actas (CSV)")
+    st.markdown("""
+    <div style="background:#1e293b; padding:0.5rem 1rem; border-radius:6px; border-left:3px solid #3b82f6; margin-bottom:1rem;">
+    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
+    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
+    </div>
+    """, unsafe_allow_html=True)
+
+    csv_file = st.file_uploader("Archivo CSV", type=["csv"], key="upload_actas_csv")
+
+    if csv_file:
+        st.caption(f"Archivo: **{csv_file.name}**")
+
+        try:
+            df_prev = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+            with st.expander("Vista previa (5 primeras filas)"):
+                st.dataframe(df_prev.head(5), use_container_width=True, height=200)
+        except Exception:
+            pass
+
+        if st.button("📋 Procesar y actualizar actas", type="primary"):
+            with st.spinner("Procesando..."):
+                try:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
+                except Exception:
+                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
+
+                df4.columns = [str(c).strip().upper() for c in df4.columns]
+
+                col_cuit = col_leg = col_vto = col_acta = None
+                for c in df4.columns:
+                    cu = c.upper()
+                    if 'CUIT' in cu and not col_cuit: col_cuit = c
+                    if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
+                    if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
+                    if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
+
+                if not all([col_cuit, col_leg, col_vto]):
+                    st.error(f"❌ Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
+                else:
+                    st.caption(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                    
+                    actualizados = 0
+                    no_encontrados = 0
+                    bar = st.progress(0)
+
+                    for i, row in df4.iterrows():
+                        cuit = re.sub(r'[\.\-,\s]', '', str(row[col_cuit]).strip())
+                        leg = str(row[col_leg]).strip() if row[col_leg] else None
+                        vto = norm_fecha(row[col_vto])
+                        acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+
+                        if cuit and leg and vto:
+                            try:
+                                resultado = (supabase.table("padron_deuda_presunta")
+                                           .select("id")
+                                           .eq("cuit", cuit)
+                                           .eq("leg", leg)
+                                           .eq("vto", vto)
+                                           .eq("mail_enviado", "SI")
+                                           .execute())
+                                
+                                if resultado.data:
+                                    for reg in resultado.data:
+                                        supabase.table("padron_deuda_presunta") \
+                                            .update({"acta": acta, "estado_gestion": "FINALIZADO"}) \
+                                            .eq("id", reg['id']).execute()
+                                    actualizados += len(resultado.data)
+                                else:
+                                    no_encontrados += 1
+                            except Exception as e:
+                                st.error(f"Error fila {i}: {e}")
+
+                        bar.progress((i + 1) / len(df4))
+
+                    bar.empty()
+                    col_ok, col_no = st.columns(2)
+                    col_ok.metric("✅ Actualizados", actualizados)
+                    col_no.metric("❌ No encontrados", no_encontrados)
+
+                    if actualizados > 0:
+                        st.success(f"✅ {actualizados} actas actualizadas correctamente.")
+                    if no_encontrados > 0:
+                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 5 — INSPECTORES
