@@ -16,4 +16,4 @@ matplotlib
 folium
 streamlit-folium
 reportlab
-pypdf
+pypdf>=4.0.0
