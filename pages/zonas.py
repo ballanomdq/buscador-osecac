@@ -27,12 +27,12 @@ hr { margin: 0.5rem 0; }
 st.markdown("""
 <div class="main-header">
     <h2>🗺️ Zonas de Inspectores - Gestión Completa</h2>
-    <p>Administración de inspectores, localidades y calles (Mar del Plata)</p>
+    <p>Administración de inspectores, localidades, calles y palabras ancla (Mar del Plata)</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── FILA DE BOTONES: Volver, Actas, Mapa, Editor Zonas, Backup, Informe ───────
-col_back, col_actas, col_mapa, col_editor, col_reset, col_informe = st.columns([1, 1, 1, 1, 1.5, 1.5])
+# ── FILA DE BOTONES: Volver, Actas, Mapa, Editor Zonas, Informe ───────────────
+col_back, col_actas, col_mapa, col_editor, col_informe = st.columns([1, 1, 1, 1, 1.5])
 
 with col_back:
     if st.button("← Volver", key="btn_volver_zonas"):
@@ -50,10 +50,6 @@ with col_editor:
     if st.button("🎨 EDITAR ZONAS", key="btn_editor_zonas"):
         st.switch_page("pages/editor_zonas.py")
 
-with col_reset:
-    if st.button("🚀 BACKUP DE SEGURIDAD", key="btn_reset_oficial", type="primary"):
-        st.session_state.confirmar_reset = True
-
 with col_informe:
     if st.button("📄 INFORME ZONAS POR INSPECTOR", key="btn_informe_completo"):
         st.session_state.generar_informe_completo = True
@@ -62,7 +58,7 @@ st.markdown("---")
 
 # ── Generar informe completo de inspectores ──────────────────────────────────
 def generar_informe_completo():
-    """Genera un informe TXT detallado de todos los inspectores con sus localidades y calles"""
+    """Genera un informe TXT detallado de todos los inspectores con sus localidades, calles y palabras ancla"""
     
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     
@@ -129,6 +125,22 @@ def generar_informe_completo():
             contenido.append("│   • Sin calles asignadas")
         contenido.append("└" + "─" * 78 + "┘")
         contenido.append("")
+        
+        # ── PALABRAS ANCLA (Mar del Plata) ──
+        palabras = supabase.table("palabras_ancla").select("*").eq("legajo", legajo).order("palabra").execute()
+        
+        contenido.append("")
+        contenido.append("┌" + "─" * 78 + "┐")
+        contenido.append("│ ⚓ PALABRAS ANCLA (Mar del Plata - Coincidencia parcial)")
+        contenido.append("├" + "─" * 78 + "┤")
+        
+        if palabras.data:
+            for pal in palabras.data:
+                contenido.append(f"│   • {pal['palabra']}")
+        else:
+            contenido.append("│   • Sin palabras ancla asignadas")
+        contenido.append("└" + "─" * 78 + "┘")
+        contenido.append("")
     
     contenido.append("")
     contenido.append("=" * 80)
@@ -150,274 +162,6 @@ if st.session_state.get('generar_informe_completo'):
         st.success("✅ Informe generado correctamente")
         st.session_state.generar_informe_completo = False
 
-# ── Confirmación de Backup ───────────────────────────────────────────────────
-if st.session_state.get('confirmar_reset'):
-    st.warning("⚠️ Esta acción BORRARÁ TODAS las zonas actuales y las REEMPLAZARÁ con los datos oficiales de respaldo.")
-    
-    col_si, col_no = st.columns(2)
-    with col_si:
-        clave_ingresada = st.text_input("Ingrese la clave de seguridad:", type="password", key="clave_seguridad")
-        if st.button("✅ SÍ, RESTAURAR BACKUP"):
-            if clave_ingresada == "shaolin1976":
-                with st.spinner("Restaurando backup de seguridad..."):
-                    cargar_backup_oficial()
-                    st.session_state.confirmar_reset = False
-                    st.rerun()
-            else:
-                st.error("❌ Clave de seguridad incorrecta")
-    with col_no:
-        if st.button("❌ Cancelar"):
-            st.session_state.confirmar_reset = False
-            st.rerun()
-
-st.markdown("---")
-
-def cargar_backup_oficial():
-    """Carga los 5 inspectores con TODAS las calles (BACKUP COMPLETO)"""
-    
-    inspectores = [
-        {"legajo": 7713, "nombre": "RODRIGUEZ, Maximiliano"},
-        {"legajo": 9513, "nombre": "POLINESSI, Juan José"},
-        {"legajo": 9983, "nombre": "LOPEZ, Martín"},
-        {"legajo": 9220, "nombre": "CARBAYO, Víctor Hugo"},
-        {"legajo": 7952, "nombre": "GARCIA, Juan Paulo"},
-    ]
-    
-    # BACKUP COMPLETO DE CALLES
-    zonas = [
-        # INSPECTOR 1: RODRIGUEZ (7713) - Perimetrales
-        (7713, "CATAMARCA", "IMPAR", 2201, 3800),
-        (7713, "AV COLON", "IMPAR", 3001, 5400),
-        (7713, "AV JARA", "PAR", 2202, 3800),
-        (7713, "AV TEJEDOR CARLOS", "PAR", 1, 2400),
-        (7713, "AV PATRICIO PERALTA RAMOS", "AMBOS", 1, 900),
-        (7713, "AV FELIX U CAMET", "AMBOS", 1, 1500),
-        # Internas 2201-3800
-        (7713, "LA RIOJA", "AMBOS", 2201, 3800),
-        (7713, "HNO INDALECIO", "AMBOS", 2201, 3800),
-        (7713, "HIPOLITO YRIGOYEN", "AMBOS", 2201, 3800),
-        (7713, "MITRE", "AMBOS", 2201, 3800),
-        (7713, "SAN LUIS", "AMBOS", 2201, 3800),
-        (7713, "CORDOBA", "AMBOS", 2201, 3800),
-        (7713, "SANTIAGO DEL ESTERO", "AMBOS", 2201, 3800),
-        (7713, "SANTA FE", "AMBOS", 2201, 3800),
-        (7713, "CORRIENTES", "AMBOS", 2201, 3800),
-        (7713, "ENTRE RIOS", "AMBOS", 2201, 3800),
-        (7713, "BUENOS AIRES", "AMBOS", 2201, 3800),
-        (7713, "TUCUMAN", "AMBOS", 2201, 3800),
-        (7713, "ARENALES", "AMBOS", 2201, 3800),
-        (7713, "LAMADRID", "AMBOS", 2201, 3800),
-        (7713, "LAS HERAS", "AMBOS", 2201, 3800),
-        (7713, "SARMIENTO", "AMBOS", 2201, 3800),
-        (7713, "ALSINA", "AMBOS", 2201, 3800),
-        (7713, "OLAZABAL", "AMBOS", 2201, 3800),
-        (7713, "DEAN FUNES", "AMBOS", 2201, 3800),
-        (7713, "GUIDO", "AMBOS", 2201, 3800),
-        (7713, "FUNES", "AMBOS", 2201, 3800),
-        (7713, "MARIANO MORENO", "AMBOS", 2201, 3800),
-        (7713, "MARCONI", "AMBOS", 2201, 3800),
-        (7713, "MISIONES", "AMBOS", 2201, 3800),
-        (7713, "ITALIA", "AMBOS", 2201, 3800),
-        (7713, "DON BOSCO", "AMBOS", 2201, 3800),
-        (7713, "NEUQUEN", "AMBOS", 2201, 3800),
-        (7713, "AV INDEPENDENCIA", "AMBOS", 2201, 3800),
-        (7713, "SALTA", "AMBOS", 2201, 3800),
-        (7713, "JUJUY", "AMBOS", 2201, 3800),
-        (7713, "ESPAÑA", "AMBOS", 2201, 3800),
-        (7713, "20 DE SEPTIEMBRE", "AMBOS", 2201, 3800),
-        (7713, "14 DE JULIO", "AMBOS", 2201, 3800),
-        (7713, "DORREGO", "AMBOS", 2201, 3800),
-        # Internas 3001-5400
-        (7713, "HERNANDARIAS", "AMBOS", 3001, 5400),
-        (7713, "DON ORIONE", "AMBOS", 3001, 5400),
-        (7713, "LUIS AGOTE", "AMBOS", 3001, 5400),
-        (7713, "MAGANANES", "AMBOS", 3001, 5400),
-        (7713, "AYOLAS", "AMBOS", 3001, 5400),
-        (7713, "IRALA", "AMBOS", 3001, 5400),
-        (7713, "ORTIZ DE ZARATE", "AMBOS", 3001, 5400),
-        (7713, "AV JUAN B JUSTO", "AMBOS", 3001, 5400),
-        (7713, "BERMEJO", "AMBOS", 3001, 5400),
-        (7713, "ELCANO", "AMBOS", 3001, 5400),
-        (7713, "12 DE OCTUBRE", "AMBOS", 3001, 5400),
-        (7713, "PAMPA", "AMBOS", 3001, 5400),
-        (7713, "CHACO", "AMBOS", 3001, 5400),
-        (7713, "LA PAMPA", "AMBOS", 3001, 5400),
-        (7713, "SAN JUAN", "AMBOS", 3001, 5400),
-        
-        # INSPECTOR 2: POLINESSI (9513)
-        (9513, "AV COLON", "IMPAR", 2401, 3000),
-        (9513, "CATAMARCA", "PAR", 1500, 2200),
-        (9513, "HIPOLITO YRIGOYEN", "IMPAR", 1501, 2200),
-        (9513, "AV PATRICIO PERALTA RAMOS", "AMBOS", 901, 1800),
-        (9513, "AV COLON", "IMPAR", 5401, 9999),
-        (9513, "AV JARA", "IMPAR", 3801, 9999),
-        (9513, "AV TEJEDOR CARLOS", "IMPAR", 2401, 9999),
-        (9513, "AV JOSE COELHO DE MEYRELLES", "AMBOS", 1, 4000),
-        (9513, "AV FELIX U CAMET", "AMBOS", 1501, 9999),
-        (9513, "RUTA 11 NORTE", "AMBOS", 490, 510),
-        (9513, "AV CONSTITUCION", "AMBOS", 1, 9999),
-        (9513, "AV PEDRO LURO", "AMBOS", 1, 9999),
-        (9513, "AV LIBERTAD", "AMBOS", 1, 9999),
-        (9513, "AV FRAY LUIS BELTRAN", "AMBOS", 1, 9999),
-        (9513, "AV JOSE MANUEL ESTRADA", "AMBOS", 1, 9999),
-        (9513, "AV DELLA PAOLERA", "AMBOS", 1, 9999),
-        (9513, "AV ALBERT SCHWEITZER", "AMBOS", 1, 9999),
-        (9513, "AV FERMIN ERREA", "AMBOS", 1, 9999),
-        (9513, "REPUBLICA NICARAGUA", "AMBOS", 1, 9999),
-        (9513, "RUTA 226", "AMBOS", 1, 9999),
-        (9513, "SCAGLIA C", "AMBOS", 1, 9999),
-        (9513, "C LOS DURAZNOS", "AMBOS", 1, 9999),
-        (9513, "MAHATMA GHANDI", "AMBOS", 1, 9999),
-        (9513, "SALVADOR VIVA", "IMPAR", 1, 2500),
-        (9513, "LA RIOJA", "AMBOS", 1501, 2200),
-        (9513, "MITRE", "AMBOS", 1501, 2200),
-        (9513, "MORENO", "AMBOS", 2401, 3000),
-        (9513, "BELGRANO", "AMBOS", 2401, 3000),
-        (9513, "RIVADAVIA", "AMBOS", 2401, 3000),
-        (9513, "SAN MARTIN", "AMBOS", 2401, 3000),
-        (9513, "AV LURO", "AMBOS", 2401, 3000),
-        (9513, "25 DE MAYO", "AMBOS", 2401, 3000),
-        (9513, "9 DE JULIO", "AMBOS", 2401, 3000),
-        (9513, "3 DE FEBRERO", "AMBOS", 2401, 3000),
-        (9513, "11 DE SEPTIEMBRE", "AMBOS", 2401, 3000),
-        (9513, "BALCARCE", "AMBOS", 2401, 3000),
-        
-        # INSPECTOR 3: LOPEZ (9983)
-        (9983, "AV COLON", "IMPAR", 1401, 1900),
-        (9983, "SAN LUIS", "PAR", 1500, 2200),
-        (9983, "SANTA FE", "IMPAR", 1501, 2200),
-        (9983, "AV PATRICIO PERALTA RAMOS", "AMBOS", 1801, 2300),
-        (9983, "AV COLON", "PAR", 3902, 9999),
-        (9983, "SAN JUAN", "IMPAR", 2201, 4400),
-        (9983, "PEHUAJO", "IMPAR", 4401, 6000),
-        (9983, "AV MARIO BRAVO", "IMPAR", 3901, 9999),
-        (9983, "AV VICTORIO TETAMANTI", "AMBOS", 1, 9999),
-        (9983, "GUERNICA", "AMBOS", 1, 9999),
-        (9983, "CANESA", "AMBOS", 1, 9999),
-        (9983, "C GENOVA", "AMBOS", 1, 9999),
-        (9983, "JUAN DE DIOS FILIBERTO", "AMBOS", 1, 9999),
-        (9983, "AV PRESIDENTE PERON", "AMBOS", 1, 9999),
-        (9983, "C 238", "AMBOS", 1, 9999),
-        (9983, "ARANA Y GOIRI", "AMBOS", 1, 9999),
-        (9983, "SAN FRANCISCO JAVIER", "AMBOS", 1, 9999),
-        (9983, "AV JUAN B JUSTO", "AMBOS", 3001, 9999),
-        (9983, "SALVADOR VIVA", "AMBOS", 2501, 6000),
-        (9983, "MITRE", "AMBOS", 1401, 1900),
-        (9983, "SANTIAGO DEL ESTERO", "AMBOS", 1401, 1900),
-        (9983, "CORDOBA", "AMBOS", 1401, 1900),
-        (9983, "MORENO", "AMBOS", 1401, 1900),
-        (9983, "BELGRANO", "AMBOS", 1401, 1900),
-        (9983, "RIVADAVIA", "AMBOS", 1401, 1900),
-        (9983, "SAN MARTIN", "AMBOS", 1401, 1900),
-        (9983, "AV LURO", "AMBOS", 1401, 1900),
-        (9983, "25 DE MAYO", "AMBOS", 1401, 1900),
-        (9983, "9 DE JULIO", "AMBOS", 1401, 1900),
-        (9983, "3 DE FEBRERO", "AMBOS", 1401, 1900),
-        (9983, "11 DE SEPTIEMBRE", "AMBOS", 1401, 1900),
-        (9983, "BALCARCE", "AMBOS", 1401, 1900),
-        (9983, "MALVINAS", "AMBOS", 2201, 4400),
-        (9983, "FUNES", "AMBOS", 2201, 4400),
-        (9983, "OLAZABAL", "AMBOS", 2201, 4400),
-        (9983, "DEAN FUNES", "AMBOS", 2201, 4400),
-        
-        # INSPECTOR 4: CARBAYO (9220)
-        (9220, "AV COLON", "PAR", 1002, 3000),
-        (9220, "SAN JUAN", "PAR", 3902, 4400),
-        (9220, "PEHUAJO", "PAR", 4402, 6000),
-        (9220, "AV MARIO BRAVO", "PAR", 3902, 6000),
-        (9220, "CERRITO", "IMPAR", 1501, 6000),
-        (9220, "OLAVARRIA", "IMPAR", 1501, 6000),
-        (9220, "AV PATRICIO PERALTA RAMOS", "AMBOS", 2801, 3500),
-        (9220, "SANTA FE", "PAR", 1500, 2200),
-        (9220, "SARMIENTO", "AMBOS", 1501, 2200),
-        (9220, "LAS HERAS", "AMBOS", 1501, 2200),
-        (9220, "LAMADRID", "AMBOS", 1501, 2200),
-        (9220, "ARENALES", "AMBOS", 1501, 2200),
-        (9220, "TUCUMAN", "AMBOS", 1501, 2200),
-        (9220, "BUENOS AIRES", "AMBOS", 1501, 2200),
-        (9220, "ENTRE RIOS", "AMBOS", 1501, 2200),
-        (9220, "CORRIENTES", "AMBOS", 1501, 2200),
-        (9220, "ALVEAR", "AMBOS", 1501, 2200),
-        (9220, "VIAMONTE", "AMBOS", 1501, 2200),
-        (9220, "MENDOZA", "AMBOS", 1501, 2200),
-        (9220, "PAUNERO", "AMBOS", 1501, 2200),
-        (9220, "LAVALLE", "AMBOS", 1501, 2200),
-        (9220, "ALSINA", "AMBOS", 1501, 2200),
-        (9220, "GUEMES", "AMBOS", 1501, 2200),
-        (9220, "GARAY", "AMBOS", 1002, 3000),
-        (9220, "CASTELLI", "AMBOS", 1002, 3000),
-        (9220, "ALBERTI", "AMBOS", 1002, 3000),
-        (9220, "GASCON", "AMBOS", 1002, 3000),
-        (9220, "FALUCHO", "AMBOS", 1002, 3000),
-        (9220, "BROWN", "AMBOS", 1002, 3000),
-        (9220, "AV PASO", "AMBOS", 1002, 3000),
-        (9220, "LARREA", "AMBOS", 1002, 3000),
-        (9220, "VIEYTES", "AMBOS", 1002, 3000),
-        (9220, "MATHEU", "AMBOS", 1002, 3000),
-        
-        # INSPECTOR 5: GARCIA (7952)
-        (7952, "AV COLON", "IMPAR", 1901, 2400),
-        (7952, "HIPOLITO YRIGOYEN", "PAR", 1500, 2200),
-        (7952, "SAN LUIS", "IMPAR", 1501, 2200),
-        (7952, "AV PATRICIO PERALTA RAMOS", "AMBOS", 2301, 2800),
-        (7952, "AV COLON", "PAR", 3002, 3900),
-        (7952, "SAN JUAN", "PAR", 2202, 3900),
-        (7952, "PEHUAJO", "PAR", 2202, 3900),
-        (7952, "AV INDEPENDENCIA", "IMPAR", 2201, 4400),
-        (7952, "AV JACINTO PERALTA RAMOS", "IMPAR", 4401, 6000),
-        (7952, "AV MARIO BRAVO", "AMBOS", 1001, 3900),
-        (7952, "ACHA", "PAR", 1, 6000),
-        (7952, "AV JUAN B JUSTO", "AMBOS", 1, 3000),
-        (7952, "AV DE LOS TRABAJADORES", "AMBOS", 1, 6000),
-        (7952, "RUTA 11 SUR", "AMBOS", 1, 6000),
-        (7952, "CALLE 515", "AMBOS", 1, 4000),
-        (7952, "AV JORGE NEWBERY", "AMBOS", 1, 6000),
-        (7952, "CERRITO", "PAR", 1502, 6000),
-        (7952, "OLAVARRIA", "PAR", 1502, 6000),
-        (7952, "AV PATRICIO PERALTA RAMOS", "AMBOS", 3501, 4500),
-        (7952, "CORDOBA", "AMBOS", 1901, 2400),
-        (7952, "SANTIAGO DEL ESTERO", "AMBOS", 1901, 2400),
-        (7952, "SANTA FE", "AMBOS", 1901, 2400),
-        (7952, "MORENO", "AMBOS", 1901, 2400),
-        (7952, "BELGRANO", "AMBOS", 1901, 2400),
-        (7952, "RIVADAVIA", "AMBOS", 1901, 2400),
-        (7952, "SAN MARTIN", "AMBOS", 1901, 2400),
-        (7952, "AV LURO", "AMBOS", 1901, 2400),
-        (7952, "25 DE MAYO", "AMBOS", 1901, 2400),
-        (7952, "9 DE JULIO", "AMBOS", 1901, 2400),
-        (7952, "3 DE FEBRERO", "AMBOS", 1901, 2400),
-        (7952, "11 DE SEPTIEMBRE", "AMBOS", 1901, 2400),
-        (7952, "BALCARCE", "AMBOS", 1901, 2400),
-        (7952, "EDISON", "AMBOS", 1, 6000),
-        (7952, "POSADAS", "AMBOS", 1, 6000),
-        (7952, "RONDEAU", "AMBOS", 1, 6000),
-        (7952, "MAGALLANES", "AMBOS", 1, 3000),
-        (7952, "12 DE OCTUBRE", "AMBOS", 1, 3000),
-        (7952, "ELCANO", "AMBOS", 1, 3000),
-        (7952, "PADRE DUTTO", "AMBOS", 1, 6000),
-    ]
-    
-    # Guardar inspectores
-    for ins in inspectores:
-        existing = supabase.table("inspectores").select("*").eq("legajo", ins["legajo"]).execute()
-        if not existing.data:
-            supabase.table("inspectores").insert(ins).execute()
-        else:
-            supabase.table("inspectores").update({"nombre": ins["nombre"]}).eq("legajo", ins["legajo"]).execute()
-    
-    # Borrar TODAS las zonas existentes
-    supabase.table("zonas_inspectores").delete().neq("id", 0).execute()
-    
-    # Insertar todas las zonas
-    for legajo, calle, lado, desde, hasta in zonas:
-        supabase.table("zonas_inspectores").insert({
-            "legajo": legajo, "calle": calle, "lado": lado,
-            "altura_desde": desde, "altura_hasta": hasta
-        }).execute()
-    
-    st.success(f"✅ BACKUP RESTAURADO: {len(zonas)} calles asignadas a 5 inspectores")
-    st.balloons()
-
 def forzar_recarga_cache():
     try:
         import sys
@@ -427,20 +171,13 @@ def forzar_recarga_cache():
                 actas.cargar_inspectores_localidad.clear()
             if hasattr(actas, 'cargar_zonas_inspectores'):
                 actas.cargar_zonas_inspectores.clear()
+            if hasattr(actas, 'cargar_palabras_ancla'):
+                actas.cargar_palabras_ancla.clear()
     except:
         pass
 
-# Inicializar datos si no están cargados
-if 'datos_cargados' not in st.session_state:
-    with st.spinner("Cargando datos..."):
-        zonas_existentes = supabase.table("zonas_inspectores").select("id", count="exact").execute()
-        if zonas_existentes.count == 0:
-            cargar_backup_oficial()
-        st.session_state.datos_cargados = True
-        st.rerun()
-
 # ==================== TABS ====================
-tab1, tab2, tab3, tab4 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ) - Editor", "🔄 Sinónimos"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ)", "⚓ Palabras Ancla", "🔄 Sinónimos"])
 
 # TAB 1: INSPECTORES
 with tab1:
@@ -464,8 +201,9 @@ with tab1:
             col2.write(f"Legajo: {ins['legajo']}")
             if col3.button("🗑️", key=f"del_insp_{ins['id']}"):
                 zonas_asig = supabase.table("zonas_inspectores").select("*").eq("legajo", ins['legajo']).execute()
-                if zonas_asig.data:
-                    st.warning(f"Elimine primero las {len(zonas_asig.data)} calles asignadas")
+                palabras_asig = supabase.table("palabras_ancla").select("*").eq("legajo", ins['legajo']).execute()
+                if zonas_asig.data or palabras_asig.data:
+                    st.warning(f"Elimine primero las {len(zonas_asig.data)} calles y {len(palabras_asig.data)} palabras ancla asignadas")
                 else:
                     supabase.table("inspectores").delete().eq("id", ins['id']).execute()
                     forzar_recarga_cache()
@@ -655,8 +393,96 @@ with tab3:
         else:
             st.info("No hay calles cargadas")
 
-# TAB 4: SINÓNIMOS
+# TAB 4: PALABRAS ANCLA (NUEVO)
 with tab4:
+    st.markdown("### ⚓ Palabras Ancla para Mar del Plata")
+    st.caption("""
+    **¿Qué son las palabras ancla?**  
+    Son palabras clave que permiten asignar un inspector aunque la dirección tenga texto adicional.  
+    Por ejemplo: si agregás `RUTA 88` para LOPEZ, cualquier empresa en Mar del Plata que tenga `RUTA 88` en su dirección  
+    (aunque diga `RUTA 88 KM 12.5` o `RUTA 88 Y CALLE 45`) se asignará automáticamente a LOPEZ.
+    
+    ⚠️ **Importante:** Las palabras ancla SOLO se evalúan cuando la localidad es MAR DEL PLATA.
+    """)
+    
+    # Verificar tabla
+    try:
+        supabase.table("palabras_ancla").select("id").limit(1).execute()
+    except:
+        st.error("La tabla 'palabras_ancla' no existe. Ejecutá este SQL en Supabase:")
+        st.code("""
+CREATE TABLE palabras_ancla (
+  id SERIAL PRIMARY KEY,
+  palabra TEXT NOT NULL UNIQUE,
+  legajo INTEGER NOT NULL REFERENCES inspectores(legajo),
+  creado_por TEXT DEFAULT 'usuario',
+  fecha_creacion TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_palabras_ancla_palabra ON palabras_ancla(palabra);
+        """)
+    
+    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    if not inspectores.data:
+        st.warning("Primero cargá inspectores")
+    else:
+        opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
+        
+        # Formulario para agregar palabra ancla
+        with st.expander("➕ Agregar palabra ancla", expanded=True):
+            with st.form("form_palabra_ancla"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    nueva_palabra = st.text_input("Palabra clave", placeholder="Ej: RUTA 88, RUTA 226, AV COSTANERA")
+                    st.caption("La palabra puede aparecer en cualquier parte de la dirección")
+                with col2:
+                    legajo_sel = st.selectbox(
+                        "Asignar a inspector", 
+                        options=list(opts.values()), 
+                        format_func=lambda x: [k for k, v in opts.items() if v == x][0],
+                        key="palabra_legajo"
+                    )
+                
+                if st.form_submit_button("⚓ AGREGAR PALABRA ANCLA"):
+                    if nueva_palabra:
+                        try:
+                            supabase.table("palabras_ancla").insert({
+                                "palabra": nueva_palabra.upper().strip(),
+                                "legajo": int(legajo_sel),
+                                "creado_por": "usuario"
+                            }).execute()
+                            forzar_recarga_cache()
+                            st.success(f"✅ Palabra ancla '{nueva_palabra.upper()}' agregada correctamente")
+                            st.rerun()
+                        except Exception as e:
+                            if "duplicate" in str(e).lower():
+                                st.error("Esta palabra ancla ya existe")
+                            else:
+                                st.error(f"Error: {e}")
+                    else:
+                        st.error("La palabra ancla es obligatoria")
+        
+        # Lista de palabras ancla existentes
+        palabras = supabase.table("palabras_ancla").select("*").order("palabra").execute()
+        if palabras.data:
+            st.markdown("#### 📋 Lista de palabras ancla actuales")
+            for pal in palabras.data:
+                # Buscar nombre del inspector
+                inspector = next((i for i in inspectores.data if i['legajo'] == pal['legajo']), None)
+                nombre_inspector = inspector['nombre'].split(',')[0] if inspector else str(pal['legajo'])
+                
+                col1, col2, col3, col4 = st.columns([2, 2, 1, 0.5])
+                col1.write(f"**{pal['palabra']}**")
+                col2.write(f"Asignado a: {nombre_inspector} (Legajo {pal['legajo']})")
+                col3.write(pal.get('creado_por', 'sistema'))
+                if col4.button("🗑️", key=f"del_ancla_{pal['id']}"):
+                    supabase.table("palabras_ancla").delete().eq("id", pal['id']).execute()
+                    forzar_recarga_cache()
+                    st.rerun()
+        else:
+            st.info("No hay palabras ancla cargadas aún")
+
+# TAB 5: SINÓNIMOS
+with tab5:
     st.markdown("### 🔄 Sinónimos de Calles")
     st.caption("Acá podés agregar sinónimos para que el sistema reconozca formas alternativas de escribir las calles")
     
