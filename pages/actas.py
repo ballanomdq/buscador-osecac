@@ -66,25 +66,59 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
     background: #1d4ed8 !important;
 }
 #MainMenu, footer, header { display: none !important; }
-.big-number {
+
+/* Tarjetas compactas con números grandes */
+.kpi-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.1rem 0.2rem;
+    padding: 0.3rem 0.2rem;
     text-align: center;
-    border: 1px solid #3b82f6;
+    border: 1px solid #334155;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
-.big-number h1 { margin: 0; font-size: 2rem !important; color: #3b82f6; font-weight: 700; line-height: 1.2; }
-.big-number p { margin: 0; font-size: 0.65rem !important; color: #94a3b8; }
+.kpi-card h1 { 
+    margin: 0; 
+    font-size: 1.8rem !important; 
+    font-weight: 700; 
+    line-height: 1.2;
+}
+.kpi-card p { 
+    margin: 0; 
+    font-size: 0.6rem !important; 
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.kpi-total h1 { color: #3b82f6; }
+.kpi-con-legajo h1 { color: #10b981; }
+.kpi-sin-legajo h1 { color: #f59e0b; }
+
+/* Tarjetas de inspectores compactas */
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 8px;
-    padding: 0.1rem 0.2rem;
+    border-radius: 6px;
+    padding: 0.2rem 0.1rem;
     text-align: center;
-    border: 1px solid #10b981;
+    border: 1px solid #334155;
 }
-.inspector-card h3 { margin: 0; font-size: 0.85rem; color: #10b981; }
-.inspector-card h1 { margin: 0; font-size: 1.6rem; color: #e2e8f0; font-weight: 700; line-height: 1.2; }
-.inspector-card p { margin: 0; font-size: 0.6rem; color: #94a3b8; }
+.inspector-card h3 { 
+    margin: 0; 
+    font-size: 0.7rem; 
+    color: #10b981; 
+    font-weight: 600;
+}
+.inspector-card h1 { 
+    margin: 0; 
+    font-size: 1.2rem; 
+    color: #f1f5f9; 
+    font-weight: 700;
+}
+.inspector-card p { 
+    margin: 0; 
+    font-size: 0.55rem; 
+    color: #94a3b8;
+}
+
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
 hr { margin: 0.3rem 0 !important; }
 div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
@@ -179,7 +213,7 @@ div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):no
 </style>
 """, unsafe_allow_html=True)
 
-# Header con título
+# Header con título (sin botón Volver)
 st.markdown("""
 <div class="app-header">
     <div>
@@ -188,12 +222,6 @@ st.markdown("""
     </div>
 </div>
 """, unsafe_allow_html=True)
-
-# Botón Volver
-col_back, _ = st.columns([1, 11])
-with col_back:
-    if st.button("← Volver"):
-        st.switch_page("main.py")
 
 # ── Utilidades generales ──────────────────────────────────────────────────────
 def limpiar_str(v):
@@ -315,19 +343,17 @@ def normalizar_calle(calle: str) -> str:
     calle = re.sub(r'[^A-ZÁÉÍÓÚÜÑ0-9 ]', '', calle)
     return re.sub(r'\s+', ' ', calle).strip()
 
-# ── NUEVA FUNCIÓN: Cargar palabras ancla ──────────────────────────────────────
+# ── FUNCIÓN: Cargar palabras ancla ────────────────────────────────────────────
 def cargar_palabras_ancla():
     """Carga todas las palabras ancla desde Supabase"""
     try:
         r = supabase.table("palabras_ancla").select("*").execute()
         return r.data if r.data else []
     except Exception as e:
-        # Si la tabla no existe, devolver lista vacía
         return []
 
 def construir_lookup_palabras_ancla(palabras_ancla):
     """Construye un lookup simple para búsqueda rápida de palabras ancla"""
-    # Devuelve la lista directamente, la búsqueda se hará secuencial
     return palabras_ancla
 
 # ── FUNCIÓN MODIFICADA: Asignación de legajo con palabras ancla ────────────────
@@ -340,7 +366,6 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
     
     # Si es Mar del Plata, PRIMERO buscar palabras ancla
     if localidad_cmp == "MAR DEL PLATA" and lookup_palabras_ancla:
-        # Normalizar la dirección completa (calle + número) para buscar palabras ancla
         direccion_completa = f"{calle} {numero}".upper().strip()
         
         for ancla in lookup_palabras_ancla:
@@ -348,7 +373,6 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
             legajo_ancla = ancla.get('legajo')
             
             if palabra and legajo_ancla:
-                # Verificar si la palabra ancla está CONTENIDA en la dirección
                 if palabra in direccion_completa:
                     return legajo_ancla
     
@@ -573,7 +597,6 @@ def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_export.to_excel(writer, sheet_name='Mailing', index=False)
         
-        # Ajustar ancho de columnas
         worksheet = writer.sheets['Mailing']
         for column in worksheet.columns:
             max_length = 0
@@ -714,7 +737,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (MODIFICADO para cargar palabras ancla)
+# TAB 2 — Editar Legajos y Vtos (MODIFICADO con tarjetas compactas)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -723,26 +746,44 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
+    # Tarjetas compactas en UNA sola fila
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown(f'<div class="big-number"><h1>{total_general}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="kpi-card kpi-total">
+            <h1>{total_general:,}</h1>
+            <p>TOTAL REGISTROS</p>
+        </div>
+        """, unsafe_allow_html=True)
     with col_t2:
-        st.markdown(f'<div class="big-number"><h1>{con_legajo}</h1><p>CON LEGAJO</p></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="kpi-card kpi-con-legajo">
+            <h1>{con_legajo:,}</h1>
+            <p>CON LEGAJO</p>
+        </div>
+        """, unsafe_allow_html=True)
     with col_t3:
-        st.markdown(f'<div class="big-number"><h1>{sin_legajo_total}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="kpi-card kpi-sin-legajo">
+            <h1>{sin_legajo_total:,}</h1>
+            <p>SIN LEGAJO</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### 👥 Empresas asignadas por Inspector")
     
+    # Tarjetas de inspectores (sin título, compactas, en una sola fila)
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
+        # Crear columnas para todos los inspectores en una sola fila
         cols_inspectores = st.columns(len(inspectores.data))
         for idx, ins in enumerate(inspectores.data):
             count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
+            nombre_corto = ins['nombre'].split(',')[0]
             with cols_inspectores[idx]:
                 st.markdown(f"""
                 <div class="inspector-card">
-                    <h3>{ins['nombre'].split(',')[0]}</h3>
+                    <h3>{nombre_corto}</h3>
                     <h1>{count}</h1>
                     <p>Legajo: {ins['legajo']}</p>
                 </div>
@@ -805,7 +846,6 @@ with tab2:
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
-            # Cargar datos
             query = supabase.table("padron_deuda_presunta")\
                 .select("*")\
                 .not_.is_("leg", "null")\
@@ -822,13 +862,11 @@ with tab2:
                     st.rerun()
                 return
             
-            # Filtros
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                 localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
-                
                 usar_todos = st.checkbox("Seleccionar TODOS", value=True, key="dialog_usar_todos")
                 cantidad_personalizada = None
                 if not usar_todos:
@@ -839,12 +877,10 @@ with tab2:
                 ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
                 ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
             
-            # Aplicar filtros
             df_filtrado = df_candidatos.copy()
             if localidad_filtro != "TODAS":
                 df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
             
-            # Ordenamiento
             if ordenar_deuda or ordenar_hasta:
                 def parse_deuda(val):
                     if val is None:
@@ -877,13 +913,11 @@ with tab2:
                     df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
                 df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
             
-            # Seleccionar cantidad
             if usar_todos:
                 df_seleccionado = df_filtrado.copy()
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
-            # Botón procesar VERDE
             if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
                 progress_bar = st.progress(0)
                 
@@ -912,7 +946,6 @@ with tab2:
                 st.session_state.preparar_mails = False
                 st.rerun()
             
-            # Botón FINALIZAR (GRIS) - antes decía "Cancelar"
             if st.button("✅ Finalizar", use_container_width=True):
                 st.session_state.preparar_mails = False
                 st.rerun()
@@ -992,11 +1025,11 @@ with tab2:
             insp_loc   = cargar_inspectores_localidad()
             insp_zonas = cargar_zonas_inspectores()
             sinonimos  = cargar_sinonimos()
-            palabras_ancla = cargar_palabras_ancla()  # NUEVO
+            palabras_ancla = cargar_palabras_ancla()
             lkp_loc    = construir_lookup_localidades(insp_loc)
             lkp_zonas  = construir_lookup_zonas(insp_zonas)
             lkp_sin    = construir_lookup_sinonimos(sinonimos)
-            lkp_palabras = construir_lookup_palabras_ancla(palabras_ancla)  # NUEVO
+            lkp_palabras = construir_lookup_palabras_ancla(palabras_ancla)
 
         with st.spinner("Cargando registros..."):
             registros = traer_registros_sin_legajo()
@@ -1020,7 +1053,7 @@ with tab2:
                     reg.get('localidad', '') or '',
                     reg.get('calle', '') or '',
                     reg.get('numero', '') or '',
-                    lkp_loc, lkp_zonas, lkp_sin, lkp_palabras  # NUEVO parámetro
+                    lkp_loc, lkp_zonas, lkp_sin, lkp_palabras
                 )
                 
                 if legajo:
