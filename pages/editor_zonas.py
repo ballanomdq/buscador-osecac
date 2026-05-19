@@ -1,21 +1,14 @@
 import streamlit as st
 import io
-import os
+import fitz  # PyMuPDF
 from datetime import datetime
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.units import mm, cm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.fonts import addMapping
 
-st.set_page_config(page_title="Prueba de Puntería PDF", layout="centered")
+st.set_page_config(page_title="Prueba sobre PDF Original", layout="centered")
 
-st.title("🎯 Prueba de Posicionamiento en PDF")
-st.markdown("Este PDF muestra números en las posiciones donde se escribirán los datos.")
+st.title("🎯 Prueba de Puntería sobre PDF Original")
+st.markdown("Este script escribe números SOBRE TU PDF ORIGINAL para verificar las posiciones.")
 
-# Coordenadas base (en puntos, 1 punto = 1/72 pulgada)
-# A4 landscape = 842 x 595 puntos
+# Coordenadas que vos sacaste (en píxeles)
 coordenadas = {
     "AREA_FISCALIZACION": (37, 143),
     "INSPECTOR_NOMBRE": (521, 165),
@@ -31,136 +24,104 @@ coordenadas = {
     "EMPRESA_1_DEUDA": (600, 540),
 }
 
-# Desplazamiento vertical entre empresas (en puntos)
-DESPLAZAMIENTO_VERTICAL = 38
+DESPLAZAMIENTO_VERTICAL = 45  # Ajustar según necesidad
 
-# Generar PDF con números de posición
-def generar_pdf_prueba():
-    buffer = io.BytesIO()
-    c = canvas.Canvas(buffer, pagesize=landscape(A4))
-    width, height = landscape(A4)  # 842 x 595
+# Ruta del PDF original (asegurate que esté en la misma carpeta)
+PDF_ORIGINAL = "EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf"
+
+def escribir_numeros_en_pdf():
+    # Abrir el PDF original
+    doc = fitz.open(PDF_ORIGINAL)
+    page = doc[0]  # Primera página
     
-    # Dibujar números en las posiciones
-    c.setFont("Helvetica", 10)
-    c.setFillColorRGB(1, 0, 0)  # Rojo para que se vea bien
+    # Configurar estilo del texto
+    fontsize = 14
+    color_texto = (1, 0, 0)  # Rojo para que se vea
     
-    # Número 1: Área de fiscalización
+    # Escribir números en las coordenadas
+    # 1: ÁREA DE FISCALIZACION
     x, y = coordenadas["AREA_FISCALIZACION"]
-    c.drawString(x, height - y, "1")
+    page.insert_text((x, y), "1", fontsize=fontsize, color=color_texto)
     
-    # Número 2: Nombre inspector
+    # 2: INSPECTOR NOMBRE
     x, y = coordenadas["INSPECTOR_NOMBRE"]
-    c.drawString(x, height - y, "2")
+    page.insert_text((x, y), "2", fontsize=fontsize, color=color_texto)
     
-    # Número 3: MES
+    # 3: MES
     x, y = coordenadas["MES"]
-    c.drawString(x, height - y, "3")
+    page.insert_text((x, y), "3", fontsize=fontsize, color=color_texto)
     
-    # Número 4: AÑO
+    # 4: AÑO
     x, y = coordenadas["AÑO"]
-    c.drawString(x, height - y, "4")
+    page.insert_text((x, y), "4", fontsize=fontsize, color=color_texto)
     
-    # Número 5: FOLIO
+    # 5: FOLIO
     x, y = coordenadas["FOLIO"]
-    c.drawString(x, height - y, "5")
+    page.insert_text((x, y), "5", fontsize=fontsize, color=color_texto)
     
-    # Empresa 1 (6 al 12)
+    # 6: EMPRESA 1 - RAZON SOCIAL
     x, y = coordenadas["EMPRESA_1_RAZON_SOCIAL"]
-    c.drawString(x, height - y, "6")
+    page.insert_text((x, y), "6", fontsize=fontsize, color=color_texto)
     
+    # 7: EMPRESA 1 - CUIT
     x, y = coordenadas["EMPRESA_1_CUIT"]
-    c.drawString(x, height - y, "7")
+    page.insert_text((x, y), "7", fontsize=fontsize, color=color_texto)
     
+    # 8: EMPRESA 1 - ACTA
     x, y = coordenadas["EMPRESA_1_ACTA"]
-    c.drawString(x, height - y, "8")
+    page.insert_text((x, y), "8", fontsize=fontsize, color=color_texto)
     
+    # 9: EMPRESA 1 - VTO
     x, y = coordenadas["EMPRESA_1_VTO"]
-    c.drawString(x, height - y, "9")
+    page.insert_text((x, y), "9", fontsize=fontsize, color=color_texto)
     
+    # 10: EMPRESA 1 - DESDE
     x, y = coordenadas["EMPRESA_1_DESDE"]
-    c.drawString(x, height - y, "10")
+    page.insert_text((x, y), "10", fontsize=fontsize, color=color_texto)
     
+    # 11: EMPRESA 1 - HASTA
     x, y = coordenadas["EMPRESA_1_HASTA"]
-    c.drawString(x, height - y, "11")
+    page.insert_text((x, y), "11", fontsize=fontsize, color=color_texto)
     
+    # 12: EMPRESA 1 - DEUDA
     x, y = coordenadas["EMPRESA_1_DEUDA"]
-    c.drawString(x, height - y, "12")
+    page.insert_text((x, y), "12", fontsize=fontsize, color=color_texto)
     
-    # Empresa 2 (13 al 19) - mismo X, Y + desplazamiento
+    # Empresa 2 (13-19)
     y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + DESPLAZAMIENTO_VERTICAL
+    x_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][0]
+    page.insert_text((x_base, y_base), "13", fontsize=fontsize, color=color_texto)
+    page.insert_text((coordenadas["EMPRESA_1_CUIT"][0], y_base), "14", fontsize=fontsize, color=color_texto)
+    page.insert_text((coordenadas["EMPRESA_1_ACTA"][0], y_base), "15", fontsize=fontsize, color=color_texto)
+    page.insert_text((coordenadas["EMPRESA_1_VTO"][0], y_base), "16", fontsize=fontsize, color=color_texto)
+    page.insert_text((coordenadas["EMPRESA_1_DESDE"][0], y_base), "17", fontsize=fontsize, color=color_texto)
+    page.insert_text((coordenadas["EMPRESA_1_HASTA"][0], y_base), "18", fontsize=fontsize, color=color_texto)
+    page.insert_text((coordenadas["EMPRESA_1_DEUDA"][0], y_base), "19", fontsize=fontsize, color=color_texto)
     
-    x = coordenadas["EMPRESA_1_RAZON_SOCIAL"][0]
-    c.drawString(x, height - y_base, "13")
-    
-    x = coordenadas["EMPRESA_1_CUIT"][0]
-    c.drawString(x, height - y_base, "14")
-    
-    x = coordenadas["EMPRESA_1_ACTA"][0]
-    c.drawString(x, height - y_base, "15")
-    
-    x = coordenadas["EMPRESA_1_VTO"][0]
-    c.drawString(x, height - y_base, "16")
-    
-    x = coordenadas["EMPRESA_1_DESDE"][0]
-    c.drawString(x, height - y_base, "17")
-    
-    x = coordenadas["EMPRESA_1_HASTA"][0]
-    c.drawString(x, height - y_base, "18")
-    
-    x = coordenadas["EMPRESA_1_DEUDA"][0]
-    c.drawString(x, height - y_base, "19")
-    
-    # Empresa 3 (20 al 26)
-    y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + (DESPLAZAMIENTO_VERTICAL * 2)
-    
-    x = coordenadas["EMPRESA_1_RAZON_SOCIAL"][0]
-    c.drawString(x, height - y_base, "20")
-    
-    x = coordenadas["EMPRESA_1_CUIT"][0]
-    c.drawString(x, height - y_base, "21")
-    
-    x = coordenadas["EMPRESA_1_ACTA"][0]
-    c.drawString(x, height - y_base, "22")
-    
-    x = coordenadas["EMPRESA_1_VTO"][0]
-    c.drawString(x, height - y_base, "23")
-    
-    x = coordenadas["EMPRESA_1_DESDE"][0]
-    c.drawString(x, height - y_base, "24")
-    
-    x = coordenadas["EMPRESA_1_HASTA"][0]
-    c.drawString(x, height - y_base, "25")
-    
-    x = coordenadas["EMPRESA_1_DEUDA"][0]
-    c.drawString(x, height - y_base, "26")
-    
-    # Empresa 4 al 8 (27 al 55) - seguiría el mismo patrón
-    for i in range(4, 9):
-        y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + (DESPLAZAMIENTO_VERTICAL * (i-1))
-        num_actual = 19 + (i-2) * 7
-        c.drawString(coordenadas["EMPRESA_1_RAZON_SOCIAL"][0], height - y_base, str(num_actual))
-        c.drawString(coordenadas["EMPRESA_1_CUIT"][0], height - y_base, str(num_actual+1))
-        c.drawString(coordenadas["EMPRESA_1_ACTA"][0], height - y_base, str(num_actual+2))
-        c.drawString(coordenadas["EMPRESA_1_VTO"][0], height - y_base, str(num_actual+3))
-        c.drawString(coordenadas["EMPRESA_1_DESDE"][0], height - y_base, str(num_actual+4))
-        c.drawString(coordenadas["EMPRESA_1_HASTA"][0], height - y_base, str(num_actual+5))
-        c.drawString(coordenadas["EMPRESA_1_DEUDA"][0], height - y_base, str(num_actual+6))
-    
-    c.save()
-    buffer.seek(0)
-    return buffer
+    # Guardar en memoria
+    output_buffer = io.BytesIO()
+    doc.save(output_buffer)
+    doc.close()
+    output_buffer.seek(0)
+    return output_buffer
 
-# Botón para generar y descargar
-if st.button("📄 GENERAR PDF DE PRUEBA", type="primary", use_container_width=True):
-    with st.spinner("Generando PDF..."):
-        pdf_buffer = generar_pdf_prueba()
+# Verificar que el PDF existe
+import os
+if not os.path.exists(PDF_ORIGINAL):
+    st.error(f"❌ No se encuentra el archivo '{PDF_ORIGINAL}'")
+    st.info(f"Asegurate de que el PDF esté en la misma carpeta que este script. Archivos encontrados: {os.listdir('.')}")
+    st.stop()
+
+if st.button("📄 GENERAR PDF CON NÚMEROS (sobre tu PDF original)", type="primary", use_container_width=True):
+    with st.spinner("Escribiendo números en el PDF..."):
+        pdf_buffer = escribir_numeros_en_pdf()
         
         st.success("✅ PDF generado correctamente")
         
         st.download_button(
             label="📥 DESCARGAR PDF CON NÚMEROS",
             data=pdf_buffer,
-            file_name=f"prueba_posiciones_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            file_name=f"prueba_coordenadas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
             mime="application/pdf",
             use_container_width=True
         )
@@ -168,23 +129,16 @@ if st.button("📄 GENERAR PDF DE PRUEBA", type="primary", use_container_width=T
 st.markdown("---")
 st.markdown("""
 ### 📌 Instrucciones:
-1. Apretá el botón **"GENERAR PDF DE PRUEBA"**
-2. Descargá y abrí el PDF
-3. Verificá que los números estén en los lugares correctos:
-   - **1** : Área de fiscalización (debe ir "MAR DEL PLATA")
-   - **2** : Nombre del inspector
+1. Asegurate que el archivo **`EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf`** esté en la misma carpeta
+2. Apretá el botón **"GENERAR PDF CON NÚMEROS"**
+3. Descargá y abrí el PDF
+4. Verificá dónde aparece cada número:
+   - **1** : Área de fiscalización
+   - **2** : Nombre inspector  
    - **3** : MES
-   - **4** : AÑO  
+   - **4** : AÑO
    - **5** : FOLIO
-   - **6** : Razón social empresa 1
-   - **7** : CUIT empresa 1
-   - **8** : ACTA empresa 1
-   - **9** : VTO empresa 1
-   - **10** : DESDE empresa 1
-   - **11** : HASTA empresa 1
-   - **12** : DEUDA empresa 1
-   - **13-19**: Empresa 2
-   - **20-26**: Empresa 3
-   - etc.
-4. **Decime qué números están mal ubicados y te ajusto las coordenadas**
+   - **6-12** : Empresa 1
+   - **13-19** : Empresa 2
+5. **Decime qué número está mal ubicado y te digo cómo ajustarlo**
 """)
