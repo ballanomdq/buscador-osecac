@@ -1,247 +1,190 @@
 import streamlit as st
-import folium
-from supabase import create_client
-import json
-import tempfile
+import io
 import os
-from folium.plugins import Draw
-import requests
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import mm, cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.fonts import addMapping
 
-st.set_page_config(page_title="Editor de Zonas - OSECAC", layout="wide")
+st.set_page_config(page_title="Prueba de Puntería PDF", layout="centered")
 
-st.markdown("""
-<style>
-.main-header {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    padding: 1rem;
-    border-radius: 10px;
-    margin-bottom: 0.5rem;
-    border-left: 4px solid #3b82f6;
+st.title("🎯 Prueba de Posicionamiento en PDF")
+st.markdown("Este PDF muestra números en las posiciones donde se escribirán los datos.")
+
+# Coordenadas base (en puntos, 1 punto = 1/72 pulgada)
+# A4 landscape = 842 x 595 puntos
+coordenadas = {
+    "AREA_FISCALIZACION": (37, 143),
+    "INSPECTOR_NOMBRE": (521, 165),
+    "MES": (144, 459),
+    "AÑO": (302, 459),
+    "FOLIO": (853, 456),
+    "EMPRESA_1_RAZON_SOCIAL": (144, 459),
+    "EMPRESA_1_CUIT": (224, 540),
+    "EMPRESA_1_ACTA": (405, 542),
+    "EMPRESA_1_VTO": (422, 541),
+    "EMPRESA_1_DESDE": (525, 542),
+    "EMPRESA_1_HASTA": (559, 542),
+    "EMPRESA_1_DEUDA": (600, 540),
 }
-.main-header h2 { color: white; margin: 0; font-size: 1.3rem; }
-.main-header p { color: #94a3b8; margin: 0; font-size: 0.8rem; }
-div[data-testid="stButton"] button {
-    background: #3b82f6 !important;
-    color: white !important;
-    border: none !important;
-    padding: 0.3rem 1rem !important;
-    font-size: 0.8rem !important;
-    border-radius: 6px !important;
-}
-div[data-testid="stButton"] button:hover { background: #2563eb !important; }
-div[data-testid="stButton"] button[kind="secondary"] {
-    background: #10b981 !important;
-}
-div[data-testid="stButton"] button[kind="secondary"]:hover {
-    background: #059669 !important;
-}
-div[data-testid="stButton"] button[kind="primary"] {
-    background: #ef4444 !important;
-}
-div[data-testid="stButton"] button[kind="primary"]:hover {
-    background: #dc2626 !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
-st.markdown("""
-<div class="main-header">
-    <h2>🎨 Editor de Zonas por Inspector</h2>
-    <p>Dibujá las zonas geográficas de cada inspector directamente en el mapa</p>
-</div>
-""", unsafe_allow_html=True)
+# Desplazamiento vertical entre empresas (en puntos)
+DESPLAZAMIENTO_VERTICAL = 38
 
-# ── Botones superiores ───────────────────────────────────────────────────────
-col_volver, col_guardar, col_eliminar = st.columns([1, 1, 4])
+# Generar PDF con números de posición
+def generar_pdf_prueba():
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=landscape(A4))
+    width, height = landscape(A4)  # 842 x 595
+    
+    # Dibujar números en las posiciones
+    c.setFont("Helvetica", 10)
+    c.setFillColorRGB(1, 0, 0)  # Rojo para que se vea bien
+    
+    # Número 1: Área de fiscalización
+    x, y = coordenadas["AREA_FISCALIZACION"]
+    c.drawString(x, height - y, "1")
+    
+    # Número 2: Nombre inspector
+    x, y = coordenadas["INSPECTOR_NOMBRE"]
+    c.drawString(x, height - y, "2")
+    
+    # Número 3: MES
+    x, y = coordenadas["MES"]
+    c.drawString(x, height - y, "3")
+    
+    # Número 4: AÑO
+    x, y = coordenadas["AÑO"]
+    c.drawString(x, height - y, "4")
+    
+    # Número 5: FOLIO
+    x, y = coordenadas["FOLIO"]
+    c.drawString(x, height - y, "5")
+    
+    # Empresa 1 (6 al 12)
+    x, y = coordenadas["EMPRESA_1_RAZON_SOCIAL"]
+    c.drawString(x, height - y, "6")
+    
+    x, y = coordenadas["EMPRESA_1_CUIT"]
+    c.drawString(x, height - y, "7")
+    
+    x, y = coordenadas["EMPRESA_1_ACTA"]
+    c.drawString(x, height - y, "8")
+    
+    x, y = coordenadas["EMPRESA_1_VTO"]
+    c.drawString(x, height - y, "9")
+    
+    x, y = coordenadas["EMPRESA_1_DESDE"]
+    c.drawString(x, height - y, "10")
+    
+    x, y = coordenadas["EMPRESA_1_HASTA"]
+    c.drawString(x, height - y, "11")
+    
+    x, y = coordenadas["EMPRESA_1_DEUDA"]
+    c.drawString(x, height - y, "12")
+    
+    # Empresa 2 (13 al 19) - mismo X, Y + desplazamiento
+    y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + DESPLAZAMIENTO_VERTICAL
+    
+    x = coordenadas["EMPRESA_1_RAZON_SOCIAL"][0]
+    c.drawString(x, height - y_base, "13")
+    
+    x = coordenadas["EMPRESA_1_CUIT"][0]
+    c.drawString(x, height - y_base, "14")
+    
+    x = coordenadas["EMPRESA_1_ACTA"][0]
+    c.drawString(x, height - y_base, "15")
+    
+    x = coordenadas["EMPRESA_1_VTO"][0]
+    c.drawString(x, height - y_base, "16")
+    
+    x = coordenadas["EMPRESA_1_DESDE"][0]
+    c.drawString(x, height - y_base, "17")
+    
+    x = coordenadas["EMPRESA_1_HASTA"][0]
+    c.drawString(x, height - y_base, "18")
+    
+    x = coordenadas["EMPRESA_1_DEUDA"][0]
+    c.drawString(x, height - y_base, "19")
+    
+    # Empresa 3 (20 al 26)
+    y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + (DESPLAZAMIENTO_VERTICAL * 2)
+    
+    x = coordenadas["EMPRESA_1_RAZON_SOCIAL"][0]
+    c.drawString(x, height - y_base, "20")
+    
+    x = coordenadas["EMPRESA_1_CUIT"][0]
+    c.drawString(x, height - y_base, "21")
+    
+    x = coordenadas["EMPRESA_1_ACTA"][0]
+    c.drawString(x, height - y_base, "22")
+    
+    x = coordenadas["EMPRESA_1_VTO"][0]
+    c.drawString(x, height - y_base, "23")
+    
+    x = coordenadas["EMPRESA_1_DESDE"][0]
+    c.drawString(x, height - y_base, "24")
+    
+    x = coordenadas["EMPRESA_1_HASTA"][0]
+    c.drawString(x, height - y_base, "25")
+    
+    x = coordenadas["EMPRESA_1_DEUDA"][0]
+    c.drawString(x, height - y_base, "26")
+    
+    # Empresa 4 al 8 (27 al 55) - seguiría el mismo patrón
+    for i in range(4, 9):
+        y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + (DESPLAZAMIENTO_VERTICAL * (i-1))
+        num_actual = 19 + (i-2) * 7
+        c.drawString(coordenadas["EMPRESA_1_RAZON_SOCIAL"][0], height - y_base, str(num_actual))
+        c.drawString(coordenadas["EMPRESA_1_CUIT"][0], height - y_base, str(num_actual+1))
+        c.drawString(coordenadas["EMPRESA_1_ACTA"][0], height - y_base, str(num_actual+2))
+        c.drawString(coordenadas["EMPRESA_1_VTO"][0], height - y_base, str(num_actual+3))
+        c.drawString(coordenadas["EMPRESA_1_DESDE"][0], height - y_base, str(num_actual+4))
+        c.drawString(coordenadas["EMPRESA_1_HASTA"][0], height - y_base, str(num_actual+5))
+        c.drawString(coordenadas["EMPRESA_1_DEUDA"][0], height - y_base, str(num_actual+6))
+    
+    c.save()
+    buffer.seek(0)
+    return buffer
 
-with col_volver:
-    if st.button("← Volver a Zonas"):
-        st.switch_page("pages/zonas.py")
-
-with col_guardar:
-    guardar_click = st.button("💾 GUARDAR ZONA ACTUAL", type="secondary")
-
-with col_eliminar:
-    eliminar_click = st.button("🗑️ ELIMINAR ZONA SELECCIONADA", type="primary")
+# Botón para generar y descargar
+if st.button("📄 GENERAR PDF DE PRUEBA", type="primary", use_container_width=True):
+    with st.spinner("Generando PDF..."):
+        pdf_buffer = generar_pdf_prueba()
+        
+        st.success("✅ PDF generado correctamente")
+        
+        st.download_button(
+            label="📥 DESCARGAR PDF CON NÚMEROS",
+            data=pdf_buffer,
+            file_name=f"prueba_posiciones_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 st.markdown("---")
-
-# ── Conexión a Supabase ──────────────────────────────────────────────────────
-@st.cache_resource
-def get_supabase():
-    return create_client(
-        st.secrets["SUPABASE_URL_ACTAS"],
-        st.secrets["SUPABASE_KEY_ACTAS"]
-    )
-
-supabase = get_supabase()
-
-# ── Obtener inspectores ──────────────────────────────────────────────────────
-@st.cache_data(ttl=300)
-def cargar_inspectores():
-    datos = supabase.table("inspectores").select("*").order("legajo").execute()
-    return datos.data if datos.data else []
-
-inspectores = cargar_inspectores()
-
-if not inspectores:
-    st.warning("No hay inspectores cargados")
-    st.stop()
-
-# ── Colores por inspector ────────────────────────────────────────────────────
-colores_inspectores = {
-    "RODRIGUEZ": "#2563eb",
-    "POLINESSI": "#10b981",
-    "LOPEZ": "#f59e0b",
-    "CARBAYO": "#8b5cf6",
-    "GARCIA": "#fcd34d",
-}
-
-# ── Seleccionar inspector ────────────────────────────────────────────────────
-st.markdown("### 1. Seleccionar Inspector")
-opciones = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores}
-inspector_seleccionado = st.selectbox("Inspector", options=list(opciones.keys()))
-
-legajo_seleccionado = opciones[inspector_seleccionado]
-nombre_corto = inspector_seleccionado.split('(')[0].strip().split(',')[0]
-color_seleccionado = colores_inspectores.get(nombre_corto.upper(), "#6b7280")
-
-st.markdown(f'<span style="display:inline-block; width:20px; height:20px; background:{color_seleccionado}; border-radius:4px; margin-right:8px;"></span> Color: {color_seleccionado}', unsafe_allow_html=True)
-
-st.markdown("---")
-
-# ── Cargar zona existente ────────────────────────────────────────────────────
-@st.cache_data(ttl=300)
-def cargar_zona(legajo):
-    datos = supabase.table("zonas_inspectores_geojson").select("*").eq("legajo", legajo).execute()
-    if datos.data and len(datos.data) > 0:
-        return datos.data[0].get("geojson")
-    return None
-
-zona_existente = cargar_zona(legajo_seleccionado)
-
-# ── Centro de Mar del Plata ──────────────────────────────────────────────────
-centro_mdp = [-38.0055, -57.5426]
-
-# ── Crear mapa con herramienta de dibujo ─────────────────────────────────────
-st.markdown("### 2. Dibujar la zona en el mapa")
-st.caption("💡 Hacé clic en el mapa para marcar los puntos del polígono. Cerrá el polígono haciendo clic en el primer punto.")
-
-m = folium.Map(location=centro_mdp, zoom_start=12, tiles="cartodbpositron")
-
-# Si ya existe una zona, mostrarla en el mapa
-if zona_existente:
-    try:
-        geojson_data = json.loads(zona_existente)
-        folium.GeoJson(
-            geojson_data,
-            style_function=lambda x: {
-                'fillColor': color_seleccionado,
-                'color': color_seleccionado,
-                'weight': 3,
-                'fillOpacity': 0.3
-            },
-            tooltip=f"Zona: {nombre_corto}"
-        ).add_to(m)
-        st.info(f"📌 Zona existente cargada. Podés dibujar una nueva para reemplazarla.")
-    except:
-        pass
-
-# Agregar herramienta de dibujo
-draw = Draw(
-    draw_options={
-        'polygon': True,
-        'polyline': False,
-        'rectangle': False,
-        'circle': False,
-        'marker': False,
-        'circlemarker': False
-    },
-    edit_options={'edit': True}
-)
-draw.add_to(m)
-
-# Agregar control de pantalla completa
-from folium.plugins import Fullscreen
-Fullscreen(position="topleft").add_to(m)
-
-# Guardar el mapa como HTML
-with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as tmp:
-    m.save(tmp.name)
-    with open(tmp.name, 'r', encoding='utf-8') as f:
-        html_content = f.read()
-    os.unlink(tmp.name)
-
-st.components.v1.html(html_content, height=600, width=None)
-
-st.markdown("---")
-st.markdown("### 3. Instrucciones")
 st.markdown("""
-1. **Dibujar:** Hacé clic en el ícono de polígono (⏺) en la esquina superior izquierda del mapa
-2. **Marcar puntos:** Hacé clic en el mapa para marcar cada vértice del polígono
-3. **Cerrar:** Hacé clic en el primer punto para cerrar el polígono
-4. **Editar:** Podés arrastrar los puntos después de dibujar
-5. **Guardar:** Apretá el botón "💾 GUARDAR ZONA ACTUAL" en la parte superior
+### 📌 Instrucciones:
+1. Apretá el botón **"GENERAR PDF DE PRUEBA"**
+2. Descargá y abrí el PDF
+3. Verificá que los números estén en los lugares correctos:
+   - **1** : Área de fiscalización (debe ir "MAR DEL PLATA")
+   - **2** : Nombre del inspector
+   - **3** : MES
+   - **4** : AÑO  
+   - **5** : FOLIO
+   - **6** : Razón social empresa 1
+   - **7** : CUIT empresa 1
+   - **8** : ACTA empresa 1
+   - **9** : VTO empresa 1
+   - **10** : DESDE empresa 1
+   - **11** : HASTA empresa 1
+   - **12** : DEUDA empresa 1
+   - **13-19**: Empresa 2
+   - **20-26**: Empresa 3
+   - etc.
+4. **Decime qué números están mal ubicados y te ajusto las coordenadas**
 """)
-
-# ── Capturar el dibujo del usuario (necesita JavaScript) ─────────────────────
-st.markdown("---")
-st.markdown("### 4. Datos de la zona dibujada")
-
-# Input para pegar el GeoJSON dibujado
-geojson_input = st.text_area(
-    "Pegá aquí el GeoJSON del polígono que dibujaste (se genera automáticamente al dibujar)",
-    height=150,
-    placeholder='{"type":"FeatureCollection","features":[...]}'
-)
-
-# Si hay input, mostrar resumen
-if geojson_input and geojson_input.strip():
-    try:
-        geojson_data = json.loads(geojson_input)
-        features = geojson_data.get('features', [])
-        if features:
-            coords = features[0]['geometry']['coordinates'][0]
-            st.success(f"✅ Polígono detectado con {len(coords)} puntos")
-    except:
-        st.warning("GeoJSON inválido")
-
-# ── Guardar zona ─────────────────────────────────────────────────────────────
-if guardar_click:
-    if not geojson_input or not geojson_input.strip():
-        st.error("❌ Primero dibujá una zona en el mapa y copiá el GeoJSON generado")
-    else:
-        try:
-            geojson_data = json.loads(geojson_input)
-            
-            # Verificar si ya existe
-            existente = supabase.table("zonas_inspectores_geojson").select("*").eq("legajo", legajo_seleccionado).execute()
-            
-            if existente.data:
-                supabase.table("zonas_inspectores_geojson").update({
-                    "geojson": json.dumps(geojson_data),
-                    "color": color_seleccionado,
-                    "ultima_actualizacion": "now()"
-                }).eq("legajo", legajo_seleccionado).execute()
-                st.success(f"✅ Zona de {inspector_seleccionado} actualizada correctamente")
-            else:
-                supabase.table("zonas_inspectores_geojson").insert({
-                    "legajo": legajo_seleccionado,
-                    "inspector_nombre": inspector_seleccionado,
-                    "geojson": json.dumps(geojson_data),
-                    "color": color_seleccionado,
-                    "ultima_actualizacion": "now()"
-                }).execute()
-                st.success(f"✅ Zona de {inspector_seleccionado} guardada correctamente")
-            
-            st.cache_data.clear()
-            st.balloons()
-        except Exception as e:
-            st.error(f"Error al guardar: {e}")
-
-# ── Eliminar zona ────────────────────────────────────────────────────────────
-if eliminar_click:
-    supabase.table("zonas_inspectores_geojson").delete().eq("legajo", legajo_seleccionado).execute()
-    st.success(f"🗑️ Zona de {inspector_seleccionado} eliminada")
-    st.cache_data.clear()
-    st.rerun()
