@@ -742,7 +742,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CORREGIDO: filtros en Supabase)
+# TAB 2 — Editar Legajos y Vtos (VERSIÓN ROBUSTA CON ACTUALIZACIÓN EFECTIVA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -1114,7 +1114,25 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
+    # ============================================================
+    # SECCIÓN DE FILTROS Y TABLA - VERSIÓN ROBUSTA
+    # CADA VEZ QUE SE CAMBIA UN FILTRO, SE CONSULTA SUPABASE NUEVAMENTE
+    # ============================================================
     st.markdown("### 📋 Filtros")
+    
+    # Timestamp para forzar recarga de widgets
+    if 'ultima_recarga' not in st.session_state:
+        st.session_state.ultima_recarga = datetime.now()
+    
+    # Botón de REFRESCAR MANUAL
+    col_refresh1, col_refresh2, _ = st.columns([1, 1, 4])
+    with col_refresh1:
+        if st.button("🔄 REFRESCAR DATOS", use_container_width=True):
+            st.session_state.ultima_recarga = datetime.now()
+            st.session_state.pop('pagina_actual', None)
+            st.rerun()
+    with col_refresh2:
+        st.caption("Actualiza los datos desde Supabase")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
     with f1:
@@ -1137,7 +1155,7 @@ with tab2:
         st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
         filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
 
-    # ── CONSTRUIR CONSULTA CON TODOS LOS FILTROS EN SUPABASE (CORREGIDO) ──
+    # ── CONSTRUIR CONSULTA CON TODOS LOS FILTROS EN SUPABASE ──
     q = supabase.table("padron_deuda_presunta").select("*")
     
     # Filtro LOCALIDAD
@@ -1150,58 +1168,65 @@ with tab2:
     elif filtro_mail == "NO":
         q = q.eq("mail_enviado", "NO")
     
-    # Filtro LEGAJO (AHORA EN SUPABASE, NO EN PANDAS)
+    # Filtro LEGAJO (en Supabase, NO en Pandas)
     if filtro_leg == "CON LEGAJO":
         q = q.not_.is_("leg", "null")
     elif filtro_leg == "SIN LEGAJO":
         q = q.is_("leg", "null")
     
-    # EJECUTAR CONSULTA
-    datos = q.execute()
+    # EJECUTAR CONSULTA (siempre nueva, sin caché)
+    with st.spinner("Consultando base de datos..."):
+        datos = q.execute()
+    
+    # Convertir a DataFrame
+    df = pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
+    
+    # Filtros CUIT y RAZON SOCIAL (en Pandas por ser búsqueda textual)
+    if not df.empty and filtro_cuit:
+        df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
+    if not df.empty and filtro_razon:
+        df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
+    
+    # Filtro CALLE por similitud (en Pandas)
+    if not df.empty and filtro_calle_aprox:
+        filtro_norm = normalizar_calle(filtro_calle_aprox)
+        if filtro_norm:
+            df['calle_norm'] = df['calle'].apply(lambda x: normalizar_calle(str(x)) if x else "")
+            df['similitud'] = df['calle_norm'].apply(lambda x: difflib.SequenceMatcher(None, filtro_norm, x).ratio() if x else 0)
+            df = df[df['similitud'] > 0.4].sort_values('similitud', ascending=False)
+            df = df.drop(columns=['calle_norm', 'similitud'])
 
-    if not datos.data:
-        st.info("Sin datos.")
+    # ── CONTADOR REAL (sobre el df actual) ──
+    total_en_tabla = len(df)
+    RPP = 300
+    pages = max(1, (total_en_tabla + RPP - 1) // RPP)
+
+    # Inicializar o validar página actual
+    if 'pagina_actual' not in st.session_state:
+        st.session_state.pagina_actual = 1
+    st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
+
+    # Paginación
+    col_pag1, col_pag2, col_pag3 = st.columns([1, 3, 1])
+    with col_pag1:
+        if st.button("◀ Anterior", disabled=st.session_state.pagina_actual <= 1):
+            st.session_state.pagina_actual -= 1
+            st.rerun()
+    with col_pag2:
+        st.caption(f"Página {st.session_state.pagina_actual} de {pages} | Total en tabla: {total_en_tabla} registros")
+    with col_pag3:
+        if st.button("Siguiente ▶", disabled=st.session_state.pagina_actual >= pages):
+            st.session_state.pagina_actual += 1
+            st.rerun()
+
+    # Si no hay datos, mostrar mensaje y continuar con el resto de la página
+    if df.empty:
+        st.info("No hay registros que coincidan con los filtros seleccionados.")
     else:
-        df = pd.DataFrame(datos.data)
-        
-        # Filtros CUIT y RAZON SOCIAL (estos siguen en Pandas porque son búsquedas textuales)
-        if filtro_cuit:
-            df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
-        if filtro_razon:
-            df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
-        
-        # Filtro CALLE por similitud (sigue en Pandas)
-        if filtro_calle_aprox:
-            filtro_norm = normalizar_calle(filtro_calle_aprox)
-            if filtro_norm:
-                df['calle_norm'] = df['calle'].apply(lambda x: normalizar_calle(str(x)) if x else "")
-                df['similitud'] = df['calle_norm'].apply(lambda x: difflib.SequenceMatcher(None, filtro_norm, x).ratio() if x else 0)
-                df = df[df['similitud'] > 0.4].sort_values('similitud', ascending=False)
-                df = df.drop(columns=['calle_norm', 'similitud'])
-
-        total = len(df)
-        RPP = 300
-        pages = max(1, (total + RPP - 1) // RPP)
-
-        if 'pagina_actual' not in st.session_state:
-            st.session_state.pagina_actual = 1
-        st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
-
-        pa, pn, ps = st.columns([1, 3, 1])
-        with pa:
-            if st.button("◀") and st.session_state.pagina_actual > 1:
-                st.session_state.pagina_actual -= 1
-                st.rerun()
-        with pn:
-            st.caption(f"Pág. {st.session_state.pagina_actual} / {pages} | {total} registros")
-        with ps:
-            if st.button("▶") and st.session_state.pagina_actual < pages:
-                st.session_state.pagina_actual += 1
-                st.rerun()
-
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
+        # Formatear celdas
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
         
@@ -1225,22 +1250,27 @@ with tab2:
         })
         df_ed.insert(0, "🗑️", False)
 
-        if st.checkbox("Seleccionar todos"):
+        if st.checkbox("Seleccionar todos los de esta página"):
             df_ed["🗑️"] = True
 
+        # IMPORTANTE: key ÚNICA que cambia con la página y la recarga para evitar estado residual
+        editor_key = f"editor_{st.session_state.pagina_actual}_{st.session_state.ultima_recarga.timestamp()}"
+        
         edited = st.data_editor(
             df_ed, use_container_width=True, height=500,
-            column_config={"🗑️": st.column_config.CheckboxColumn("Elim.")},
-            key=f"editor_{st.session_state.pagina_actual}",
+            column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar")},
+            key=editor_key,
         )
 
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
+        if ids_sel:
+            st.info(f"📌 {len(ids_sel)} registro(s) seleccionado(s) para eliminar")
 
         if guardar_click:
             mods = 0
             errores_fecha = 0
-            with st.spinner("Guardando..."):
+            with st.spinner("Guardando cambios en Supabase..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
                         continue
@@ -1290,6 +1320,8 @@ with tab2:
                 st.success(f"✅ {mods} registros actualizados correctamente.")
                 if errores_fecha > 0:
                     st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
+                # FORZAR RECARGA COMPLETA DESPUÉS DE GUARDAR
+                st.session_state.ultima_recarga = datetime.now()
                 st.rerun()
             elif errores_fecha > 0:
                 st.warning(f"No se guardaron cambios. {errores_fecha} fecha(s) con formato incorrecto.")
