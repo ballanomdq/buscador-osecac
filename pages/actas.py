@@ -67,50 +67,61 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 #MainMenu, footer, header { display: none !important; }
 
-/* ── CARTELES CORREGIDOS CON !important ── */
+/* ── CARTELES CON TEXTO A TOPE (SIN PADDING INNECESARIO) ── */
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.6rem 0.8rem;
+    padding: 0.2rem 0.1rem;  /* Mínimo padding, solo para que no toque el borde */
     text-align: center;
     border: 1px solid #3b82f6;
+    height: 100%;  /* Ocupa toda la altura de la columna */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 .big-number h1 { 
     margin: 0; 
     font-size: 2.8rem !important; 
     color: #3b82f6; 
     font-weight: 700; 
-    line-height: 1.2; 
+    line-height: 1.1; 
 }
 .big-number p { 
     margin: 0; 
-    font-size: 0.85rem !important; 
+    font-size: 0.8rem !important; 
     color: #94a3b8; 
+    line-height: 1.2;
 }
 
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.5rem 0.6rem;
+    padding: 0.15rem 0.05rem;  /* Padding mínimo */
     text-align: center;
     border: 1px solid #10b981;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 .inspector-card h3 { 
     margin: 0; 
-    font-size: 1rem !important; 
+    font-size: 0.85rem !important; 
     color: #10b981; 
+    line-height: 1.2;
 }
 .inspector-card h1 { 
     margin: 0; 
-    font-size: 2rem !important; 
+    font-size: 1.8rem !important; 
     color: #e2e8f0; 
     font-weight: 700; 
-    line-height: 1.2; 
+    line-height: 1.1; 
 }
 .inspector-card p { 
     margin: 0; 
-    font-size: 0.75rem !important; 
+    font-size: 0.65rem !important; 
     color: #94a3b8; 
+    line-height: 1.2;
 }
 
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
@@ -731,7 +742,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (MODIFICADO con tarjetas compactas y letras grandes)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -740,7 +751,7 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
-    # Tarjetas compactas con letras GRANDES (gracias al !important)
+    # Tarjetas con texto a tope
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f"""
@@ -766,7 +777,7 @@ with tab2:
 
     st.markdown("---")
     
-    # Tarjetas de inspectores (compactas, letras grandes)
+    # Tarjetas de inspectores con texto a tope
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
         cols_inspectores = st.columns(len(inspectores.data))
