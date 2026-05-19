@@ -20,356 +20,195 @@ supabase = get_supabase()
 
 st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide", initial_sidebar_state="collapsed")
 
+# ── ESTILOS PROFESIONALES MEJORADOS ───────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+/* Reset y fuentes */
+html, body, [class*="css"] { font-size: 13px !important; font-family: 'Inter', sans-serif; }
 
-/* ── RESET & BASE ── */
-html, body, [class*="css"] {
-    font-size: 13px !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
-}
-
-/* ── VARIABLES DE COLOR ── */
-:root {
-    --bg-base:        #0d1117;
-    --bg-surface:     #161b22;
-    --bg-raised:      #1c2333;
-    --bg-overlay:     #21262d;
-    --border-subtle:  #30363d;
-    --border-default: #444c56;
-    --text-primary:   #e6edf3;
-    --text-secondary: #8b949e;
-    --text-muted:     #6e7681;
-
-    /* Acentos semánticos — sólo 4 */
-    --accent-blue:    #388bfd;   /* principal / guardar */
-    --accent-emerald: #3fb950;   /* acciones positivas */
-    --accent-amber:   #d29922;   /* advertencias / informes */
-    --accent-red:     #f85149;   /* eliminar / peligro */
-    --accent-slate:   #6e7681;   /* neutrales / reset */
-}
-
-/* ── HEADER ── */
+/* Header principal */
 .app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.6rem 1.2rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-left: 3px solid var(--accent-blue);
-    border-radius: 8px;
-    margin-bottom: 0.8rem;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    padding: 0.5rem 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    border: 1px solid #334155;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.app-header h3 {
-    color: var(--text-primary);
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    font-family: 'IBM Plex Sans', sans-serif;
-    letter-spacing: -0.01em;
-}
-.app-header p {
-    color: var(--text-muted);
-    margin: 0;
-    font-size: 0.68rem;
-    font-family: 'IBM Plex Mono', monospace;
-    letter-spacing: 0.04em;
-}
+.app-header h3 { color: #f1f5f9; margin: 0; font-size: 1.1rem; font-weight: 600; }
+.app-header p { color: #94a3b8; margin: 0; font-size: 0.7rem; }
 
-/* ── MÉTRICAS SUPERIORES ── */
-.metric-row {
-    display: flex;
-    gap: 0.6rem;
-    margin-bottom: 0.4rem;
-}
-.metric-card {
-    flex: 1;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: 8px;
-    padding: 0.6rem 0.8rem;
-    text-align: center;
-}
-.metric-card .mc-value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    font-family: 'IBM Plex Mono', monospace;
-    color: var(--accent-blue);
-    line-height: 1.1;
-    margin: 0;
-}
-.metric-card .mc-label {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin: 0;
-}
-
-/* ── CARDS DE INSPECTOR ── */
-.inspector-grid {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.4rem;
-}
-.inspector-card {
-    flex: 1;
-    min-width: 80px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-top: 2px solid var(--accent-emerald);
-    border-radius: 6px;
-    padding: 0.4rem 0.6rem;
-    text-align: center;
-}
-.inspector-card .ic-name {
-    font-size: 0.65rem;
-    color: var(--accent-emerald);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 0 0 0.1rem 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.inspector-card .ic-count {
-    font-size: 1.4rem;
-    font-weight: 700;
-    font-family: 'IBM Plex Mono', monospace;
-    color: var(--text-primary);
-    line-height: 1;
-    margin: 0;
-}
-.inspector-card .ic-legajo {
-    font-size: 0.58rem;
-    color: var(--text-muted);
-    font-family: 'IBM Plex Mono', monospace;
-    margin: 0;
-}
-
-/* ── SEPARADOR DE SECCIÓN ── */
-.section-label {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-family: 'IBM Plex Mono', monospace;
-    margin: 0 0 0.25rem 0;
-}
-
-/* ── GRUPO DE BOTONES ── */
-.btn-group-label {
-    font-size: 0.55rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-family: 'IBM Plex Mono', monospace;
-    margin-bottom: 0.2rem;
-    padding-left: 0.1rem;
-}
-
-/* ── BOTONES — base Streamlit override ── */
-div[data-testid="stButton"] > button {
-    padding: 0.22rem 0.6rem !important;
-    font-size: 0.72rem !important;
-    border-radius: 5px !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
+/* Botones principales */
+.stButton > button {
+    border-radius: 6px !important;
     font-weight: 500 !important;
-    transition: all 0.15s ease !important;
-    letter-spacing: 0.01em !important;
-    width: 100%;
+    transition: all 0.2s ease !important;
+    border: none !important;
 }
 
-/* GUARDAR — Azul primario (se destaca sobre todos) */
+/* Botón GUARDAR CAMBIOS (Verde principal) */
 div[data-testid="stButton"] > button[kind="secondary"] {
-    background: var(--accent-blue) !important;
-    color: #fff !important;
-    border: 1px solid #1a6fd8 !important;
-    font-weight: 700 !important;
-    font-size: 0.76rem !important;
-    letter-spacing: 0.02em !important;
-    box-shadow: 0 0 0 1px rgba(56,139,253,0.3), 0 2px 8px rgba(56,139,253,0.2) !important;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background: #1a6fd8 !important;
-    box-shadow: 0 0 0 2px rgba(56,139,253,0.4), 0 4px 12px rgba(56,139,253,0.3) !important;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
-/* ACCIONES — Esmeralda (asignar legajos, preparar mails) */
-.btn-acciones div[data-testid="stButton"] > button {
-    background: rgba(63, 185, 80, 0.12) !important;
-    color: var(--accent-emerald) !important;
-    border: 1px solid rgba(63, 185, 80, 0.35) !important;
-}
-.btn-acciones div[data-testid="stButton"] > button:hover {
-    background: rgba(63, 185, 80, 0.22) !important;
-    border-color: var(--accent-emerald) !important;
-}
-
-/* INFORMES — Ámbar (informes / exportar) */
-.btn-informes div[data-testid="stButton"] > button {
-    background: rgba(210, 153, 34, 0.12) !important;
-    color: var(--accent-amber) !important;
-    border: 1px solid rgba(210, 153, 34, 0.35) !important;
-}
-.btn-informes div[data-testid="stButton"] > button:hover {
-    background: rgba(210, 153, 34, 0.22) !important;
-    border-color: var(--accent-amber) !important;
-}
-
-/* PELIGRO — Rojo (eliminar) */
-.btn-peligro div[data-testid="stButton"] > button {
-    background: rgba(248, 81, 73, 0.10) !important;
-    color: var(--accent-red) !important;
-    border: 1px solid rgba(248, 81, 73, 0.30) !important;
-}
-.btn-peligro div[data-testid="stButton"] > button:hover {
-    background: rgba(248, 81, 73, 0.20) !important;
-    border-color: var(--accent-red) !important;
-}
-
-/* NEUTROS — Slate (reset, recargar, volver) */
-div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]) {
-    background: var(--bg-raised) !important;
-    color: var(--text-secondary) !important;
-    border: 1px solid var(--border-subtle) !important;
-}
-div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]):hover {
-    background: var(--bg-overlay) !important;
-    color: var(--text-primary) !important;
-    border-color: var(--border-default) !important;
-}
-
-/* PRIMARY (Streamlit kind=primary) — azul también */
-div[data-testid="stButton"] > button[kind="primary"] {
-    background: var(--accent-blue) !important;
-    border-color: #1a6fd8 !important;
+/* Botones de gestión (Azul) */
+.gestion-button button {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
     color: white !important;
 }
-div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background: #1a6fd8 !important;
+.gestion-button button:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+    transform: translateY(-1px);
 }
 
-/* ── DIVISOR ── */
-hr { margin: 0.5rem 0 !important; border-color: var(--border-subtle) !important; }
-
-/* ── FILTROS ── */
-.filtro-titulo {
-    font-size: 0.6rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-family: 'IBM Plex Mono', monospace;
-    margin-bottom: 0.1rem;
+/* Botones de informes (Ámbar) */
+.informe-button button {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    color: white !important;
+}
+.informe-button button:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+    transform: translateY(-1px);
 }
 
-/* ── LAYOUT ── */
-div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
-#MainMenu, footer, header { display: none !important; }
-
-/* ── TABS ── */
-.stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-    font-size: 0.82rem !important;
-    font-family: 'IBM Plex Sans', sans-serif !important;
+/* Botones de mantenimiento (Gris) */
+.mantenimiento-button button {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%) !important;
+    color: white !important;
+}
+.mantenimiento-button button:hover {
+    background: linear-gradient(135deg, #475569 0%, #334155 100%) !important;
 }
 
-/* ── DIALOG ── */
+/* Botón Volver */
+.volver-button button {
+    background: #334155 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #475569 !important;
+}
+
+/* KPI Cards mejoradas */
+.kpi-card {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 12px;
+    padding: 0.6rem;
+    text-align: center;
+    border: 1px solid #334155;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    border-color: #3b82f6;
+}
+.kpi-card h1 { margin: 0; font-size: 1.8rem !important; font-weight: 700; }
+.kpi-card p { margin: 0; font-size: 0.65rem !important; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* KPI específicos */
+.kpi-total h1 { color: #3b82f6; }
+.kpi-con-legajo h1 { color: #10b981; }
+.kpi-sin-legajo h1 { color: #f59e0b; }
+
+/* Inspector cards colapsables */
+.inspector-card {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 8px;
+    padding: 0.4rem;
+    text-align: center;
+    border: 1px solid #334155;
+    transition: all 0.2s ease;
+}
+.inspector-card:hover {
+    border-color: #10b981;
+    transform: translateY(-1px);
+}
+.inspector-card h3 { margin: 0; font-size: 0.75rem; color: #10b981; font-weight: 600; }
+.inspector-card h1 { margin: 0; font-size: 1.2rem; color: #f1f5f9; font-weight: 700; }
+.inspector-card p { margin: 0; font-size: 0.55rem; color: #94a3b8; }
+
+/* Filtros */
+.filtro-titulo { 
+    font-size: 0.65rem; 
+    color: #94a3b8; 
+    margin-bottom: 0.2rem; 
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* Tabla */
+.stDataFrame {
+    border-radius: 8px;
+    border: 1px solid #334155;
+}
+
+/* Diálogo mejorado */
 div[role="dialog"] {
     background: #f8fafc !important;
-    border-radius: 12px !important;
-    border: 1px solid #cbd5e1 !important;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.25) !important;
+    border-radius: 20px !important;
+    border: none !important;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1) !important;
 }
+
 div[role="dialog"] button[aria-label="Close"] {
     opacity: 0 !important;
     pointer-events: none !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    font-size: 1px !important;
-}
-div[role="dialog"] p,
-div[role="dialog"] span,
-div[role="dialog"] label,
-div[role="dialog"] div,
-div[role="dialog"] h1,
-div[role="dialog"] h2,
-div[role="dialog"] h3,
-div[role="dialog"] .stMarkdown p { color: #1e293b !important; }
-div[role="dialog"] .stSelectbox label,
-div[role="dialog"] .stTextInput label,
-div[role="dialog"] .stNumberInput label,
-div[role="dialog"] .stDateInput label,
-div[role="dialog"] .stCheckbox label { color: #0f172a !important; font-weight: 600 !important; }
-div[role="dialog"] hr { border-color: #cbd5e1 !important; }
-div[role="dialog"] .stAlert { background-color: #e2e8f0 !important; border-left: 3px solid #388bfd !important; }
-div[role="dialog"] .stAlert p { color: #0f172a !important; }
-div[role="dialog"] .stSelectbox div[data-baseweb="select"] { background-color: white !important; border: 1px solid #94a3b8 !important; }
-div[role="dialog"] .stSelectbox div[data-baseweb="select"] div { color: #1e293b !important; }
-div[role="dialog"] .stCheckbox span { color: #1e293b !important; }
-div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"] {
-    background-color: #3fb950 !important; color: white !important; border: none !important;
-}
-div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background-color: #2da044 !important;
-}
-div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]) {
-    background-color: #64748b !important; color: white !important; border: none !important;
-}
-div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]):hover {
-    background-color: #475569 !important;
 }
 
-/* ── PAGINADOR ── */
-.pager-info {
-    font-size: 0.65rem;
-    color: var(--text-muted);
-    font-family: 'IBM Plex Mono', monospace;
-    text-align: center;
-    padding: 0.3rem 0;
+/* Separadores */
+.custom-divider {
+    margin: 0.8rem 0;
+    border-top: 1px solid #334155;
 }
 
-/* ── COLLAPSIBLE PANEL ── */
-.panel-header {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    cursor: pointer;
-    padding: 0.3rem 0;
+/* Tooltips personalizados */
+[data-tooltip] {
+    position: relative;
+    cursor: help;
 }
-.panel-header .ph-title {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-family: 'IBM Plex Mono', monospace;
-    font-weight: 500;
+[data-tooltip]:before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 8px;
+    background: #1e293b;
+    color: white;
+    font-size: 11px;
+    border-radius: 4px;
+    white-space: nowrap;
+    display: none;
+    z-index: 1000;
 }
-.panel-header .ph-icon {
-    font-size: 0.65rem;
-    color: var(--text-muted);
+[data-tooltip]:hover:before {
+    display: block;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Header ────────────────────────────────────────────────────────────────────
+# Header con título
 st.markdown("""
 <div class="app-header">
     <div>
-        <h3>Fiscalización — Deuda Presunta</h3>
-        <p>OSECAC · Sistema de gestión y seguimiento</p>
+        <h3>🎯 Fiscalización — Deuda Presunta</h3>
+        <p>Sistema integral de gestión y seguimiento de empresas</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
+# Botón Volver
 col_back, _ = st.columns([1, 11])
 with col_back:
-    if st.button("← Volver"):
+    if st.button("← Volver al inicio", key="btn_volver", help="Volver al portal principal"):
         st.switch_page("main.py")
 
 # ── Utilidades generales ──────────────────────────────────────────────────────
@@ -497,21 +336,28 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
     localidad_cmp = limpiar_para_comparar(localidad)
     if localidad_cmp not in ("MAR DEL PLATA", ""):
         return lookup_localidades.get(localidad_cmp)
+    
     calle_norm = normalizar_calle(calle)
     if not calle_norm:
         return None
+    
     calle_buscar = calle_norm
     zonas = lookup_zonas.get(calle_buscar, [])
+    
     if not zonas and calle_buscar in lookup_sinonimos:
         calle_oficial = lookup_sinonimos[calle_buscar]
         zonas = lookup_zonas.get(calle_oficial, [])
+    
     if not zonas:
         return None
+    
     try:
         num = int(re.sub(r'\D', '', str(numero)))
     except Exception:
         return None
+    
     lado_actual = "PAR" if num % 2 == 0 else "IMPAR"
+    
     for zona in zonas:
         lado_db = str(zona['lado']).upper().strip()
         es_mismo_lado = (
@@ -526,6 +372,7 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
             continue
         if es_mismo_lado and desde <= num <= hasta:
             return zona['legajo']
+    
     return None
 
 # ── Carga de datos ────────────────────────────────────────────────────────────
@@ -663,6 +510,7 @@ def generar_informe_txt(registros_sin_legajo):
     contenido.append(f"                        Total de registros: {len(registros_sin_legajo)}")
     contenido.append("=" * 80)
     contenido.append("")
+    
     for i in range(0, len(registros_sin_legajo), 2):
         reg_izq = registros_sin_legajo[i]
         contenido.append("┌" + "─" * 78 + "┐")
@@ -674,6 +522,7 @@ def generar_informe_txt(registros_sin_legajo):
         contenido.append(f"│ CALLE:         {str(reg_izq.get('calle', 'N/D'))} {str(reg_izq.get('numero', '')):<61}│")
         contenido.append(f"│ TELEFONO LEGAL:{str(reg_izq.get('tel_dom_legal', 'N/D')):<61}│")
         contenido.append(f"│ TELEFONO REAL: {str(reg_izq.get('tel_dom_real', 'N/D')):<61}│")
+        
         if i + 1 < len(registros_sin_legajo):
             reg_der = registros_sin_legajo[i + 1]
             contenido.append("├" + "─" * 78 + "┤")
@@ -689,20 +538,26 @@ def generar_informe_txt(registros_sin_legajo):
         else:
             contenido.append("└" + "─" * 78 + "┘")
         contenido.append("")
+    
     contenido.append("=" * 80)
     contenido.append("                        FIN DEL INFORME")
     contenido.append("=" * 80)
+    
     return "\n".join(contenido)
 
 def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
+    """Genera Excel con formato ordenado: CUIT, RAZON SOCIAL, LEGAJO, VTO ASIGNADO"""
     df_export = pd.DataFrame()
     df_export['CUIT'] = df_seleccionado['cuit'].astype(str)
     df_export['RAZON SOCIAL'] = df_seleccionado['razon_social'].astype(str)
     df_export['LEGAJO'] = df_seleccionado['leg'].astype(str)
     df_export['VTO ASIGNADO'] = fecha_vto_str
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_export.to_excel(writer, sheet_name='Mailing', index=False)
+        
+        # Ajustar ancho de columnas
         worksheet = writer.sheets['Mailing']
         for column in worksheet.columns:
             max_length = 0
@@ -715,11 +570,12 @@ def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
                     pass
             adjusted_width = min(max_length + 2, 50)
             worksheet.column_dimensions[column_letter].width = adjusted_width
+    
     return output.getvalue()
 
 def generar_excel_asignados(registros):
     df = pd.DataFrame(registros)
-    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero',
+    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
                 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion',
                 'tel_dom_legal', 'tel_dom_real', 'email']
     df_excel = df[[c for c in columnas if c in df.columns]]
@@ -736,7 +592,7 @@ def generar_excel_por_inspector():
             registros = traer_registros_por_inspector(ins['legajo'])
             if registros:
                 df = pd.DataFrame(registros)
-                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero',
+                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
                             'vto', 'mail_enviado', 'acta', 'estado_gestion',
                             'tel_dom_legal', 'tel_dom_real', 'email']
                 df_excel = df[[c for c in columnas if c in df.columns]]
@@ -793,23 +649,21 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
-# ══════════════════════════════════════════════════════════════════
-# TABS
-# ══════════════════════════════════════════════════════════════════
+# ── Pestañas ──────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 Cargar Padrón",
-    "✏️ Editar Legajos y Vtos",
+    "📥 Cargar Padrón",
+    "✏️ Gestión de Legajos",
     "📧 Solicitar Actas",
     "📋 Subir Actas",
-    "👥 INSPECTORES"
+    "👥 Inspectores"
 ])
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 1 — Cargar Padrón
 # ══════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown("#### Cargar Padrón de Deuda Presunta")
-    archivo = st.file_uploader("Archivo Excel", type=["xls","xlsx"], key="upload_padron")
+    st.markdown("#### 📥 Cargar Padrón de Deuda Presunta")
+    archivo = st.file_uploader("Seleccionar archivo Excel", type=["xls","xlsx"], key="upload_padron")
 
     if archivo:
         st.caption(f"Archivo: **{archivo.name}**")
@@ -826,173 +680,165 @@ with tab1:
             dupl = len(registros) - len(nuevos)
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("Total", len(registros))
-            c2.metric("Nuevos", len(nuevos))
-            c3.metric("Duplicados", dupl)
+            c1.metric("📊 Total", len(registros))
+            c2.metric("✨ Nuevos", len(nuevos))
+            c3.metric("🔄 Duplicados", dupl)
 
             if nuevos:
                 if st.button("✅ Confirmar carga", type="primary"):
-                    with st.spinner("Insertando..."):
+                    with st.spinner("Insertando registros..."):
                         n = 0
                         for i in range(0, len(nuevos), 100):
                             res = supabase.table("padron_deuda_presunta").insert(nuevos[i:i+100]).execute()
                             n += len(res.data)
-                    st.success(f"✅ {n} registros insertados.")
+                    st.success(f"✅ {n} registros insertados correctamente.")
             else:
-                st.warning("⚠️ No hay registros nuevos.")
+                st.warning("⚠️ No hay registros nuevos para insertar.")
         except Exception as e:
-            st.error(str(e))
+            st.error(f"Error al procesar el archivo: {str(e)}")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (DISEÑO MEJORADO)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("#### Editar Legajos y Fechas de Vencimiento")
+    st.markdown("#### ✏️ Gestión de Legajos y Fechas de Vencimiento")
 
-    # ── MÉTRICAS GLOBALES (colapsables) ───────────────────────────────────────
-    if 'mostrar_metricas' not in st.session_state:
-        st.session_state.mostrar_metricas = True
+    total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
+    con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
+    sin_legajo_total = total_general - con_legajo
 
-    col_toggle, _ = st.columns([2, 10])
-    with col_toggle:
-        icono = "▼" if st.session_state.mostrar_metricas else "▶"
-        if st.button(f"{icono}  Resumen / Inspectores", use_container_width=True):
-            st.session_state.mostrar_metricas = not st.session_state.mostrar_metricas
-            st.rerun()
-
-    if st.session_state.mostrar_metricas:
-        total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
-        con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
-        sin_legajo_total = total_general - con_legajo
-
-        # Métricas compactas en HTML
+    # KPI Cards mejoradas - más compactas
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
         st.markdown(f"""
-        <div class="metric-row">
-            <div class="metric-card">
-                <p class="mc-value">{total_general}</p>
-                <p class="mc-label">Total registros</p>
-            </div>
-            <div class="metric-card">
-                <p class="mc-value" style="color:#3fb950">{con_legajo}</p>
-                <p class="mc-label">Con legajo</p>
-            </div>
-            <div class="metric-card">
-                <p class="mc-value" style="color:#d29922">{sin_legajo_total}</p>
-                <p class="mc-label">Sin legajo</p>
-            </div>
+        <div class="kpi-card kpi-total">
+            <h1>{total_general:,}</h1>
+            <p>📊 TOTAL REGISTROS</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_t2:
+        st.markdown(f"""
+        <div class="kpi-card kpi-con-legajo">
+            <h1>{con_legajo:,}</h1>
+            <p>✅ CON LEGAJO ASIGNADO</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_t3:
+        st.markdown(f"""
+        <div class="kpi-card kpi-sin-legajo">
+            <h1>{sin_legajo_total:,}</h1>
+            <p>⚠️ SIN LEGAJO ASIGNADO</p>
         </div>
         """, unsafe_allow_html=True)
 
-        # Inspector cards
+    st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+    
+    # Sección colapsable de inspectores
+    with st.expander("👥 Ver distribución por inspector", expanded=False):
+        st.markdown("##### Asignación actual por inspector")
         inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
         if inspectores.data:
-            cards_html = '<div class="inspector-grid">'
-            for ins in inspectores.data:
-                count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
-                nombre_corto = ins['nombre'].split(',')[0][:18]
-                cards_html += f"""
-                <div class="inspector-card">
-                    <p class="ic-name">{nombre_corto}</p>
-                    <p class="ic-count">{count}</p>
-                    <p class="ic-legajo">Leg. {ins['legajo']}</p>
-                </div>"""
-            cards_html += '</div>'
-            st.markdown(cards_html, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # ══════════════════════════════════════════════════════════════
-    # BARRA DE ACCIONES — 4 grupos semánticos en columnas
-    # ══════════════════════════════════════════════════════════════
-
-    # Grupo 1: Guardar (solo) — se destaca
-    # Grupo 2: Acciones (asignar, mails) — esmeralda
-    # Grupo 3: Informes (3 exportes) — ámbar
-    # Grupo 4: Peligro (eliminar x2) + Neutros (reset, recargar)
-
-    col_g1, col_sep1, col_g2, col_sep2, col_g3, col_sep3, col_g4 = st.columns([2, 0.1, 3, 0.1, 4, 0.1, 3])
-
-    with col_g1:
-        st.markdown('<p class="btn-group-label">principal</p>', unsafe_allow_html=True)
-        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True)
-
-    with col_g2:
-        st.markdown('<p class="btn-group-label">acciones</p>', unsafe_allow_html=True)
-        c_a1, c_a2 = st.columns(2)
-        with c_a1:
-            st.markdown('<div class="btn-acciones">', unsafe_allow_html=True)
-            if st.button("🤖 Asignar Legajos", use_container_width=True):
-                st.session_state.asignar_legajos = True
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c_a2:
-            st.markdown('<div class="btn-acciones">', unsafe_allow_html=True)
-            if st.button("📧 Preparar Mails", use_container_width=True):
-                st.session_state.preparar_mails = True
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_g3:
-        st.markdown('<p class="btn-group-label">informes / exportar</p>', unsafe_allow_html=True)
-        c_i1, c_i2, c_i3 = st.columns(3)
-        with c_i1:
-            st.markdown('<div class="btn-informes">', unsafe_allow_html=True)
-            if st.button("📄 No asig.", use_container_width=True):
-                st.session_state.generar_informe = True
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c_i2:
-            st.markdown('<div class="btn-informes">', unsafe_allow_html=True)
-            if st.button("📊 Asignados", use_container_width=True):
-                st.session_state.generar_informe_asignados = True
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c_i3:
-            st.markdown('<div class="btn-informes">', unsafe_allow_html=True)
-            if st.button("📊 Inspector", use_container_width=True):
-                st.session_state.generar_informe_por_inspector = True
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_g4:
-        st.markdown('<p class="btn-group-label">eliminar · utilidades</p>', unsafe_allow_html=True)
-        c_d1, c_d2, c_d3, c_d4 = st.columns(4)
-        with c_d1:
-            st.markdown('<div class="btn-peligro">', unsafe_allow_html=True)
-            if st.button("🗑 Sel.", use_container_width=True):
-                ids = st.session_state.get('ids_a_eliminar', [])
-                if ids:
-                    supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
-                    st.session_state.ids_a_eliminar = []
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c_d2:
-            st.markdown('<div class="btn-peligro">', unsafe_allow_html=True)
-            if st.button("🗑 Todo", use_container_width=True):
-                st.session_state.confirmar_del_todo = True
-            st.markdown('</div>', unsafe_allow_html=True)
-        with c_d3:
-            if st.button("↺ Reset", use_container_width=True):
-                for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
-                          'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
-                    st.session_state.pop(k, None)
+            # Mostrar en 3 filas según cantidad
+            cols_per_row = 5
+            for i in range(0, len(inspectores.data), cols_per_row):
+                cols = st.columns(cols_per_row)
+                for idx, ins in enumerate(inspectores.data[i:i+cols_per_row]):
+                    count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
+                    with cols[idx]:
+                        st.markdown(f"""
+                        <div class="inspector-card">
+                            <h3>{ins['nombre'].split(',')[0]}</h3>
+                            <h1>{count}</h1>
+                            <p>Legajo: {ins['legajo']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+        else:
+            st.info("No hay inspectores cargados en el sistema")
+    
+    st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+    
+    # Panel de botones organizado en 4 grupos
+    st.markdown("##### 🎮 Panel de acciones")
+    
+    # Fila 1: Acción principal
+    col_guardar, col_spacer = st.columns([1, 5])
+    with col_guardar:
+        guardar_click = st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True, help="Guardar todos los cambios realizados en la tabla")
+    
+    # Fila 2: Gestión y Mantenimiento
+    col1, col2, col3, col4, col5 = st.columns(5)
+    with col1:
+        st.markdown('<div class="gestion-button">', unsafe_allow_html=True)
+        if st.button("🤖 Asignar Legajos", use_container_width=True, help="Asignar legajos automáticamente según dirección"):
+            st.session_state.asignar_legajos = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="gestion-button">', unsafe_allow_html=True)
+        if st.button("📧 Preparar Mails", use_container_width=True, help="Preparar mailing masivo"):
+            st.session_state.preparar_mails = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown('<div class="mantenimiento-button">', unsafe_allow_html=True)
+        if st.button("🗑 Eliminar sel.", use_container_width=True, help="Eliminar registros seleccionados"):
+            ids = st.session_state.get('ids_a_eliminar', [])
+            if ids:
+                supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
+                st.session_state.ids_a_eliminar = []
                 st.rerun()
-        with c_d4:
-            if st.button("⟳ Reload", use_container_width=True):
-                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col4:
+        st.markdown('<div class="mantenimiento-button">', unsafe_allow_html=True)
+        if st.button("🗑 Eliminar TODO", use_container_width=True, help="Eliminar TODOS los registros (requiere confirmación)"):
+            st.session_state.confirmar_del_todo = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col5:
+        st.markdown('<div class="mantenimiento-button">', unsafe_allow_html=True)
+        if st.button("↺ Resetear filtros", use_container_width=True, help="Limpiar todos los filtros aplicados"):
+            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
+                      'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
+                st.session_state.pop(k, None)
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Fila 3: Informes
+    col_inf1, col_inf2, col_inf3, col_inf4 = st.columns(4)
+    with col_inf1:
+        st.markdown('<div class="informe-button">', unsafe_allow_html=True)
+        if st.button("📄 Inf. NO asignados", use_container_width=True, help="Generar informe de registros sin legajo"):
+            st.session_state.generar_informe = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_inf2:
+        st.markdown('<div class="informe-button">', unsafe_allow_html=True)
+        if st.button("📊 Inf. ASIGNADOS", use_container_width=True, help="Generar informe de todos los registros con legajo"):
+            st.session_state.generar_informe_asignados = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_inf3:
+        st.markdown('<div class="informe-button">', unsafe_allow_html=True)
+        if st.button("📊 Inf. POR INSPECTOR", use_container_width=True, help="Generar informe detallado por inspector"):
+            st.session_state.generar_informe_por_inspector = True
+        st.markdown('</div>', unsafe_allow_html=True)
+    with col_inf4:
+        st.markdown('<div class="mantenimiento-button">', unsafe_allow_html=True)
+        if st.button("⟳ Recargar", use_container_width=True, help="Recargar la página"):
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
 
-    # ── CONFIRMACIÓN ELIMINAR TODO ─────────────────────────────────────────────
     if st.session_state.get('confirmar_del_todo'):
-        st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
+        st.warning("⚠️ **ATENCIÓN:** Esta acción eliminará **TODOS** los registros de la base de datos. Esta operación es irreversible.")
         col_si, col_no = st.columns(2)
         with col_si:
-            if st.button("Sí, eliminar todo"):
+            if st.button("✅ Sí, eliminar todo", type="primary"):
                 supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
         with col_no:
-            if st.button("Cancelar"):
+            if st.button("❌ Cancelar"):
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO PREPARAR MAILS ────────────────────────────────────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS ───────────────────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -1002,14 +848,18 @@ with tab2:
                 .eq("mail_enviado", "NO")\
                 .is_("vto", "null")\
                 .execute()
+            
             df_candidatos = pd.DataFrame(query.data) if query.data else pd.DataFrame()
+            
             if df_candidatos.empty:
                 st.warning("No hay registros disponibles")
                 if st.button("Finalizar"):
                     st.session_state.preparar_mails = False
                     st.rerun()
                 return
+            
             col_f1, col_f2 = st.columns(2)
+            
             with col_f1:
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                 localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
@@ -1017,29 +867,40 @@ with tab2:
                 cantidad_personalizada = None
                 if not usar_todos:
                     cantidad_personalizada = st.number_input("Cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad")
+            
             with col_f2:
                 nueva_fecha_vto = st.date_input("Fecha VTO", value=date.today(), key="dialog_fecha")
                 ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
                 ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
+            
             df_filtrado = df_candidatos.copy()
             if localidad_filtro != "TODAS":
                 df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
+            
             if ordenar_deuda or ordenar_hasta:
                 def parse_deuda(val):
-                    if val is None: return 0
+                    if val is None:
+                        return 0
                     try:
                         if isinstance(val, str):
                             val = val.replace('$', '').replace('.', '').replace(',', '.').strip()
                         return float(val)
-                    except: return 0
+                    except:
+                        return 0
+                
                 def parse_hasta(val):
-                    if val is None: return datetime.max
+                    if val is None:
+                        return datetime.max
                     try:
                         if isinstance(val, str):
-                            if '/' in val: return datetime.strptime(val, '%d/%m/%Y')
-                            if '-' in val: return datetime.strptime(val, '%Y-%m-%d')
+                            if '/' in val:
+                                return datetime.strptime(val, '%d/%m/%Y')
+                            if '-' in val:
+                                return datetime.strptime(val, '%Y-%m-%d')
                         return val
-                    except: return datetime.max
+                    except:
+                        return datetime.max
+                
                 if ordenar_deuda:
                     df_filtrado['_deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
                     df_filtrado = df_filtrado.sort_values('_deuda_num', ascending=False)
@@ -1047,35 +908,50 @@ with tab2:
                     df_filtrado['_hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
                     df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
                 df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
-            df_seleccionado = df_filtrado.copy() if usar_todos else df_filtrado.head(int(cantidad_personalizada))
+            
+            if usar_todos:
+                df_seleccionado = df_filtrado.copy()
+            else:
+                df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
+            
             if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
                 progress_bar = st.progress(0)
+                
                 fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
                 fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
                 total_registros = len(df_seleccionado)
+                
                 batch_size = 50
                 for i in range(0, total_registros, batch_size):
                     batch = df_seleccionado.iloc[i:i+batch_size]
                     for _, row in batch.iterrows():
                         supabase.table("padron_deuda_presunta").update({
-                            "vto": fecha_str, "mail_enviado": "SI"
+                            "vto": fecha_str,
+                            "mail_enviado": "SI"
                         }).eq("id", row['id']).execute()
+                    
                     progress_bar.progress(min((i + batch_size) / total_registros, 1.0))
                     time.sleep(0.05)
+                
                 progress_bar.progress(1.0)
+                
                 excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
                 st.session_state.excel_descarga = excel_data
                 st.session_state.nombre_excel = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                
                 st.session_state.preparar_mails = False
                 st.rerun()
+            
             if st.button("✅ Finalizar", use_container_width=True):
                 st.session_state.preparar_mails = False
                 st.rerun()
+        
         mostrar_dialogo_preparar_mails()
 
-    # ── DESCARGA EXCEL MAILING ────────────────────────────────────────────────
+    # ── DESCARGA FUERA DEL MODAL ─────────────────────────────────────────────
     if st.session_state.get("excel_descarga"):
         st.success("🎉 ¡Mailing generado exitosamente! Descargue el archivo:")
+        
         col_desc1, col_desc2, col_desc3 = st.columns([1, 2, 1])
         with col_desc2:
             st.download_button(
@@ -1083,16 +959,18 @@ with tab2:
                 data=st.session_state.excel_descarga,
                 file_name=st.session_state.nombre_excel,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary", use_container_width=True
+                type="primary",
+                use_container_width=True
             )
+            
             if st.button("✅ FINALIZAR", use_container_width=True):
                 del st.session_state["excel_descarga"]
                 del st.session_state["nombre_excel"]
                 st.rerun()
 
-    # ── INFORMES ──────────────────────────────────────────────────────────────
+    # ── GENERAR INFORMES ─────────────────────────────────────────────────────
     if st.session_state.get('generar_informe'):
-        with st.spinner("Generando informe..."):
+        with st.spinner("Generando informe de no asignados..."):
             registros_sin_legajo = traer_registros_sin_legajo()
             if registros_sin_legajo:
                 contenido_txt = generar_informe_txt(registros_sin_legajo)
@@ -1108,7 +986,7 @@ with tab2:
         st.session_state.generar_informe = False
 
     if st.session_state.get('generar_informe_asignados'):
-        with st.spinner("Generando informe..."):
+        with st.spinner("Generando informe de asignados..."):
             registros_con_legajo = traer_registros_con_legajo()
             if registros_con_legajo:
                 excel_data = generar_excel_asignados(registros_con_legajo)
@@ -1135,20 +1013,23 @@ with tab2:
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
-    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ──────────────────────────────────────
+    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
-        st.info("⏳ Asignando legajos...")
-        with st.spinner("Cargando..."):
+        st.info("⏳ Asignando legajos automáticamente...")
+        
+        with st.spinner("Cargando configuración de inspectores..."):
             insp_loc   = cargar_inspectores_localidad()
             insp_zonas = cargar_zonas_inspectores()
             sinonimos  = cargar_sinonimos()
             lkp_loc    = construir_lookup_localidades(insp_loc)
             lkp_zonas  = construir_lookup_zonas(insp_zonas)
             lkp_sin    = construir_lookup_sinonimos(sinonimos)
-        with st.spinner("Cargando registros..."):
+
+        with st.spinner("Cargando registros sin legajo..."):
             registros = traer_registros_sin_legajo()
+
         if not registros:
-            st.info("No hay registros sin legajo.")
+            st.info("No hay registros sin legajo para asignar.")
             st.session_state.asignar_legajos = False
         else:
             total = len(registros)
@@ -1156,16 +1037,19 @@ with tab2:
             status_text = st.empty()
             asig = []
             no_asig = []
+
             for i, reg in enumerate(registros):
                 percent = (i + 1) / total
                 progress_bar.progress(percent)
-                status_text.markdown(f"🔄 {int(percent * 100)}% — {reg.get('razon_social', 'Sin nombre')[:40]}...")
+                status_text.markdown(f"🔄 Procesando {int(percent * 100)}% - {reg.get('razon_social', 'Sin nombre')[:40]}...")
+                
                 legajo = asignar_legajo(
                     reg.get('localidad', '') or '',
                     reg.get('calle', '') or '',
                     reg.get('numero', '') or '',
                     lkp_loc, lkp_zonas, lkp_sin
                 )
+                
                 if legajo:
                     asig.append({'id': reg['id'], 'legajo': legajo})
                 else:
@@ -1179,18 +1063,22 @@ with tab2:
                         'tel_dom_legal': reg.get('tel_dom_legal', ''),
                         'tel_dom_real': reg.get('tel_dom_real', ''),
                     })
+                
                 time.sleep(0.01)
+
             progress_bar.empty()
             status_text.empty()
-            with st.spinner("Guardando..."):
+
+            with st.spinner("Guardando asignaciones..."):
                 guardados = guardar_legajos_en_batch(asig)
+
             st.session_state.asignar_legajos = False
             st.session_state.ultima_asignacion = {
                 "asignados": guardados,
                 "no_asignados": len(no_asig),
                 "detalle": no_asig,
             }
-            st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
+            st.success(f"✅ {guardados} legajos asignados correctamente, {len(no_asig)} sin coincidencia.")
             st.rerun()
 
     if st.session_state.get('ultima_asignacion'):
@@ -1200,41 +1088,44 @@ with tab2:
             st.success(f"✅ {res['asignados']} legajos asignados")
         with col_res2:
             st.warning(f"⚠️ {res['no_asignados']} sin coincidencia")
+        
         if res['no_asignados'] > 0:
             contenido_informe = generar_informe_txt(res['detalle'])
             st.download_button(
-                label="📥 DESCARGAR INFORME",
+                label="📥 DESCARGAR INFORME DETALLADO",
                 data=contenido_informe.encode('utf-8'),
                 file_name=f"NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                 mime="text/plain"
             )
-            with st.expander(f"📋 Ver {res['no_asignados']} registros"):
+            with st.expander(f"📋 Ver detalles de {res['no_asignados']} registros no asignados"):
                 st.dataframe(pd.DataFrame(res['detalle']), use_container_width=True)
+        
         if st.button("Cerrar resultado"):
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS ───────────────────────────────────────────────────────────────
-    st.markdown('<p class="section-label">🔍 Filtros</p>', unsafe_allow_html=True)
+    # ── FILTROS Y TABLA EDITABLE ────────────────────────────────────────────
+    st.markdown("##### 🔍 Filtros de búsqueda")
+    
     f1, f2, f3, f4, f5, f6 = st.columns(6)
     with f1:
-        st.markdown('<p class="filtro-titulo">CUIT</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">📌 CUIT</p>', unsafe_allow_html=True)
         filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
     with f2:
-        st.markdown('<p class="filtro-titulo">RAZÓN SOCIAL</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">🏢 Razón Social</p>', unsafe_allow_html=True)
         filtro_razon = st.text_input("Razón", key="input_filtro_razon", placeholder="Razón social", label_visibility="collapsed")
     with f3:
-        st.markdown('<p class="filtro-titulo">LOCALIDAD</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">📍 Localidad</p>', unsafe_allow_html=True)
         locs = get_localidades()
         localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
     with f4:
-        st.markdown('<p class="filtro-titulo">MAIL</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">✉️ Mail enviado</p>', unsafe_allow_html=True)
         filtro_mail = st.selectbox("Mail", ["AMBOS", "NO", "SI"], key="filtro_mail", label_visibility="collapsed")
     with f5:
-        st.markdown('<p class="filtro-titulo">LEGAJO</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">🆔 Legajo</p>', unsafe_allow_html=True)
         filtro_leg = st.selectbox("Legajo", ["TODOS", "CON LEGAJO", "SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
     with f6:
-        st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
+        st.markdown('<p class="filtro-titulo">🏠 Calle</p>', unsafe_allow_html=True)
         filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
 
     q = supabase.table("padron_deuda_presunta").select("*")
@@ -1244,10 +1135,11 @@ with tab2:
         q = q.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
         q = q.eq("mail_enviado", "NO")
+
     datos = q.execute()
 
     if not datos.data:
-        st.info("Sin datos.")
+        st.info("Sin datos para mostrar.")
     else:
         df = pd.DataFrame(datos.data)
         if filtro_cuit:
@@ -1258,6 +1150,7 @@ with tab2:
             df = df[df['leg'].notna()]
         elif filtro_leg == "SIN LEGAJO":
             df = df[df['leg'].isna()]
+        
         if filtro_calle_aprox:
             filtro_norm = normalizar_calle(filtro_calle_aprox)
             if filtro_norm:
@@ -1274,15 +1167,15 @@ with tab2:
             st.session_state.pagina_actual = 1
         st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
 
-        pa, pn, ps = st.columns([1, 3, 1])
-        with pa:
-            if st.button("◀") and st.session_state.pagina_actual > 1:
+        col_pag1, col_pag2, col_pag3 = st.columns([1, 3, 1])
+        with col_pag1:
+            if st.button("◀ Anterior", disabled=st.session_state.pagina_actual <= 1):
                 st.session_state.pagina_actual -= 1
                 st.rerun()
-        with pn:
-            st.markdown(f'<p class="pager-info">Pág. {st.session_state.pagina_actual} / {pages} &nbsp;·&nbsp; {total} registros</p>', unsafe_allow_html=True)
-        with ps:
-            if st.button("▶") and st.session_state.pagina_actual < pages:
+        with col_pag2:
+            st.caption(f"Página {st.session_state.pagina_actual} de {pages} | Total: {total} registros")
+        with col_pag3:
+            if st.button("Siguiente ▶", disabled=st.session_state.pagina_actual >= pages):
                 st.session_state.pagina_actual += 1
                 st.rerun()
 
@@ -1291,6 +1184,7 @@ with tab2:
 
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
+        
         for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(lambda x: fmt_fecha(x) if x and x != "" else "")
@@ -1311,56 +1205,73 @@ with tab2:
         })
         df_ed.insert(0, "🗑️", False)
 
-        if st.checkbox("Seleccionar todos"):
+        if st.checkbox("📌 Seleccionar todos los registros de esta página"):
             df_ed["🗑️"] = True
 
         edited = st.data_editor(
             df_ed, use_container_width=True, height=500,
-            column_config={"🗑️": st.column_config.CheckboxColumn("Elim.")},
+            column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar")},
             key=f"editor_{st.session_state.pagina_actual}",
         )
 
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
+        if ids_sel:
+            st.info(f"📌 {len(ids_sel)} registro(s) seleccionado(s) para eliminar")
 
         if guardar_click:
             mods = 0
             errores_fecha = 0
-            with st.spinner("Guardando..."):
+            with st.spinner("Guardando cambios..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
                         continue
                     orig = df_orig.iloc[idx]
                     upd = {}
+                    
                     nv = row.get('LEG')
                     if nv != orig.get('leg'):
                         if nv and str(nv).strip():
-                            try: upd['leg'] = int(float(str(nv)))
-                            except: upd['leg'] = None
+                            try:
+                                upd['leg'] = int(float(str(nv)))
+                            except:
+                                upd['leg'] = None
                         else:
                             upd['leg'] = None
+                    
                     nv = row.get('VTO')
                     if nv != orig.get('vto'):
                         if nv and str(nv).strip():
                             fecha_ok = norm_fecha(str(nv))
-                            if fecha_ok: upd['vto'] = fecha_ok
-                            else: errores_fecha += 1
+                            if fecha_ok:
+                                upd['vto'] = fecha_ok
+                            else:
+                                errores_fecha += 1
                         else:
                             upd['vto'] = None
+                    
                     nv = row.get('MAIL ENVIADO') or 'NO'
-                    if nv not in ('SI', 'NO'): nv = 'NO'
-                    if nv != orig.get('mail_enviado'): upd['mail_enviado'] = nv
+                    if nv not in ('SI', 'NO'):
+                        nv = 'NO'
+                    if nv != orig.get('mail_enviado'):
+                        upd['mail_enviado'] = nv
+                    
                     nv = row.get('ACTA')
-                    if nv != orig.get('acta'): upd['acta'] = nv if nv and str(nv).strip() else None
+                    if nv != orig.get('acta'):
+                        upd['acta'] = nv if nv and str(nv).strip() else None
+                    
                     nv = row.get('ESTADO GESTION') or 'PENDIENTE'
-                    if nv != orig.get('estado_gestion'): upd['estado_gestion'] = nv
+                    if nv != orig.get('estado_gestion'):
+                        upd['estado_gestion'] = nv
+                    
                     if upd:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
                         mods += 1
+
             if mods > 0:
                 st.success(f"✅ {mods} registros actualizados correctamente.")
                 if errores_fecha > 0:
-                    st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
+                    st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Use DD/MM/YYYY.")
                 st.rerun()
             elif errores_fecha > 0:
                 st.warning(f"No se guardaron cambios. {errores_fecha} fecha(s) con formato incorrecto.")
@@ -1371,7 +1282,7 @@ with tab2:
 # TAB 3 — Solicitar Actas
 # ══════════════════════════════════════════════════════════════════
 with tab3:
-    st.info("📧 Solicitar Actas — En construcción")
+    st.info("📧 **Solicitar Actas** — Módulo en construcción. Próximamente disponible.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 4 — Subir Actas
@@ -1379,31 +1290,33 @@ with tab3:
 with tab4:
     st.markdown("#### 📋 Subir Actas (CSV)")
     st.markdown("""
-    <div style="background:var(--bg-surface,#161b22); padding:0.5rem 1rem; border-radius:6px; border-left:3px solid #388bfd; margin-bottom:1rem;">
-    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
-    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 0.75rem 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
+        <p style="margin: 0; font-size: 0.8rem;">El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
+        en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado a FINALIZADO.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    csv_file = st.file_uploader("Archivo CSV", type=["csv"], key="upload_actas_csv")
+    csv_file = st.file_uploader("Seleccionar archivo CSV", type=["csv"], key="upload_actas_csv")
 
     if csv_file:
-        st.caption(f"Archivo: **{csv_file.name}**")
+        st.caption(f"Archivo seleccionado: **{csv_file.name}**")
+
         try:
             df_prev = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-            with st.expander("Vista previa (5 primeras filas)"):
+            with st.expander("📋 Vista previa (primeras 5 filas)"):
                 st.dataframe(df_prev.head(5), use_container_width=True, height=200)
         except Exception:
             pass
 
         if st.button("📋 Procesar y actualizar actas", type="primary"):
-            with st.spinner("Procesando..."):
+            with st.spinner("Procesando archivo..."):
                 try:
                     df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
                 except Exception:
                     df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
 
                 df4.columns = [str(c).strip().upper() for c in df4.columns]
+
                 col_cuit = col_leg = col_vto = col_acta = None
                 for c in df4.columns:
                     cu = c.upper()
@@ -1416,19 +1329,27 @@ with tab4:
                     st.error(f"❌ Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
                 else:
                     st.caption(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                    
                     actualizados = 0
                     no_encontrados = 0
                     bar = st.progress(0)
+
                     for i, row in df4.iterrows():
                         cuit = re.sub(r'[\.\-,\s]', '', str(row[col_cuit]).strip())
                         leg = str(row[col_leg]).strip() if row[col_leg] else None
                         vto = norm_fecha(row[col_vto])
                         acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+
                         if cuit and leg and vto:
                             try:
                                 resultado = (supabase.table("padron_deuda_presunta")
-                                           .select("id").eq("cuit", cuit).eq("leg", leg)
-                                           .eq("vto", vto).eq("mail_enviado", "SI").execute())
+                                           .select("id")
+                                           .eq("cuit", cuit)
+                                           .eq("leg", leg)
+                                           .eq("vto", vto)
+                                           .eq("mail_enviado", "SI")
+                                           .execute())
+                                
                                 if resultado.data:
                                     for reg in resultado.data:
                                         supabase.table("padron_deuda_presunta") \
@@ -1439,15 +1360,18 @@ with tab4:
                                     no_encontrados += 1
                             except Exception as e:
                                 st.error(f"Error fila {i}: {e}")
+
                         bar.progress((i + 1) / len(df4))
+
                     bar.empty()
                     col_ok, col_no = st.columns(2)
                     col_ok.metric("✅ Actualizados", actualizados)
                     col_no.metric("❌ No encontrados", no_encontrados)
+
                     if actualizados > 0:
                         st.success(f"✅ {actualizados} actas actualizadas correctamente.")
                     if no_encontrados > 0:
-                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
+                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia en la base de datos.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 5 — INSPECTORES
@@ -1455,21 +1379,21 @@ with tab4:
 with tab5:
     st.markdown("### 👥 Gestión de Inspectores y Zonas")
     st.markdown("Acceda al panel completo de administración de inspectores, localidades y calles de Mar del Plata.")
-
+    
     url_zonas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/zonas"
-
+    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(f"""
-        <div style="background: var(--bg-surface,#161b22); border-radius: 10px; padding: 1rem; text-align: center; border: 1px solid var(--border-subtle,#30363d); border-top: 2px solid #388bfd; margin: 0.5rem 0;">
-            <h3 style="color: #388bfd; margin: 0 0 0.3rem 0; font-size: 1rem; font-family: 'IBM Plex Sans', sans-serif;">🗺️ Zonas de Inspectores</h3>
-            <p style="color: #8b949e; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6;">
+            <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">🗺️ Zonas de Inspectores</h3>
+            <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
             <a href="{url_zonas}" target="_blank">
-                <button style="background: #388bfd; color: white; border: none; padding: 0.4rem 1.5rem; border-radius: 5px; cursor: pointer; font-size: 0.82rem; font-family: 'IBM Plex Sans', sans-serif; font-weight: 500;">
+                <button style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border: none; padding: 0.4rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">
                     🔗 IR A INSPECTORES Y ZONAS
                 </button>
             </a>
         </div>
         """, unsafe_allow_html=True)
-
+    
     st.caption("💡 También puede acceder directamente desde el enlace: " + url_zonas)
