@@ -218,7 +218,7 @@ div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):no
 </style>
 """, unsafe_allow_html=True)
 
-# Header con título (sin botón Volver)
+# Header con título
 st.markdown("""
 <div class="app-header">
     <div>
@@ -830,7 +830,11 @@ with tab2:
                 st.session_state.pop(k, None)
             st.rerun()
     with col_recargar:
+        # BOTÓN RECARGAR MEJORADO: fuerza actualización completa
         if st.button("⟳ Recargar", use_container_width=True):
+            # Forzar recreación del editor y limpiar caché visual
+            st.session_state.ultima_recarga = datetime.now()
+            st.session_state.pop('pagina_actual', None)
             st.rerun()
 
     if st.session_state.get('confirmar_del_todo'):
@@ -1120,19 +1124,9 @@ with tab2:
     # ============================================================
     st.markdown("### 📋 Filtros")
     
-    # Timestamp para forzar recarga de widgets
+    # Inicializar timestamp para forzar recarga
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
-    
-    # Botón de REFRESCAR MANUAL
-    col_refresh1, col_refresh2, _ = st.columns([1, 1, 4])
-    with col_refresh1:
-        if st.button("🔄 REFRESCAR DATOS", use_container_width=True):
-            st.session_state.ultima_recarga = datetime.now()
-            st.session_state.pop('pagina_actual', None)
-            st.rerun()
-    with col_refresh2:
-        st.caption("Actualiza los datos desde Supabase")
     
     f1, f2, f3, f4, f5, f6 = st.columns(6)
     with f1:
