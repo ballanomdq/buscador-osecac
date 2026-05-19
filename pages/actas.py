@@ -315,12 +315,44 @@ def normalizar_calle(calle: str) -> str:
     calle = re.sub(r'[^A-ZÁÉÍÓÚÜÑ0-9 ]', '', calle)
     return re.sub(r'\s+', ' ', calle).strip()
 
-# ── Asignación de legajo ──────────────────────────────────────────────────────
-def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, lookup_sinonimos):
+# ── NUEVA FUNCIÓN: Cargar palabras ancla ──────────────────────────────────────
+def cargar_palabras_ancla():
+    """Carga todas las palabras ancla desde Supabase"""
+    try:
+        r = supabase.table("palabras_ancla").select("*").execute()
+        return r.data if r.data else []
+    except Exception as e:
+        # Si la tabla no existe, devolver lista vacía
+        return []
+
+def construir_lookup_palabras_ancla(palabras_ancla):
+    """Construye un lookup simple para búsqueda rápida de palabras ancla"""
+    # Devuelve la lista directamente, la búsqueda se hará secuencial
+    return palabras_ancla
+
+# ── FUNCIÓN MODIFICADA: Asignación de legajo con palabras ancla ────────────────
+def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, lookup_sinonimos, lookup_palabras_ancla):
     localidad_cmp = limpiar_para_comparar(localidad)
+    
+    # Si NO es Mar del Plata, asignar por localidad (las palabras ancla NO aplican)
     if localidad_cmp not in ("MAR DEL PLATA", ""):
         return lookup_localidades.get(localidad_cmp)
     
+    # Si es Mar del Plata, PRIMERO buscar palabras ancla
+    if localidad_cmp == "MAR DEL PLATA" and lookup_palabras_ancla:
+        # Normalizar la dirección completa (calle + número) para buscar palabras ancla
+        direccion_completa = f"{calle} {numero}".upper().strip()
+        
+        for ancla in lookup_palabras_ancla:
+            palabra = ancla.get('palabra', '').upper().strip()
+            legajo_ancla = ancla.get('legajo')
+            
+            if palabra and legajo_ancla:
+                # Verificar si la palabra ancla está CONTENIDA en la dirección
+                if palabra in direccion_completa:
+                    return legajo_ancla
+    
+    # Si no hay palabra ancla, continuar con la lógica normal
     calle_norm = normalizar_calle(calle)
     if not calle_norm:
         return None
@@ -682,7 +714,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (MODIFICADO para cargar palabras ancla)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -952,17 +984,19 @@ with tab2:
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
-    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ─────────────────────────────────────
+    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS (MODIFICADA con palabras ancla) ─────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
         
-        with st.spinner("Cargando..."):
+        with st.spinner("Cargando configuración..."):
             insp_loc   = cargar_inspectores_localidad()
             insp_zonas = cargar_zonas_inspectores()
             sinonimos  = cargar_sinonimos()
+            palabras_ancla = cargar_palabras_ancla()  # NUEVO
             lkp_loc    = construir_lookup_localidades(insp_loc)
             lkp_zonas  = construir_lookup_zonas(insp_zonas)
             lkp_sin    = construir_lookup_sinonimos(sinonimos)
+            lkp_palabras = construir_lookup_palabras_ancla(palabras_ancla)  # NUEVO
 
         with st.spinner("Cargando registros..."):
             registros = traer_registros_sin_legajo()
@@ -986,7 +1020,7 @@ with tab2:
                     reg.get('localidad', '') or '',
                     reg.get('calle', '') or '',
                     reg.get('numero', '') or '',
-                    lkp_loc, lkp_zonas, lkp_sin
+                    lkp_loc, lkp_zonas, lkp_sin, lkp_palabras  # NUEVO parámetro
                 )
                 
                 if legajo:
