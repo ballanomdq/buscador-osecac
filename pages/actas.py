@@ -67,14 +67,14 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 #MainMenu, footer, header { display: none !important; }
 
-/* ── CARTELES CON TEXTO A TOPE (SIN PADDING INNECESARIO) ── */
+/* ── CARTELES CON TEXTO A TOPE ── */
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.2rem 0.1rem;  /* Mínimo padding, solo para que no toque el borde */
+    padding: 0.2rem 0.1rem;
     text-align: center;
     border: 1px solid #3b82f6;
-    height: 100%;  /* Ocupa toda la altura de la columna */
+    height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -96,7 +96,7 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.15rem 0.05rem;  /* Padding mínimo */
+    padding: 0.15rem 0.05rem;
     text-align: center;
     border: 1px solid #10b981;
     height: 100%;
@@ -139,7 +139,7 @@ div[role="dialog"] {
     box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
 }
 
-/* OCULTAR LA CRUZ (X) DE CIERRE - HACERLA CASI INVISIBLE */
+/* OCULTAR LA CRUZ (X) DE CIERRE */
 div[role="dialog"] button[aria-label="Close"] {
     opacity: 0 !important;
     pointer-events: none !important;
@@ -742,7 +742,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (CORREGIDO: filtros en Supabase)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -846,7 +846,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS (CON CRUZ OCULTA) ─────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS ─────────────────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -1021,7 +1021,7 @@ with tab2:
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
-    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS (MODIFICADA con palabras ancla) ─────
+    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
         
@@ -1137,29 +1137,40 @@ with tab2:
         st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
         filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
 
+    # ── CONSTRUIR CONSULTA CON TODOS LOS FILTROS EN SUPABASE (CORREGIDO) ──
     q = supabase.table("padron_deuda_presunta").select("*")
+    
+    # Filtro LOCALIDAD
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
+    
+    # Filtro MAIL
     if filtro_mail == "SI":
         q = q.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
         q = q.eq("mail_enviado", "NO")
-
+    
+    # Filtro LEGAJO (AHORA EN SUPABASE, NO EN PANDAS)
+    if filtro_leg == "CON LEGAJO":
+        q = q.not_.is_("leg", "null")
+    elif filtro_leg == "SIN LEGAJO":
+        q = q.is_("leg", "null")
+    
+    # EJECUTAR CONSULTA
     datos = q.execute()
 
     if not datos.data:
         st.info("Sin datos.")
     else:
         df = pd.DataFrame(datos.data)
+        
+        # Filtros CUIT y RAZON SOCIAL (estos siguen en Pandas porque son búsquedas textuales)
         if filtro_cuit:
             df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
         if filtro_razon:
             df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
-        if filtro_leg == "CON LEGAJO":
-            df = df[df['leg'].notna()]
-        elif filtro_leg == "SIN LEGAJO":
-            df = df[df['leg'].isna()]
         
+        # Filtro CALLE por similitud (sigue en Pandas)
         if filtro_calle_aprox:
             filtro_norm = normalizar_calle(filtro_calle_aprox)
             if filtro_norm:
