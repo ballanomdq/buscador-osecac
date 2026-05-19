@@ -92,7 +92,7 @@ div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !im
     font-size: 0.85rem !important;
 }
 
-/* ── NUEVO ESTILO PARA DIÁLOGO: FONDO CLARO, TEXTO OSCURO ── */
+/* ── ESTILO PARA DIÁLOGO: FONDO CLARO, TEXTO OSCURO ── */
 div[role="dialog"] {
     background: #f8fafc !important;
     border-radius: 16px !important;
@@ -133,7 +133,6 @@ div[role="dialog"] .stAlert p {
     color: #0f172a !important;
 }
 
-/* Mejorar visibilidad de selects dentro del diálogo */
 div[role="dialog"] .stSelectbox div[data-baseweb="select"] {
     background-color: white !important;
     border: 1px solid #94a3b8 !important;
@@ -147,7 +146,6 @@ div[role="dialog"] .stCheckbox span {
     color: #1e293b !important;
 }
 
-/* Botones dentro del diálogo */
 div[role="dialog"] div[data-testid="stButton"] > button {
     background-color: #3b82f6 !important;
     color: white !important;
@@ -671,7 +669,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS EN MODAL MEJORADO)
+# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS SIMPLIFICADO)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -758,63 +756,43 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS MEJORADO ───────────────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS SIMPLIFICADO ───────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
-            st.markdown("### Seleccioná los criterios para generar el mailing")
-            st.markdown("---")
-            
             # Cargar datos
-            with st.spinner("Cargando registros candidatos..."):
-                query = supabase.table("padron_deuda_presunta")\
-                    .select("*")\
-                    .not_.is_("leg", "null")\
-                    .eq("mail_enviado", "NO")\
-                    .is_("vto", "null")\
-                    .execute()
-                
-                df_candidatos = pd.DataFrame(query.data) if query.data else pd.DataFrame()
+            query = supabase.table("padron_deuda_presunta")\
+                .select("*")\
+                .not_.is_("leg", "null")\
+                .eq("mail_enviado", "NO")\
+                .is_("vto", "null")\
+                .execute()
+            
+            df_candidatos = pd.DataFrame(query.data) if query.data else pd.DataFrame()
             
             if df_candidatos.empty:
-                st.warning("⚠️ No hay registros que cumplan las condiciones: legajo asignado, mail NO enviado, VTO vacío.")
-                if st.button("Cerrar", key="cerrar_dialogo_sin_datos"):
+                st.warning("No hay registros disponibles")
+                if st.button("Cerrar"):
                     st.session_state.preparar_mails = False
                     st.rerun()
                 return
             
-            st.success(f"✅ Total de registros candidatos: **{len(df_candidatos)}**")
-            
-            # Filtros en 2 columnas
+            # Filtros
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
-                localidad_filtro = st.selectbox("📍 Filtrar por localidad", localidades, key="dialog_localidad")
+                localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
                 
-                usar_todos = st.checkbox("✅ Seleccionar TODOS los registros", value=True, key="dialog_usar_todos")
+                usar_todos = st.checkbox("Seleccionar TODOS", value=True, key="dialog_usar_todos")
                 cantidad_personalizada = None
                 if not usar_todos:
-                    max_cant = len(df_candidatos[df_candidatos['localidad'] == localidad_filtro] if localidad_filtro != "TODAS" else df_candidatos)
-                    cantidad_personalizada = st.number_input(
-                        "Cantidad de registros", 
-                        min_value=1, 
-                        max_value=len(df_candidatos), 
-                        value=min(100, len(df_candidatos)), 
-                        step=1, 
-                        key="dialog_cantidad_pers"
-                    )
+                    cantidad_personalizada = st.number_input("Cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad")
             
             with col_f2:
-                nueva_fecha_vto = st.date_input(
-                    "📅 Fecha VTO a asignar", 
-                    value=date.today(), 
-                    key="dialog_fecha",
-                    help="Esta fecha se asignará a todos los registros seleccionados"
-                )
-                
-                ordenar_deuda = st.checkbox("💰 Ordenar por DEUDA PRESUNTA (mayor a menor)", value=True, key="dialog_deuda")
-                ordenar_hasta = st.checkbox("📅 Ordenar por fecha HASTA (más antiguos primero)", value=False, key="dialog_hasta")
+                nueva_fecha_vto = st.date_input("Fecha VTO", value=date.today(), key="dialog_fecha")
+                ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
+                ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
             
             # Aplicar filtros
             df_filtrado = df_candidatos.copy()
@@ -855,105 +833,54 @@ with tab2:
                 df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
             
             # Seleccionar cantidad
-            if usar_todos or cantidad_personalizada is None:
+            if usar_todos:
                 df_seleccionado = df_filtrado.copy()
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
-            st.markdown("---")
-            col_info1, col_info2, col_info3 = st.columns(3)
-            with col_info1:
-                st.metric("📊 Filtrados", len(df_filtrado))
-            with col_info2:
-                st.metric("✅ Seleccionados", len(df_seleccionado))
-            with col_info3:
-                st.metric("📅 Fecha VTO", nueva_fecha_vto.strftime('%d/%m/%Y'))
-            
-            # Vista previa
-            with st.expander("📋 Vista previa de registros seleccionados (primeros 10)"):
-                df_preview = df_seleccionado.head(10)[['cuit', 'razon_social', 'leg']].copy()
-                df_preview.columns = ['CUIT', 'RAZON SOCIAL', 'LEGAJO']
-                st.dataframe(df_preview, use_container_width=True)
-                if len(df_seleccionado) > 10:
-                    st.caption(f"... y {len(df_seleccionado) - 10} registros más")
-            
-            st.markdown("---")
-            
-            # Botones de acción
-            col_accion1, col_accion2, col_accion3 = st.columns([1, 1, 1])
-            
-            with col_accion1:
-                if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
-                    # Barra de progreso
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
+            # Botón procesar
+            if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
+                # Barra de progreso
+                progress_bar = st.progress(0)
+                
+                fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
+                fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
+                total_registros = len(df_seleccionado)
+                
+                # Actualizar registros
+                batch_size = 50
+                for i in range(0, total_registros, batch_size):
+                    batch = df_seleccionado.iloc[i:i+batch_size]
+                    for _, row in batch.iterrows():
+                        supabase.table("padron_deuda_presunta").update({
+                            "vto": fecha_str,
+                            "mail_enviado": "SI"
+                        }).eq("id", row['id']).execute()
                     
-                    fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
-                    fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
-                    total_registros = len(df_seleccionado)
-                    actualizados = 0
-                    
-                    status_text.info(f"🔄 Procesando {total_registros} registros...")
-                    
-                    # Actualizar en batches con barra de progreso
-                    batch_size = 50
-                    for i in range(0, total_registros, batch_size):
-                        batch = df_seleccionado.iloc[i:i+batch_size]
-                        for _, row in batch.iterrows():
-                            try:
-                                supabase.table("padron_deuda_presunta").update({
-                                    "vto": fecha_str,
-                                    "mail_enviado": "SI"
-                                }).eq("id", row['id']).execute()
-                                actualizados += 1
-                            except Exception as e:
-                                st.error(f"Error actualizando registro {row['id']}: {e}")
-                        
-                        # Actualizar barra de progreso
-                        progress = min((i + batch_size) / total_registros, 1.0)
-                        progress_bar.progress(progress)
-                        status_text.info(f"🔄 Procesados {min(i + batch_size, total_registros)} de {total_registros} registros...")
-                        time.sleep(0.05)  # Pequeña pausa para ver la barra
-                    
-                    progress_bar.progress(1.0)
-                    status_text.success(f"✅ ¡Completado! {actualizados} registros actualizados con VTO: {fecha_mostrar}")
-                    
-                    # Generar Excel
-                    excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
-                    
-                    # Nombre de archivo personalizable
-                    nombre_base = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                    nombre_archivo = st.text_input(
-                        "📄 Nombre del archivo (sin extensión)", 
-                        value=nombre_base,
-                        key="nombre_archivo_excel"
-                    )
-                    
-                    st.download_button(
-                        label="📥 DESCARGAR EXCEL",
-                        data=excel_data,
-                        file_name=f"{nombre_archivo}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="download_after_process",
-                        use_container_width=True
-                    )
-                    
-                    st.success("✅ Proceso finalizado. El archivo está listo para descargar.")
-                    
-                    # Opción para cerrar
-                    if st.button("🔒 Cerrar y volver", use_container_width=True):
-                        st.session_state.preparar_mails = False
-                        st.rerun()
-            
-            with col_accion2:
-                if st.button("👁️ Vista previa avanzada", use_container_width=True):
-                    st.dataframe(df_seleccionado[['cuit', 'razon_social', 'leg', 'localidad', 'deuda_presunta']], 
-                                 use_container_width=True, height=300)
-            
-            with col_accion3:
-                if st.button("❌ Cancelar", use_container_width=True):
+                    # Actualizar barra
+                    progress_bar.progress(min((i + batch_size) / total_registros, 1.0))
+                    time.sleep(0.05)
+                
+                progress_bar.progress(1.0)
+                
+                # Generar Excel
+                excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
+                
+                # Botón de descarga que cierra el diálogo
+                if st.download_button(
+                    label="📥 DESCARGAR EXCEL",
+                    data=excel_data,
+                    file_name=f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                ):
                     st.session_state.preparar_mails = False
                     st.rerun()
+            
+            # Botón cancelar
+            if st.button("❌ Cancelar", use_container_width=True):
+                st.session_state.preparar_mails = False
+                st.rerun()
         
         mostrar_dialogo_preparar_mails()
 
