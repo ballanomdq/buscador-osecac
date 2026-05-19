@@ -1,144 +1,121 @@
-import streamlit as st
 import io
-import fitz  # PyMuPDF
-from datetime import datetime
+import streamlit as st
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import AnnotationBuilder
 
-st.set_page_config(page_title="Prueba sobre PDF Original", layout="centered")
+# Configuración de la página de Streamlit
+st.set_page_config(page_title="Generador de Planilla OSECAC", layout="centered")
+st.title("Prueba de Coordenadas - Formulario 101150")
+st.write("Presioná el botón de abajo para descargar la planilla con todos los casilleros numerados secuencialmente.")
 
-st.title("🎯 Prueba de Puntería sobre PDF Original")
-st.markdown("Este script escribe números SOBRE TU PDF ORIGINAL para verificar las posiciones.")
+def generar_pdf_marcado(pdf_origen_path):
+    reader = PdfReader(pdf_origen_path)
+    writer = PdfWriter()
+    
+    # Traemos la primera página (el formulario)
+    page = reader.pages[0]
+    
+    # Lista para acumular todas las anotaciones de texto
+    anotaciones = []
+    contador = 1
+    
+    # -------------------------------------------------------------
+    # 1. CAMPOS DE CABECERA
+    # -------------------------------------------------------------
+    # Nombre del Inspector
+    anotaciones.append(AnnotationBuilder.free_text(
+        f"{contador}", rect=(170, 760, 220, 775), font_size="10pt", border_color="FF0000"
+    ))
+    contador += 1
+    
+    # Mes y Año (Arriba a la derecha)
+    anotaciones.append(AnnotationBuilder.free_text(
+        f"{contador}", rect=(480, 760, 530, 775), font_size="10pt", border_color="FF0000"
+    ))
+    contador += 1
+    
+    # Folio / De
+    anotaciones.append(AnnotationBuilder.free_text(
+        f"{contador}", rect=(550, 760, 575, 775), font_size="10pt", border_color="FF0000"
+    ))
+    contador += 1
 
-# Coordenadas que vos sacaste (en píxeles)
-coordenadas = {
-    "AREA_FISCALIZACION": (37, 143),
-    "INSPECTOR_NOMBRE": (521, 165),
-    "MES": (144, 459),
-    "AÑO": (302, 459),
-    "FOLIO": (853, 456),
-    "EMPRESA_1_RAZON_SOCIAL": (144, 459),
-    "EMPRESA_1_CUIT": (224, 540),
-    "EMPRESA_1_ACTA": (405, 542),
-    "EMPRESA_1_VTO": (422, 541),
-    "EMPRESA_1_DESDE": (525, 542),
-    "EMPRESA_1_HASTA": (559, 542),
-    "EMPRESA_1_DEUDA": (600, 540),
-}
+    # -------------------------------------------------------------
+    # 2. GRILLA PRINCIPAL (8 FILAS)
+    # -------------------------------------------------------------
+    # Definimos los límites en X para cada columna importante
+    columnas_x = {
+        "Razon Social": (20, 160),
+        "CUIT": (170, 230),
+        "Nro Actuacion": (280, 310),
+        "Fecha Vto": (320, 350),
+        "Empleados": (360, 375),
+        "Periodo Verificado": (385, 430),
+        "Deuda Determinada": (440, 480)
+    }
+    
+    # Alturas aproximadas de las 8 filas en base al origen BOTTOM-LEFT de pypdf
+    # Fila 1 empieza arriba (~670) y van bajando de a 45 puntos
+    alturas_y = [
+        (665, 695),  # Fila 1
+        (620, 650),  # Fila 2
+        (575, 605),  # Fila 3
+        (530, 560),  # Fila 4
+        (485, 515),  # Fila 5
+        (440, 470),  # Fila 6
+        (395, 425),  # Fila 7
+        (350, 380)   # Fila 8
+    ]
+    
+    # Recorremos fila por fila y rellenamos cada columna con el número secuencial
+    for i, (y_min, y_max) in enumerate(alturas_y):
+        for col_nombre, (x_min, x_max) in columnas_x.items():
+            anotaciones.append(AnnotationBuilder.free_text(
+                f"{contador}",
+                rect=(x_min, y_min, x_max, y_max),
+                font_size="9pt",
+                border_color="0000FF"  # Azul para la tabla principal
+            ))
+            contador += 1
 
-DESPLAZAMIENTO_VERTICAL = 45  # Ajustar según necesidad
+    # -------------------------------------------------------------
+    # 3. CAMPOS INFERIORES (PIE DE PÁGINA)
+    # -------------------------------------------------------------
+    # Observaciones
+    anotaciones.append(AnnotationBuilder.free_text(
+        f"{contador}", rect=(20, 220, 350, 290), font_size="10pt", border_color="FF0000"
+    ))
+    contador += 1
+    
+    # Lugar y Fecha
+    anotaciones.append(AnnotationBuilder.free_text(
+        f"{contador}", rect=(360, 220, 420, 290), font_size="9pt", border_color="FF0000"
+    ))
 
-# Ruta del PDF original (asegurate que esté en la misma carpeta)
-PDF_ORIGINAL = "EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf"
-
-def escribir_numeros_en_pdf():
-    # Abrir el PDF original
-    doc = fitz.open(PDF_ORIGINAL)
-    page = doc[0]  # Primera página
-    
-    # Configurar estilo del texto
-    fontsize = 14
-    color_texto = (1, 0, 0)  # Rojo para que se vea
-    
-    # Escribir números en las coordenadas
-    # 1: ÁREA DE FISCALIZACION
-    x, y = coordenadas["AREA_FISCALIZACION"]
-    page.insert_text((x, y), "1", fontsize=fontsize, color=color_texto)
-    
-    # 2: INSPECTOR NOMBRE
-    x, y = coordenadas["INSPECTOR_NOMBRE"]
-    page.insert_text((x, y), "2", fontsize=fontsize, color=color_texto)
-    
-    # 3: MES
-    x, y = coordenadas["MES"]
-    page.insert_text((x, y), "3", fontsize=fontsize, color=color_texto)
-    
-    # 4: AÑO
-    x, y = coordenadas["AÑO"]
-    page.insert_text((x, y), "4", fontsize=fontsize, color=color_texto)
-    
-    # 5: FOLIO
-    x, y = coordenadas["FOLIO"]
-    page.insert_text((x, y), "5", fontsize=fontsize, color=color_texto)
-    
-    # 6: EMPRESA 1 - RAZON SOCIAL
-    x, y = coordenadas["EMPRESA_1_RAZON_SOCIAL"]
-    page.insert_text((x, y), "6", fontsize=fontsize, color=color_texto)
-    
-    # 7: EMPRESA 1 - CUIT
-    x, y = coordenadas["EMPRESA_1_CUIT"]
-    page.insert_text((x, y), "7", fontsize=fontsize, color=color_texto)
-    
-    # 8: EMPRESA 1 - ACTA
-    x, y = coordenadas["EMPRESA_1_ACTA"]
-    page.insert_text((x, y), "8", fontsize=fontsize, color=color_texto)
-    
-    # 9: EMPRESA 1 - VTO
-    x, y = coordenadas["EMPRESA_1_VTO"]
-    page.insert_text((x, y), "9", fontsize=fontsize, color=color_texto)
-    
-    # 10: EMPRESA 1 - DESDE
-    x, y = coordenadas["EMPRESA_1_DESDE"]
-    page.insert_text((x, y), "10", fontsize=fontsize, color=color_texto)
-    
-    # 11: EMPRESA 1 - HASTA
-    x, y = coordenadas["EMPRESA_1_HASTA"]
-    page.insert_text((x, y), "11", fontsize=fontsize, color=color_texto)
-    
-    # 12: EMPRESA 1 - DEUDA
-    x, y = coordenadas["EMPRESA_1_DEUDA"]
-    page.insert_text((x, y), "12", fontsize=fontsize, color=color_texto)
-    
-    # Empresa 2 (13-19)
-    y_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][1] + DESPLAZAMIENTO_VERTICAL
-    x_base = coordenadas["EMPRESA_1_RAZON_SOCIAL"][0]
-    page.insert_text((x_base, y_base), "13", fontsize=fontsize, color=color_texto)
-    page.insert_text((coordenadas["EMPRESA_1_CUIT"][0], y_base), "14", fontsize=fontsize, color=color_texto)
-    page.insert_text((coordenadas["EMPRESA_1_ACTA"][0], y_base), "15", fontsize=fontsize, color=color_texto)
-    page.insert_text((coordenadas["EMPRESA_1_VTO"][0], y_base), "16", fontsize=fontsize, color=color_texto)
-    page.insert_text((coordenadas["EMPRESA_1_DESDE"][0], y_base), "17", fontsize=fontsize, color=color_texto)
-    page.insert_text((coordenadas["EMPRESA_1_HASTA"][0], y_base), "18", fontsize=fontsize, color=color_texto)
-    page.insert_text((coordenadas["EMPRESA_1_DEUDA"][0], y_base), "19", fontsize=fontsize, color=color_texto)
-    
-    # Guardar en memoria
-    output_buffer = io.BytesIO()
-    doc.save(output_buffer)
-    doc.close()
-    output_buffer.seek(0)
-    return output_buffer
-
-# Verificar que el PDF existe
-import os
-if not os.path.exists(PDF_ORIGINAL):
-    st.error(f"❌ No se encuentra el archivo '{PDF_ORIGINAL}'")
-    st.info(f"Asegurate de que el PDF esté en la misma carpeta que este script. Archivos encontrados: {os.listdir('.')}")
-    st.stop()
-
-if st.button("📄 GENERAR PDF CON NÚMEROS (sobre tu PDF original)", type="primary", use_container_width=True):
-    with st.spinner("Escribiendo números en el PDF..."):
-        pdf_buffer = escribir_numeros_en_pdf()
+    # Agregamos todas las marcas generadas a la página
+    for anotacion in anotaciones:
+        writer.add_annotation(page_number=0, annotation=anotacion)
         
-        st.success("✅ PDF generado correctamente")
-        
-        st.download_button(
-            label="📥 DESCARGAR PDF CON NÚMEROS",
-            data=pdf_buffer,
-            file_name=f"prueba_coordenadas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+    writer.add_page(page)
+    
+    # Guardamos el resultado en memoria para la descarga web
+    output_stream = io.BytesIO()
+    writer.write(output_stream)
+    output_stream.seek(0)
+    return output_stream
 
-st.markdown("---")
-st.markdown("""
-### 📌 Instrucciones:
-1. Asegurate que el archivo **`EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf`** esté en la misma carpeta
-2. Apretá el botón **"GENERAR PDF CON NÚMEROS"**
-3. Descargá y abrí el PDF
-4. Verificá dónde aparece cada número:
-   - **1** : Área de fiscalización
-   - **2** : Nombre inspector  
-   - **3** : MES
-   - **4** : AÑO
-   - **5** : FOLIO
-   - **6-12** : Empresa 1
-   - **13-19** : Empresa 2
-5. **Decime qué número está mal ubicado y te digo cómo ajustarlo**
-""")
+# Interfaz del botón de descarga en tu portal
+try:
+    # IMPORTANTE: Reemplazá este nombre por el de tu archivo local en el servidor
+    path_planilla_original = "EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf" 
+    
+    pdf_listo = generar_pdf_marcado(path_planilla_original)
+    
+    st.download_button(
+        label="📥 Descargar Planilla Rellena (Prueba 1-2-3)",
+        data=pdf_listo,
+        file_name="PLANILLA_OSECAC_TEST_RELLENO.pdf",
+        mime="application/pdf"
+    )
+except FileNotFoundError:
+    st.error("Por favor, asegurate de tener el archivo 'EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf' en la misma carpeta que este script.")
