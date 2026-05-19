@@ -669,7 +669,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS SIMPLIFICADO)
+# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS CORREGIDO)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -756,7 +756,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS SIMPLIFICADO ───────────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS CORREGIDO ───────────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -772,7 +772,7 @@ with tab2:
             
             if df_candidatos.empty:
                 st.warning("No hay registros disponibles")
-                if st.button("Cerrar"):
+                if st.button("Cerrar", key="cerrar_sin_datos"):
                     st.session_state.preparar_mails = False
                     st.rerun()
                 return
@@ -838,8 +838,14 @@ with tab2:
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
+            # Variable para controlar si se procesó
+            if 'procesado' not in st.session_state:
+                st.session_state.procesado = False
+            
             # Botón procesar
-            if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
+            if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True) and not st.session_state.procesado:
+                st.session_state.procesado = True
+                
                 # Barra de progreso
                 progress_bar = st.progress(0)
                 
@@ -867,19 +873,27 @@ with tab2:
                 excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
                 
                 # Botón de descarga que cierra el diálogo
-                if st.download_button(
+                st.download_button(
                     label="📥 DESCARGAR EXCEL",
                     data=excel_data,
                     file_name=f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                ):
+                    use_container_width=True,
+                    key="descargar_excel_final"
+                )
+                
+                st.success("✅ Proceso completado. Presione el botón para descargar.")
+                
+                # Botón para cerrar después de descargar
+                if st.button("🔒 CERRAR VENTANA", use_container_width=True):
                     st.session_state.preparar_mails = False
+                    st.session_state.procesado = False
                     st.rerun()
             
             # Botón cancelar
             if st.button("❌ Cancelar", use_container_width=True):
                 st.session_state.preparar_mails = False
+                st.session_state.procesado = False
                 st.rerun()
         
         mostrar_dialogo_preparar_mails()
