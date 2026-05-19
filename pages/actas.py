@@ -67,56 +67,50 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 #MainMenu, footer, header { display: none !important; }
 
-/* Tarjetas compactas con números grandes */
-.kpi-card {
+/* ── CARTELES CORREGIDOS CON !important ── */
+.big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.3rem 0.2rem;
+    padding: 0.6rem 0.8rem;
     text-align: center;
-    border: 1px solid #334155;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    border: 1px solid #3b82f6;
 }
-.kpi-card h1 { 
+.big-number h1 { 
     margin: 0; 
-    font-size: 1.8rem !important; 
+    font-size: 2.8rem !important; 
+    color: #3b82f6; 
     font-weight: 700; 
-    line-height: 1.2;
+    line-height: 1.2; 
 }
-.kpi-card p { 
+.big-number p { 
     margin: 0; 
-    font-size: 0.6rem !important; 
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-size: 0.85rem !important; 
+    color: #94a3b8; 
 }
-.kpi-total h1 { color: #3b82f6; }
-.kpi-con-legajo h1 { color: #10b981; }
-.kpi-sin-legajo h1 { color: #f59e0b; }
 
-/* Tarjetas de inspectores compactas */
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 6px;
-    padding: 0.2rem 0.1rem;
+    border-radius: 8px;
+    padding: 0.5rem 0.6rem;
     text-align: center;
-    border: 1px solid #334155;
+    border: 1px solid #10b981;
 }
 .inspector-card h3 { 
     margin: 0; 
-    font-size: 0.7rem; 
+    font-size: 1rem !important; 
     color: #10b981; 
-    font-weight: 600;
 }
 .inspector-card h1 { 
     margin: 0; 
-    font-size: 1.2rem; 
-    color: #f1f5f9; 
-    font-weight: 700;
+    font-size: 2rem !important; 
+    color: #e2e8f0; 
+    font-weight: 700; 
+    line-height: 1.2; 
 }
 .inspector-card p { 
     margin: 0; 
-    font-size: 0.55rem; 
-    color: #94a3b8;
+    font-size: 0.75rem !important; 
+    color: #94a3b8; 
 }
 
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
@@ -737,7 +731,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (MODIFICADO con tarjetas compactas)
+# TAB 2 — Editar Legajos y Vtos (MODIFICADO con tarjetas compactas y letras grandes)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -746,25 +740,25 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
-    # Tarjetas compactas en UNA sola fila
+    # Tarjetas compactas con letras GRANDES (gracias al !important)
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f"""
-        <div class="kpi-card kpi-total">
+        <div class="big-number">
             <h1>{total_general:,}</h1>
             <p>TOTAL REGISTROS</p>
         </div>
         """, unsafe_allow_html=True)
     with col_t2:
         st.markdown(f"""
-        <div class="kpi-card kpi-con-legajo">
+        <div class="big-number">
             <h1>{con_legajo:,}</h1>
             <p>CON LEGAJO</p>
         </div>
         """, unsafe_allow_html=True)
     with col_t3:
         st.markdown(f"""
-        <div class="kpi-card kpi-sin-legajo">
+        <div class="big-number">
             <h1>{sin_legajo_total:,}</h1>
             <p>SIN LEGAJO</p>
         </div>
@@ -772,10 +766,9 @@ with tab2:
 
     st.markdown("---")
     
-    # Tarjetas de inspectores (sin título, compactas, en una sola fila)
+    # Tarjetas de inspectores (compactas, letras grandes)
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
-        # Crear columnas para todos los inspectores en una sola fila
         cols_inspectores = st.columns(len(inspectores.data))
         for idx, ins in enumerate(inspectores.data):
             count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
