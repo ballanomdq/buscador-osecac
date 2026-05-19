@@ -100,6 +100,17 @@ div[role="dialog"] {
     box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
 }
 
+/* OCULTAR LA CRUZ (X) DE CIERRE - HACERLA CASI INVISIBLE */
+div[role="dialog"] button[aria-label="Close"] {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 1px !important;
+}
+
 div[role="dialog"] p,
 div[role="dialog"] span,
 div[role="dialog"] label,
@@ -146,39 +157,24 @@ div[role="dialog"] .stCheckbox span {
     color: #1e293b !important;
 }
 
-div[role="dialog"] div[data-testid="stButton"] > button {
-    background-color: #3b82f6 !important;
-    color: white !important;
-    border: none !important;
-}
-
-div[role="dialog"] div[data-testid="stButton"] > button:hover {
-    background-color: #2563eb !important;
-}
-
-div[role="dialog"] div[data-testid="stButton"] > button[kind="secondary"] {
-    background-color: #ef4444 !important;
-}
-
-div[role="dialog"] div[data-testid="stButton"] > button[kind="secondary"]:hover {
-    background-color: #dc2626 !important;
-}
-
-/* Botón verde dentro del diálogo */
+/* Botón PROCESAR (VERDE) */
 div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"] {
     background-color: #10b981 !important;
+    color: white !important;
+    border: none !important;
 }
 div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"]:hover {
     background-color: #059669 !important;
 }
 
-/* Botón de descarga fuera del diálogo */
-.download-section {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 12px;
-    padding: 1rem;
-    margin: 1rem 0;
-    border: 1px solid #10b981;
+/* Botón FINALIZAR (GRIS) */
+div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]) {
+    background-color: #64748b !important;
+    color: white !important;
+    border: none !important;
+}
+div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]):hover {
+    background-color: #475569 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -686,7 +682,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON PREPARAR MAILS CORREGIDO)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -773,7 +769,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS (VERSIÓN CORREGIDA) ─────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS (CON CRUZ OCULTA) ─────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -789,7 +785,7 @@ with tab2:
             
             if df_candidatos.empty:
                 st.warning("No hay registros disponibles")
-                if st.button("Cerrar"):
+                if st.button("Finalizar"):
                     st.session_state.preparar_mails = False
                     st.rerun()
                 return
@@ -855,16 +851,14 @@ with tab2:
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
-            # Botón procesar (VERDE)
+            # Botón procesar VERDE
             if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
-                # Barra de progreso
                 progress_bar = st.progress(0)
                 
                 fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
                 fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
                 total_registros = len(df_seleccionado)
                 
-                # Actualizar registros
                 batch_size = 50
                 for i in range(0, total_registros, batch_size):
                     batch = df_seleccionado.iloc[i:i+batch_size]
@@ -874,35 +868,27 @@ with tab2:
                             "mail_enviado": "SI"
                         }).eq("id", row['id']).execute()
                     
-                    # Actualizar barra
                     progress_bar.progress(min((i + batch_size) / total_registros, 1.0))
                     time.sleep(0.05)
                 
                 progress_bar.progress(1.0)
                 
-                # Guardar Excel en session_state
                 excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
                 st.session_state.excel_descarga = excel_data
                 st.session_state.nombre_excel = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                 
-                # Cerrar diálogo y limpiar estado
                 st.session_state.preparar_mails = False
-                st.session_state.pop("procesado", None)  # Limpiar estado residual
-                
-                st.success("✅ Archivo generado correctamente. Cierre esta ventana.")
                 st.rerun()
             
-            # Botón cancelar
-            if st.button("❌ Cancelar", use_container_width=True):
+            # Botón FINALIZAR (GRIS) - antes decía "Cancelar"
+            if st.button("✅ Finalizar", use_container_width=True):
                 st.session_state.preparar_mails = False
-                st.session_state.pop("procesado", None)
                 st.rerun()
         
         mostrar_dialogo_preparar_mails()
 
     # ── DESCARGA FUERA DEL MODAL ─────────────────────────────────────────────
     if st.session_state.get("excel_descarga"):
-        st.markdown('<div class="download-section">', unsafe_allow_html=True)
         st.success("🎉 ¡Mailing generado exitosamente! Descargue el archivo:")
         
         col_desc1, col_desc2, col_desc3 = st.columns([1, 2, 1])
@@ -916,12 +902,10 @@ with tab2:
                 use_container_width=True
             )
             
-            # Botón para limpiar después de descargar
             if st.button("✅ FINALIZAR", use_container_width=True):
                 del st.session_state["excel_descarga"]
                 del st.session_state["nombre_excel"]
                 st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # ── GENERAR INFORMES ─────────────────────────────────────────────────────
     if st.session_state.get('generar_informe'):
