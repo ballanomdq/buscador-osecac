@@ -27,15 +27,42 @@ st.markdown("""
 .app-header p  { color: #94a3b8; margin: 0; font-size: 0.8rem; }
 div[data-testid="stButton"] > button { border-radius: 8px !important; font-weight: 500 !important; }
 div[data-testid="stButton"] > button[kind="primary"] { background-color: #10b981 !important; }
+.actas-button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+.actas-button:hover {
+    background: #2563eb;
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<div class="app-header">
-    <h3>📄 Generar Informe Mensual de Inspección</h3>
-    <p>Completa el formulario PDF con los datos de los registros listos</p>
-</div>
-""", unsafe_allow_html=True)
+# Header con botón de acceso a Actas
+col_header, col_btn = st.columns([4, 1])
+with col_header:
+    st.markdown("""
+    <div class="app-header">
+        <h3>📄 Generar Informe Mensual de Inspección</h3>
+        <p>Completa el formulario PDF con los datos de los registros listos</p>
+    </div>
+    """, unsafe_allow_html=True)
+with col_btn:
+    st.markdown("""
+    <a href="https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/actas" target="_blank" style="text-decoration: none;">
+        <div style="background: #3b82f6; padding: 0.5rem 0.8rem; border-radius: 8px; text-align: center; margin-top: 0.3rem;">
+            <span style="color: white; font-weight: 500;">📋 IR A ACTAS</span>
+        </div>
+    </a>
+    """, unsafe_allow_html=True)
 
 PDF_PATH = "ORIGINAL.pdf"
 
