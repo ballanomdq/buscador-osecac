@@ -5,7 +5,7 @@ import os
 import base64
 
 st.set_page_config(layout="wide")
-st.title("🔴 Puntos Rojos - PDF Rotado 270°")
+st.title("🔴 Puntos Rojos Corregidos - Matriz Sincronizada")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
@@ -13,20 +13,20 @@ if not os.path.exists(PDF_PATH):
     st.error(f"No se encuentra '{PDF_PATH}'")
     st.stop()
 
-# Tus coordenadas exactas de la herramienta
+# COORDENADAS RECALCULADAS: Sincronizadas con la rotación de 270° del motor
 coordenadas = [
-    (37, 143),    # 1 - AREA FISCALIZACION
-    (521, 165),   # 2 - INSPECTOR NOMBRE
-    (144, 459),   # 3 - MES
-    (302, 459),   # 4 - AÑO
-    (853, 456),   # 5 - FOLIO
-    (224, 540),   # 6 - EMPRESA 1 - RAZON SOCIAL
-    (348, 541),   # 7 - EMPRESA 1 - CUIT
-    (405, 542),   # 8 - EMPRESA 1 - ACTA
-    (422, 541),   # 9 - EMPRESA 1 - VTO
-    (525, 542),   # 10 - EMPRESA 1 - DESDE
-    (559, 542),   # 11 - EMPRESA 1 - HASTA
-    (600, 540),   # 12 - EMPRESA 1 - DEUDA
+    (75, 143),    # 1 - AREA FISCALIZACION
+    (75, 521),    # 2 - INSPECTOR NOMBRE
+    (75, 830),    # 3 - MES
+    (75, 875),    # 4 - AÑO
+    (75, 960),    # 5 - FOLIO
+    (155, 110),   # 6 - EMPRESA 1 - RAZON SOCIAL
+    (155, 335),   # 7 - EMPRESA 1 - NRO. DE CUIT
+    (155, 460),   # 8 - EMPRESA 1 - ACTUACION NRO.
+    (155, 510),   # 9 - EMPRESA 1 - FECHA VTO.
+    (155, 580),   # 10 - EMPRESA 1 - PERIODO DESDE (MES)
+    (155, 605),   # 11 - EMPRESA 1 - PERIODO HASTA (AÑO)
+    (155, 680),   # 12 - EMPRESA 1 - DEUDA DETERMINADA
 ]
 
 if st.button("🔴 GENERAR PDF CORREGIDO", type="primary"):
@@ -34,16 +34,16 @@ if st.button("🔴 GENERAR PDF CORREGIDO", type="primary"):
     page = doc[0]
     
     for i, (x, y) in enumerate(coordenadas):
-        # 1. Dibujar círculo rojo (no necesita rotate)
-        page.draw_circle((x, y), 5, color=(1, 0, 0), fill=(1, 0, 0))
+        # 1. Dibujar círculo rojo en la posición de la matriz real
+        page.draw_circle((x, y), 7, color=(1, 0, 0), fill=(1, 0, 0))
         
-        # 2. Escribir el número con rotate=270 para que se vea derecho
+        # 2. Centrar levemente el número y estamparlo derecho con rotate=270
         page.insert_text(
             (x - 3, y - 3), 
             str(i+1), 
             fontsize=8, 
-            color=(1, 1, 1),  # blanco sobre fondo rojo
-            rotate=270        # ← CLAVE: compensa la rotación del PDF
+            color=(1, 1, 1),  # Blanco sobre rojo
+            rotate=270        # Mantiene el número alineado a la lectura de la hoja
         )
     
     output = io.BytesIO()
@@ -51,8 +51,8 @@ if st.button("🔴 GENERAR PDF CORREGIDO", type="primary"):
     doc.close()
     output.seek(0)
     
-    st.success("✅ PDF generado con rotate=270")
-    st.download_button("📥 DESCARGAR", data=output, file_name="puntos_corregidos.pdf", mime="application/pdf")
+    st.success("✅ ¡Matriz recalculada exitosamente!")
+    st.download_button("📥 DESCARGAR PDF CALIBRADO", data=output, file_name="puntos_corregidos_fijos.pdf", mime="application/pdf")
     
     output.seek(0)
     base64_pdf = base64.b64encode(output.read()).decode('utf-8')
