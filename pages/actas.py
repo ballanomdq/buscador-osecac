@@ -850,18 +850,36 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS ─────────────────────────────────
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS (CORREGIDO - TRAE TODOS LOS REGISTROS) ──
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
-            query = supabase.table("padron_deuda_presunta")\
-                .select("*")\
-                .not_.is_("leg", "null")\
-                .eq("mail_enviado", "NO")\
-                .is_("vto", "null")\
-                .execute()
+            # CONSULTA CON PAGINACIÓN PARA TRAER TODOS LOS REGISTROS
+            st.info("Cargando todos los registros candidatos...")
             
-            df_candidatos = pd.DataFrame(query.data) if query.data else pd.DataFrame()
+            todos_los_registros = []
+            offset = 0
+            batch_size = 1000
+            
+            while True:
+                query = supabase.table("padron_deuda_presunta")\
+                    .select("*")\
+                    .not_.is_("leg", "null")\
+                    .eq("mail_enviado", "NO")\
+                    .is_("vto", "null")\
+                    .range(offset, offset + batch_size - 1)\
+                    .execute()
+                
+                if not query.data:
+                    break
+                    
+                todos_los_registros.extend(query.data)
+                offset += batch_size
+                
+                if len(query.data) < batch_size:
+                    break
+            
+            df_candidatos = pd.DataFrame(todos_los_registros) if todos_los_registros else pd.DataFrame()
             
             if df_candidatos.empty:
                 st.warning("No hay registros disponibles")
@@ -870,11 +888,15 @@ with tab2:
                     st.rerun()
                 return
             
+            st.success(f"✅ Total de registros candidatos: {len(df_candidatos)}")
+            
+            # Filtros
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                 localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
+                
                 usar_todos = st.checkbox("Seleccionar TODOS", value=True, key="dialog_usar_todos")
                 cantidad_personalizada = None
                 if not usar_todos:
@@ -885,10 +907,12 @@ with tab2:
                 ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
                 ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
             
+            # Aplicar filtros
             df_filtrado = df_candidatos.copy()
             if localidad_filtro != "TODAS":
                 df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
             
+            # Ordenamiento
             if ordenar_deuda or ordenar_hasta:
                 def parse_deuda(val):
                     if val is None:
@@ -921,11 +945,13 @@ with tab2:
                     df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
                 df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
             
+            # Seleccionar cantidad
             if usar_todos:
                 df_seleccionado = df_filtrado.copy()
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
+            # Botón procesar VERDE
             if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
                 progress_bar = st.progress(0)
                 
@@ -933,16 +959,16 @@ with tab2:
                 fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
                 total_registros = len(df_seleccionado)
                 
-                batch_size = 50
-                for i in range(0, total_registros, batch_size):
-                    batch = df_seleccionado.iloc[i:i+batch_size]
+                batch_size_update = 50
+                for i in range(0, total_registros, batch_size_update):
+                    batch = df_seleccionado.iloc[i:i+batch_size_update]
                     for _, row in batch.iterrows():
                         supabase.table("padron_deuda_presunta").update({
                             "vto": fecha_str,
                             "mail_enviado": "SI"
                         }).eq("id", row['id']).execute()
                     
-                    progress_bar.progress(min((i + batch_size) / total_registros, 1.0))
+                    progress_bar.progress(min((i + batch_size_update) / total_registros, 1.0))
                     time.sleep(0.05)
                 
                 progress_bar.progress(1.0)
@@ -1120,7 +1146,6 @@ with tab2:
 
     # ============================================================
     # SECCIÓN DE FILTROS Y TABLA - VERSIÓN ROBUSTA
-    # CADA VEZ QUE SE CAMBIA UN FILTRO, SE CONSULTA SUPABASE NUEVAMENTE
     # ============================================================
     st.markdown("### 📋 Filtros")
     
