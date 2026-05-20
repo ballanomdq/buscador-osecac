@@ -215,6 +215,43 @@ div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):no
 div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]):hover {
     background-color: #475569 !important;
 }
+
+/* ══════════════════════════════════════════════════════
+   BARRA DE NAVEGACIÓN CUSTOM — tabs falsos para enlaces
+   ══════════════════════════════════════════════════════ */
+.nav-tabs-wrapper {
+    display: flex;
+    gap: 2px;
+    border-bottom: 2px solid #334155;
+    margin-bottom: 1rem;
+    background: transparent;
+}
+.nav-tab-link {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8 !important;
+    text-decoration: none !important;
+    border-bottom: 3px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.nav-tab-link:hover {
+    color: #e2e8f0 !important;
+    border-bottom-color: #475569;
+    text-decoration: none !important;
+}
+.nav-tab-link.nav-tab-external {
+    color: #38bdf8 !important;
+    border-bottom-color: #0ea5e9;
+}
+.nav-tab-link.nav-tab-external:hover {
+    color: #7dd3fc !important;
+    border-bottom-color: #38bdf8;
+    text-decoration: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -350,7 +387,6 @@ def normalizar_calle(calle: str) -> str:
 
 # ── FUNCIÓN: Cargar palabras ancla ────────────────────────────────────────────
 def cargar_palabras_ancla():
-    """Carga todas las palabras ancla desde Supabase"""
     try:
         r = supabase.table("palabras_ancla").select("*").execute()
         return r.data if r.data else []
@@ -358,18 +394,15 @@ def cargar_palabras_ancla():
         return []
 
 def construir_lookup_palabras_ancla(palabras_ancla):
-    """Construye un lookup simple para búsqueda rápida de palabras ancla"""
     return palabras_ancla
 
 # ── FUNCIÓN MODIFICADA: Asignación de legajo con palabras ancla ────────────────
 def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, lookup_sinonimos, lookup_palabras_ancla):
     localidad_cmp = limpiar_para_comparar(localidad)
     
-    # Si NO es Mar del Plata, asignar por localidad (las palabras ancla NO aplican)
     if localidad_cmp not in ("MAR DEL PLATA", ""):
         return lookup_localidades.get(localidad_cmp)
     
-    # Si es Mar del Plata, PRIMERO buscar palabras ancla
     if localidad_cmp == "MAR DEL PLATA" and lookup_palabras_ancla:
         direccion_completa = f"{calle} {numero}".upper().strip()
         
@@ -381,7 +414,6 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
                 if palabra in direccion_completa:
                     return legajo_ancla
     
-    # Si no hay palabra ancla, continuar con la lógica normal
     calle_norm = normalizar_calle(calle)
     if not calle_norm:
         return None
@@ -591,7 +623,6 @@ def generar_informe_txt(registros_sin_legajo):
     return "\n".join(contenido)
 
 def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
-    """Genera Excel con formato ordenado: CUIT, RAZON SOCIAL, LEGAJO, VTO ASIGNADO"""
     df_export = pd.DataFrame()
     df_export['CUIT'] = df_seleccionado['cuit'].astype(str)
     df_export['RAZON SOCIAL'] = df_seleccionado['razon_social'].astype(str)
@@ -601,7 +632,6 @@ def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_export.to_excel(writer, sheet_name='Mailing', index=False)
-        
         worksheet = writer.sheets['Mailing']
         for column in worksheet.columns:
             max_length = 0
@@ -693,17 +723,37 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
+
 # ══════════════════════════════════════════════════════════════════
-# TABS CON EL NUEVO ORDEN Y REDIRECCIONES DIRECTAS
+# TABS — solo 3 tabs reales + 2 enlaces de navegación con page_link
+#
+# LA SOLUCIÓN AL PROBLEMA:
+# ─────────────────────────────────────────────────────────────────
+# st.switch_page() dentro de un "with tab:" se ejecuta SIEMPRE que
+# Streamlit renderiza la página y ese tab queda seleccionado, lo que
+# provoca redirecciones involuntarias al cargar.
+#
+# st.page_link() en cambio es simplemente un ENLACE — no ejecuta
+# ninguna navegación hasta que el usuario hace clic. Se coloca FUERA
+# de los tabs, en una fila horizontal que visualmente imita las
+# pestañas, logrando navegación con un solo clic sin efectos secundarios.
 # ══════════════════════════════════════════════════════════════════
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
     "📋 Subir Actas",
-    "📧 Generar Informe",
-    "👥 INSPECTORES"
 ])
+
+# ── Fila de enlaces que imitan las pestañas faltantes ─────────────
+# Se renderizan como columnas alineadas a la derecha de los tabs reales.
+# No tienen lógica Python — son hipervínculos puros que navegan al hacer clic.
+col_link1, col_link2, col_spacer = st.columns([1, 1, 6])
+with col_link1:
+    st.page_link("pages/generar_informe.py", label="📧 Generar Informe", use_container_width=True)
+with col_link2:
+    st.page_link("pages/zonas.py", label="👥 INSPECTORES", use_container_width=True)
+
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 1 — Cargar Padrón
@@ -754,7 +804,6 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
 
-    # Tarjetas con texto a tope
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
         st.markdown(f"""
@@ -780,7 +829,6 @@ with tab2:
 
     st.markdown("---")
     
-    # Tarjetas de inspectores con texto a tope
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
         cols_inspectores = st.columns(len(inspectores.data))
@@ -855,7 +903,6 @@ with tab2:
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
-            # CONSULTA CON PAGINACIÓN PARA TRAER TODOS LOS REGISTROS
             st.info("Cargando todos los registros candidatos...")
             
             todos_los_registros = []
@@ -891,7 +938,6 @@ with tab2:
             
             st.success(f"✅ Total de registros candidatos: {len(df_candidatos)}")
             
-            # Filtros
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
@@ -908,12 +954,10 @@ with tab2:
                 ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
                 ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
             
-            # Aplicar filtros
             df_filtrado = df_candidatos.copy()
             if localidad_filtro != "TODAS":
                 df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
             
-            # Ordenamiento
             if ordenar_deuda or ordenar_hasta:
                 def parse_deuda(val):
                     if val is None:
@@ -946,13 +990,11 @@ with tab2:
                     df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
                 df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
             
-            # Seleccionar cantidad
             if usar_todos:
                 df_seleccionado = df_filtrado.copy()
             else:
                 df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
             
-            # Botón procesar VERDE
             if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
                 progress_bar = st.progress(0)
                 
@@ -1420,15 +1462,3 @@ with tab3:
                         st.success(f"✅ {actualizados} actas actualizadas correctamente.")
                     if no_encontrados > 0:
                         st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 4 — Generar Informe (REDIRECCIÓN DIRECTA)
-# ══════════════════════════════════════════════════════════════════
-with tab4:
-    st.switch_page("pages/generar_informe.py")
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 5 — INSPECTORES (REDIRECCIÓN DIRECTA)
-# ══════════════════════════════════════════════════════════════════
-with tab5:
-    st.switch_page("pages/zonas.py")
