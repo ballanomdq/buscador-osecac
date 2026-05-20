@@ -4,88 +4,101 @@ from PIL import Image, ImageDraw
 import io
 import os
 
-st.set_page_config(layout="wide", page_title="Inspector de Coordenadas OSECAC")
-st.title("🎯 Detector Exacto de Coordenadas PDF")
+st.set_page_config(layout="wide", page_title="Inspector Interactivo OSECAC")
+st.title("🎯 Detector de Coordenadas por Clic Directo")
+st.markdown("### Haz clic en cualquier parte de la planilla para registrar la coordenada exacta.")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
-# Verificar la existencia del archivo en el servidor
 if not os.path.exists(PDF_PATH):
-    st.error(f"❌ No se encuentra el archivo '{PDF_PATH}' en la raíz del proyecto.")
+    st.error(f"❌ No se encuentra el archivo '{PDF_PATH}'")
     st.stop()
 
-# ---------- ABRIR PDF ----------
-doc = fitz.open(PDF_PATH)
-page = doc[0]
+# 1. CARGAR ESTRUCTURA DEL PDF
+@st.cache_resource
+def cargar_base_pdf():
+    doc = fitz.open(PDF_PATH)
+    page = doc[0]
+    # Renderizar una sola vez a alta resolución (Matriz x2) para guardar en caché
+    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+    img_base = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    return img_base, page.rect.width, page.rect.height, page.rotation
 
-# ---------- RENDER PDF A IMAGEN ----------
-# Usamos una matriz de alta calidad (zoom x2) para ver nítidos los textos de la planilla
-pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+img_original, ancho_pdf, alto_pdf, rotacion_pdf = cargar_base_pdf()
 
-# ---------- MOSTRAR METADATOS EN BARRA LATERAL ----------
-st.sidebar.header("📐 Información del Documento")
-st.sidebar.write(f"**Ancho Original:** {page.rect.width} pts")
-st.sidebar.write(f"**Alto Original:** {page.rect.height} pts")
-st.sidebar.write(f"**Rotación Interna:** {page.rotation}°")
+# Inicializar las variables de posición en el estado de la sesión si no existen
+if "x_real" not in st.session_state:
+    st.session_state.x_real = 100
+if "y_real" not in st.session_state:
+    st.session_state.y_real = 100
 
+# 2. CAPTURAR EL CLIC DIRECTO EN LA IMAGEN
+# st.image en sus últimas versiones permite capturar el evento de click devolviendo un diccionario
+value = st.image(img_original, caption="Hacé clic sobre el casillero que quieras medir", use_container_width=False, output_format="PNG")
+
+# Si el usuario hace clic, capturamos las coordenadas del píxel de la imagen en pantalla
+if value and "click_events" in value and value["click_events"]:
+    click = value["click_events"][-1]  # Traer el último clic
+    x_img_click = click["x"]
+    y_img_click = click["y"]
+    
+    # Conseguimos el tamaño actual de la imagen renderizada en el navegador
+    ancho_renderizado = value["width"]
+    alto_renderizado = value["height"]
+    
+    # Convertimos los píxeles de la pantalla web a los puntos reales del PDF
+    st.session_state.x_real = int((x_img_click / ancho_renderizado) * ancho_pdf)
+    st.session_state.y_real = int((y_img_click / alto_renderizado) * alto_pdf)
+
+# 3. MOSTRAR COORDENADAS DETECTADAS
+st.sidebar.header("📍 Coordenada Capturada")
+st.sidebar.success(f"**X Actual:** {st.session_state.x_real}\n\n**Y Actual:** {st.session_state.y_real}")
+
+# Dibujar la cruz roja en la previsualización del panel lateral para confirmación rápida
+img_miniatura = img_original.copy()
+draw = ImageDraw.Draw(img_miniatura)
+
+# Escala interna para la miniatura
+escala_x = img_original.width / ancho_pdf
+escala_y = img_original.height / alto_pdf
+x_p_min = st.session_state.x_real * escala_x
+y_p_min = st.session_state.y_real * escala_y
+
+draw.ellipse((x_p_min-12, y_p_min-12, x_p_min+12, y_p_min+12), outline="red", width=4)
+draw.line((x_p_min-25, y_p_min, x_p_min+25, y_p_min), fill="red", width=3)
+draw.line((x_p_min, y_p_min-25, x_p_min, y_p_min+25), fill="red", width=3)
+
+st.sidebar.image(img_miniatura, caption="Mira de enfoque", use_container_width=True)
+
+# 4. PROBAR TEXTO Y DESCARGA
 st.sidebar.markdown("---")
-st.sidebar.markdown("### ✏️ AJUSTE DE POSICIÓN")
+angulo_prueba = st.sidebar.selectbox("Giro del Texto", [270, 90, 0, 180], index=0)
+texto_prueba = st.sidebar.text_input("Texto de test", "30-12345678-9")
 
-# Control numérico preciso para desplazar el punto de mira
-x_click = st.sidebar.number_input("Coordenada X", min_value=0, max_value=int(page.rect.width), value=100, step=1)
-y_click = st.sidebar.number_input("Coordenada Y", min_value=0, max_value=int(page.rect.height), value=100, step=1)
-
-# Selección del ángulo para el texto de prueba
-angulo_texto = st.sidebar.selectbox("Ángulo de inyección (Rotate)", [270, 90, 0, 180], index=0)
-texto_prueba = st.sidebar.text_input("Texto de prueba", "HOLA")
-
-# ---------- CALCULAR ESCALAS Y DIBUJAR PUNTO ----------
-img_render = img.copy()
-draw = ImageDraw.Draw(img_render)
-
-escala_x = pix.width / page.rect.width
-escala_y = pix.height / page.rect.height
-
-x_img = x_click * escala_x
-y_img = y_click * escala_y
-
-# Dibujamos un punto de mira rojo visible
-draw.ellipse((x_img-8, y_img-8, x_img+8, y_img+8), fill="red")
-draw.line((x_img-15, y_img, x_img+15, y_img), fill="red", width=2)
-draw.line((x_img, y_img-15, x_img, y_img+15), fill="red", width=2)
-
-# Desplegamos la imagen interactiva en el panel principal
-st.image(img_render, caption=f"Posición actual en el PDF real: ({x_click}, {y_click})")
-
-# ---------- BOTÓN DE INYECCIÓN DE PRUEBA ----------
-st.sidebar.markdown("---")
-if st.sidebar.button("⚙️ GENERAR PDF DE PRUEBA", use_container_width=True):
+if st.sidebar.button("⚙️ COMPROBAR CASILLERO EN PDF", type="primary", use_container_width=True):
     try:
-        doc2 = fitz.open(PDF_PATH)
-        page2 = doc2[0]
-
-        # Insertamos el texto usando las coordenadas elegidas y la rotación seleccionada
-        page2.insert_text(
-            (x_click, y_click),
+        doc_test = fitz.open(PDF_PATH)
+        page_test = doc_test[0]
+        
+        page_test.insert_text(
+            (st.session_state.x_real, st.session_state.y_real),
             texto_prueba,
-            fontsize=9,
+            fontsize=10,
             color=(1, 0, 0),
-            rotate=angulo_texto
+            rotate=angulo_prueba
         )
-
+        
         output = io.BytesIO()
-        doc2.save(output)
-        doc2.close()
+        doc_test.save(output)
+        doc_test.close()
         output.seek(0)
-
-        st.sidebar.success("✅ ¡PDF modificado con éxito!")
+        
         st.sidebar.download_button(
-            label="📥 DESCARGAR PDF",
+            label="📥 BAJAR Y COMPROBAR ALINEACIÓN",
             data=output,
-            file_name="prueba_coordenadas.pdf",
+            file_name="test_clic_osecac.pdf",
             mime="application/pdf",
             use_container_width=True
         )
     except Exception as e:
-        st.sidebar.error(f"Error al procesar: {e}")
+        st.sidebar.error(f"Error: {e}")
