@@ -1,59 +1,60 @@
 import streamlit as st
 from pypdf import PdfReader, PdfWriter
-import fitz
 
-st.set_page_config(page_title="Numerador", layout="wide")
-st.title("🔢 Numerador de Campos - Orden Exacto (como en tu PDF)")
+st.set_page_config(page_title="Numerador de Campos", layout="wide")
+st.title("🔢 Numerador de Campos - Planilla Inspectores")
 
-def numerar_como_queres(input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="PLANILLA_NUMEROS_CORRECTO.pdf"):
-    doc = fitz.open(input_pdf)
-    page = doc[0]
-    
-    campos = []
-    for widget in page.widgets():
-        if widget.field_name:
-            rect = widget.rect
-            center_x = (rect.x0 + rect.x1) / 2
-            center_y = (rect.y0 + rect.y1) / 2
-            campos.append((widget.field_name, center_x, center_y))
-
-    # Orden personalizado según tu explicación y PDF
-    # Primero los de arriba, luego la gran tabla fila por fila
-    campos_ordenados = sorted(campos, key=lambda c: (-c[2], c[1]))  
-
+def numerar_todos_los_campos(input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="PLANILLA_CON_NUMEROS.pdf"):
     reader = PdfReader(input_pdf)
     writer = PdfWriter()
-    writer.append(reader)
+    
+    writer.append(reader)  # Copia el PDF completo
     writer.set_need_appearances_writer(True)
 
-    datos = {}
-    for numero, (nombre, _, _) in enumerate(campos_ordenados, 1):
-        datos[nombre] = str(numero)
+    fields = reader.get_fields()
+    if not fields:
+        st.error("No se encontraron campos en el PDF")
+        return None
 
+    datos = {}
+    contador = 1
+    
+    st.info(f"Se encontraron **{len(fields)} campos** en total. Numerándolos...")
+
+    for nombre_campo in fields.keys():
+        datos[nombre_campo] = str(contador)
+        contador += 1
+
+    # Rellenar con los números
     writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=False)
 
     with open(output_pdf, "wb") as f:
         writer.write(f)
-    
-    doc.close()
-    return output_pdf, len(datos)
+
+    return output_pdf, datos
 
 # ====================== BOTÓN ======================
-if st.button("🚀 GENERAR PDF CON NÚMEROS EN ORDEN CORRECTO", type="primary", use_container_width=True):
-    with st.spinner("Generando numeración fila por fila..."):
-        try:
-            archivo, total = numerar_como_queres()
-            st.success(f"✅ Listo! Numerados **{total} campos**")
-
+if st.button("🚀 GENERAR PDF CON NÚMEROS EN TODOS LOS CAMPOS", type="primary", use_container_width=True):
+    with st.spinner("Analizando y numerando todos los campos..."):
+        resultado = numerar_todos_los_campos()
+        
+        if resultado:
+            archivo, mapeo = resultado
+            
+            st.success(f"✅ Listo! Se numeraron **{len(mapeo)} campos**")
+            
             with open(archivo, "rb") as f:
                 st.download_button(
-                    "⬇️ DESCARGAR PDF CON NÚMEROS",
+                    label="⬇️ DESCARGAR PDF CON NÚMEROS",
                     data=f,
-                    file_name="PLANILLA_CON_NUMEROS_CORRECTO.pdf",
+                    file_name="PLANILLA_CON_NUMEROS.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
-        except Exception as e:
-            st.error(f"Error: {e}")
+            
+            # Mostrar el mapeo
+            with st.expander("Ver mapeo Número → Nombre del campo"):
+                for num, (campo, valor) in enumerate(mapeo.items(), 1):
+                    st.text(f"{num:3d}  →  {campo}")
 
-st.caption("Este código intenta seguir el orden que mostraste en tu PDF manual (1,2,3 arriba → luego fila por fila).")
+st.caption("Apretá el botón y abrí el PDF generado. Ahí vas a ver claramente qué número cae en cada casillero.")
