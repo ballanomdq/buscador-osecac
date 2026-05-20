@@ -1,37 +1,45 @@
 import streamlit as st
 import fitz  # PyMuPDF
-from supabase import create_client
-from datetime import datetime
-import io
-import os
+import pandas as pd
 
-# ── Conexión a Supabase ──────────────────────────────────────────────────────
-@st.cache_resource
-def get_supabase():
-    return create_client(
-        st.secrets["SUPABASE_URL_ACTAS"],
-        st.secrets["SUPABASE_KEY_ACTAS"]
-    )
-
-supabase = get_supabase()
-
-st.set_page_config(layout="centered")
-st.title("📄 Generar Informe - Búsqueda Automática de Números")
+st.set_page_config(layout="wide")
+st.title("🔍 Extracción de Coordenadas de Números")
 
 PDF_PATH = "ORIGINAL.pdf"
 
-def buscar_numero_en_pdf(pdf_path, numero_buscar):
-    """Busca un número en el PDF y devuelve sus coordenadas (x, y)"""
+# LISTA COMPLETA DE NÚMEROS QUE NECESITAS
+# (ordenada como me la diste en tu mensaje enorme)
+NUMEROS_A_BUSCAR = [
+    # Cabecera
+    1, 2,
+    # Empresa 1
+    5, 6, 7, 11, 381, 402, 403, 338, 335, 339, 355, 167,
+    # Empresa 2
+    19, 20, 26, 13, 372, 400, 405, 337, 333, 341, 357, 156,
+    # Empresa 3
+    34, 35, 42, 21, 374, 398, 407, 308, 331, 343, 359, 158,
+    # Empresa 4
+    50, 51, 59, 28, 376, 396, 409, 310, 329, 345, 361, 160,
+    # Empresa 5
+    67, 68, 76, 36, 380, 392, 413, 312, 327, 347, 363, 162,
+    # Empresa 6
+    86, 87, 96, 44, 383, 390, 415, 314, 325, 349, 365, 172,
+    # Empresa 7
+    106, 107, 116, 52, 385, 388, 417, 316, 323, 351, 367, 164,
+    # Empresa 8
+    126, 127, 136, 61, 386, 385, 418, 318, 321, 353, 369, 173,
+]
+
+def buscar_numero(pdf_path, numero):
+    """Busca un número en el PDF y devuelve sus coordenadas"""
     doc = fitz.open(pdf_path)
     page = doc[0]
     
-    # Buscar el texto exacto del número
-    texto_buscar = str(numero_buscar)
-    instancias = page.search_for(texto_buscar)
+    # Buscar el texto exacto
+    instancias = page.search_for(str(numero))
     
     if instancias:
-        rect = instancias[0]  # Primera ocurrencia
-        # Devuelve el centro del rectángulo
+        rect = instancias[0]
         x = (rect.x0 + rect.x1) / 2
         y = (rect.y0 + rect.y1) / 2
         doc.close()
@@ -40,31 +48,52 @@ def buscar_numero_en_pdf(pdf_path, numero_buscar):
         doc.close()
         return None
 
-# Mapeo de qué número corresponde a qué dato
-# (Esto es lo que vos ya me explicaste)
-mapeo_datos = {
-    1: {"tipo": "fijo", "valor": "MAR DEL PLATA"},
-    2: {"tipo": "inspector", "campo": "nombre"},
-    5: {"tipo": "empresa", "campo": "razon_social", "fila": 1},
-    6: {"tipo": "empresa", "campo": "cuit", "fila": 1},
-    7: {"tipo": "empresa", "campo": "acta", "fila": 1},
-    11: {"tipo": "empresa", "campo": "cuit", "fila": 1},
-    381: {"tipo": "empresa", "campo": "vto_dia", "fila": 1},
-    402: {"tipo": "empresa", "campo": "vto_mes", "fila": 1},
-    403: {"tipo": "empresa", "campo": "vto_año", "fila": 1},
-    338: {"tipo": "empresa", "campo": "desde_mes", "fila": 1},
-    335: {"tipo": "empresa", "campo": "desde_año", "fila": 1},
-    339: {"tipo": "empresa", "campo": "hasta_mes", "fila": 1},
-    355: {"tipo": "empresa", "campo": "hasta_año", "fila": 1},
-    167: {"tipo": "empresa", "campo": "deuda", "fila": 1},
-}
-
-if st.button("🔍 PROBAR BÚSQUEDA DE NÚMEROS", type="primary"):
-    st.write("### Buscando números en el PDF...")
+if st.button("🔍 EXTRAER COORDENADAS DE TODOS LOS NÚMEROS", type="primary", use_container_width=True):
+    resultados = []
+    progress_bar = st.progress(0)
+    status_text = st.empty()
     
-    for num in list(mapeo_datos.keys())[:5]:  # Probamos los primeros 5
-        coords = buscar_numero_en_pdf(PDF_PATH, num)
+    for i, numero in enumerate(NUMEROS_A_BUSCAR):
+        status_text.text(f"Buscando número {numero}... ({i+1}/{len(NUMEROS_A_BUSCAR)})")
+        coords = buscar_numero(PDF_PATH, numero)
         if coords:
-            st.success(f"Número {num} encontrado en X={coords[0]:.0f}, Y={coords[1]:.0f}")
+            resultados.append({
+                "Número": numero,
+                "X": round(coords[0]),
+                "Y": round(coords[1])
+            })
+            status_text.text(f"✅ Número {numero} → X={round(coords[0])}, Y={round(coords[1])}")
         else:
-            st.error(f"Número {num} NO encontrado")
+            resultados.append({
+                "Número": numero,
+                "X": "NO ENCONTRADO",
+                "Y": "NO ENCONTRADO"
+            })
+            status_text.text(f"❌ Número {numero} NO encontrado")
+        
+        progress_bar.progress((i + 1) / len(NUMEROS_A_BUSCAR))
+    
+    progress_bar.empty()
+    status_text.empty()
+    
+    # Mostrar resultados
+    df = pd.DataFrame(resultados)
+    st.success(f"✅ Procesados {len(resultados)} números")
+    st.dataframe(df, use_container_width=True)
+    
+    # Descargar como CSV
+    csv = df.to_csv(index=False)
+    st.download_button(
+        label="📥 DESCARGAR COORDENADAS (CSV)",
+        data=csv,
+        file_name="coordenadas_completas.csv",
+        mime="text/csv"
+    )
+    
+    # Mostrar en formato código
+    st.markdown("### 📋 Formato para copiar:")
+    st.code("COORDENADAS = {")
+    for r in resultados:
+        if r["X"] != "NO ENCONTRADO":
+            st.code(f"    {r['Número']}: {{'x': {r['X']}, 'y': {r['Y']}}},")
+    st.code("}")
