@@ -2,83 +2,90 @@ import streamlit as st
 import fitz  # PyMuPDF
 from PIL import Image, ImageDraw
 import io
+import os
 
 st.set_page_config(layout="wide", page_title="Inspector de Coordenadas OSECAC")
-st.title("🎯 Inspector Visual de Coordenadas (Modo Profesional)")
-st.markdown("Ajustá los valores de X e Y para mover el punto rojo. Cuando caiga en el casillero deseado, anotá las coordenadas.")
+st.title("🎯 Detector Exacto de Coordenadas PDF")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
-if not fitz.sys_info(): # Verificar librería activa
-    st.error("Error con PyMuPDF")
+# Verificar la existencia del archivo en el servidor
+if not os.path.exists(PDF_PATH):
+    st.error(f"❌ No se encuentra el archivo '{PDF_PATH}' en la raíz del proyecto.")
+    st.stop()
 
-# 1. LEER ESTRUCTURA ORIGINAL DEL PDF
+# ---------- ABRIR PDF ----------
 doc = fitz.open(PDF_PATH)
 page = doc[0]
 
-ancho_pdf = page.rect.width
-alto_pdf = page.rect.height
-rotacion_pdf = page.rotation
+# ---------- RENDER PDF A IMAGEN ----------
+# Usamos una matriz de alta calidad (zoom x2) para ver nítidos los textos de la planilla
+pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-# 2. RENDERIZAR EN ALTA CALIDAD (Matriz x2 para nitidez del formulario)
-zoom = 2
-matrix = fitz.Matrix(zoom, zoom)
-pix = page.get_pixmap(matrix=matrix)
-img_original = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+# ---------- MOSTRAR METADATOS EN BARRA LATERAL ----------
+st.sidebar.header("📐 Información del Documento")
+st.sidebar.write(f"**Ancho Original:** {page.rect.width} pts")
+st.sidebar.write(f"**Alto Original:** {page.rect.height} pts")
+st.sidebar.write(f"**Rotación Interna:** {page.rotation}°")
 
-# Factores de conversión exactos entre los píxeles de la imagen y los puntos del PDF
-escala_x = pix.width / ancho_pdf
-escala_y = pix.height / alto_pdf
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ✏️ AJUSTE DE POSICIÓN")
 
-# 3. INTERFAZ LATERAL DE CONTROL
-st.sidebar.header("🛠️ Controles de Posicionamiento")
-st.sidebar.info(f"**Ancho PDF:** {ancho_pdf} pts\n\n**Alto PDF:** {alto_pdf} pts\n\n**Rotación:** {rotacion_pdf}°")
+# Control numérico preciso para desplazar el punto de mira
+x_click = st.sidebar.number_input("Coordenada X", min_value=0, max_value=int(page.rect.width), value=100, step=1)
+y_click = st.sidebar.number_input("Coordenada Y", min_value=0, max_value=int(page.rect.height), value=100, step=1)
 
-# selectores numéricos para ajustar al milímetro
-x_pdf = st.sidebar.number_input("Coordenada X (PDF)", min_value=0, max_value=int(ancho_pdf), value=150, step=5)
-y_pdf = st.sidebar.number_input("Coordenada Y (PDF)", min_value=0, max_value=int(alto_pdf), value=150, step=5)
+# Selección del ángulo para el texto de prueba
+angulo_texto = st.sidebar.selectbox("Ángulo de inyección (Rotate)", [270, 90, 0, 180], index=0)
+texto_prueba = st.sidebar.text_input("Texto de prueba", "HOLA")
 
-# Selector de rotación para la prueba de texto
-angulo_prueba = st.sidebar.selectbox("Giro del Texto (Prueba)", [270, 90, 0, 180], index=0)
-texto_prueba = st.sidebar.text_input("Texto de Prueba", "30-12345678-9")
-
-# 4. DIBUJAR PUNTO DE CONTROL EN LA IMAGEN
-img_render = img_original.copy()
+# ---------- CALCULAR ESCALAS Y DIBUJAR PUNTO ----------
+img_render = img.copy()
 draw = ImageDraw.Draw(img_render)
 
-# Convertimos los puntos que ingresaste a los píxeles reales de la imagen renderizada
-x_pixel = x_pdf * escala_x
-y_pixel = y_pdf * escala_y
+escala_x = pix.width / page.rect.width
+escala_y = pix.height / page.rect.height
 
-# Dibujamos una cruz y un círculo rojo sobre el casillero apuntado
-draw.ellipse((x_pixel-10, y_pixel-10, x_pixel+10, y_pixel+10), outline="red", width=3)
-draw.line((x_pixel-20, y_pixel, x_pixel+20, y_pixel), fill="red", width=2)
-draw.line((x_pixel, y_pixel-20, x_pixel, y_pixel+20), fill="red", width=2)
+x_img = x_click * escala_x
+y_img = y_click * escala_y
 
-# Mostrar el mapa visual en el centro de la pantalla
-st.image(img_render, caption=f"Punto de mira actual en coordenadas PDF: X={x_pdf}, Y={y_pdf}", use_container_width=True)
+# Dibujamos un punto de mira rojo visible
+draw.ellipse((x_img-8, y_img-8, x_img+8, y_img+8), fill="red")
+draw.line((x_img-15, y_img, x_img+15, y_img), fill="red", width=2)
+draw.line((x_img, y_img-15, x_img, y_img+15), fill="red", width=2)
 
-# 5. BOTÓN DE VERIFICACIÓN: INYECTAR TEXTO EN EL DOCUMENTO REAL
+# Desplegamos la imagen interactiva en el panel principal
+st.image(img_render, caption=f"Posición actual en el PDF real: ({x_click}, {y_click})")
+
+# ---------- BOTÓN DE INYECCIÓN DE PRUEBA ----------
 st.sidebar.markdown("---")
-if st.sidebar.button("🚀 PROBAR INYECCIÓN EN PDF", type="primary", use_container_width=True):
+if st.sidebar.button("⚙️ GENERAR PDF DE PRUEBA", use_container_width=True):
     try:
-        doc_test = fitz.open(PDF_PATH)
-        page_test = doc_test[0]
-        
-        # Insertamos el texto con el ángulo seleccionado para comprobar lectura horizontal
-        page_test.insert_text(
-            (x_pdf, y_pdf),
+        doc2 = fitz.open(PDF_PATH)
+        page2 = doc2[0]
+
+        # Insertamos el texto usando las coordenadas elegidas y la rotación seleccionada
+        page2.insert_text(
+            (x_click, y_click),
             texto_prueba,
-            fontsize=10,
-            color=(1, 0, 0), # Rojo para destacar
-            rotate=angulo_prueba
+            fontsize=9,
+            color=(1, 0, 0),
+            rotate=angulo_texto
         )
-        
+
         output = io.BytesIO()
-        doc_test.save(output)
-        doc_test.close()
+        doc2.save(output)
+        doc2.close()
         output.seek(0)
-        
-        st.sidebar.success("¡PDF de prueba generado!")
+
+        st.sidebar.success("✅ ¡PDF modificado con éxito!")
         st.sidebar.download_button(
-            label="📥 DESCARGAR Y
+            label="📥 DESCARGAR PDF",
+            data=output,
+            file_name="prueba_coordenadas.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.sidebar.error(f"Error al procesar: {e}")
