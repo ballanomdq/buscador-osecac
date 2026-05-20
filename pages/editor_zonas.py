@@ -1,17 +1,34 @@
-# ==================== INSPECCIONAR CAMPOS ====================
-from fillpdf import fillpdfs
+import streamlit as st
+from pypdf import PdfReader
 import json
 
-pdf_path = "PLANILLA INSPECTORES.pdf"   # pon el archivo en la misma carpeta
+st.title("🔍 Inspector de Campos del PDF")
 
-print("🔍 Analizando campos del PDF...\n")
-campos = fillpdfs.get_form_fields(pdf_path)
+pdf_path = "PLANILLA INSPECTORES.pdf"   # Asegúrate que esté en la carpeta correcta
 
-# Guardar en un archivo bonito para que lo veas fácil
-with open("campos_del_formulario.json", "w", encoding="utf-8") as f:
-    json.dump(campos, f, indent=4, ensure_ascii=False)
+try:
+    reader = PdfReader(pdf_path)
+    fields = reader.get_fields()
 
-print(f"Se encontraron {len(campos)} campos.")
-print("\nNombres de los campos:")
-for nombre in sorted(campos.keys()):
-    print(f"→ {nombre}")
+    if fields:
+        st.success(f"Se encontraron **{len(fields)} campos** en el formulario")
+        
+        # Mostrar lista ordenada
+        field_list = sorted(fields.keys())
+        st.subheader("📋 Nombres de los campos (copia estos exactos):")
+        for name in field_list:
+            st.code(name, language="text")
+        
+        # Guardar en JSON para descargar
+        field_dict = {name: "" for name in field_list}
+        with open("campos_disponibles.json", "w", encoding="utf-8") as f:
+            json.dump(field_dict, f, indent=4, ensure_ascii=False)
+        
+        with open("campos_disponibles.json", "rb") as f:
+            st.download_button("⬇️ Descargar JSON con todos los campos", f, "campos_disponibles.json")
+        
+    else:
+        st.warning("No se encontraron campos rellenables en el PDF.")
+
+except Exception as e:
+    st.error(f"Error: {e}")
