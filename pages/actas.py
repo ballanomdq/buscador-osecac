@@ -215,43 +215,6 @@ div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):no
 div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]):hover {
     background-color: #475569 !important;
 }
-
-/* ══════════════════════════════════════════════════════
-   BARRA DE NAVEGACIÓN CUSTOM — tabs falsos para enlaces
-   ══════════════════════════════════════════════════════ */
-.nav-tabs-wrapper {
-    display: flex;
-    gap: 2px;
-    border-bottom: 2px solid #334155;
-    margin-bottom: 1rem;
-    background: transparent;
-}
-.nav-tab-link {
-    display: inline-block;
-    padding: 8px 16px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #94a3b8 !important;
-    text-decoration: none !important;
-    border-bottom: 3px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
-    white-space: nowrap;
-    cursor: pointer;
-}
-.nav-tab-link:hover {
-    color: #e2e8f0 !important;
-    border-bottom-color: #475569;
-    text-decoration: none !important;
-}
-.nav-tab-link.nav-tab-external {
-    color: #38bdf8 !important;
-    border-bottom-color: #0ea5e9;
-}
-.nav-tab-link.nav-tab-external:hover {
-    color: #7dd3fc !important;
-    border-bottom-color: #38bdf8;
-    text-decoration: none !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -387,6 +350,7 @@ def normalizar_calle(calle: str) -> str:
 
 # ── FUNCIÓN: Cargar palabras ancla ────────────────────────────────────────────
 def cargar_palabras_ancla():
+    """Carga todas las palabras ancla desde Supabase"""
     try:
         r = supabase.table("palabras_ancla").select("*").execute()
         return r.data if r.data else []
@@ -394,15 +358,18 @@ def cargar_palabras_ancla():
         return []
 
 def construir_lookup_palabras_ancla(palabras_ancla):
+    """Construye un lookup simple para búsqueda rápida de palabras ancla"""
     return palabras_ancla
 
 # ── FUNCIÓN MODIFICADA: Asignación de legajo con palabras ancla ────────────────
 def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, lookup_sinonimos, lookup_palabras_ancla):
     localidad_cmp = limpiar_para_comparar(localidad)
     
+    # Si NO es Mar del Plata, asignar por localidad (las palabras ancla NO aplican)
     if localidad_cmp not in ("MAR DEL PLATA", ""):
         return lookup_localidades.get(localidad_cmp)
     
+    # Si es Mar del Plata, PRIMERO buscar palabras ancla
     if localidad_cmp == "MAR DEL PLATA" and lookup_palabras_ancla:
         direccion_completa = f"{calle} {numero}".upper().strip()
         
@@ -414,6 +381,7 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
                 if palabra in direccion_completa:
                     return legajo_ancla
     
+    # Si no hay palabra ancla, continuar con la lógica normal
     calle_norm = normalizar_calle(calle)
     if not calle_norm:
         return None
@@ -623,6 +591,7 @@ def generar_informe_txt(registros_sin_legajo):
     return "\n".join(contenido)
 
 def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
+    """Genera Excel con formato ordenado: CUIT, RAZON SOCIAL, LEGAJO, VTO ASIGNADO"""
     df_export = pd.DataFrame()
     df_export['CUIT'] = df_seleccionado['cuit'].astype(str)
     df_export['RAZON SOCIAL'] = df_seleccionado['razon_social'].astype(str)
@@ -632,6 +601,7 @@ def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_export.to_excel(writer, sheet_name='Mailing', index=False)
+        
         worksheet = writer.sheets['Mailing']
         for column in worksheet.columns:
             max_length = 0
@@ -723,37 +693,17 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
-
 # ══════════════════════════════════════════════════════════════════
-# TABS — solo 3 tabs reales + 2 enlaces de navegación con page_link
-#
-# LA SOLUCIÓN AL PROBLEMA:
-# ─────────────────────────────────────────────────────────────────
-# st.switch_page() dentro de un "with tab:" se ejecuta SIEMPRE que
-# Streamlit renderiza la página y ese tab queda seleccionado, lo que
-# provoca redirecciones involuntarias al cargar.
-#
-# st.page_link() en cambio es simplemente un ENLACE — no ejecuta
-# ninguna navegación hasta que el usuario hace clic. Se coloca FUERA
-# de los tabs, en una fila horizontal que visualmente imita las
-# pestañas, logrando navegación con un solo clic sin efectos secundarios.
+# TABS CON st.page_link (un solo clic, sin redirección automática)
 # ══════════════════════════════════════════════════════════════════
 
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
     "📋 Subir Actas",
+    "📧 Generar Informe",
+    "👥 INSPECTORES"
 ])
-
-# ── Fila de enlaces que imitan las pestañas faltantes ─────────────
-# Se renderizan como columnas alineadas a la derecha de los tabs reales.
-# No tienen lógica Python — son hipervínculos puros que navegan al hacer clic.
-col_link1, col_link2, col_spacer = st.columns([1, 1, 6])
-with col_link1:
-    st.page_link("pages/generar_informe.py", label="📧 Generar Informe", use_container_width=True)
-with col_link2:
-    st.page_link("pages/zonas.py", label="👥 INSPECTORES", use_container_width=True)
-
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 1 — Cargar Padrón
@@ -943,7 +893,6 @@ with tab2:
             with col_f1:
                 localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                 localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
-                
                 usar_todos = st.checkbox("Seleccionar TODOS", value=True, key="dialog_usar_todos")
                 cantidad_personalizada = None
                 if not usar_todos:
@@ -1187,9 +1136,6 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ============================================================
-    # SECCIÓN DE FILTROS Y TABLA
-    # ============================================================
     st.markdown("### 📋 Filtros")
     
     if 'ultima_recarga' not in st.session_state:
@@ -1462,3 +1408,33 @@ with tab3:
                         st.success(f"✅ {actualizados} actas actualizadas correctamente.")
                     if no_encontrados > 0:
                         st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 4 — Generar Informe (con st.page_link - UN SOLO CLIC)
+# ══════════════════════════════════════════════════════════════════
+with tab4:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6; margin: 0.5rem 0;">
+        <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">📄 Generar Informe Mensual</h3>
+        <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Completá el formulario PDF con los datos de los registros listos</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.page_link("pages/generar_informe.py", label="🔗 IR A GENERAR INFORME", icon="📄", use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — INSPECTORES (con st.page_link - UN SOLO CLIC)
+# ══════════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #10b981; margin: 0.5rem 0;">
+        <h3 style="color: #10b981; margin: 0 0 0.3rem 0; font-size: 1rem;">🗺️ Zonas de Inspectores</h3>
+        <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, localidades y calles de Mar del Plata</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.page_link("pages/zonas.py", label="🔗 IR A INSPECTORES Y ZONAS", icon="👥", use_container_width=True)
