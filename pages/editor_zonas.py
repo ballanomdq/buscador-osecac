@@ -1,14 +1,3 @@
-import streamlit as st
-import os
-import fitz  # PyMuPDF
-import io
-
-st.set_page_config(page_title="Lluvia de Coordenadas", layout="centered")
-st.title("🌧️ Lluvia de Números (Orientación Original)")
-st.markdown("Este script mantiene el PDF quieto y gira los números para que coincidan con la lectura del formulario.")
-
-PDF_PATH = "PLANILLA INSPECTORES.pdf"
-
 def generar_lluvia_de_numeros():
     if not os.path.exists(PDF_PATH):
         raise FileNotFoundError(f"No se encuentra {PDF_PATH}")
@@ -16,10 +5,10 @@ def generar_lluvia_de_numeros():
     doc = fitz.open(PDF_PATH)
     page = doc[0]
     
-    # Dejamos la página quieta con su rotación nativa
+    # Dejamos la página quieta tal como viene
     rot_original = page.rotation
     
-    # Usamos las dimensiones nativas del PDF sin alterar nada
+    # Tomamos las dimensiones reales de la hoja Legal (612 x 1008 aprox)
     ancho = int(page.rect.width)
     alto = int(page.rect.height)
     
@@ -29,14 +18,14 @@ def generar_lluvia_de_numeros():
     contador = 1
     mapa_referencia = {}
     
-    # Barremos la matriz nativa del archivo
+    # Barremos la matriz a lo largo de la hoja Legal
     for y in range(20, alto - 20, 20):
         for x in range(20, ancho - 20, 40):
             
-            # MAGIA AQUÍ: Dejamos la hoja quieta, pero rotamos el TEXTO 
-            # para que compense los 90 grados del PDF y lo leas horizontal.
-            # Si se ve al revés, se cambia a 90 o 270 según corresponda.
-            angulo_texto = (360 - rot_original) % 360 if rot_original != 0 else 0
+            # CORRECCIÓN DE CABEZA:
+            # Si antes con la rotación base te salieron invertidos, 
+            # le sumamos 180 grados al giro del texto para darlos vuelta.
+            angulo_texto = (360 - rot_original + 180) % 360 if rot_original != 0 else 0
             
             page.insert_text(
                 (x, y), 
@@ -55,25 +44,3 @@ def generar_lluvia_de_numeros():
     output.seek(0)
     
     return output, mapa_referencia
-
-if not os.path.exists(PDF_PATH):
-    st.error(f"❌ Falta el archivo '{PDF_PATH}' en la carpeta raíz.")
-    st.stop()
-
-if st.button("🚀 LANZAR LLUVIA DE NÚMEROS", type="primary", use_container_width=True):
-    try:
-        with st.spinner("Generando lluvia con texto rotado..."):
-            pdf_buffer, mapa = generar_lluvia_de_numeros()
-        
-        st.success("🎯 ¡Lluvia generada correctamente!")
-        st.session_state["mapa_coordenadas"] = mapa
-        
-        st.download_button(
-            label="📥 DESCARGAR PDF MAPEADO",
-            data=pdf_buffer,
-            file_name="lluvia_perfecta_osecac.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-    except Exception as e:
-        st.error(f"Error al procesar: {e}")
