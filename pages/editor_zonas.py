@@ -2,98 +2,64 @@ import streamlit as st
 import os
 import fitz  # PyMuPDF
 import io
-from datetime import datetime
 
-st.set_page_config(page_title="Prueba de Relleno de PDF", layout="centered")
-st.title("🎯 Prueba de Relleno de PDF")
-st.markdown("Este script **descarga el PDF y lo rellena con números** para verificar posiciones exactas.")
+st.set_page_config(page_title="Lluvia de Coordenadas", layout="centered")
+st.title("🌧️ Lluvia de Números de Control")
+st.markdown("Este script llena el PDF de números secuenciales cada 15 puntos para mapear el formulario real.")
 
-# NOTA: Cambié el nombre al que tenés en tu script
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
-# COORDENADAS REALES (X, Y) para A4 Vertical (595 x 842)
-# El origen (0,0) está ARRIBA a la izquierda.
-COORDENADAS = {
-    # --- CABECERA ---
-    1: (170, 75),   # Nombre del Inspector
-    2: (490, 75),   # MES Y AÑO
-    3: (555, 75),   # FOLIO
-
-    # --- FILA 1 ---
-    4: (20, 155),   # Empresa 1 - Razón Social / Dirección
-    5: (170, 155),  # Empresa 1 - CUIT
-    6: (240, 155),  # Empresa 1 - ACTA (AV/RT/AC)
-    7: (280, 155),  # Empresa 1 - Nro Actuación
-    8: (320, 155),  # Empresa 1 - VTO
-    9: (360, 155),  # Empresa 1 - Cantidad Empleados
-    10: (390, 155), # Empresa 1 - Período Verificado DESDE (Mes/Año)
-    11: (445, 155), # Empresa 1 - Deuda Determinada ($)
-
-    # --- FILA 2 (Desplazamiento vertical de +45 puntos hacia abajo) ---
-    12: (20, 200),  # Empresa 2 - Razón Social
-    13: (170, 200), # Empresa 2 - CUIT
-    14: (280, 200), # Empresa 2 - Nro Actuación
-    15: (320, 200), # Empresa 2 - VTO
-    16: (390, 200), # Empresa 2 - Período Verificado
-    17: (445, 200), # Empresa 2 - Deuda Determinada
-
-    # --- FILA 3 ---
-    18: (20, 245),  # Empresa 3 - Razón Social
-    19: (170, 245), # Empresa 3 - CUIT
-    20: (280, 245), # Empresa 3 - Nro Actuación
-    21: (320, 245), # Empresa 3 - VTO
-    22: (390, 245), # Empresa 3 - Período Verificado
-    23: (445, 245), # Empresa 3 - Deuda Determinada
-
-    # --- CAMPOS INFERIORES ---
-    24: (25, 560),  # OBSERVACIONES
-    25: (360, 560), # LUGAR Y FECHA
-    26: (430, 560), # FIRMA INSPECTOR
-}
-
-def rellenar_pdf_con_numeros():
-    """Abre el PDF original, escribe números en las coordenadas reales y devuelve el buffer"""
+def generar_lluvia_de_numeros():
     if not os.path.exists(PDF_PATH):
         raise FileNotFoundError(f"No se encuentra {PDF_PATH}")
     
     doc = fitz.open(PDF_PATH)
-    page = doc[0]  # Primera página
+    page = doc[0]
     
-    fontsize = 10
-    color = (1, 0, 0)  # Rojo bien visible
+    # Conseguimos el tamaño real del PDF que está abriendo PyMuPDF
+    ancho = int(page.rect.width)
+    alto = int(page.rect.height)
     
-    for num, (x, y) in COORDENADAS.items():
-        # ATENCIÓN: En PyMuPDF (fitz), el origen ya es TOP-LEFT para text insertion.
-        # Quitamos la conversión invertida que rompía todo.
-        page.insert_text((x, y), str(num), fontsize=fontsize, color=color)
+    fontsize = 6  # Chiquito para que entren muchos y sea preciso
+    color = (1, 0, 0)  # Rojo furioso
     
+    contador = 1
+    mapa_referencia = {}
+    
+    # Pasamos un rastrillo de números cada 40 puntos en X y cada 20 en Y
+    for y in range(40, alto - 40, 20):
+        for x in range(20, ancho - 20, 40):
+            # Dibujamos el número de control en la coordenada exacta
+            page.insert_text((x, y), str(contador), fontsize=fontsize, color=color)
+            # Guardamos qué coordenada real representa ese número
+            mapa_referencia[contador] = (x, y)
+            contador += 1
+            
     output = io.BytesIO()
     doc.save(output)
     doc.close()
     output.seek(0)
-    return output
+    
+    return output, mapa_referencia
 
-# Verificar que el PDF existe en el servidor de Streamlit
 if not os.path.exists(PDF_PATH):
-    st.error(f"❌ No se encuentra el archivo '{PDF_PATH}'")
-    st.info(f"Archivos en el directorio actual: {os.listdir('.')}")
+    st.error(f"❌ Falta el archivo '{PDF_PATH}'")
     st.stop()
 
-st.success(f"✅ PDF encontrado: {PDF_PATH}")
-
-if st.button("📄 GENERAR PDF CON NÚMEROS", type="primary", use_container_width=True):
+if st.button("🚀 LANZAR LLUVIA DE NÚMEROS", type="primary", use_container_width=True):
     try:
-        with st.spinner("Rellenando PDF con números oficiales..."):
-            pdf_buffer = rellenar_pdf_con_numeros()
+        pdf_buffer, mapa = generar_lluvia_de_numeros()
+        st.success("🎯 ¡Lluvia generada! Bajá el archivo abajo.")
         
-        st.success("✅ PDF generado con coordenadas reales")
+        # Guardamos el mapa en la sesión por si lo necesitás después
+        st.session_state["mapa_coordenadas"] = mapa
         
         st.download_button(
-            label="📥 DESCARGAR PDF RELLENADO",
+            label="📥 DESCARGAR PDF MAPEADO",
             data=pdf_buffer,
-            file_name=f"prueba_coordenadas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+            file_name="lluvia_coordenadas_osecac.pdf",
             mime="application/pdf",
             use_container_width=True
         )
     except Exception as e:
-        st.error(f"Error crítico en el proceso: {e}")
+        st.error(f"Error: {e}")
