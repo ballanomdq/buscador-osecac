@@ -4,7 +4,7 @@ from pypdf import PdfReader, PdfWriter
 st.set_page_config(page_title="Planilla Inspectores", layout="wide")
 st.title("🖊️ Planilla Inspectores - Visual")
 
-# ====================== FUNCIÓN PARA RELLENAR PDF ======================
+# ====================== FUNCIÓN PDF ======================
 def completar_pdf(datos):
     reader = PdfReader("PLANILLA INSPECTORES.pdf")
     writer = PdfWriter()
@@ -16,88 +16,69 @@ def completar_pdf(datos):
         writer.write(f)
     return "PLANILLA_COMPLETADA.pdf"
 
-# ====================== DATOS GENERALES (arriba como en la planilla) ======================
-st.subheader("Datos del Inspector y Fecha")
-col_gen1, col_gen2, col_gen3 = st.columns([3, 2, 2])
+# ====================== DATOS SUPERIORES ======================
+col1, col2, col3, col4 = st.columns([3, 3, 2, 2])
 
-with col_gen1:
-    inspector = st.text_input("APELLIDO Y NOMBRES DEL INSPECTOR", key="inspector")
-with col_gen2:
-    area = st.text_input("ÁREA DE FISCALIZACIÓN", key="area")
-with col_gen3:
-    fecha = st.text_input("LUGAR Y FECHA / MES Y AÑO", key="fecha")
+with col1:
+    inspector = st.text_input("1. APELLIDO Y NOMBRES INSPECTOR", key="inspector")
+with col2:
+    area = st.text_input("2. AREA DE FISCALIZACION", key="area")
+with col3:
+    mes_anio = st.text_input("3. MES Y AÑO", key="mesanio")
+with col4:
+    folio = st.text_input("FOLIO", key="folio")
 
-# ====================== TABLA PRINCIPAL (lo más parecida posible) ======================
-st.subheader("Tabla de Empresas Visitadas")
+# ====================== TABLA PRINCIPAL ======================
+st.subheader("Tabla Principal de Empresas")
 
-# Creamos una tabla visual
 datos = {}
 
-headers = ["NRO", "Empresa / Dirección", "CUIT", "FOLIO", "Empleados", "Meses", "Deuda Determinada", "Observaciones"]
-data_rows = []
-
-for i in range(1, 17):
-    cols = st.columns([0.8, 3.5, 2, 1.2, 1.5, 1.2, 2, 2.5])
-    
-    with cols[0]:
-        nro = st.text_input("NRO", value="", key=f"nro_{i}", label_visibility="collapsed")
-        datos[f"NRORow{i}"] = nro
-    
-    with cols[1]:
-        empresa = st.text_input("Empresa", value="", key=f"emp_{i}", label_visibility="collapsed")
-        datos[f"EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow{i}"] = empresa
-    
-    with cols[2]:
-        cuit = st.text_input("CUIT", value="", key=f"cuit_{i}", label_visibility="collapsed")
-        datos[f"NRO DE  CUITRow{i}"] = cuit
-    
-    with cols[3]:
-        folio = st.text_input("FOLIO", value="", key=f"folio_{i}", label_visibility="collapsed")
-        datos[f"FOLIORow{i}"] = folio
-    
-    with cols[4]:
-        empleados = st.text_input("Emp.", value="", key=f"empados_{i}", label_visibility="collapsed")
-        datos[f"EMPLE ADOSRow{i}"] = empleados
-    
-    with cols[5]:
-        meses = st.text_input("Meses", value="", key=f"meses_{i}", label_visibility="collapsed")
-        datos[f"M E S E SRow{i}"] = meses
-    
-    with cols[6]:
-        deuda = st.text_input("Deuda", value="", key=f"deuda_{i}", label_visibility="collapsed")
-        datos[f"DEUDA DETERMINADARow{i}"] = deuda
-    
-    with cols[7]:
-        obs = st.text_input("Obs.", value="", key=f"obs_{i}", label_visibility="collapsed")
-        if i <= 4:
-            datos[f"OBSERVACIONESRow{i}"] = obs
-        else:
-            datos["OBSERVACIONESRow1"] = obs  # fallback
+for i in range(1, 17):   # 16 filas
+    with st.expander(f"🔹 Fila {i}", expanded=(i <= 2)):
+        c = st.columns([2.5, 2, 1, 1, 1, 1, 1, 1.2, 1.5, 2, 2])   # ajustá el ancho según necesites
+        
+        with c[0]:
+            datos[f"EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow{i}"] = st.text_input("Empresa / Dirección", key=f"emp{i}")
+        with c[1]:
+            datos[f"NRO DE  CUITRow{i}"] = st.text_input("CUIT", key=f"cuit{i}")
+        with c[2]:
+            datos[f"AV{i if i<17 else 1}"] = st.text_input("AV", key=f"av{i}")
+        with c[3]:
+            datos[f"AC{i if i<17 else 1}"] = st.text_input("AC", key=f"ac{i}")
+        with c[4]:
+            datos[f"RT{i if i<17 else 1}"] = st.text_input("RT", key=f"rt{i}")
+        with c[5]:
+            datos[f"NRORow{i}"] = st.text_input("NRO", key=f"nro{i}")
+        with c[6]:
+            datos[f"EMPLE ADOSRow{i}"] = st.text_input("Empleados", key=f"empados{i}")
+        with c[7]:
+            datos[f"M E S E SRow{i}"] = st.text_input("Meses", key=f"meses{i}")
+        with c[8]:
+            datos[f"DEUDA DETERMINADARow{i}"] = st.text_input("Deuda Determinada", key=f"deuda{i}")
+        with c[9]:
+            datos[f"OBSERVACIONESRow{i if i<=4 else 1}"] = st.text_input("Observaciones", key=f"obs{i}")
 
 # ====================== TOTALES ======================
 st.subheader("Totales")
-col_t = st.columns(4)
-with col_t[0]:
-    datos["EMPLE ADOSSUBTOTAL  TOTAL"] = st.text_input("Total Empleados")
-with col_t[1]:
-    datos["DEUDA DETERMINADASUBTOTALTOTAL"] = st.text_input("Total Deuda")
-with col_t[2]:
-    datos["ACSUBTOTAL  TOTAL"] = st.text_input("Total AC")
-with col_t[3]:
-    datos["AVSUBTOTAL  TOTAL"] = st.text_input("Total AV")
+colt = st.columns(5)
+with colt[0]: datos["EMPLE ADOSSUBTOTAL  TOTAL"] = st.text_input("Total Empleados")
+with colt[1]: datos["DEUDA DETERMINADASUBTOTALTOTAL"] = st.text_input("Total Deuda")
+with colt[2]: datos["ACSUBTOTAL  TOTAL"] = st.text_input("Total AC")
+with colt[3]: datos["AVSUBTOTAL  TOTAL"] = st.text_input("Total AV")
+with colt[4]: datos["RTSUBTOTAL  TOTAL"] = st.text_input("Total RT")
 
-# ====================== CAMPOS GENERALES ======================
+# ====================== ASIGNAR CAMPOS FIJOS ======================
 datos["APELLIDO Y NOMBRES INSPECTORRow1"] = inspector
 datos["AREA DE FISCALIZACIONRow1"] = area
-datos["LUGAR Y FECHA"] = fecha
-datos["MES Y AÑO"] = fecha
+datos["MES Y AÑO"] = mes_anio
+datos["LUGAR Y FECHA"] = mes_anio   # suele ser el mismo
 
 # ====================== BOTÓN ======================
-if st.button("✅ GENERAR PDF", type="primary", use_container_width=True):
+if st.button("✅ GENERAR Y DESCARGAR PDF", type="primary", use_container_width=True):
     if not inspector:
         st.error("Completá el nombre del inspector")
     else:
-        with st.spinner("Rellenando PDF..."):
+        with st.spinner("Generando PDF..."):
             try:
                 archivo = completar_pdf(datos)
                 with open(archivo, "rb") as f:
@@ -105,8 +86,8 @@ if st.button("✅ GENERAR PDF", type="primary", use_container_width=True):
                         "⬇️ DESCARGAR PDF COMPLETADO",
                         data=f,
                         file_name="PLANILLA_INSPECTORES_COMPLETADA.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
+                        mime="application/pdf"
                     )
+                st.success("¡PDF generado!")
             except Exception as e:
                 st.error(f"Error: {e}")
