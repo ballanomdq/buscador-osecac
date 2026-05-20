@@ -27,7 +27,7 @@ hr { margin: 0.5rem 0; }
 st.markdown("""
 <div class="main-header">
     <h2>🗺️ Zonas de Inspectores - Gestión Completa</h2>
-    <p>Administración de inspectores, localidades y calles (Mar del Plata)</p>
+    <p>Administración de inspectores, localidades, calles y palabras ancla (Mar del Plata)</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -62,8 +62,6 @@ st.markdown("---")
 
 # ── Generar informe completo de inspectores ──────────────────────────────────
 def generar_informe_completo():
-    """Genera un informe TXT detallado de todos los inspectores con sus localidades y calles"""
-    
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     
     contenido = []
@@ -84,7 +82,7 @@ def generar_informe_completo():
         contenido.append("█" * 80)
         contenido.append("")
         
-        # ── LOCALIDADES ASIGNADAS (fuera de Mar del Plata) ──
+        # LOCALIDADES ASIGNADAS
         localidades = supabase.table("inspectores_localidad").select("*").eq("legajo", legajo).order("localidad").execute()
         
         contenido.append("")
@@ -100,7 +98,7 @@ def generar_informe_completo():
         contenido.append("└" + "─" * 78 + "┘")
         contenido.append("")
         
-        # ── CALLES ASIGNADAS (Mar del Plata) ──
+        # CALLES ASIGNADAS
         calles = supabase.table("zonas_inspectores").select("*").eq("legajo", legajo).order("calle").execute()
         
         contenido.append("")
@@ -127,6 +125,22 @@ def generar_informe_completo():
                     contenido.append(f"│      Lado: {r['lado']} - Alturas: {r['desde']} a {r['hasta']}")
         else:
             contenido.append("│   • Sin calles asignadas")
+        contenido.append("└" + "─" * 78 + "┘")
+        contenido.append("")
+        
+        # PALABRAS ANCLA
+        palabras = supabase.table("palabras_ancla").select("*").eq("legajo", legajo).order("palabra").execute()
+        
+        contenido.append("")
+        contenido.append("┌" + "─" * 78 + "┐")
+        contenido.append("│ ⚓ PALABRAS ANCLA (Mar del Plata - Coincidencia parcial)")
+        contenido.append("├" + "─" * 78 + "┤")
+        
+        if palabras.data:
+            for pal in palabras.data:
+                contenido.append(f"│   • {pal['palabra']}")
+        else:
+            contenido.append("│   • Sin palabras ancla asignadas")
         contenido.append("└" + "─" * 78 + "┘")
         contenido.append("")
     
@@ -173,8 +187,6 @@ if st.session_state.get('confirmar_reset'):
 st.markdown("---")
 
 def cargar_backup_oficial():
-    """Carga los 5 inspectores con TODAS las calles (BACKUP COMPLETO)"""
-    
     inspectores = [
         {"legajo": 7713, "nombre": "RODRIGUEZ, Maximiliano"},
         {"legajo": 9513, "nombre": "POLINESSI, Juan José"},
@@ -183,16 +195,13 @@ def cargar_backup_oficial():
         {"legajo": 7952, "nombre": "GARCIA, Juan Paulo"},
     ]
     
-    # BACKUP COMPLETO DE CALLES
     zonas = [
-        # INSPECTOR 1: RODRIGUEZ (7713) - Perimetrales
         (7713, "CATAMARCA", "IMPAR", 2201, 3800),
         (7713, "AV COLON", "IMPAR", 3001, 5400),
         (7713, "AV JARA", "PAR", 2202, 3800),
         (7713, "AV TEJEDOR CARLOS", "PAR", 1, 2400),
         (7713, "AV PATRICIO PERALTA RAMOS", "AMBOS", 1, 900),
         (7713, "AV FELIX U CAMET", "AMBOS", 1, 1500),
-        # Internas 2201-3800
         (7713, "LA RIOJA", "AMBOS", 2201, 3800),
         (7713, "HNO INDALECIO", "AMBOS", 2201, 3800),
         (7713, "HIPOLITO YRIGOYEN", "AMBOS", 2201, 3800),
@@ -227,7 +236,6 @@ def cargar_backup_oficial():
         (7713, "20 DE SEPTIEMBRE", "AMBOS", 2201, 3800),
         (7713, "14 DE JULIO", "AMBOS", 2201, 3800),
         (7713, "DORREGO", "AMBOS", 2201, 3800),
-        # Internas 3001-5400
         (7713, "HERNANDARIAS", "AMBOS", 3001, 5400),
         (7713, "DON ORIONE", "AMBOS", 3001, 5400),
         (7713, "LUIS AGOTE", "AMBOS", 3001, 5400),
@@ -244,7 +252,6 @@ def cargar_backup_oficial():
         (7713, "LA PAMPA", "AMBOS", 3001, 5400),
         (7713, "SAN JUAN", "AMBOS", 3001, 5400),
         
-        # INSPECTOR 2: POLINESSI (9513)
         (9513, "AV COLON", "IMPAR", 2401, 3000),
         (9513, "CATAMARCA", "PAR", 1500, 2200),
         (9513, "HIPOLITO YRIGOYEN", "IMPAR", 1501, 2200),
@@ -282,7 +289,6 @@ def cargar_backup_oficial():
         (9513, "11 DE SEPTIEMBRE", "AMBOS", 2401, 3000),
         (9513, "BALCARCE", "AMBOS", 2401, 3000),
         
-        # INSPECTOR 3: LOPEZ (9983)
         (9983, "AV COLON", "IMPAR", 1401, 1900),
         (9983, "SAN LUIS", "PAR", 1500, 2200),
         (9983, "SANTA FE", "IMPAR", 1501, 2200),
@@ -320,7 +326,6 @@ def cargar_backup_oficial():
         (9983, "OLAZABAL", "AMBOS", 2201, 4400),
         (9983, "DEAN FUNES", "AMBOS", 2201, 4400),
         
-        # INSPECTOR 4: CARBAYO (9220)
         (9220, "AV COLON", "PAR", 1002, 3000),
         (9220, "SAN JUAN", "PAR", 3902, 4400),
         (9220, "PEHUAJO", "PAR", 4402, 6000),
@@ -355,7 +360,6 @@ def cargar_backup_oficial():
         (9220, "VIEYTES", "AMBOS", 1002, 3000),
         (9220, "MATHEU", "AMBOS", 1002, 3000),
         
-        # INSPECTOR 5: GARCIA (7952)
         (7952, "AV COLON", "IMPAR", 1901, 2400),
         (7952, "HIPOLITO YRIGOYEN", "PAR", 1500, 2200),
         (7952, "SAN LUIS", "IMPAR", 1501, 2200),
@@ -397,7 +401,6 @@ def cargar_backup_oficial():
         (7952, "PADRE DUTTO", "AMBOS", 1, 6000),
     ]
     
-    # Guardar inspectores
     for ins in inspectores:
         existing = supabase.table("inspectores").select("*").eq("legajo", ins["legajo"]).execute()
         if not existing.data:
@@ -405,10 +408,8 @@ def cargar_backup_oficial():
         else:
             supabase.table("inspectores").update({"nombre": ins["nombre"]}).eq("legajo", ins["legajo"]).execute()
     
-    # Borrar TODAS las zonas existentes
     supabase.table("zonas_inspectores").delete().neq("id", 0).execute()
     
-    # Insertar todas las zonas
     for legajo, calle, lado, desde, hasta in zonas:
         supabase.table("zonas_inspectores").insert({
             "legajo": legajo, "calle": calle, "lado": lado,
@@ -430,7 +431,6 @@ def forzar_recarga_cache():
     except:
         pass
 
-# Inicializar datos si no están cargados
 if 'datos_cargados' not in st.session_state:
     with st.spinner("Cargando datos..."):
         zonas_existentes = supabase.table("zonas_inspectores").select("id", count="exact").execute()
@@ -440,7 +440,7 @@ if 'datos_cargados' not in st.session_state:
         st.rerun()
 
 # ==================== TABS ====================
-tab1, tab2, tab3, tab4 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ) - Editor", "🔄 Sinónimos"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["👥 Inspectores", "📍 Localidades", "📍 Calles (MDQ) - Editor", "⚓ Palabras Ancla", "🔄 Sinónimos"])
 
 # TAB 1: INSPECTORES
 with tab1:
@@ -464,8 +464,9 @@ with tab1:
             col2.write(f"Legajo: {ins['legajo']}")
             if col3.button("🗑️", key=f"del_insp_{ins['id']}"):
                 zonas_asig = supabase.table("zonas_inspectores").select("*").eq("legajo", ins['legajo']).execute()
-                if zonas_asig.data:
-                    st.warning(f"Elimine primero las {len(zonas_asig.data)} calles asignadas")
+                palabras_asig = supabase.table("palabras_ancla").select("*").eq("legajo", ins['legajo']).execute()
+                if zonas_asig.data or palabras_asig.data:
+                    st.warning(f"Elimine primero las {len(zonas_asig.data)} calles y {len(palabras_asig.data)} palabras ancla asignadas")
                 else:
                     supabase.table("inspectores").delete().eq("id", ins['id']).execute()
                     forzar_recarga_cache()
@@ -520,7 +521,6 @@ with tab3:
     else:
         opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
         
-        # Filtro por inspector
         filtro_legajo = st.selectbox(
             "Filtrar por inspector", 
             options=["TODOS"] + list(opts.values()), 
@@ -528,18 +528,15 @@ with tab3:
             key="filtro_legajo_calles"
         )
         
-        # Obtener zonas
         query = supabase.table("zonas_inspectores").select("*")
         if filtro_legajo != "TODOS":
             query = query.eq("legajo", filtro_legajo)
         zonas = query.order("calle").execute()
         
         if zonas.data:
-            # Mostrar cada calle con botones de editar y eliminar
             for zona in zonas.data:
                 col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1, 0.8, 0.8, 1.2, 0.5, 0.5])
                 
-                # Buscar nombre del inspector
                 inspector = next((i for i in inspectores.data if i['legajo'] == zona['legajo']), None)
                 nombre_inspector = inspector['nombre'].split(',')[0] if inspector else str(zona['legajo'])
                 
@@ -549,15 +546,12 @@ with tab3:
                 col4.write(str(zona['altura_hasta']))
                 col5.write(nombre_inspector)
                 
-                # Botón Editar
                 if col6.button("✏️", key=f"edit_{zona['id']}"):
                     st.session_state[f"editando_{zona['id']}"] = True
                 
-                # Botón Eliminar con confirmación
                 if col7.button("🗑️", key=f"del_{zona['id']}"):
                     st.session_state[f"confirmar_del_{zona['id']}"] = True
                 
-                # Confirmación de eliminación
                 if st.session_state.get(f"confirmar_del_{zona['id']}"):
                     st.warning(f"⚠️ ¿Eliminar '{zona['calle']}'?")
                     col_ok, col_cancel = st.columns(2)
@@ -573,7 +567,6 @@ with tab3:
                             st.rerun()
                     st.markdown("---")
                 
-                # Formulario de edición (CORREGIDO: min_value=0)
                 if st.session_state.get(f"editando_{zona['id']}"):
                     with st.expander(f"✏️ Editando: {zona['calle']}", expanded=True):
                         with st.form(key=f"form_edit_{zona['id']}"):
@@ -617,7 +610,6 @@ with tab3:
                 
                 st.markdown("---")
             
-            # Agregar nueva calle (CORREGIDO: min_value=0)
             st.markdown("### ➕ Agregar nueva calle")
             with st.form("form_nueva_calle", clear_on_submit=True):
                 col1, col2, col3 = st.columns(3)
@@ -656,12 +648,95 @@ with tab3:
         else:
             st.info("No hay calles cargadas")
 
-# TAB 4: SINÓNIMOS
+# TAB 4: PALABRAS ANCLA
 with tab4:
+    st.markdown("### ⚓ Palabras Ancla para Mar del Plata")
+    st.caption("""
+    **¿Qué son las palabras ancla?**  
+    Son palabras clave que permiten asignar un inspector aunque la dirección tenga texto adicional.  
+    Por ejemplo: si agregás `RUTA 88` para LOPEZ, cualquier empresa en Mar del Plata que tenga `RUTA 88` en su dirección  
+    (aunque diga `RUTA 88 KM 12.5` o `RUTA 88 Y CALLE 45`) se asignará automáticamente a LOPEZ.
+    
+    ⚠️ **Importante:** Las palabras ancla SOLO se evalúan cuando la localidad es MAR DEL PLATA.
+    """)
+    
+    try:
+        supabase.table("palabras_ancla").select("id").limit(1).execute()
+    except:
+        st.error("La tabla 'palabras_ancla' no existe. Ejecutá este SQL en Supabase:")
+        st.code("""
+CREATE TABLE palabras_ancla (
+  id SERIAL PRIMARY KEY,
+  palabra TEXT NOT NULL UNIQUE,
+  legajo TEXT NOT NULL,
+  creado_por TEXT DEFAULT 'usuario',
+  fecha_creacion TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX idx_palabras_ancla_palabra ON palabras_ancla(palabra);
+        """)
+    
+    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    if not inspectores.data:
+        st.warning("Primero cargá inspectores")
+    else:
+        opts = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores.data}
+        
+        with st.expander("➕ Agregar palabra ancla", expanded=True):
+            with st.form("form_palabra_ancla"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    nueva_palabra = st.text_input("Palabra clave", placeholder="Ej: RUTA 88, RUTA 226, AV COSTANERA")
+                    st.caption("La palabra puede aparecer en cualquier parte de la dirección")
+                with col2:
+                    legajo_sel = st.selectbox(
+                        "Asignar a inspector", 
+                        options=list(opts.values()), 
+                        format_func=lambda x: [k for k, v in opts.items() if v == x][0],
+                        key="palabra_legajo"
+                    )
+                
+                if st.form_submit_button("⚓ AGREGAR PALABRA ANCLA"):
+                    if nueva_palabra:
+                        try:
+                            supabase.table("palabras_ancla").insert({
+                                "palabra": nueva_palabra.upper().strip(),
+                                "legajo": str(legajo_sel),
+                                "creado_por": "usuario"
+                            }).execute()
+                            forzar_recarga_cache()
+                            st.success(f"✅ Palabra ancla '{nueva_palabra.upper()}' agregada correctamente")
+                            st.rerun()
+                        except Exception as e:
+                            if "duplicate" in str(e).lower():
+                                st.error("Esta palabra ancla ya existe")
+                            else:
+                                st.error(f"Error: {e}")
+                    else:
+                        st.error("La palabra ancla es obligatoria")
+        
+        palabras = supabase.table("palabras_ancla").select("*").order("palabra").execute()
+        if palabras.data:
+            st.markdown("#### 📋 Lista de palabras ancla actuales")
+            for pal in palabras.data:
+                inspector = next((i for i in inspectores.data if str(i['legajo']) == str(pal['legajo'])), None)
+                nombre_inspector = inspector['nombre'].split(',')[0] if inspector else str(pal['legajo'])
+                
+                col1, col2, col3, col4 = st.columns([2, 2, 1, 0.5])
+                col1.write(f"**{pal['palabra']}**")
+                col2.write(f"Asignado a: {nombre_inspector} (Legajo {pal['legajo']})")
+                col3.write(pal.get('creado_por', 'sistema'))
+                if col4.button("🗑️", key=f"del_ancla_{pal['id']}"):
+                    supabase.table("palabras_ancla").delete().eq("id", pal['id']).execute()
+                    forzar_recarga_cache()
+                    st.rerun()
+        else:
+            st.info("No hay palabras ancla cargadas aún")
+
+# TAB 5: SINÓNIMOS
+with tab5:
     st.markdown("### 🔄 Sinónimos de Calles")
     st.caption("Acá podés agregar sinónimos para que el sistema reconozca formas alternativas de escribir las calles")
     
-    # Verificar tabla
     try:
         supabase.table("sinonimos_calles").select("id").limit(1).execute()
     except:
@@ -677,7 +752,6 @@ CREATE TABLE sinonimos_calles (
 CREATE INDEX idx_sinonimos_sinonimo ON sinonimos_calles(sinonimo);
         """)
     
-    # Obtener calles oficiales
     calles_oficiales = supabase.table("zonas_inspectores").select("calle").execute()
     calles_unicas = sorted(list(set([c['calle'] for c in calles_oficiales.data]))) if calles_oficiales.data else []
     
