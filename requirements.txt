@@ -17,3 +17,4 @@ folium
 streamlit-folium
 reportlab
 PyMuPDF
+pypdf
