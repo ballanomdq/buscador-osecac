@@ -1,53 +1,60 @@
 import streamlit as st
-import fitz  # PyMuPDF
+from pypdf import PdfReader, PdfWriter
 
-st.set_page_config(page_title="Planilla Inspectores", layout="wide")
-st.title("🖊️ Planilla Inspectores - Por Coordenadas")
+st.set_page_config(page_title="Numerador de Campos", layout="wide")
+st.title("🔢 Numerador de Campos - Planilla Inspectores")
 
-def rellenar_con_coordenadas(datos_coordenadas, input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="COMPLETADA.pdf"):
-    doc = fitz.open(input_pdf)
-    page = doc[0]  # primera página
-
-    for texto, (x, y) in datos_coordenadas.items():
-        if texto.strip():  # solo si hay texto
-            page.insert_text(
-                point=(x, y),
-                text=texto,
-                fontsize=11,
-                fontname="helv",
-                color=(0, 0, 0)
-            )
+def numerar_todos_los_campos(input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="PLANILLA_CON_NUMEROS.pdf"):
+    reader = PdfReader(input_pdf)
+    writer = PdfWriter()
     
-    doc.save(output_pdf)
-    doc.close()
-    return output_pdf
+    writer.append(reader)  # Copia el PDF completo
+    writer.set_need_appearances_writer(True)
 
-# ====================== EJEMPLO DE USO ======================
-st.subheader("Datos del Inspector")
-col1, col2 = st.columns(2)
-with col1:
-    inspector = st.text_input("Apellido y Nombres Inspector")
-with col2:
-    area = st.text_input("Área de Fiscalización", value="MAR DEL PLATA")
+    fields = reader.get_fields()
+    if not fields:
+        st.error("No se encontraron campos en el PDF")
+        return None
 
-fecha = st.text_input("Lugar y Fecha / Mes y Año")
+    datos = {}
+    contador = 1
+    
+    st.info(f"Se encontraron **{len(fields)} campos** en total. Numerándolos...")
 
-# Aquí irían más inputs según las coordenadas que tengas...
+    for nombre_campo in fields.keys():
+        datos[nombre_campo] = str(contador)
+        contador += 1
 
-# Diccionario de ejemplo (tenés que completarlo con tus coordenadas reales)
-datos = {
-    inspector: (150, 120),      # ← cambialo con tus coordenadas reales
-    area: (450, 120),
-    fecha: (700, 80),
-    # Agrega el resto...
-}
+    # Rellenar con los números
+    writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=False)
 
-if st.button("✅ Generar PDF", type="primary"):
-    with st.spinner("Rellenando..."):
-        try:
-            archivo = rellenar_con_coordenadas(datos)
+    with open(output_pdf, "wb") as f:
+        writer.write(f)
+
+    return output_pdf, datos
+
+# ====================== BOTÓN ======================
+if st.button("🚀 GENERAR PDF CON NÚMEROS EN TODOS LOS CAMPOS", type="primary", use_container_width=True):
+    with st.spinner("Analizando y numerando todos los campos..."):
+        resultado = numerar_todos_los_campos()
+        
+        if resultado:
+            archivo, mapeo = resultado
+            
+            st.success(f"✅ Listo! Se numeraron **{len(mapeo)} campos**")
+            
             with open(archivo, "rb") as f:
-                st.download_button("⬇️ Descargar PDF", f, "PLANILLA_COMPLETADA.pdf", "application/pdf")
-            st.success("Listo!")
-        except Exception as e:
-            st.error(f"Error: {e}")
+                st.download_button(
+                    label="⬇️ DESCARGAR PDF CON NÚMEROS",
+                    data=f,
+                    file_name="PLANILLA_CON_NUMEROS.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            
+            # Mostrar el mapeo
+            with st.expander("Ver mapeo Número → Nombre del campo"):
+                for num, (campo, valor) in enumerate(mapeo.items(), 1):
+                    st.text(f"{num:3d}  →  {campo}")
+
+st.caption("Apretá el botón y abrí el PDF generado. Ahí vas a ver claramente qué número cae en cada casillero.")
