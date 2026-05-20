@@ -3,79 +3,55 @@ import os
 import fitz  # PyMuPDF
 import io
 
-st.set_page_config(page_title="Lluvia de Coordenadas", layout="centered")
-st.title("🌧️ Lluvia de Números (Orientación Corregida)")
-st.markdown("Este script mantiene el PDF quieto y gira automáticamente los números para que queden al derecho.")
+st.set_page_config(page_title="Relleno OSECAC", layout="centered")
+st.title("Formulario OSECAC - Modo Producción")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
-def generar_lluvia_de_numeros():
-    if not os.path.exists(PDF_PATH):
-        raise FileNotFoundError(f"No se encuentra {PDF_PATH}")
-    
+def rellenar_planilla_real(datos):
     doc = fitz.open(PDF_PATH)
     page = doc[0]
     
-    # Obtenemos la rotación nativa que tiene el archivo (0, 90, 180 o 270)
-    rot_original = page.rotation
+    fontsize = 9
+    color = (0, 0, 0) # Negro para impresión oficial
     
-    # Dimensiones reales de la hoja Legal sin alterar
-    ancho = int(page.rect.width)
-    alto = int(page.rect.height)
-    
-    fontsize = 6
-    color = (1, 0, 0)  # Rojo
-    
-    contador = 1
-    mapa_referencia = {}
-    
-    # REGLA DE GIRO: Forzamos el ángulo del texto para compensar el desvío del PDF.
-    # Si los números salían de cabeza, el ángulo ideal de inserción es 90 o 270.
-    # Probamos con 90 que es el inverso estándar para PDFs de cabeza en PyMuPDF.
-    angulo_final_texto = 90 if rot_original in (90, 270) else 0
-    
-    # Barremos la matriz a lo largo y ancho de la hoja Legal
-    for y in range(25, alto - 25, 20):
-        for x in range(20, ancho - 20, 40):
-            try:
-                # Insertamos el texto girando SOLO el número en el aire
-                page.insert_text(
-                    (x, y), 
-                    str(contador), 
-                    fontsize=fontsize, 
-                    color=color, 
-                    rotate=angulo_final_texto
-                )
-                mapa_referencia[contador] = (x, y)
-                contador += 1
-            except Exception:
-                pass
-            
+    # Entrega directa sobre los casilleros detectados
+    for campo, (x, y, texto) in datos.items():
+        # Insertar el texto respetando los 90 grados de la estructura del PDF original
+        page.insert_text((x, y), str(texto), fontsize=fontsize, color=color, rotate=90)
+        
     output = io.BytesIO()
     doc.save(output)
     doc.close()
     output.seek(0)
+    return output
+
+if os.path.exists(PDF_PATH):
+    # Diccionario de ejemplo simulando datos reales de inspección
+    # Basado en la matriz real del documento Legal
+    datos_a_llenar = {
+        "inspector": (75, 150, "JUAN PEREZ"),
+        "mes_anio": (75, 490, "05/2026"),
+        "folio": (75, 555, "001"),
+        
+        # Fila 1 de la tabla
+        "f1_razon": (155, 20, "EMPRESA TEST S.A."),
+        "f1_cuit": (155, 170, "30-12345678-9"),
+        "f1_acta": (155, 280, "45218"),
+        "f1_vto": (155, 320, "15/06/2026"),
+        "f1_emp": (155, 360, "14"),
+        "f1_periodo": (155, 390, "04/2026"),
+        "f1_deuda": (155, 445, "150500.00"),
+    }
     
-    return output, mapa_referencia
-
-if not os.path.exists(PDF_PATH):
-    st.error(f"❌ Falta el archivo '{PDF_PATH}' en la carpeta raíz.")
-    st.stop()
-
-if st.button("🚀 LANZAR LLUVIA DE NÚMEROS", type="primary", use_container_width=True):
-    try:
-        with st.spinner("Mapeando grilla sobre hoja Legal..."):
-            pdf_buffer, mapa = generar_lluvia_de_numeros()
-        
-        st.success("🎯 ¡Lluvia generada! Bajá el mapa visual aquí abajo.")
-        st.session_state["mapa_coordenadas"] = mapa
-        
+    if st.button("📥 GENERAR Y DESCARGAR PLANILLA OFICIAL", type="primary", use_container_width=True):
+        pdf_listo = rellenar_planilla_real(datos_a_llenar)
         st.download_button(
-            label="📥 DESCARGAR PDF MAPEADO",
-            data=pdf_buffer,
-            file_name="lluvia_al_derecho.pdf",
+            label="Descargar PDF Completado",
+            data=pdf_listo,
+            file_name="Planilla_Inspeccion_Completada.pdf",
             mime="application/pdf",
             use_container_width=True
         )
-    except Exception as e:
-        st.error(f"Error en el servidor: {e}")
+else:
+    st.error("Falta el archivo 'PLANILLA INSPECTORES.pdf'")
