@@ -193,10 +193,10 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
     if registros_batch:
         fecha_cab = formatear_fecha(registros_batch[0].get("vto"))
         if fecha_cab:
-            # "MES Y AÑO"     = casillero GRANDE → año completo ej: 1976
-            # "MES Y AÑORow1" = casillero CHICO  → mes          ej: 01
-            datos["MES Y AÑO"]     = año_completo(fecha_cab)   # año  → 1976
-            datos["MES Y AÑORow1"] = fecha_cab.strftime("%m")  # mes  → 01
+            # "MES Y AÑO"     = casillero de la IZQUIERDA → mes          ej: 01
+            # "MES Y AÑORow1" = casillero de la DERECHA   → año completo ej: 1976
+            datos["MES Y AÑO"]     = fecha_cab.strftime("%m")  # mes  → 01
+            datos["MES Y AÑORow1"] = año_completo(fecha_cab)   # año  → 1976
 
     # PASO 3 — empresas
     for i, reg in enumerate(registros_batch):
