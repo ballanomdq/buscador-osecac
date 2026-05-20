@@ -1326,7 +1326,26 @@ with tab2:
 # TAB 3 — Solicitar Actas
 # ══════════════════════════════════════════════════════════════════
 with tab3:
-    st.info("📧 Solicitar Actas — En construcción")
+    st.markdown("### 📋 Generar Informe Mensual de Inspección")
+    st.markdown("Completá el formulario PDF con los datos de los registros listos (con acta, VTO y CUIT).")
+    
+    st.markdown("---")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6;">
+            <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">📄 Generar Informe</h3>
+            <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Seleccioná el inspector y generá el PDF con los datos listos</p>
+            <a href="https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/generar_informe" target="_blank">
+                <button style="background: #10b981; color: white; border: none; padding: 0.4rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">
+                    🔗 IR A GENERAR INFORME
+                </button>
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.caption("💡 También puede acceder directamente desde el menú lateral o el enlace directo")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 4 — Subir Actas
