@@ -1,7 +1,7 @@
 import streamlit as st
 from pypdf import PdfReader, PdfWriter
 from supabase import create_client
-from datetime import datetime
+from datetime import datetime, date
 import io
 import zipfile
 from collections import defaultdict
@@ -131,7 +131,7 @@ MAPEO_EMPRESAS = [
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def año_corto(fecha_obj):
-    """Últimos 2 dígitos del año — para los casilleros chicos"""
+    """Últimos 2 dígitos del año — para casilleros chicos"""
     return fecha_obj.strftime("%y") if fecha_obj else ""
 
 def año_completo(fecha_obj):
@@ -166,6 +166,15 @@ def formatear_fecha(fecha_str):
     except Exception:
         return None
 
+def empaquetar_zip(pdfs):
+    """Empaqueta todos los PDFs en un único ZIP en memoria"""
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for pdf in pdfs:
+            zf.writestr(pdf["nombre"], pdf["buffer"].getvalue())
+    zip_buffer.seek(0)
+    return zip_buffer
+
 # ── Generación del PDF ────────────────────────────────────────────────────────
 
 def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
@@ -178,26 +187,23 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
     datos = {campo: "" for campo in todos_los_campos}
 
     # PASO 2 — cabecera
-    datos["AREA DE FISCALIZACIONRow1"]         = "MAR DEL PLATA"
-    datos["APELLIDO Y NOMBRES INSPECTORRow1"]   = inspector_nombre
+    datos["AREA DE FISCALIZACIONRow1"]        = "MAR DEL PLATA"
+    datos["APELLIDO Y NOMBRES INSPECTORRow1"] = inspector_nombre
 
     if registros_batch:
         fecha_cab = formatear_fecha(registros_batch[0].get("vto"))
         if fecha_cab:
-            # MES Y AÑORow1 = casillero chico → mes (ej: 01)
-            # MES Y AÑO     = casillero grande → año completo (ej: 1976)
-            datos["MES Y AÑORow1"] = fecha_cab.strftime("%m")   # mes  → 01
-            datos["MES Y AÑO"]     = año_completo(fecha_cab)     # año  → 1976
+            # "MES Y AÑO"     = casillero GRANDE → año completo ej: 1976
+            # "MES Y AÑORow1" = casillero CHICO  → mes          ej: 01
+            datos["MES Y AÑO"]     = año_completo(fecha_cab)   # año  → 1976
+            datos["MES Y AÑORow1"] = fecha_cab.strftime("%m")  # mes  → 01
 
     # PASO 3 — empresas
     for i, reg in enumerate(registros_batch):
         m = MAPEO_EMPRESAS[i]
 
-        razon      = reg.get("razon_social", "")
-        calle      = reg.get("calle", "")
-        numero     = reg.get("numero", "")
-        direccion  = f"{calle} {numero}".strip()
-        nombre_dir = f"{razon} - {direccion}" if direccion else razon
+        # Solo la razón social — sin dirección
+        razon_social = str(reg.get("razon_social", ""))
 
         cuit  = str(reg.get("cuit", ""))
         acta  = str(reg.get("acta", ""))
@@ -208,7 +214,7 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
         hasta_obj = formatear_fecha(reg.get("hasta"))
 
         # Fila principal
-        datos[m["razon"]]     = nombre_dir[:80]
+        datos[m["razon"]]     = razon_social[:80]
         datos[m["cuit_ppal"]] = cuit
         datos[m["acta"]]      = acta
         datos[m["deuda"]]     = deuda
@@ -239,15 +245,6 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
     writer.write(output)
     output.seek(0)
     return output
-
-def empaquetar_zip(pdfs):
-    """Empaqueta todos los PDFs en un único archivo ZIP en memoria"""
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for pdf in pdfs:
-            zf.writestr(pdf["nombre"], pdf["buffer"].getvalue())
-    zip_buffer.seek(0)
-    return zip_buffer
 
 # ── Interfaz ──────────────────────────────────────────────────────────────────
 
@@ -303,7 +300,7 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
         st.info(f"📊 Se generaron {len(pdfs)} archivo(s)")
 
         if len(pdfs) == 1:
-            # Si es solo uno, descarga directa del PDF
+            # Un solo PDF → descarga directa
             st.download_button(
                 label=f"📥 Descargar {pdfs[0]['nombre']}",
                 data=pdfs[0]["buffer"].getvalue(),
@@ -312,8 +309,7 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
                 use_container_width=True,
             )
         else:
-            # Si son varios, un solo ZIP con todo adentro
-            from datetime import date
+            # Varios PDFs → un solo ZIP
             nombre_zip = f"INFORMES_{date.today().strftime('%Y%m%d')}.zip"
             zip_buffer = empaquetar_zip(pdfs)
             st.markdown("### 📥 Descargar todos los informes:")
@@ -324,4 +320,4 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
                 mime="application/zip",
                 use_container_width=True,
             )
-            st.caption("El ZIP contiene: " + ", ".join(p["nombre"] for p in pdfs))
+            st.caption("Archivos incluidos: " + ", ".join(p["nombre"] for p in pdfs))
