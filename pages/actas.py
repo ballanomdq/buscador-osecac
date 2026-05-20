@@ -697,7 +697,7 @@ def procesar_excel(archivo):
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
-    "📧 Solicitar Actas",
+    "📧 Generar Informe",
     "📋 Subir Actas",
     "👥 INSPECTORES"
 ])
@@ -1323,7 +1323,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Solicitar Actas
+# TAB 3 — Generar Informe
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("### 📋 Generar Informe Mensual de Inspección")
