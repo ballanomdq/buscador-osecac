@@ -67,7 +67,7 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 #MainMenu, footer, header { display: none !important; }
 
-/* ── CARTELES CON TEXTO A TOPE ── */
+/* ── CARTELES ── */
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
@@ -131,15 +131,13 @@ div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !im
     font-size: 0.85rem !important;
 }
 
-/* ── ESTILO PARA DIÁLOGO: FONDO CLARO, TEXTO OSCURO ── */
+/* ── ESTILO PARA DIÁLOGO ── */
 div[role="dialog"] {
     background: #f8fafc !important;
     border-radius: 16px !important;
     border: 2px solid #3b82f6 !important;
     box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
 }
-
-/* OCULTAR LA CRUZ (X) DE CIERRE */
 div[role="dialog"] button[aria-label="Close"] {
     opacity: 0 !important;
     pointer-events: none !important;
@@ -149,54 +147,26 @@ div[role="dialog"] button[aria-label="Close"] {
     margin: 0 !important;
     font-size: 1px !important;
 }
-
-div[role="dialog"] p,
-div[role="dialog"] span,
-div[role="dialog"] label,
-div[role="dialog"] div,
-div[role="dialog"] h1,
-div[role="dialog"] h2,
-div[role="dialog"] h3,
-div[role="dialog"] .stMarkdown p {
+div[role="dialog"] p, div[role="dialog"] span, div[role="dialog"] label,
+div[role="dialog"] div, div[role="dialog"] h1, div[role="dialog"] h2,
+div[role="dialog"] h3, div[role="dialog"] .stMarkdown p {
     color: #1e293b !important;
 }
-
-div[role="dialog"] .stSelectbox label,
-div[role="dialog"] .stTextInput label,
-div[role="dialog"] .stNumberInput label,
-div[role="dialog"] .stDateInput label,
+div[role="dialog"] .stSelectbox label, div[role="dialog"] .stTextInput label,
+div[role="dialog"] .stNumberInput label, div[role="dialog"] .stDateInput label,
 div[role="dialog"] .stCheckbox label {
     color: #0f172a !important;
     font-weight: 600 !important;
 }
-
-div[role="dialog"] hr {
-    border-color: #cbd5e1 !important;
-}
-
-div[role="dialog"] .stAlert {
-    background-color: #e2e8f0 !important;
-    border-left: 3px solid #3b82f6 !important;
-}
-
-div[role="dialog"] .stAlert p {
-    color: #0f172a !important;
-}
-
+div[role="dialog"] hr { border-color: #cbd5e1 !important; }
+div[role="dialog"] .stAlert { background-color: #e2e8f0 !important; border-left: 3px solid #3b82f6 !important; }
+div[role="dialog"] .stAlert p { color: #0f172a !important; }
 div[role="dialog"] .stSelectbox div[data-baseweb="select"] {
     background-color: white !important;
     border: 1px solid #94a3b8 !important;
 }
-
-div[role="dialog"] .stSelectbox div[data-baseweb="select"] div {
-    color: #1e293b !important;
-}
-
-div[role="dialog"] .stCheckbox span {
-    color: #1e293b !important;
-}
-
-/* Botón PROCESAR (VERDE) */
+div[role="dialog"] .stSelectbox div[data-baseweb="select"] div { color: #1e293b !important; }
+div[role="dialog"] .stCheckbox span { color: #1e293b !important; }
 div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"] {
     background-color: #10b981 !important;
     color: white !important;
@@ -205,8 +175,6 @@ div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"] {
 div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"]:hover {
     background-color: #059669 !important;
 }
-
-/* Botón FINALIZAR (GRIS) */
 div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]) {
     background-color: #64748b !important;
     color: white !important;
@@ -350,74 +318,51 @@ def normalizar_calle(calle: str) -> str:
 
 # ── FUNCIÓN: Cargar palabras ancla ────────────────────────────────────────────
 def cargar_palabras_ancla():
-    """Carga todas las palabras ancla desde Supabase"""
     try:
         r = supabase.table("palabras_ancla").select("*").execute()
         return r.data if r.data else []
-    except Exception as e:
+    except:
         return []
 
 def construir_lookup_palabras_ancla(palabras_ancla):
-    """Construye un lookup simple para búsqueda rápida de palabras ancla"""
     return palabras_ancla
 
-# ── FUNCIÓN MODIFICADA: Asignación de legajo con palabras ancla ────────────────
 def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, lookup_sinonimos, lookup_palabras_ancla):
     localidad_cmp = limpiar_para_comparar(localidad)
-    
-    # Si NO es Mar del Plata, asignar por localidad (las palabras ancla NO aplican)
     if localidad_cmp not in ("MAR DEL PLATA", ""):
         return lookup_localidades.get(localidad_cmp)
-    
-    # Si es Mar del Plata, PRIMERO buscar palabras ancla
     if localidad_cmp == "MAR DEL PLATA" and lookup_palabras_ancla:
         direccion_completa = f"{calle} {numero}".upper().strip()
-        
         for ancla in lookup_palabras_ancla:
             palabra = ancla.get('palabra', '').upper().strip()
             legajo_ancla = ancla.get('legajo')
-            
-            if palabra and legajo_ancla:
-                if palabra in direccion_completa:
-                    return legajo_ancla
-    
-    # Si no hay palabra ancla, continuar con la lógica normal
+            if palabra and legajo_ancla and palabra in direccion_completa:
+                return legajo_ancla
     calle_norm = normalizar_calle(calle)
     if not calle_norm:
         return None
-    
     calle_buscar = calle_norm
     zonas = lookup_zonas.get(calle_buscar, [])
-    
     if not zonas and calle_buscar in lookup_sinonimos:
         calle_oficial = lookup_sinonimos[calle_buscar]
         zonas = lookup_zonas.get(calle_oficial, [])
-    
     if not zonas:
         return None
-    
     try:
         num = int(re.sub(r'\D', '', str(numero)))
-    except Exception:
+    except:
         return None
-    
     lado_actual = "PAR" if num % 2 == 0 else "IMPAR"
-    
     for zona in zonas:
         lado_db = str(zona['lado']).upper().strip()
-        es_mismo_lado = (
-            lado_db in ("AMBOS", "A")
-            or (lado_actual == "PAR"   and lado_db in ("PAR",   "P"))
-            or (lado_actual == "IMPAR" and lado_db in ("IMPAR", "I"))
-        )
+        es_mismo_lado = (lado_db in ("AMBOS", "A") or (lado_actual == "PAR" and lado_db in ("PAR", "P")) or (lado_actual == "IMPAR" and lado_db in ("IMPAR", "I")))
         try:
             desde = int(zona['desde'])
             hasta = int(zona['hasta'])
-        except (TypeError, ValueError):
+        except:
             continue
         if es_mismo_lado and desde <= num <= hasta:
             return zona['legajo']
-    
     return None
 
 # ── Carga de datos ────────────────────────────────────────────────────────────
@@ -452,9 +397,9 @@ def construir_lookup_zonas(zonas_inspectores):
             continue
         lookup.setdefault(clave, []).append({
             'legajo': zona['legajo'],
-            'lado':   zona['lado'],
-            'desde':  zona['altura_desde'],
-            'hasta':  zona['altura_hasta'],
+            'lado': zona['lado'],
+            'desde': zona['altura_desde'],
+            'hasta': zona['altura_hasta'],
         })
     return lookup
 
@@ -469,10 +414,7 @@ def construir_lookup_sinonimos(sinonimos):
 def traer_registros_sin_legajo():
     registros, offset = [], 0
     while True:
-        r = supabase.table("padron_deuda_presunta") \
-            .select("id, localidad, calle, numero, razon_social, cuit, tel_dom_legal, tel_dom_real") \
-            .is_("leg", "null") \
-            .range(offset, offset + 999).execute()
+        r = supabase.table("padron_deuda_presunta").select("id, localidad, calle, numero, razon_social, cuit, tel_dom_legal, tel_dom_real").is_("leg", "null").range(offset, offset + 999).execute()
         if not r.data:
             break
         registros.extend(r.data)
@@ -484,10 +426,7 @@ def traer_registros_sin_legajo():
 def traer_registros_con_legajo():
     registros, offset = [], 0
     while True:
-        r = supabase.table("padron_deuda_presunta") \
-            .select("*") \
-            .not_.is_("leg", "null") \
-            .range(offset, offset + 999).execute()
+        r = supabase.table("padron_deuda_presunta").select("*").not_.is_("leg", "null").range(offset, offset + 999).execute()
         if not r.data:
             break
         registros.extend(r.data)
@@ -499,10 +438,7 @@ def traer_registros_con_legajo():
 def traer_registros_por_inspector(legajo):
     registros, offset = [], 0
     while True:
-        r = supabase.table("padron_deuda_presunta") \
-            .select("*") \
-            .eq("leg", legajo) \
-            .range(offset, offset + 999).execute()
+        r = supabase.table("padron_deuda_presunta").select("*").eq("leg", legajo).range(offset, offset + 999).execute()
         if not r.data:
             break
         registros.extend(r.data)
@@ -536,9 +472,7 @@ def get_localidades():
 def get_pares_existentes():
     todos, offset = [], 0
     while True:
-        batch = supabase.table("padron_deuda_presunta") \
-                   .select("cuit, ultima_acta") \
-                   .range(offset, offset + 999).execute()
+        batch = supabase.table("padron_deuda_presunta").select("cuit, ultima_acta").range(offset, offset + 999).execute()
         if not batch.data:
             break
         todos.extend(batch.data)
@@ -555,7 +489,6 @@ def generar_informe_txt(registros_sin_legajo):
     contenido.append(f"                        Total de registros: {len(registros_sin_legajo)}")
     contenido.append("=" * 80)
     contenido.append("")
-    
     for i in range(0, len(registros_sin_legajo), 2):
         reg_izq = registros_sin_legajo[i]
         contenido.append("┌" + "─" * 78 + "┐")
@@ -567,7 +500,6 @@ def generar_informe_txt(registros_sin_legajo):
         contenido.append(f"│ CALLE:         {str(reg_izq.get('calle', 'N/D'))} {str(reg_izq.get('numero', '')):<61}│")
         contenido.append(f"│ TELEFONO LEGAL:{str(reg_izq.get('tel_dom_legal', 'N/D')):<61}│")
         contenido.append(f"│ TELEFONO REAL: {str(reg_izq.get('tel_dom_real', 'N/D')):<61}│")
-        
         if i + 1 < len(registros_sin_legajo):
             reg_der = registros_sin_legajo[i + 1]
             contenido.append("├" + "─" * 78 + "┤")
@@ -583,25 +515,20 @@ def generar_informe_txt(registros_sin_legajo):
         else:
             contenido.append("└" + "─" * 78 + "┘")
         contenido.append("")
-    
     contenido.append("=" * 80)
     contenido.append("                        FIN DEL INFORME")
     contenido.append("=" * 80)
-    
     return "\n".join(contenido)
 
 def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
-    """Genera Excel con formato ordenado: CUIT, RAZON SOCIAL, LEGAJO, VTO ASIGNADO"""
     df_export = pd.DataFrame()
     df_export['CUIT'] = df_seleccionado['cuit'].astype(str)
     df_export['RAZON SOCIAL'] = df_seleccionado['razon_social'].astype(str)
     df_export['LEGAJO'] = df_seleccionado['leg'].astype(str)
     df_export['VTO ASIGNADO'] = fecha_vto_str
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_export.to_excel(writer, sheet_name='Mailing', index=False)
-        
         worksheet = writer.sheets['Mailing']
         for column in worksheet.columns:
             max_length = 0
@@ -614,14 +541,11 @@ def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
                     pass
             adjusted_width = min(max_length + 2, 50)
             worksheet.column_dimensions[column_letter].width = adjusted_width
-    
     return output.getvalue()
 
 def generar_excel_asignados(registros):
     df = pd.DataFrame(registros)
-    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
-                'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion',
-                'tel_dom_legal', 'tel_dom_real', 'email']
+    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion', 'tel_dom_legal', 'tel_dom_real', 'email']
     df_excel = df[[c for c in columnas if c in df.columns]]
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -636,9 +560,7 @@ def generar_excel_por_inspector():
             registros = traer_registros_por_inspector(ins['legajo'])
             if registros:
                 df = pd.DataFrame(registros)
-                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 
-                            'vto', 'mail_enviado', 'acta', 'estado_gestion',
-                            'tel_dom_legal', 'tel_dom_real', 'email']
+                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'vto', 'mail_enviado', 'acta', 'estado_gestion', 'tel_dom_legal', 'tel_dom_real', 'email']
                 df_excel = df[[c for c in columnas if c in df.columns]]
                 nombre_hoja = f"{ins['nombre'].split(',')[0][:20]} {ins['legajo']}"
                 df_excel.to_excel(writer, sheet_name=nombre_hoja, index=False)
@@ -646,24 +568,12 @@ def generar_excel_por_inspector():
 
 # ── Mapeo Excel ───────────────────────────────────────────────────────────────
 COLS_EXCEL = [
-    "DELEGACION","LOCALIDAD","CUIT","RAZON SOCIAL","DEUDA PRESUNTA",
-    "CP","CALLE","NUMERO","PISO","DPTO","FECHARELDEPENDENCIA",
-    "EMAIL","TEL_DOM_LEGAL","TEL_DOM_REAL","ULTIMA ACTA","DESDE",
-    "HASTA","DETECTADO","ESTADO","FECHA_PAGO_OBL",
-    "EMPL 10-2025","EMP 11-2025","EMPL 12-2025","ACTIVIDAD","SITUACION",
+    "DELEGACION","LOCALIDAD","CUIT","RAZON SOCIAL","DEUDA PRESUNTA","CP","CALLE","NUMERO","PISO","DPTO","FECHARELDEPENDENCIA","EMAIL","TEL_DOM_LEGAL","TEL_DOM_REAL","ULTIMA ACTA","DESDE","HASTA","DETECTADO","ESTADO","FECHA_PAGO_OBL","EMPL 10-2025","EMP 11-2025","EMPL 12-2025","ACTIVIDAD","SITUACION",
 ]
 MAPA = {
-    "DELEGACION":"delegacion","LOCALIDAD":"localidad","CUIT":"cuit",
-    "RAZON SOCIAL":"razon_social","DEUDA PRESUNTA":"deuda_presunta",
-    "CP":"cp","CALLE":"calle","NUMERO":"numero","PISO":"piso","DPTO":"dpto",
-    "FECHARELDEPENDENCIA":"fechareldependencia","EMAIL":"email",
-    "TEL_DOM_LEGAL":"tel_dom_legal","TEL_DOM_REAL":"tel_dom_real",
-    "ULTIMA ACTA":"ultima_acta","DESDE":"desde","HASTA":"hasta",
-    "DETECTADO":"detectado","ESTADO":"estado","FECHA_PAGO_OBL":"fecha_pago_obl",
-    "EMPL 10-2025":"empl_10_2025","EMP 11-2025":"emp_11_2025","EMPL 12-2025":"empl_12_2025",
-    "ACTIVIDAD":"actividad","SITUACION":"situacion",
+    "DELEGACION":"delegacion","LOCALIDAD":"localidad","CUIT":"cuit","RAZON SOCIAL":"razon_social","DEUDA PRESUNTA":"deuda_presunta","CP":"cp","CALLE":"calle","NUMERO":"numero","PISO":"piso","DPTO":"dpto","FECHARELDEPENDENCIA":"fechareldependencia","EMAIL":"email","TEL_DOM_LEGAL":"tel_dom_legal","TEL_DOM_REAL":"tel_dom_real","ULTIMA ACTA":"ultima_acta","DESDE":"desde","HASTA":"hasta","DETECTADO":"detectado","ESTADO":"estado","FECHA_PAGO_OBL":"fecha_pago_obl","EMPL 10-2025":"empl_10_2025","EMP 11-2025":"emp_11_2025","EMPL 12-2025":"empl_12_2025","ACTIVIDAD":"actividad","SITUACION":"situacion",
 }
-COLS_FECHA  = {"fechareldependencia","desde","hasta","fecha_pago_obl"}
+COLS_FECHA = {"fechareldependencia","desde","hasta","fecha_pago_obl"}
 COLS_MONEDA = {"deuda_presunta","detectado"}
 
 def procesar_excel(archivo):
@@ -685,7 +595,7 @@ def procesar_excel(archivo):
             if col in COLS_MONEDA and v:
                 try:
                     v = fmt_moneda(float(v))
-                except Exception:
+                except:
                     pass
             if col == "ultima_acta" and not v:
                 v = "*"
@@ -694,7 +604,7 @@ def procesar_excel(archivo):
     return out
 
 # ══════════════════════════════════════════════════════════════════
-# TABS CON st.page_link (un solo clic, sin redirección automática)
+# TABS
 # ══════════════════════════════════════════════════════════════════
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -711,26 +621,20 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("#### Cargar Padrón de Deuda Presunta")
     archivo = st.file_uploader("Archivo Excel", type=["xls","xlsx"], key="upload_padron")
-
     if archivo:
         st.caption(f"Archivo: **{archivo.name}**")
         try:
             registros = procesar_excel(archivo)
             hoy = date.today().isoformat()
             for r in registros:
-                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None,
-                           'fecha_carga':hoy,'estado_gestion':'PENDIENTE'})
-
+                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None, 'fecha_carga':hoy,'estado_gestion':'PENDIENTE'})
             pares = get_pares_existentes()
-            nuevos = [r for r in registros
-                      if (str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) not in pares]
+            nuevos = [r for r in registros if (str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) not in pares]
             dupl = len(registros) - len(nuevos)
-
             c1, c2, c3 = st.columns(3)
             c1.metric("Total", len(registros))
             c2.metric("Nuevos", len(nuevos))
             c3.metric("Duplicados", dupl)
-
             if nuevos:
                 if st.button("✅ Confirmar carga", type="primary"):
                     with st.spinner("Insertando..."):
@@ -745,7 +649,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos
+# TAB 2 — Editar Legajos y Vtos (TABLA COMPLETA EDITABLE)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -756,26 +660,11 @@ with tab2:
 
     col_t1, col_t2, col_t3 = st.columns(3)
     with col_t1:
-        st.markdown(f"""
-        <div class="big-number">
-            <h1>{total_general:,}</h1>
-            <p>TOTAL REGISTROS</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{total_general:,}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
     with col_t2:
-        st.markdown(f"""
-        <div class="big-number">
-            <h1>{con_legajo:,}</h1>
-            <p>CON LEGAJO</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{con_legajo:,}</h1><p>CON LEGAJO</p></div>', unsafe_allow_html=True)
     with col_t3:
-        st.markdown(f"""
-        <div class="big-number">
-            <h1>{sin_legajo_total:,}</h1>
-            <p>SIN LEGAJO</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{sin_legajo_total:,}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
     st.markdown("---")
     
@@ -786,13 +675,7 @@ with tab2:
             count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
             nombre_corto = ins['nombre'].split(',')[0]
             with cols_inspectores[idx]:
-                st.markdown(f"""
-                <div class="inspector-card">
-                    <h3>{nombre_corto}</h3>
-                    <h1>{count}</h1>
-                    <p>Legajo: {ins['legajo']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f'<div class="inspector-card"><h3>{nombre_corto}</h3><h1>{count}</h1><p>Legajo: {ins["legajo"]}</p></div>', unsafe_allow_html=True)
     st.markdown("---")
 
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
@@ -826,8 +709,7 @@ with tab2:
             st.session_state.generar_informe_por_inspector = True
     with col_reset:
         if st.button("↺ Resetear filtros", use_container_width=True):
-            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad',
-                      'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
+            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad', 'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual']:
                 st.session_state.pop(k, None)
             st.rerun()
     with col_recargar:
@@ -849,150 +731,198 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS ─────────────────────────────────
+    # ── DIÁLOGO PREPARAR MAILS (DOS OPCIONES) ─────────────────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
-            st.info("Cargando todos los registros candidatos...")
+            st.markdown("### Seleccioná el método de carga")
             
-            todos_los_registros = []
-            offset = 0
-            batch_size = 1000
+            opcion = st.radio(
+                "Método:",
+                ["📊 POR LOTES (por localidad, orden, etc.)", "🎯 POR CUIT (carga individual)"],
+                index=0,
+                horizontal=True
+            )
             
-            while True:
-                query = supabase.table("padron_deuda_presunta")\
-                    .select("*")\
-                    .not_.is_("leg", "null")\
-                    .eq("mail_enviado", "NO")\
-                    .is_("vto", "null")\
-                    .range(offset, offset + batch_size - 1)\
-                    .execute()
+            if opcion == "📊 POR LOTES (por localidad, orden, etc.)":
+                st.markdown("---")
+                st.info("Cargando todos los registros candidatos...")
                 
-                if not query.data:
-                    break
-                    
-                todos_los_registros.extend(query.data)
-                offset += batch_size
+                todos_los_registros = []
+                offset = 0
+                batch_size = 1000
                 
-                if len(query.data) < batch_size:
-                    break
-            
-            df_candidatos = pd.DataFrame(todos_los_registros) if todos_los_registros else pd.DataFrame()
-            
-            if df_candidatos.empty:
-                st.warning("No hay registros disponibles")
-                if st.button("Finalizar"):
+                while True:
+                    query = supabase.table("padron_deuda_presunta").select("*").not_.is_("leg", "null").eq("mail_enviado", "NO").is_("vto", "null").range(offset, offset + batch_size - 1).execute()
+                    if not query.data:
+                        break
+                    todos_los_registros.extend(query.data)
+                    offset += batch_size
+                    if len(query.data) < batch_size:
+                        break
+                
+                df_candidatos = pd.DataFrame(todos_los_registros) if todos_los_registros else pd.DataFrame()
+                
+                if df_candidatos.empty:
+                    st.warning("No hay registros disponibles")
+                    if st.button("Finalizar"):
+                        st.session_state.preparar_mails = False
+                        st.rerun()
+                    return
+                
+                st.success(f"✅ Total de registros candidatos: {len(df_candidatos)}")
+                
+                col_f1, col_f2 = st.columns(2)
+                
+                with col_f1:
+                    localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
+                    localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
+                    usar_todos = st.checkbox("Seleccionar TODOS", value=True, key="dialog_usar_todos")
+                    cantidad_personalizada = None
+                    if not usar_todos:
+                        cantidad_personalizada = st.number_input("Cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad")
+                
+                with col_f2:
+                    nueva_fecha_vto = st.date_input("Fecha VTO", value=date.today(), key="dialog_fecha")
+                    ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
+                    ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
+                
+                df_filtrado = df_candidatos.copy()
+                if localidad_filtro != "TODAS":
+                    df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
+                
+                if ordenar_deuda or ordenar_hasta:
+                    def parse_deuda(val):
+                        if val is None:
+                            return 0
+                        try:
+                            if isinstance(val, str):
+                                val = val.replace('$', '').replace('.', '').replace(',', '.').strip()
+                            return float(val)
+                        except:
+                            return 0
+                    def parse_hasta(val):
+                        if val is None:
+                            return datetime.max
+                        try:
+                            if isinstance(val, str):
+                                if '/' in val:
+                                    return datetime.strptime(val, '%d/%m/%Y')
+                                if '-' in val:
+                                    return datetime.strptime(val, '%Y-%m-%d')
+                            return val
+                        except:
+                            return datetime.max
+                    if ordenar_deuda:
+                        df_filtrado['_deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
+                        df_filtrado = df_filtrado.sort_values('_deuda_num', ascending=False)
+                    if ordenar_hasta:
+                        df_filtrado['_hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
+                        df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
+                    df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
+                
+                if usar_todos:
+                    df_seleccionado = df_filtrado.copy()
+                else:
+                    df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
+                
+                if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
+                    progress_bar = st.progress(0)
+                    fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
+                    fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
+                    total_registros = len(df_seleccionado)
+                    batch_size_update = 50
+                    for i in range(0, total_registros, batch_size_update):
+                        batch = df_seleccionado.iloc[i:i+batch_size_update]
+                        for _, row in batch.iterrows():
+                            supabase.table("padron_deuda_presunta").update({"vto": fecha_str, "mail_enviado": "SI"}).eq("id", row['id']).execute()
+                        progress_bar.progress(min((i + batch_size_update) / total_registros, 1.0))
+                        time.sleep(0.05)
+                    progress_bar.progress(1.0)
+                    excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
+                    st.session_state.excel_descarga = excel_data
+                    st.session_state.nombre_excel = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                     st.session_state.preparar_mails = False
                     st.rerun()
-                return
-            
-            st.success(f"✅ Total de registros candidatos: {len(df_candidatos)}")
-            
-            col_f1, col_f2 = st.columns(2)
-            
-            with col_f1:
-                localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
-                localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
-                usar_todos = st.checkbox("Seleccionar TODOS", value=True, key="dialog_usar_todos")
-                cantidad_personalizada = None
-                if not usar_todos:
-                    cantidad_personalizada = st.number_input("Cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad")
-            
-            with col_f2:
-                nueva_fecha_vto = st.date_input("Fecha VTO", value=date.today(), key="dialog_fecha")
-                ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
-                ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
-            
-            df_filtrado = df_candidatos.copy()
-            if localidad_filtro != "TODAS":
-                df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
-            
-            if ordenar_deuda or ordenar_hasta:
-                def parse_deuda(val):
-                    if val is None:
-                        return 0
-                    try:
-                        if isinstance(val, str):
-                            val = val.replace('$', '').replace('.', '').replace(',', '.').strip()
-                        return float(val)
-                    except:
-                        return 0
                 
-                def parse_hasta(val):
-                    if val is None:
-                        return datetime.max
-                    try:
-                        if isinstance(val, str):
-                            if '/' in val:
-                                return datetime.strptime(val, '%d/%m/%Y')
-                            if '-' in val:
-                                return datetime.strptime(val, '%Y-%m-%d')
-                        return val
-                    except:
-                        return datetime.max
-                
-                if ordenar_deuda:
-                    df_filtrado['_deuda_num'] = df_filtrado['deuda_presunta'].apply(parse_deuda)
-                    df_filtrado = df_filtrado.sort_values('_deuda_num', ascending=False)
-                if ordenar_hasta:
-                    df_filtrado['_hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
-                    df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
-                df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
+                if st.button("❌ Cancelar", use_container_width=True):
+                    st.session_state.preparar_mails = False
+                    st.rerun()
             
-            if usar_todos:
-                df_seleccionado = df_filtrado.copy()
-            else:
-                df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
-            
-            if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
-                progress_bar = st.progress(0)
+            else:  # Opción POR CUIT
+                st.markdown("---")
+                st.markdown("### Ingresar CUITs manualmente")
+                st.caption("Pegá los CUITs separados por coma, espacio o salto de línea")
                 
-                fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
-                fecha_mostrar = nueva_fecha_vto.strftime('%d/%m/%Y')
-                total_registros = len(df_seleccionado)
+                cuit_input = st.text_area("CUITs", placeholder="Ej: 30-12345678-9, 33-98765432-1, 27-11111111-2", height=150)
+                nueva_fecha_vto_cuit = st.date_input("Fecha VTO a asignar", value=date.today(), key="dialog_fecha_cuit")
                 
-                batch_size_update = 50
-                for i in range(0, total_registros, batch_size_update):
-                    batch = df_seleccionado.iloc[i:i+batch_size_update]
-                    for _, row in batch.iterrows():
-                        supabase.table("padron_deuda_presunta").update({
-                            "vto": fecha_str,
-                            "mail_enviado": "SI"
-                        }).eq("id", row['id']).execute()
+                if st.button("✅ PROCESAR CUITs", type="primary", use_container_width=True):
+                    if not cuit_input.strip():
+                        st.warning("Ingresá al menos un CUIT")
+                        return
                     
-                    progress_bar.progress(min((i + batch_size_update) / total_registros, 1.0))
-                    time.sleep(0.05)
+                    # Extraer CUITs (solo números)
+                    cuit_limpios = re.findall(r'\d{2,11}', cuit_input)
+                    if not cuit_limpios:
+                        st.warning("No se encontraron CUITs válidos")
+                        return
+                    
+                    cuit_unicos = list(set(cuit_limpios))
+                    st.info(f"📊 Se encontraron {len(cuit_unicos)} CUIT(s) únicos")
+                    
+                    # Buscar registros con esos CUITs
+                    registros_encontrados = []
+                    no_encontrados = []
+                    
+                    for cuit in cuit_unicos:
+                        resultado = supabase.table("padron_deuda_presunta").select("*").eq("cuit", cuit).not_.is_("leg", "null").eq("mail_enviado", "NO").is_("vto", "null").execute()
+                        if resultado.data:
+                            registros_encontrados.extend(resultado.data)
+                        else:
+                            no_encontrados.append(cuit)
+                    
+                    if not registros_encontrados:
+                        st.warning("No se encontraron registros listos para los CUITs ingresados")
+                        return
+                    
+                    st.success(f"✅ {len(registros_encontrados)} registro(s) encontrado(s)")
+                    if no_encontrados:
+                        st.warning(f"⚠️ CUITs no encontrados o no disponibles: {', '.join(no_encontrados[:5])}")
+                    
+                    # Actualizar
+                    progress_bar = st.progress(0)
+                    fecha_str = nueva_fecha_vto_cuit.strftime('%Y-%m-%d')
+                    fecha_mostrar = nueva_fecha_vto_cuit.strftime('%d/%m/%Y')
+                    total_registros = len(registros_encontrados)
+                    
+                    for i, reg in enumerate(registros_encontrados):
+                        supabase.table("padron_deuda_presunta").update({"vto": fecha_str, "mail_enviado": "SI"}).eq("id", reg['id']).execute()
+                        progress_bar.progress((i + 1) / total_registros)
+                        time.sleep(0.02)
+                    
+                    progress_bar.progress(1.0)
+                    
+                    # Generar Excel con los registros procesados
+                    df_resultado = pd.DataFrame(registros_encontrados)
+                    excel_data = generar_excel_para_mailing(df_resultado, fecha_mostrar)
+                    st.session_state.excel_descarga = excel_data
+                    st.session_state.nombre_excel = f"MAILING_CUIT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                    st.session_state.preparar_mails = False
+                    st.rerun()
                 
-                progress_bar.progress(1.0)
-                
-                excel_data = generar_excel_para_mailing(df_seleccionado, fecha_mostrar)
-                st.session_state.excel_descarga = excel_data
-                st.session_state.nombre_excel = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-                
-                st.session_state.preparar_mails = False
-                st.rerun()
-            
-            if st.button("✅ Finalizar", use_container_width=True):
-                st.session_state.preparar_mails = False
-                st.rerun()
+                if st.button("❌ Cancelar", use_container_width=True):
+                    st.session_state.preparar_mails = False
+                    st.rerun()
         
         mostrar_dialogo_preparar_mails()
 
     # ── DESCARGA FUERA DEL MODAL ─────────────────────────────────────────────
     if st.session_state.get("excel_descarga"):
         st.success("🎉 ¡Mailing generado exitosamente! Descargue el archivo:")
-        
         col_desc1, col_desc2, col_desc3 = st.columns([1, 2, 1])
         with col_desc2:
-            st.download_button(
-                label="📥 DESCARGAR EXCEL",
-                data=st.session_state.excel_descarga,
-                file_name=st.session_state.nombre_excel,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary",
-                use_container_width=True
-            )
-            
+            st.download_button(label="📥 DESCARGAR EXCEL", data=st.session_state.excel_descarga, file_name=st.session_state.nombre_excel, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True)
             if st.button("✅ FINALIZAR", use_container_width=True):
                 del st.session_state["excel_descarga"]
                 del st.session_state["nombre_excel"]
@@ -1004,12 +934,7 @@ with tab2:
             registros_sin_legajo = traer_registros_sin_legajo()
             if registros_sin_legajo:
                 contenido_txt = generar_informe_txt(registros_sin_legajo)
-                st.download_button(
-                    label="📥 DESCARGAR TXT",
-                    data=contenido_txt.encode('utf-8'),
-                    file_name=f"INFORME_NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
-                )
+                st.download_button(label="📥 DESCARGAR TXT", data=contenido_txt.encode('utf-8'), file_name=f"INFORME_NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", mime="text/plain")
                 st.info(f"📊 {len(registros_sin_legajo)} registros sin legajo")
             else:
                 st.success("✅ No hay registros sin legajo")
@@ -1020,12 +945,7 @@ with tab2:
             registros_con_legajo = traer_registros_con_legajo()
             if registros_con_legajo:
                 excel_data = generar_excel_asignados(registros_con_legajo)
-                st.download_button(
-                    label="📥 DESCARGAR EXCEL (TODOS)",
-                    data=excel_data,
-                    file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                st.download_button(label="📥 DESCARGAR EXCEL (TODOS)", data=excel_data, file_name=f"INFORME_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 st.info(f"📊 {len(registros_con_legajo)} registros con legajo")
             else:
                 st.success("✅ No hay registros con legajo")
@@ -1034,32 +954,24 @@ with tab2:
     if st.session_state.get('generar_informe_por_inspector'):
         with st.spinner("Generando informe por inspector..."):
             excel_data = generar_excel_por_inspector()
-            st.download_button(
-                label="📥 DESCARGAR EXCEL (POR INSPECTOR)",
-                data=excel_data,
-                file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.download_button(label="📥 DESCARGAR EXCEL (POR INSPECTOR)", data=excel_data, file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
     # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
-        
         with st.spinner("Cargando configuración..."):
-            insp_loc   = cargar_inspectores_localidad()
+            insp_loc = cargar_inspectores_localidad()
             insp_zonas = cargar_zonas_inspectores()
-            sinonimos  = cargar_sinonimos()
+            sinonimos = cargar_sinonimos()
             palabras_ancla = cargar_palabras_ancla()
-            lkp_loc    = construir_lookup_localidades(insp_loc)
-            lkp_zonas  = construir_lookup_zonas(insp_zonas)
-            lkp_sin    = construir_lookup_sinonimos(sinonimos)
+            lkp_loc = construir_lookup_localidades(insp_loc)
+            lkp_zonas = construir_lookup_zonas(insp_zonas)
+            lkp_sin = construir_lookup_sinonimos(sinonimos)
             lkp_palabras = construir_lookup_palabras_ancla(palabras_ancla)
-
         with st.spinner("Cargando registros..."):
             registros = traer_registros_sin_legajo()
-
         if not registros:
             st.info("No hay registros sin legajo.")
             st.session_state.asignar_legajos = False
@@ -1069,47 +981,22 @@ with tab2:
             status_text = st.empty()
             asig = []
             no_asig = []
-
             for i, reg in enumerate(registros):
                 percent = (i + 1) / total
                 progress_bar.progress(percent)
                 status_text.markdown(f"🔄 {int(percent * 100)}% - {reg.get('razon_social', 'Sin nombre')[:40]}...")
-                
-                legajo = asignar_legajo(
-                    reg.get('localidad', '') or '',
-                    reg.get('calle', '') or '',
-                    reg.get('numero', '') or '',
-                    lkp_loc, lkp_zonas, lkp_sin, lkp_palabras
-                )
-                
+                legajo = asignar_legajo(reg.get('localidad', '') or '', reg.get('calle', '') or '', reg.get('numero', '') or '', lkp_loc, lkp_zonas, lkp_sin, lkp_palabras)
                 if legajo:
                     asig.append({'id': reg['id'], 'legajo': legajo})
                 else:
-                    no_asig.append({
-                        'id': reg['id'],
-                        'localidad': reg.get('localidad', ''),
-                        'calle': reg.get('calle', ''),
-                        'numero': reg.get('numero', ''),
-                        'razon_social': reg.get('razon_social', ''),
-                        'cuit': reg.get('cuit', ''),
-                        'tel_dom_legal': reg.get('tel_dom_legal', ''),
-                        'tel_dom_real': reg.get('tel_dom_real', ''),
-                    })
-                
+                    no_asig.append({'id': reg['id'], 'localidad': reg.get('localidad', ''), 'calle': reg.get('calle', ''), 'numero': reg.get('numero', ''), 'razon_social': reg.get('razon_social', ''), 'cuit': reg.get('cuit', ''), 'tel_dom_legal': reg.get('tel_dom_legal', ''), 'tel_dom_real': reg.get('tel_dom_real', '')})
                 time.sleep(0.01)
-
             progress_bar.empty()
             status_text.empty()
-
             with st.spinner("Guardando..."):
                 guardados = guardar_legajos_en_batch(asig)
-
             st.session_state.asignar_legajos = False
-            st.session_state.ultima_asignacion = {
-                "asignados": guardados,
-                "no_asignados": len(no_asig),
-                "detalle": no_asig,
-            }
+            st.session_state.ultima_asignacion = {"asignados": guardados, "no_asignados": len(no_asig), "detalle": no_asig}
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
             st.rerun()
 
@@ -1120,22 +1007,16 @@ with tab2:
             st.success(f"✅ {res['asignados']} legajos asignados")
         with col_res2:
             st.warning(f"⚠️ {res['no_asignados']} sin coincidencia")
-        
         if res['no_asignados'] > 0:
             contenido_informe = generar_informe_txt(res['detalle'])
-            st.download_button(
-                label="📥 DESCARGAR INFORME",
-                data=contenido_informe.encode('utf-8'),
-                file_name=f"NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                mime="text/plain"
-            )
+            st.download_button(label="📥 DESCARGAR INFORME", data=contenido_informe.encode('utf-8'), file_name=f"NO_ASIGNADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", mime="text/plain")
             with st.expander(f"📋 Ver {res['no_asignados']} registros"):
                 st.dataframe(pd.DataFrame(res['detalle']), use_container_width=True)
-        
         if st.button("Cerrar resultado"):
             del st.session_state.ultima_asignacion
             st.rerun()
 
+    # ── FILTROS Y TABLA COMPLETA EDITABLE ─────────────────────────────────────
     st.markdown("### 📋 Filtros")
     
     if 'ultima_recarga' not in st.session_state:
@@ -1163,15 +1044,12 @@ with tab2:
         filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
 
     q = supabase.table("padron_deuda_presunta").select("*")
-    
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
-    
     if filtro_mail == "SI":
         q = q.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
         q = q.eq("mail_enviado", "NO")
-    
     if filtro_leg == "CON LEGAJO":
         q = q.not_.is_("leg", "null")
     elif filtro_leg == "SIN LEGAJO":
@@ -1186,7 +1064,6 @@ with tab2:
         df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
     if not df.empty and filtro_razon:
         df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
-    
     if not df.empty and filtro_calle_aprox:
         filtro_norm = normalizar_calle(filtro_calle_aprox)
         if filtro_norm:
@@ -1229,18 +1106,20 @@ with tab2:
                 df_p[col] = df_p[col].apply(lambda x: fmt_fecha(x) if x and x != "" else "")
 
         df_orig = df_p.copy()
+        
+        # TABLA COMPLETA EDITABLE - TODAS LAS COLUMNAS
         df_ed = df_p.rename(columns={
-            'id':'ID','delegacion':'DELEGACION','localidad':'LOCALIDAD','cuit':'CUIT',
-            'razon_social':'RAZON SOCIAL','deuda_presunta':'DEUDA PRESUNTA','cp':'CP',
-            'calle':'CALLE','numero':'NUMERO','piso':'PISO','dpto':'DPTO',
-            'fechareldependencia':'FECHARELDEPENDENCIA','email':'EMAIL',
-            'tel_dom_legal':'TEL_DOM_LEGAL','tel_dom_real':'TEL_DOM_REAL',
-            'ultima_acta':'ULTIMA ACTA','desde':'DESDE','hasta':'HASTA',
-            'detectado':'DETECTADO','estado':'ESTADO','fecha_pago_obl':'FECHA PAGO OBL',
-            'empl_10_2025':'EMPL 10-2025','emp_11_2025':'EMP 11-2025','empl_12_2025':'EMPL 12-2025',
-            'actividad':'ACTIVIDAD','situacion':'SITUACION',
-            'leg':'LEG','vto':'VTO','mail_enviado':'MAIL ENVIADO',
-            'acta':'ACTA','estado_gestion':'ESTADO GESTION',
+            'id':'ID', 'delegacion':'DELEGACION', 'localidad':'LOCALIDAD', 'cuit':'CUIT',
+            'razon_social':'RAZON SOCIAL', 'deuda_presunta':'DEUDA PRESUNTA', 'cp':'CP',
+            'calle':'CALLE', 'numero':'NUMERO', 'piso':'PISO', 'dpto':'DPTO',
+            'fechareldependencia':'FECHARELDEPENDENCIA', 'email':'EMAIL',
+            'tel_dom_legal':'TEL_DOM_LEGAL', 'tel_dom_real':'TEL_DOM_REAL',
+            'ultima_acta':'ULTIMA ACTA', 'desde':'DESDE', 'hasta':'HASTA',
+            'detectado':'DETECTADO', 'estado':'ESTADO', 'fecha_pago_obl':'FECHA PAGO OBL',
+            'empl_10_2025':'EMPL 10-2025', 'emp_11_2025':'EMP 11-2025', 'empl_12_2025':'EMPL 12-2025',
+            'actividad':'ACTIVIDAD', 'situacion':'SITUACION',
+            'leg':'LEG', 'vto':'VTO', 'mail_enviado':'MAIL ENVIADO',
+            'acta':'ACTA', 'estado_gestion':'ESTADO GESTION',
         })
         df_ed.insert(0, "🗑️", False)
 
@@ -1263,6 +1142,7 @@ with tab2:
         if guardar_click:
             mods = 0
             errores_fecha = 0
+            actualizados = []
             with st.spinner("Guardando cambios en Supabase..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
@@ -1270,47 +1150,38 @@ with tab2:
                     orig = df_orig.iloc[idx]
                     upd = {}
                     
-                    nv = row.get('LEG')
-                    if nv != orig.get('leg'):
-                        if nv and str(nv).strip():
-                            try:
-                                upd['leg'] = int(float(str(nv)))
-                            except:
-                                upd['leg'] = None
-                        else:
-                            upd['leg'] = None
-                    
-                    nv = row.get('VTO')
-                    if nv != orig.get('vto'):
-                        if nv and str(nv).strip():
-                            fecha_ok = norm_fecha(str(nv))
-                            if fecha_ok:
-                                upd['vto'] = fecha_ok
+                    # Comparar TODAS las columnas editables
+                    for col_edit, col_orig in [
+                        ('LEG', 'leg'), ('VTO', 'vto'), ('MAIL ENVIADO', 'mail_enviado'),
+                        ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
+                        ('LOCALIDAD', 'localidad'), ('RAZON SOCIAL', 'razon_social'),
+                        ('CUIT', 'cuit'), ('CALLE', 'calle'), ('NUMERO', 'numero'),
+                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta')
+                    ]:
+                        nv = row.get(col_edit)
+                        if nv != orig.get(col_orig):
+                            if col_orig == 'vto' and nv and str(nv).strip():
+                                fecha_ok = norm_fecha(str(nv))
+                                if fecha_ok:
+                                    upd[col_orig] = fecha_ok
+                                else:
+                                    errores_fecha += 1
+                            elif col_orig == 'leg' and nv and str(nv).strip():
+                                try:
+                                    upd[col_orig] = int(float(str(nv)))
+                                except:
+                                    upd[col_orig] = None
                             else:
-                                errores_fecha += 1
-                        else:
-                            upd['vto'] = None
-                    
-                    nv = row.get('MAIL ENVIADO') or 'NO'
-                    if nv not in ('SI', 'NO'):
-                        nv = 'NO'
-                    if nv != orig.get('mail_enviado'):
-                        upd['mail_enviado'] = nv
-                    
-                    nv = row.get('ACTA')
-                    if nv != orig.get('acta'):
-                        upd['acta'] = nv if nv and str(nv).strip() else None
-                    
-                    nv = row.get('ESTADO GESTION') or 'PENDIENTE'
-                    if nv != orig.get('estado_gestion'):
-                        upd['estado_gestion'] = nv
+                                upd[col_orig] = nv if nv and str(nv).strip() else None
                     
                     if upd:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
                         mods += 1
+                        actualizados.append(row['ID'])
 
             if mods > 0:
-                st.success(f"✅ {mods} registros actualizados correctamente.")
+                st.balloons()
+                st.success(f"✅ ¡{mods} registros actualizados correctamente!")
                 if errores_fecha > 0:
                     st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
                 st.session_state.ultima_recarga = datetime.now()
@@ -1336,23 +1207,19 @@ with tab3:
 
     if csv_file:
         st.caption(f"Archivo: **{csv_file.name}**")
-
         try:
             df_prev = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
             with st.expander("Vista previa (5 primeras filas)"):
                 st.dataframe(df_prev.head(5), use_container_width=True, height=200)
-        except Exception:
+        except:
             pass
-
         if st.button("📋 Procesar y actualizar actas", type="primary"):
             with st.spinner("Procesando..."):
                 try:
                     df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-                except Exception:
+                except:
                     df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
-
                 df4.columns = [str(c).strip().upper() for c in df4.columns]
-
                 col_cuit = col_leg = col_vto = col_acta = None
                 for c in df4.columns:
                     cu = c.upper()
@@ -1360,57 +1227,41 @@ with tab3:
                     if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
                     if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
                     if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
-
                 if not all([col_cuit, col_leg, col_vto]):
                     st.error(f"❌ Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
                 else:
                     st.caption(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
-                    
                     actualizados = 0
                     no_encontrados = 0
                     bar = st.progress(0)
-
                     for i, row in df4.iterrows():
                         cuit = re.sub(r'[\.\-,\s]', '', str(row[col_cuit]).strip())
                         leg = str(row[col_leg]).strip() if row[col_leg] else None
                         vto = norm_fecha(row[col_vto])
                         acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
-
                         if cuit and leg and vto:
                             try:
-                                resultado = (supabase.table("padron_deuda_presunta")
-                                           .select("id")
-                                           .eq("cuit", cuit)
-                                           .eq("leg", leg)
-                                           .eq("vto", vto)
-                                           .eq("mail_enviado", "SI")
-                                           .execute())
-                                
+                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
                                 if resultado.data:
                                     for reg in resultado.data:
-                                        supabase.table("padron_deuda_presunta") \
-                                            .update({"acta": acta, "estado_gestion": "FINALIZADO"}) \
-                                            .eq("id", reg['id']).execute()
+                                        supabase.table("padron_deuda_presunta").update({"acta": acta, "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
                                     actualizados += len(resultado.data)
                                 else:
                                     no_encontrados += 1
                             except Exception as e:
                                 st.error(f"Error fila {i}: {e}")
-
                         bar.progress((i + 1) / len(df4))
-
                     bar.empty()
                     col_ok, col_no = st.columns(2)
                     col_ok.metric("✅ Actualizados", actualizados)
                     col_no.metric("❌ No encontrados", no_encontrados)
-
                     if actualizados > 0:
                         st.success(f"✅ {actualizados} actas actualizadas correctamente.")
                     if no_encontrados > 0:
                         st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Generar Informe (con st.page_link - UN SOLO CLIC)
+# TAB 4 — Generar Informe
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("""
@@ -1419,13 +1270,12 @@ with tab4:
         <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Completá el formulario PDF con los datos de los registros listos</p>
     </div>
     """, unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.page_link("pages/generar_informe.py", label="🔗 IR A GENERAR INFORME", icon="📄", use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 5 — INSPECTORES (con st.page_link - UN SOLO CLIC)
+# TAB 5 — INSPECTORES
 # ══════════════════════════════════════════════════════════════════
 with tab5:
     st.markdown("""
@@ -1434,7 +1284,6 @@ with tab5:
         <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, localidades y calles de Mar del Plata</p>
     </div>
     """, unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.page_link("pages/zonas.py", label="🔗 IR A INSPECTORES Y ZONAS", icon="👥", use_container_width=True)
