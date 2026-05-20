@@ -1,12 +1,13 @@
 import streamlit as st
 import fitz  # PyMuPDF
-from PIL import Image, ImageDraw
-import io
+import base64
 import os
+import io
+from PIL import Image
 
-st.set_page_config(layout="wide", page_title="Inspector Interactivo OSECAC")
-st.title("🎯 Detector de Coordenadas por Clic Directo")
-st.markdown("### Haz clic en cualquier parte de la planilla para registrar la coordenada exacta.")
+st.set_page_config(layout="wide", page_title="Inspector Profesional OSECAC")
+st.title("🎯 Detector Binario de Coordenadas PDF")
+st.markdown("Hacé clic en cualquier parte de la planilla para obtener las coordenadas exactas de inyección.")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
@@ -14,91 +15,99 @@ if not os.path.exists(PDF_PATH):
     st.error(f"❌ No se encuentra el archivo '{PDF_PATH}'")
     st.stop()
 
-# 1. CARGAR ESTRUCTURA DEL PDF
-@st.cache_resource
-def cargar_base_pdf():
-    doc = fitz.open(PDF_PATH)
-    page = doc[0]
-    # Renderizar una sola vez a alta resolución (Matriz x2) para guardar en caché
-    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
-    img_base = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-    return img_base, page.rect.width, page.rect.height, page.rotation
+# 1. GENERAR IMAGEN EN MEMORIA PARA EL NAVEGADOR
+doc = fitz.open(PDF_PATH)
+page = doc[0]
+ancho_pdf = page.rect.width
+alto_pdf = page.rect.height
 
-img_original, ancho_pdf, alto_pdf, rotacion_pdf = cargar_base_pdf()
+# Render a resolución estándar para mapeo directo 1:1
+pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5))
+img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-# Inicializar las variables de posición en el estado de la sesión si no existen
-if "x_real" not in st.session_state:
-    st.session_state.x_real = 100
-if "y_real" not in st.session_state:
-    st.session_state.y_real = 100
+buffer = io.BytesIO()
+img.save(buffer, format="PNG")
+img_base64 = base64.b64encode(buffer.getvalue()).decode()
 
-# 2. CAPTURAR EL CLIC DIRECTO EN LA IMAGEN
-# st.image en sus últimas versiones permite capturar el evento de click devolviendo un diccionario
-value = st.image(img_original, caption="Hacé clic sobre el casillero que quieras medir", use_container_width=False, output_format="PNG")
+# Calcular proporciones de visualización
+ancho_vista = int(ancho_pdf * 1.5)
+alto_vista = int(alto_pdf * 1.5)
 
-# Si el usuario hace clic, capturamos las coordenadas del píxel de la imagen en pantalla
-if value and "click_events" in value and value["click_events"]:
-    click = value["click_events"][-1]  # Traer el último clic
-    x_img_click = click["x"]
-    y_img_click = click["y"]
-    
-    # Conseguimos el tamaño actual de la imagen renderizada en el navegador
-    ancho_renderizado = value["width"]
-    alto_renderizado = value["height"]
-    
-    # Convertimos los píxeles de la pantalla web a los puntos reales del PDF
-    st.session_state.x_real = int((x_img_click / ancho_renderizado) * ancho_pdf)
-    st.session_state.y_real = int((y_img_click / alto_renderizado) * alto_pdf)
+# 2. BARRA LATERAL CON DETECTOR MANUAL Y VERIFICACIÓN
+st.sidebar.header("📊 Valores Registrados")
+x_manual = st.sidebar.number_input("X Seleccionado", min_value=0, max_value=int(ancho_pdf), value=100)
+y_manual = st.sidebar.number_input("Y Seleccionado", min_value=0, max_value=int(alto_pdf), value=100)
+angulo_rot = st.sidebar.selectbox("Ángulo de Texto (Prueba)", [270, 90, 0, 180])
 
-# 3. MOSTRAR COORDENADAS DETECTADAS
-st.sidebar.header("📍 Coordenada Capturada")
-st.sidebar.success(f"**X Actual:** {st.session_state.x_real}\n\n**Y Actual:** {st.session_state.y_real}")
-
-# Dibujar la cruz roja en la previsualización del panel lateral para confirmación rápida
-img_miniatura = img_original.copy()
-draw = ImageDraw.Draw(img_miniatura)
-
-# Escala interna para la miniatura
-escala_x = img_original.width / ancho_pdf
-escala_y = img_original.height / alto_pdf
-x_p_min = st.session_state.x_real * escala_x
-y_p_min = st.session_state.y_real * escala_y
-
-draw.ellipse((x_p_min-12, y_p_min-12, x_p_min+12, y_p_min+12), outline="red", width=4)
-draw.line((x_p_min-25, y_p_min, x_p_min+25, y_p_min), fill="red", width=3)
-draw.line((x_p_min, y_p_min-25, x_p_min, y_p_min+25), fill="red", width=3)
-
-st.sidebar.image(img_miniatura, caption="Mira de enfoque", use_container_width=True)
-
-# 4. PROBAR TEXTO Y DESCARGA
-st.sidebar.markdown("---")
-angulo_prueba = st.sidebar.selectbox("Giro del Texto", [270, 90, 0, 180], index=0)
-texto_prueba = st.sidebar.text_input("Texto de test", "30-12345678-9")
-
-if st.sidebar.button("⚙️ COMPROBAR CASILLERO EN PDF", type="primary", use_container_width=True):
+if st.sidebar.button("⚙️ GENERAR PDF DE PRUEBA", use_container_width=True):
     try:
         doc_test = fitz.open(PDF_PATH)
         page_test = doc_test[0]
-        
         page_test.insert_text(
-            (st.session_state.x_real, st.session_state.y_real),
-            texto_prueba,
+            (x_manual, y_manual),
+            "TEST-101",
             fontsize=10,
             color=(1, 0, 0),
-            rotate=angulo_prueba
+            rotate=angulo_rot
         )
-        
-        output = io.BytesIO()
-        doc_test.save(output)
+        out_bytes = io.BytesIO()
+        doc_test.save(out_bytes)
         doc_test.close()
-        output.seek(0)
+        out_bytes.seek(0)
         
         st.sidebar.download_button(
-            label="📥 BAJAR Y COMPROBAR ALINEACIÓN",
-            data=output,
-            file_name="test_clic_osecac.pdf",
+            label="📥 DESCARGAR COMPROBACIÓN",
+            data=out_bytes,
+            file_name="comprobacion_casillero.pdf",
             mime="application/pdf",
             use_container_width=True
         )
     except Exception as e:
         st.sidebar.error(f"Error: {e}")
+
+# 3. INTERFAZ DE CLIC DINÁMICO (HTML5 + JAVASCRIPT NATIVO)
+# Esto captura el evento del mouse en tiempo real directamente en el cliente
+html_code = f"""
+<div style="position: relative; display: inline-block;">
+    <img id="planilla_pdf" src="data:image/png;base64,{img_base64}" width="{ancho_vista}" height="{alto_vista}" style="cursor: crosshair; border: 2px solid #ccc;"/>
+    <div id="marcador" style="position: absolute; width: 10px; height: 10px; background: red; border-radius: 50%; display: none; pointer-events: none;"></div>
+</div>
+
+<p style="font-family: sans-serif; font-size: 14px; margin-top: 10px; color: #333;">
+    <strong>Último Click en Pantalla -> </strong> 
+    <span id="coordenadas_vista" style="background: #fffbdf; padding: 4px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #e6db55;">
+        Haz clic en la imagen superior para medir
+    </span>
+</p>
+
+<script>
+    const img = document.getElementById('planilla_pdf');
+    const marcador = document.getElementById('marcador');
+    const txt = document.getElementById('coordenadas_vista');
+    
+    // Proporciones matemáticas para devolver el punto real del PDF (atendiendo a la escala 1.5)
+    const factorX = {ancho_pdf} / {ancho_vista};
+    const factorY = {alto_pdf} / {alto_vista};
+
+    img.addEventListener('click', function(e) {{
+        const rect = img.getBoundingClientRect();
+        const x_vista = e.clientX - rect.left;
+        const y_vista = e.clientY - rect.top;
+        
+        // Conversión exacta a puntos de mapa PDF real
+        const x_pdf = Math.round(x_vista * factorX);
+        const y_pdf = Math.round(y_vista * factorY);
+        
+        // Mover el punto rojo visualmente en la pantalla web
+        marcador.style.left = (x_vista - 5) + 'px';
+        marcador.style.top = (y_vista - 5) + 'px';
+        marcador.style.display = 'block';
+        
+        // Escribir el resultado para el usuario
+        txt.innerHTML = "Coordenada PDF Real sugerida para colocar en el menú de la izquierda: <strong>X: " + x_pdf + " | Y: " + y_pdf + "</strong>";
+    }});
+</script>
+"""
+
+# Renderizamos el módulo interactivo en el centro de tu aplicación
+st.components.v1.html(html_code, height=alto_vista + 80, scrolling=True)
