@@ -1,15 +1,11 @@
 import streamlit as st
 import fitz
-import base64
-import os
 import io
-import json
-from PIL import Image
+import os
 from datetime import datetime
 
-st.set_page_config(layout="wide", page_title="Calibrador Simple - OSECAC")
-st.title("🎯 Calibrador de Casilleros - Versión Simple")
-st.markdown("**Hacé clic en el PDF. Las coordenadas aparecerán abajo. Copialas manualmente.**")
+st.set_page_config(layout="centered", page_title="Prueba de Escritura en PDF")
+st.title("✍️ Prueba de Escritura en PDF")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
@@ -17,114 +13,52 @@ if not os.path.exists(PDF_PATH):
     st.error(f"❌ No se encuentra '{PDF_PATH}'")
     st.stop()
 
-# Inicializar lista de coordenadas
-if "coordenadas" not in st.session_state:
-    st.session_state.coordenadas = []
-
-# Cargar PDF
-doc = fitz.open(PDF_PATH)
-page = doc[0]
-ancho_pdf = page.rect.width
-alto_pdf = page.rect.height
-
-# Render imagen
-escala = 1.5
-pix = page.get_pixmap(matrix=fitz.Matrix(escala, escala))
-img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-buffer = io.BytesIO()
-img.save(buffer, format="PNG")
-img_base64 = base64.b64encode(buffer.getvalue()).decode()
-ancho_vista = int(ancho_pdf * escala)
-alto_vista = int(alto_pdf * escala)
-
-# HTML con JavaScript para capturar clics
-html_code = f"""
-<div style="position: relative; display: inline-block;">
-    <img id="planilla_pdf" src="data:image/png;base64,{img_base64}" width="{ancho_vista}" height="{alto_vista}" style="cursor: crosshair; border: 2px solid #333;"/>
-    <div id="marcador" style="position: absolute; width: 16px; height: 16px; background: red; border: 2px solid white; border-radius: 50%; display: none; pointer-events: none;"></div>
-</div>
-
-<script>
-    const img = document.getElementById('planilla_pdf');
-    const marcador = document.getElementById('marcador');
-    const factorX = {ancho_pdf} / {ancho_vista};
-    const factorY = {alto_pdf} / {alto_vista};
-
-    img.addEventListener('click', function(e) {{
-        const rect = img.getBoundingClientRect();
-        const x_vista = e.clientX - rect.left;
-        const y_vista = e.clientY - rect.top;
-        
-        const x_pdf = Math.round(x_vista * factorX);
-        const y_pdf = Math.round(y_vista * factorY);
-        
-        marcador.style.left = (x_vista - 8) + 'px';
-        marcador.style.top = (y_vista - 8) + 'px';
-        marcador.style.display = 'block';
-        
-        // Mostrar coordenadas en el div
-        const coordsDiv = document.getElementById('coords_actuales');
-        if (coordsDiv) {{
-            coordsDiv.innerHTML = '<strong>X: ' + x_pdf + ' | Y: ' + y_pdf + '</strong>';
-        }}
-        
-        // Actualizar campos ocultos (para que Streamlit los capture)
-        const xInput = parent.document.querySelector('input[aria-label="X capturada"]');
-        const yInput = parent.document.querySelector('input[aria-label="Y capturada"]');
-        if (xInput) {{
-            xInput.value = x_pdf;
-            xInput.dispatchEvent(new Event('input', {{bubbles: true}}));
-        }}
-        if (yInput) {{
-            yInput.value = y_pdf;
-            yInput.dispatchEvent(new Event('input', {{bubbles: true}}));
-        }}
-    }});
-</script>
-"""
-
-st.components.v1.html(html_code, height=alto_vista + 50)
-
-# Mostrar coordenadas actuales
-st.markdown("---")
-st.markdown("### 📍 Último clic:")
-
-col1, col2 = st.columns(2)
-with col1:
-    x_actual = st.number_input("X capturada", value=0, step=1, key="x_actual")
-with col2:
-    y_actual = st.number_input("Y capturada", value=0, step=1, key="y_actual")
-
-# Botón para agregar
-col3, col4 = st.columns(2)
-with col3:
-    nombre = st.text_input("Nombre del campo (ej: AREA_FISCALIZACION)", key="nombre_campo")
-with col4:
-    if st.button("➕ AGREGAR COORDENADA", use_container_width=True):
-        if x_actual > 0 or y_actual > 0:
-            st.session_state.coordenadas.append({
-                "nombre": nombre if nombre else f"campo_{len(st.session_state.coordenadas)+1}",
-                "x": x_actual,
-                "y": y_actual
-            })
-            st.success(f"✅ Agregado: X={x_actual}, Y={y_actual}")
-            st.rerun()
-
-# Mostrar lista de coordenadas guardadas
-st.markdown("---")
-st.markdown("### 📋 Coordenadas guardadas")
-
-for i, coord in enumerate(st.session_state.coordenadas):
-    st.caption(f"{i+1}. {coord['nombre']}: X={coord['x']}, Y={coord['y']}")
-
-# Botón para descargar JSON
-if st.session_state.coordenadas:
-    st.markdown("---")
-    json_data = json.dumps(st.session_state.coordenadas, indent=2, ensure_ascii=False)
+# Botón para escribir "MAR DEL PLATA" en la coordenada X=138, Y=62
+if st.button("📝 ESCRIBIR 'MAR DEL PLATA' EN X=138, Y=62", type="primary", use_container_width=True):
+    # Abrir el PDF original
+    doc = fitz.open(PDF_PATH)
+    page = doc[0]
+    
+    # Obtener dimensiones
+    altura_pdf = page.rect.height
+    
+    # Escribir texto en la coordenada (convertir Y porque fitz usa Y desde abajo)
+    x = 138
+    y = altura_pdf - 62  # Convertir coordenada
+    
+    page.insert_text(
+        (x, y),
+        "MAR DEL PLATA",
+        fontsize=10,
+        color=(1, 0, 0),  # Rojo para que se vea bien
+        rotate=0
+    )
+    
+    # Guardar en memoria
+    output = io.BytesIO()
+    doc.save(output)
+    doc.close()
+    output.seek(0)
+    
+    # Descargar
+    st.success("✅ PDF generado correctamente")
     st.download_button(
-        label="📥 DESCARGAR JSON",
-        data=json_data,
-        file_name=f"coordenadas_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-        mime="application/json",
+        label="📥 DESCARGAR PDF CON TEXTO",
+        data=output,
+        file_name=f"prueba_escritura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        mime="application/pdf",
         use_container_width=True
     )
+    
+    # Mostrar vista previa
+    st.markdown("### Vista previa:")
+    base64_pdf = base64.b64encode(output.getvalue()).decode('utf-8')
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
+st.markdown("---")
+st.markdown("### Instrucciones:")
+st.markdown("1. Apretá el botón")
+st.markdown("2. Descargá el PDF")
+st.markdown("3. Abrilo y buscá el texto **'MAR DEL PLATA'** en rojo")
+st.markdown("4. Si aparece donde debe estar (debajo de AREA DE FISCALIZACION), el sistema funciona")
