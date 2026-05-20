@@ -1,60 +1,74 @@
 import streamlit as st
 from pypdf import PdfReader, PdfWriter
+import fitz  # PyMuPDF (para obtener posiciones)
 
-st.set_page_config(page_title="Numerador de Campos", layout="wide")
-st.title("🔢 Numerador de Campos - Planilla Inspectores")
+st.set_page_config(page_title="Numerador Inteligente", layout="wide")
+st.title("🔢 Numerador de Campos - Orden Horizontal (fila por fila)")
 
-def numerar_todos_los_campos(input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="PLANILLA_CON_NUMEROS.pdf"):
+def numerar_campos_horizontal(input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="PLANILLA_CON_NUMEROS.pdf"):
+    # Usamos PyMuPDF para obtener posiciones reales
+    doc = fitz.open(input_pdf)
+    page = doc[0]
+    
+    # Obtener todos los widgets (campos)
+    widgets = []
+    for widget in page.widgets():
+        if widget.field_name:
+            # Guardamos nombre + centro del campo (para ordenar)
+            rect = widget.rect
+            center_x = (rect.x0 + rect.x1) / 2
+            center_y = (rect.y0 + rect.y1) / 2
+            widgets.append((widget.field_name, center_x, center_y))
+    
+    # Ordenar: primero por Y (de arriba hacia abajo), luego por X (izquierda a derecha)
+    widgets.sort(key=lambda w: (w[2], w[1]))   # ← Esto es lo clave
+
+    # Ahora rellenamos con pypdf
     reader = PdfReader(input_pdf)
     writer = PdfWriter()
-    
-    writer.append(reader)  # Copia el PDF completo
+    writer.append(reader)
     writer.set_need_appearances_writer(True)
-
-    fields = reader.get_fields()
-    if not fields:
-        st.error("No se encontraron campos en el PDF")
-        return None
 
     datos = {}
     contador = 1
-    
-    st.info(f"Se encontraron **{len(fields)} campos** en total. Numerándolos...")
 
-    for nombre_campo in fields.keys():
-        datos[nombre_campo] = str(contador)
+    st.write(f"Se encontraron **{len(widgets)} campos**")
+
+    for nombre, _, _ in widgets:
+        datos[nombre] = str(contador)
         contador += 1
 
-    # Rellenar con los números
     writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=False)
 
     with open(output_pdf, "wb") as f:
         writer.write(f)
-
+    
+    doc.close()
     return output_pdf, datos
 
 # ====================== BOTÓN ======================
-if st.button("🚀 GENERAR PDF CON NÚMEROS EN TODOS LOS CAMPOS", type="primary", use_container_width=True):
-    with st.spinner("Analizando y numerando todos los campos..."):
-        resultado = numerar_todos_los_campos()
-        
-        if resultado:
-            archivo, mapeo = resultado
+if st.button("🚀 GENERAR PDF CON NÚMEROS EN ORDEN HORIZONTAL", type="primary", use_container_width=True):
+    with st.spinner("Ordenando campos de izquierda a derecha y fila por fila..."):
+        try:
+            archivo, mapeo = numerar_campos_horizontal()
             
-            st.success(f"✅ Listo! Se numeraron **{len(mapeo)} campos**")
+            st.success(f"✅ ¡Listo! Se numeraron **{len(mapeo)} campos** en orden horizontal")
             
             with open(archivo, "rb") as f:
                 st.download_button(
-                    label="⬇️ DESCARGAR PDF CON NÚMEROS",
+                    label="⬇️ DESCARGAR PDF CON NÚMEROS (Orden fila por fila)",
                     data=f,
-                    file_name="PLANILLA_CON_NUMEROS.pdf",
+                    file_name="PLANILLA_CON_NUMEROS_HORIZONTAL.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
             
-            # Mostrar el mapeo
-            with st.expander("Ver mapeo Número → Nombre del campo"):
-                for num, (campo, valor) in enumerate(mapeo.items(), 1):
-                    st.text(f"{num:3d}  →  {campo}")
+            with st.expander("Ver lista de campos numerados"):
+                for num, campo in enumerate(mapeo.keys(), 1):
+                    st.text(f"{num:3d} → {campo}")
+                    
+        except Exception as e:
+            st.error(f"Error: {e}")
+            st.info("Asegúrate de tener pymupdf instalado en requirements.txt")
 
-st.caption("Apretá el botón y abrí el PDF generado. Ahí vas a ver claramente qué número cae en cada casillero.")
+st.caption("Este código ordena los campos visualmente de izquierda a derecha, fila por fila.")
