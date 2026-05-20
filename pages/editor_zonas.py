@@ -16,7 +16,7 @@ def get_supabase():
 supabase = get_supabase()
 
 st.set_page_config(layout="centered")
-st.title("📄 Prueba de Relleno de PDF - Corregido")
+st.title("📄 Relleno de PDF - Campos Correctos")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
@@ -30,41 +30,36 @@ registros = supabase.table("padron_deuda_presunta").select("*").eq("leg", INSPEC
 if registros.data:
     st.success(f"✅ Se encontraron {len(registros.data)} registros listos para GARCIA")
     
-    # Tomar el primer registro para obtener fecha VTO
     primer_registro = registros.data[0]
     fecha_vto = primer_registro.get('vto', '')
     
     if fecha_vto:
         fecha_obj = datetime.strptime(fecha_vto, '%Y-%m-%d')
-        mes_vto = fecha_obj.strftime('%m')
-        año_vto = fecha_obj.strftime('%Y')
+        mes_vto = fecha_obj.strftime('%m')   # 01, 02, 03...
+        año_vto = fecha_obj.strftime('%Y')   # 2024, 2025, 2026...
         
-        st.info(f"📅 Fecha VTO: {fecha_vto} → Campo 154: {mes_vto}, Campo 153: {año_vto}")
+        st.info(f"📅 Fecha VTO: {fecha_vto} → Campo 154 (MES): '{mes_vto}' | Campo 153 (AÑO): '{año_vto}'")
         
-        if st.button("📄 GENERAR PDF DE PRUEBA", type="primary"):
-            # Leer el PDF
+        if st.button("📄 GENERAR PDF", type="primary"):
             reader = PdfReader(PDF_PATH)
             writer = PdfWriter()
             writer.append(reader)
             writer.set_need_appearances_writer(True)
             
-            # Datos a rellenar (separados correctamente)
+            # Datos en los campos correctos según numeración
             datos = {
                 "AREA DE FISCALIZACIONRow1": "MAR DEL PLATA",
                 "APELLIDO Y NOMBRES INSPECTORRow1": INSPECTOR_NOMBRE,
-                "MES Y AÑORow1": "",  # Este campo combinado no lo usamos
-                "VMES": mes_vto,      # Campo 154 - solo mes
-                "VAÑO": año_vto,      # Campo 153 - solo año
+                "VTOAÑO1": año_vto,    # Campo 153 - Año
+                "VTOMES1": mes_vto,    # Campo 154 - Mes
             }
             
-            # Actualizar campos con auto_regenerate=True
             writer.update_page_form_field_values(
                 writer.pages[0], 
                 datos, 
-                auto_regenerate=True  # ← CLAVE: regenera apariencia
+                auto_regenerate=True
             )
             
-            # Guardar
             output = io.BytesIO()
             writer.write(output)
             output.seek(0)
@@ -73,7 +68,7 @@ if registros.data:
             st.download_button(
                 label="📥 DESCARGAR PDF",
                 data=output,
-                file_name=f"prueba_garcia_corregido.pdf",
+                file_name=f"prueba_garcia_campos_correctos.pdf",
                 mime="application/pdf"
             )
 else:
