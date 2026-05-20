@@ -26,7 +26,6 @@ st.markdown("""
 .app-header p { color: #94a3b8; margin: 0; font-size: 0.8rem; }
 div[data-testid="stButton"] > button { border-radius: 8px !important; font-weight: 500 !important; }
 div[data-testid="stButton"] > button[kind="primary"] { background-color: #10b981 !important; }
-.stProgress > div > div > div > div { background-color: #10b981 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -38,17 +37,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Configuración ────────────────────────────────────────────────────────────
-PDF_PLANTILLA = "ORIGINAL.pdf"  # Archivo plantilla (NO SE MODIFICA)
+PDF_PLANTILLA = "ORIGINAL.pdf"
 
 # ==================================================
 # COORDENADAS (número visible → coordenadas X, Y)
 # ==================================================
 COORDENADAS = {
-    # Cabecera
     1: {"x": 145, "y": 303},
     2: {"x": 167, "y": 303},
-    
-    # Empresa 1
     5: {"x": 592, "y": 945},
     6: {"x": 144, "y": 759},
     7: {"x": 144, "y": 640},
@@ -61,8 +57,6 @@ COORDENADAS = {
     339: {"x": 144, "y": 449},
     355: {"x": 144, "y": 432},
     167: {"x": 144, "y": 362},
-    
-    # Empresa 2
     19: {"x": 188, "y": 974},
     20: {"x": 188, "y": 759},
     26: {"x": 211, "y": 974},
@@ -75,8 +69,6 @@ COORDENADAS = {
     341: {"x": 188, "y": 449},
     357: {"x": 188, "y": 432},
     156: {"x": 188, "y": 362},
-    
-    # Empresa 3
     34: {"x": 232, "y": 974},
     35: {"x": 232, "y": 759},
     42: {"x": 254, "y": 974},
@@ -89,8 +81,6 @@ COORDENADAS = {
     343: {"x": 232, "y": 449},
     359: {"x": 232, "y": 432},
     158: {"x": 232, "y": 362},
-    
-    # Empresa 4
     50: {"x": 592, "y": 944},
     51: {"x": 276, "y": 759},
     59: {"x": 254, "y": 359},
@@ -103,8 +93,6 @@ COORDENADAS = {
     345: {"x": 276, "y": 449},
     361: {"x": 276, "y": 432},
     160: {"x": 276, "y": 362},
-    
-    # Empresa 5
     67: {"x": 144, "y": 359},
     68: {"x": 166, "y": 359},
     76: {"x": 145, "y": 64},
@@ -117,8 +105,6 @@ COORDENADAS = {
     347: {"x": 320, "y": 449},
     363: {"x": 320, "y": 432},
     162: {"x": 320, "y": 362},
-    
-    # Empresa 6
     86: {"x": 277, "y": 133},
     87: {"x": 299, "y": 132},
     96: {"x": 299, "y": 96},
@@ -131,8 +117,6 @@ COORDENADAS = {
     349: {"x": 364, "y": 449},
     365: {"x": 364, "y": 432},
     172: {"x": 364, "y": 362},
-    
-    # Empresa 7
     106: {"x": 408, "y": 971},
     107: {"x": 408, "y": 759},
     116: {"x": 430, "y": 971},
@@ -145,8 +129,6 @@ COORDENADAS = {
     351: {"x": 408, "y": 449},
     367: {"x": 408, "y": 432},
     164: {"x": 408, "y": 362},
-    
-    # Empresa 8
     126: {"x": 452, "y": 971},
     127: {"x": 452, "y": 759},
     136: {"x": 474, "y": 971},
@@ -162,7 +144,6 @@ COORDENADAS = {
 }
 
 def obtener_registros_listos(legajo=None):
-    """Obtiene registros que cumplen las condiciones"""
     query = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI").not_.is_("leg", "null").not_.is_("acta", "null").not_.is_("vto", "null")
     if legajo:
         query = query.eq("leg", legajo)
@@ -179,10 +160,12 @@ def formatear_fecha(fecha_str):
 
 def generar_pdf_con_datos(registros, inspector_nombre, output_path):
     """Genera un PDF con los datos (sin modificar la plantilla original)"""
-    # Copiar la plantilla a un archivo temporal
-    shutil.copy(PDF_PLANTILLA, output_path)
+    # Copiar la plantilla a un archivo temporal de trabajo
+    temp_work = tempfile.mktemp(suffix=".pdf")
+    shutil.copy(PDF_PLANTILLA, temp_work)
     
-    doc = fitz.open(output_path)
+    # Abrir el archivo temporal para escribir
+    doc = fitz.open(temp_work)
     page = doc[0]
     altura = page.rect.height
     
@@ -236,7 +219,6 @@ def generar_pdf_con_datos(registros, inspector_nombre, output_path):
         hasta_mes = hasta_obj.strftime('%m') if hasta_obj else ''
         hasta_año = hasta_obj.strftime('%Y') if hasta_obj else ''
         
-        # Escribir cada campo en su coordenada
         campos = [
             (nums["razon_social"][fila], nombre_direccion[:60]),
             (nums["cuit1"][fila], cuit),
@@ -258,15 +240,19 @@ def generar_pdf_con_datos(registros, inspector_nombre, output_path):
                 y = altura - COORDENADAS[num]["y"]
                 page.insert_text((x, y), str(texto), fontsize=8, color=(0, 0, 0))
     
+    # Guardar el documento en el archivo de salida
     doc.save(output_path)
     doc.close()
+    
+    # Limpiar archivo temporal
+    if os.path.exists(temp_work):
+        os.unlink(temp_work)
 
 # ── Obtener inspectores ──────────────────────────────────────────────────────
 inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
 opciones_inspectores = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins for ins in inspectores.data}
 opciones_inspectores["TODOS"] = None
 
-# ── Interfaz ─────────────────────────────────────────────────────────────────
 st.markdown("### Seleccionar Inspector")
 inspector_sel = st.selectbox("Inspector", options=list(opciones_inspectores.keys()))
 
