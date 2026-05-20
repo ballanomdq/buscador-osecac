@@ -693,12 +693,15 @@ def procesar_excel(archivo):
         out.append(r)
     return out
 
-# ── Pestañas ──────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════
+# TABS CON EL NUEVO ORDEN Y REDIRECCIONES DIRECTAS
+# ══════════════════════════════════════════════════════════════════
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Cargar Padrón",
     "✏️ Editar Legajos y Vtos",
-    "📧 Generar Informe",
     "📋 Subir Actas",
+    "📧 Generar Informe",
     "👥 INSPECTORES"
 ])
 
@@ -742,7 +745,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (VERSIÓN ROBUSTA CON ACTUALIZACIÓN EFECTIVA)
+# TAB 2 — Editar Legajos y Vtos
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -830,9 +833,7 @@ with tab2:
                 st.session_state.pop(k, None)
             st.rerun()
     with col_recargar:
-        # BOTÓN RECARGAR MEJORADO: fuerza actualización completa
         if st.button("⟳ Recargar", use_container_width=True):
-            # Forzar recreación del editor y limpiar caché visual
             st.session_state.ultima_recarga = datetime.now()
             st.session_state.pop('pagina_actual', None)
             st.rerun()
@@ -850,7 +851,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS (CORREGIDO - TRAE TODOS LOS REGISTROS) ──
+    # ── DIÁLOGO FLOTANTE DE PREPARAR MAILS ─────────────────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -1145,11 +1146,10 @@ with tab2:
             st.rerun()
 
     # ============================================================
-    # SECCIÓN DE FILTROS Y TABLA - VERSIÓN ROBUSTA
+    # SECCIÓN DE FILTROS Y TABLA
     # ============================================================
     st.markdown("### 📋 Filtros")
     
-    # Inicializar timestamp para forzar recarga
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
     
@@ -1174,39 +1174,31 @@ with tab2:
         st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
         filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
 
-    # ── CONSTRUIR CONSULTA CON TODOS LOS FILTROS EN SUPABASE ──
     q = supabase.table("padron_deuda_presunta").select("*")
     
-    # Filtro LOCALIDAD
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
     
-    # Filtro MAIL
     if filtro_mail == "SI":
         q = q.eq("mail_enviado", "SI")
     elif filtro_mail == "NO":
         q = q.eq("mail_enviado", "NO")
     
-    # Filtro LEGAJO (en Supabase, NO en Pandas)
     if filtro_leg == "CON LEGAJO":
         q = q.not_.is_("leg", "null")
     elif filtro_leg == "SIN LEGAJO":
         q = q.is_("leg", "null")
     
-    # EJECUTAR CONSULTA (siempre nueva, sin caché)
     with st.spinner("Consultando base de datos..."):
         datos = q.execute()
     
-    # Convertir a DataFrame
     df = pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
     
-    # Filtros CUIT y RAZON SOCIAL (en Pandas por ser búsqueda textual)
     if not df.empty and filtro_cuit:
         df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
     if not df.empty and filtro_razon:
         df = df[df['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
     
-    # Filtro CALLE por similitud (en Pandas)
     if not df.empty and filtro_calle_aprox:
         filtro_norm = normalizar_calle(filtro_calle_aprox)
         if filtro_norm:
@@ -1215,17 +1207,14 @@ with tab2:
             df = df[df['similitud'] > 0.4].sort_values('similitud', ascending=False)
             df = df.drop(columns=['calle_norm', 'similitud'])
 
-    # ── CONTADOR REAL (sobre el df actual) ──
     total_en_tabla = len(df)
     RPP = 300
     pages = max(1, (total_en_tabla + RPP - 1) // RPP)
 
-    # Inicializar o validar página actual
     if 'pagina_actual' not in st.session_state:
         st.session_state.pagina_actual = 1
     st.session_state.pagina_actual = max(1, min(st.session_state.pagina_actual, pages))
 
-    # Paginación
     col_pag1, col_pag2, col_pag3 = st.columns([1, 3, 1])
     with col_pag1:
         if st.button("◀ Anterior", disabled=st.session_state.pagina_actual <= 1):
@@ -1238,14 +1227,12 @@ with tab2:
             st.session_state.pagina_actual += 1
             st.rerun()
 
-    # Si no hay datos, mostrar mensaje y continuar con el resto de la página
     if df.empty:
         st.info("No hay registros que coincidan con los filtros seleccionados.")
     else:
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
 
-        # Formatear celdas
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
         
@@ -1272,7 +1259,6 @@ with tab2:
         if st.checkbox("Seleccionar todos los de esta página"):
             df_ed["🗑️"] = True
 
-        # IMPORTANTE: key ÚNICA que cambia con la página y la recarga para evitar estado residual
         editor_key = f"editor_{st.session_state.pagina_actual}_{st.session_state.ultima_recarga.timestamp()}"
         
         edited = st.data_editor(
@@ -1339,7 +1325,6 @@ with tab2:
                 st.success(f"✅ {mods} registros actualizados correctamente.")
                 if errores_fecha > 0:
                     st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
-                # FORZAR RECARGA COMPLETA DESPUÉS DE GUARDAR
                 st.session_state.ultima_recarga = datetime.now()
                 st.rerun()
             elif errores_fecha > 0:
@@ -1348,34 +1333,9 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Generar Informe
+# TAB 3 — Subir Actas
 # ══════════════════════════════════════════════════════════════════
 with tab3:
-    st.markdown("### 📋 Generar Informe Mensual de Inspección")
-    st.markdown("Completá el formulario PDF con los datos de los registros listos (con acta, VTO y CUIT).")
-    
-    st.markdown("---")
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6;">
-            <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">📄 Generar Informe</h3>
-            <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Seleccioná el inspector y generá el PDF con los datos listos</p>
-            <a href="https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/generar_informe" target="_blank">
-                <button style="background: #10b981; color: white; border: none; padding: 0.4rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500;">
-                    🔗 IR A GENERAR INFORME
-                </button>
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.caption("💡 También puede acceder directamente desde el menú lateral o el enlace directo")
-
-# ══════════════════════════════════════════════════════════════════
-# TAB 4 — Subir Actas
-# ══════════════════════════════════════════════════════════════════
-with tab4:
     st.markdown("#### 📋 Subir Actas (CSV)")
     st.markdown("""
     <div style="background:#1e293b; padding:0.5rem 1rem; border-radius:6px; border-left:3px solid #3b82f6; margin-bottom:1rem;">
@@ -1462,26 +1422,13 @@ with tab4:
                         st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 5 — INSPECTORES
+# TAB 4 — Generar Informe (REDIRECCIÓN DIRECTA)
+# ══════════════════════════════════════════════════════════════════
+with tab4:
+    st.switch_page("pages/generar_informe.py")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — INSPECTORES (REDIRECCIÓN DIRECTA)
 # ══════════════════════════════════════════════════════════════════
 with tab5:
-    st.markdown("### 👥 Gestión de Inspectores y Zonas")
-    st.markdown("Acceda al panel completo de administración de inspectores, localidades y calles de Mar del Plata.")
-    
-    url_zonas = "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/zonas"
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6; margin: 0.5rem 0;">
-            <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">🗺️ Zonas de Inspectores</h3>
-            <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, asigne localidades y configure calles para Mar del Plata</p>
-            <a href="{url_zonas}" target="_blank">
-                <button style="background: #2563eb; color: white; border: none; padding: 0.4rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">
-                    🔗 IR A INSPECTORES Y ZONAS
-                </button>
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.caption("💡 También puede acceder directamente desde el enlace: " + url_zonas)
+    st.switch_page("pages/zonas.py")
