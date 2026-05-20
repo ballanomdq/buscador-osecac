@@ -1,49 +1,51 @@
 import streamlit as st
 import fitz
-import base64
-import os
-from PIL import Image
 import io
+import os
+import base64
+from datetime import datetime
 
-st.set_page_config(layout="wide")
-st.title("📍 Buscá la coordenada exacta")
+st.set_page_config(layout="centered", page_title="Prueba de Escritura en PDF")
+st.title("✍️ Prueba de Escritura en PDF - Coordenada Corregida")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
 if not os.path.exists(PDF_PATH):
-    st.error(f"No se encuentra {PDF_PATH}")
+    st.error(f"❌ No se encuentra '{PDF_PATH}'")
     st.stop()
 
-doc = fitz.open(PDF_PATH)
-page = doc[0]
-ancho = page.rect.width
-alto = page.rect.height
-
-escala = 1.5
-pix = page.get_pixmap(matrix=fitz.Matrix(escala, escala))
-img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-buffer = io.BytesIO()
-img.save(buffer, format="PNG")
-img_base64 = base64.b64encode(buffer.getvalue()).decode()
-ancho_vista = int(ancho * escala)
-alto_vista = int(alto * escala)
-
-html = f"""
-<img src="data:image/png;base64,{img_base64}" width="{ancho_vista}" style="cursor: crosshair; border: 1px solid #ccc;" id="pdf_img"/>
-<div id="coords" style="margin-top: 10px; font-size: 18px; font-family: monospace;">Hacé clic en el PDF</div>
-<script>
-    const img = document.getElementById('pdf_img');
-    const coordsDiv = document.getElementById('coords');
-    const factorX = {ancho} / {ancho_vista};
-    const factorY = {alto} / {alto_vista};
+if st.button("📝 ESCRIBIR 'MAR DEL PLATA'", type="primary", use_container_width=True):
+    doc = fitz.open(PDF_PATH)
+    page = doc[0]
     
-    img.addEventListener('click', function(e) {{
-        const rect = img.getBoundingClientRect();
-        const x = Math.round((e.clientX - rect.left) * factorX);
-        const y = Math.round((e.clientY - rect.top) * factorY);
-        coordsDiv.innerHTML = '✅ X=' + x + ' | Y=' + y;
-    }});
-</script>
-"""
-
-st.components.v1.html(html, height=alto_vista + 100)
+    # Coordenada que sacaste con el calibrador
+    x = 140
+    y = 61  # Esta es la coordenada directa, sin conversión especial
+    
+    # Escribir en la coordenada
+    page.insert_text(
+        (x, y),
+        "MAR DEL PLATA",
+        fontsize=8,
+        color=(1, 0, 0),
+        rotate=0
+    )
+    
+    output = io.BytesIO()
+    doc.save(output)
+    doc.close()
+    output.seek(0)
+    
+    st.success("✅ PDF generado correctamente")
+    st.download_button(
+        label="📥 DESCARGAR PDF",
+        data=output,
+        file_name=f"prueba_escritura_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
+    
+    # Vista previa
+    output.seek(0)
+    base64_pdf = base64.b64encode(output.read()).decode('utf-8')
+    st.markdown(f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf"></iframe>', unsafe_allow_html=True)
