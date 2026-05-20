@@ -1,5 +1,5 @@
 import streamlit as st
-import requests
+import os
 
 st.set_page_config(page_title="Editor de Zonas - OSECAC", layout="wide")
 
@@ -8,27 +8,28 @@ st.markdown("Dibujá y guardá zonas geográficas para cada inspector")
 
 st.markdown("---")
 
-# Botón para descargar el PDF original
+# Botón para descargar el PDF original (YA ESTÁ EN EL REPOSITORIO)
 st.markdown("### 📄 Descargar formulario")
 
-if st.button("📥 DESCARGAR PDF ORIGINAL (INFORME MENSUAL)", use_container_width=True):
-    try:
-        file_id = "1KmGRQ8X1i3xvS8LYyaKDb5vUNarelQjf"
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        response = requests.get(url, timeout=30)
+# La ruta exacta del archivo en tu repositorio
+pdf_path = "EJEMPLO INFORME MENSUAL DE INSPECTORES 101150.pdf"
+
+# Verificar si el archivo existe
+if os.path.exists(pdf_path):
+    if st.button("📥 DESCARGAR PDF ORIGINAL", use_container_width=True):
+        with open(pdf_path, "rb") as f:
+            pdf_data = f.read()
         
-        if response.status_code == 200:
-            st.download_button(
-                label="✅ GUARDAR PDF EN TU PC",
-                data=response.content,
-                file_name="INFORME_MENSUAL_OSECAC.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-        else:
-            st.error(f"No se pudo descargar el PDF. Código: {response.status_code}")
-    except Exception as e:
-        st.error(f"Error al descargar: {e}")
+        st.download_button(
+            label="✅ GUARDAR PDF EN TU PC",
+            data=pdf_data,
+            file_name="INFORME_MENSUAL_OSECAC.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+else:
+    st.error(f"❌ No se encuentra el archivo '{pdf_path}'")
+    st.info("Asegurate de que el PDF esté en la misma carpeta que este script")
 
 st.markdown("---")
 st.markdown("### 🗺️ Aquí va el resto del editor de zonas")
