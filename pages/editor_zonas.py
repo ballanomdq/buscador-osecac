@@ -16,7 +16,7 @@ def get_supabase():
 supabase = get_supabase()
 
 st.set_page_config(layout="centered")
-st.title("📄 Prueba de Relleno de PDF")
+st.title("📄 Prueba de Relleno de PDF - Corregido")
 
 PDF_PATH = "PLANILLA INSPECTORES.pdf"
 
@@ -39,7 +39,7 @@ if registros.data:
         mes_vto = fecha_obj.strftime('%m')
         año_vto = fecha_obj.strftime('%Y')
         
-        st.info(f"📅 Fecha VTO de ejemplo: {fecha_vto} → Mes: {mes_vto}, Año: {año_vto}")
+        st.info(f"📅 Fecha VTO: {fecha_vto} → Campo 154: {mes_vto}, Campo 153: {año_vto}")
         
         if st.button("📄 GENERAR PDF DE PRUEBA", type="primary"):
             # Leer el PDF
@@ -48,15 +48,21 @@ if registros.data:
             writer.append(reader)
             writer.set_need_appearances_writer(True)
             
-            # Datos a rellenar
+            # Datos a rellenar (separados correctamente)
             datos = {
                 "AREA DE FISCALIZACIONRow1": "MAR DEL PLATA",
                 "APELLIDO Y NOMBRES INSPECTORRow1": INSPECTOR_NOMBRE,
-                "MES Y AÑORow1": f"{mes_vto} {año_vto}",
+                "MES Y AÑORow1": "",  # Este campo combinado no lo usamos
+                "VMES": mes_vto,      # Campo 154 - solo mes
+                "VAÑO": año_vto,      # Campo 153 - solo año
             }
             
-            # Actualizar campos
-            writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=False)
+            # Actualizar campos con auto_regenerate=True
+            writer.update_page_form_field_values(
+                writer.pages[0], 
+                datos, 
+                auto_regenerate=True  # ← CLAVE: regenera apariencia
+            )
             
             # Guardar
             output = io.BytesIO()
@@ -67,7 +73,7 @@ if registros.data:
             st.download_button(
                 label="📥 DESCARGAR PDF",
                 data=output,
-                file_name=f"prueba_garcia.pdf",
+                file_name=f"prueba_garcia_corregido.pdf",
                 mime="application/pdf"
             )
 else:
