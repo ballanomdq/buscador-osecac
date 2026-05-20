@@ -1,14 +1,3 @@
-import streamlit as st
-import os
-import fitz  # PyMuPDF
-import io
-
-st.set_page_config(page_title="Lluvia de Coordenadas", layout="centered")
-st.title("🌧️ Lluvia de Números de Control")
-st.markdown("Este script llena el PDF de números secuenciales cada 15 puntos para mapear el formulario real.")
-
-PDF_PATH = "PLANILLA INSPECTORES.pdf"
-
 def generar_lluvia_de_numeros():
     if not os.path.exists(PDF_PATH):
         raise FileNotFoundError(f"No se encuentra {PDF_PATH}")
@@ -16,22 +5,40 @@ def generar_lluvia_de_numeros():
     doc = fitz.open(PDF_PATH)
     page = doc[0]
     
-    # Conseguimos el tamaño real del PDF que está abriendo PyMuPDF
-    ancho = int(page.rect.width)
-    alto = int(page.rect.height)
+    # 1. ESTO ARREGLA EL DESFASE DE COSTADO:
+    # Si la página está rotada internamente (ej. 90 o 270 grados),
+    # forzamos a PyMuPDF a trabajar con la vista real de pantalla.
+    rotacion_original = page.rotation
     
-    fontsize = 6  # Chiquito para que entren muchos y sea preciso
-    color = (1, 0, 0)  # Rojo furioso
+    # Conseguimos el ancho y alto corregidos según cómo lo ves en pantalla
+    rect_vista = page.rect
+    if rotacion_original in (90, 270):
+        ancho = int(rect_vista.height)
+        alto = int(rect_vista.width)
+    else:
+        ancho = int(rect_vista.width)
+        alto = int(rect_vista.height)
+    
+    fontsize = 6
+    color = (1, 0, 0)
     
     contador = 1
     mapa_referencia = {}
     
-    # Pasamos un rastrillo de números cada 40 puntos en X y cada 20 en Y
-    for y in range(40, alto - 40, 20):
-        for x in range(20, ancho - 20, 40):
-            # Dibujamos el número de control en la coordenada exacta
-            page.insert_text((x, y), str(contador), fontsize=fontsize, color=color)
-            # Guardamos qué coordenada real representa ese número
+    # Barremos la cuadrícula usando las dimensiones reales de tu visualización
+    for y in range(30, alto - 30, 20):
+        for x in range(20, ancho - 20, 45):
+            
+            # Mandamos el texto usando 'rotate=rotacion_original' para que 
+            # las letras giren y queden perfectamente horizontales para tus ojos
+            page.insert_text(
+                (x, y), 
+                str(contador), 
+                fontsize=fontsize, 
+                color=color, 
+                rotate=rotacion_original
+            )
+            
             mapa_referencia[contador] = (x, y)
             contador += 1
             
@@ -41,25 +48,3 @@ def generar_lluvia_de_numeros():
     output.seek(0)
     
     return output, mapa_referencia
-
-if not os.path.exists(PDF_PATH):
-    st.error(f"❌ Falta el archivo '{PDF_PATH}'")
-    st.stop()
-
-if st.button("🚀 LANZAR LLUVIA DE NÚMEROS", type="primary", use_container_width=True):
-    try:
-        pdf_buffer, mapa = generar_lluvia_de_numeros()
-        st.success("🎯 ¡Lluvia generada! Bajá el archivo abajo.")
-        
-        # Guardamos el mapa en la sesión por si lo necesitás después
-        st.session_state["mapa_coordenadas"] = mapa
-        
-        st.download_button(
-            label="📥 DESCARGAR PDF MAPEADO",
-            data=pdf_buffer,
-            file_name="lluvia_coordenadas_osecac.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-    except Exception as e:
-        st.error(f"Error: {e}")
