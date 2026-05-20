@@ -1,60 +1,74 @@
 import streamlit as st
 from pypdf import PdfReader, PdfWriter
+from supabase import create_client
+from datetime import datetime
+import io
+import os
 
-st.set_page_config(page_title="Numerador de Campos", layout="wide")
-st.title("🔢 Numerador de Campos - Planilla Inspectores")
+# Conexión a Supabase
+@st.cache_resource
+def get_supabase():
+    return create_client(
+        st.secrets["SUPABASE_URL_ACTAS"],
+        st.secrets["SUPABASE_KEY_ACTAS"]
+    )
 
-def numerar_todos_los_campos(input_pdf="PLANILLA INSPECTORES.pdf", output_pdf="PLANILLA_CON_NUMEROS.pdf"):
-    reader = PdfReader(input_pdf)
-    writer = PdfWriter()
+supabase = get_supabase()
+
+st.set_page_config(layout="centered")
+st.title("📄 Prueba de Relleno de PDF")
+
+PDF_PATH = "PLANILLA INSPECTORES.pdf"
+
+# Inspector fijo: GARCIA (legajo 7952)
+INSPECTOR_LEGAJO = 7952
+INSPECTOR_NOMBRE = "GARCIA, Juan Paulo"
+
+# Obtener registros listos de GARCIA
+registros = supabase.table("padron_deuda_presunta").select("*").eq("leg", INSPECTOR_LEGAJO).eq("mail_enviado", "SI").not_.is_("acta", "null").not_.is_("vto", "null").execute()
+
+if registros.data:
+    st.success(f"✅ Se encontraron {len(registros.data)} registros listos para GARCIA")
     
-    writer.append(reader)  # Copia el PDF completo
-    writer.set_need_appearances_writer(True)
-
-    fields = reader.get_fields()
-    if not fields:
-        st.error("No se encontraron campos en el PDF")
-        return None
-
-    datos = {}
-    contador = 1
+    # Tomar el primer registro para obtener fecha VTO
+    primer_registro = registros.data[0]
+    fecha_vto = primer_registro.get('vto', '')
     
-    st.info(f"Se encontraron **{len(fields)} campos** en total. Numerándolos...")
-
-    for nombre_campo in fields.keys():
-        datos[nombre_campo] = str(contador)
-        contador += 1
-
-    # Rellenar con los números
-    writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=False)
-
-    with open(output_pdf, "wb") as f:
-        writer.write(f)
-
-    return output_pdf, datos
-
-# ====================== BOTÓN ======================
-if st.button("🚀 GENERAR PDF CON NÚMEROS EN TODOS LOS CAMPOS", type="primary", use_container_width=True):
-    with st.spinner("Analizando y numerando todos los campos..."):
-        resultado = numerar_todos_los_campos()
+    if fecha_vto:
+        fecha_obj = datetime.strptime(fecha_vto, '%Y-%m-%d')
+        mes_vto = fecha_obj.strftime('%m')
+        año_vto = fecha_obj.strftime('%Y')
         
-        if resultado:
-            archivo, mapeo = resultado
+        st.info(f"📅 Fecha VTO de ejemplo: {fecha_vto} → Mes: {mes_vto}, Año: {año_vto}")
+        
+        if st.button("📄 GENERAR PDF DE PRUEBA", type="primary"):
+            # Leer el PDF
+            reader = PdfReader(PDF_PATH)
+            writer = PdfWriter()
+            writer.append(reader)
+            writer.set_need_appearances_writer(True)
             
-            st.success(f"✅ Listo! Se numeraron **{len(mapeo)} campos**")
+            # Datos a rellenar
+            datos = {
+                "AREA DE FISCALIZACIONRow1": "MAR DEL PLATA",
+                "APELLIDO Y NOMBRES INSPECTORRow1": INSPECTOR_NOMBRE,
+                "MES Y AÑORow1": f"{mes_vto} {año_vto}",
+            }
             
-            with open(archivo, "rb") as f:
-                st.download_button(
-                    label="⬇️ DESCARGAR PDF CON NÚMEROS",
-                    data=f,
-                    file_name="PLANILLA_CON_NUMEROS.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+            # Actualizar campos
+            writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=False)
             
-            # Mostrar el mapeo
-            with st.expander("Ver mapeo Número → Nombre del campo"):
-                for num, (campo, valor) in enumerate(mapeo.items(), 1):
-                    st.text(f"{num:3d}  →  {campo}")
-
-st.caption("Apretá el botón y abrí el PDF generado. Ahí vas a ver claramente qué número cae en cada casillero.")
+            # Guardar
+            output = io.BytesIO()
+            writer.write(output)
+            output.seek(0)
+            
+            st.success("✅ PDF generado")
+            st.download_button(
+                label="📥 DESCARGAR PDF",
+                data=output,
+                file_name=f"prueba_garcia.pdf",
+                mime="application/pdf"
+            )
+else:
+    st.error(f"❌ No hay registros listos para GARCIA (legajo {INSPECTOR_LEGAJO})")
