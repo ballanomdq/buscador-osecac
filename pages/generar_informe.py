@@ -4,6 +4,8 @@ from supabase import create_client
 from datetime import datetime
 import os
 import time
+import tempfile
+import shutil
 from collections import defaultdict
 
 # ── Conexión a Supabase ──────────────────────────────────────────────────────
@@ -24,6 +26,7 @@ st.markdown("""
 .app-header p { color: #94a3b8; margin: 0; font-size: 0.8rem; }
 div[data-testid="stButton"] > button { border-radius: 8px !important; font-weight: 500 !important; }
 div[data-testid="stButton"] > button[kind="primary"] { background-color: #10b981 !important; }
+.stProgress > div > div > div > div { background-color: #10b981 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -35,10 +38,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Configuración ────────────────────────────────────────────────────────────
-PDF_PATH = "ORIGINAL.pdf"
+PDF_PLANTILLA = "ORIGINAL.pdf"  # Archivo plantilla (NO SE MODIFICA)
 
 # ==================================================
-# COORDENADAS COMPLETAS (número visible → coordenadas)
+# COORDENADAS (número visible → coordenadas X, Y)
 # ==================================================
 COORDENADAS = {
     # Cabecera
@@ -158,21 +161,13 @@ COORDENADAS = {
     173: {"x": 452, "y": 362},
 }
 
-def escribir_en_coordenada(pdf_path, numero, texto, output_path):
-    """Escribe texto en la coordenada del número visible"""
-    import shutil
-    shutil.copy(pdf_path, output_path)
-    
-    doc = fitz.open(output_path)
-    page = doc[0]
-    altura = page.rect.height
-    
-    if numero in COORDENADAS:
-        x = COORDENADAS[numero]["x"]
-        y = altura - COORDENADAS[numero]["y"]
-        page.insert_text((x, y), str(texto)[:60], fontsize=8, color=(0, 0, 0))
-        doc.save(output_path)
-    doc.close()
+def obtener_registros_listos(legajo=None):
+    """Obtiene registros que cumplen las condiciones"""
+    query = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI").not_.is_("leg", "null").not_.is_("acta", "null").not_.is_("vto", "null")
+    if legajo:
+        query = query.eq("leg", legajo)
+    result = query.execute()
+    return result.data if result.data else []
 
 def formatear_fecha(fecha_str):
     if not fecha_str:
@@ -182,18 +177,96 @@ def formatear_fecha(fecha_str):
     except:
         return None
 
-def obtener_registros_listos(legajo=None):
-    query = supabase.table("padron_deuda_presunta").select("*").eq("mail_enviado", "SI").not_.is_("leg", "null").not_.is_("acta", "null").not_.is_("vto", "null")
-    if legajo:
-        query = query.eq("leg", legajo)
-    result = query.execute()
-    return result.data if result.data else []
+def generar_pdf_con_datos(registros, inspector_nombre, output_path):
+    """Genera un PDF con los datos (sin modificar la plantilla original)"""
+    # Copiar la plantilla a un archivo temporal
+    shutil.copy(PDF_PLANTILLA, output_path)
+    
+    doc = fitz.open(output_path)
+    page = doc[0]
+    altura = page.rect.height
+    
+    # Escribir cabecera
+    for num, texto in [(1, "MAR DEL PLATA"), (2, inspector_nombre)]:
+        if num in COORDENADAS:
+            x = COORDENADAS[num]["x"]
+            y = altura - COORDENADAS[num]["y"]
+            page.insert_text((x, y), texto, fontsize=8, color=(0, 0, 0))
+    
+    # Mapeo de números por fila
+    nums = {
+        "razon_social": {1: 5, 2: 19, 3: 34, 4: 50, 5: 67, 6: 86, 7: 106, 8: 126},
+        "cuit1": {1: 11, 2: 26, 3: 42, 4: 59, 5: 76, 6: 96, 7: 116, 8: 136},
+        "cuit2": {1: 6, 2: 20, 3: 35, 4: 51, 5: 68, 6: 87, 7: 107, 8: 127},
+        "acta": {1: 7, 2: 13, 3: 21, 4: 28, 5: 36, 6: 44, 7: 52, 8: 61},
+        "vto_dia": {1: 381, 2: 372, 3: 374, 4: 376, 5: 380, 6: 383, 7: 385, 8: 386},
+        "vto_mes": {1: 402, 2: 400, 3: 398, 4: 396, 5: 392, 6: 390, 7: 388, 8: 385},
+        "vto_año": {1: 403, 2: 405, 3: 407, 4: 409, 5: 413, 6: 415, 7: 417, 8: 418},
+        "desde_mes": {1: 338, 2: 337, 3: 308, 4: 310, 5: 312, 6: 314, 7: 316, 8: 318},
+        "desde_año": {1: 335, 2: 333, 3: 331, 4: 329, 5: 327, 6: 325, 7: 323, 8: 321},
+        "hasta_mes": {1: 339, 2: 341, 3: 343, 4: 345, 5: 347, 6: 349, 7: 351, 8: 353},
+        "hasta_año": {1: 355, 2: 357, 3: 359, 4: 361, 5: 363, 6: 365, 7: 367, 8: 369},
+        "deuda": {1: 167, 2: 156, 3: 158, 4: 160, 5: 162, 6: 172, 7: 164, 8: 173},
+    }
+    
+    for i, reg in enumerate(registros[:8]):
+        fila = i + 1
+        
+        razon_social = reg.get('razon_social', '')
+        direccion = f"{reg.get('calle', '')} {reg.get('numero', '')}".strip()
+        nombre_direccion = f"{razon_social} - {direccion}" if direccion else razon_social
+        
+        cuit = reg.get('cuit', '')
+        acta = reg.get('acta', '')
+        deuda = reg.get('deuda_presunta', '')
+        
+        fecha_obj = formatear_fecha(reg.get('vto'))
+        if fecha_obj:
+            vto_dia = fecha_obj.strftime('%d')
+            vto_mes = fecha_obj.strftime('%m')
+            vto_año = fecha_obj.strftime('%Y')
+        else:
+            vto_dia = vto_mes = vto_año = ''
+        
+        desde_obj = formatear_fecha(reg.get('desde'))
+        hasta_obj = formatear_fecha(reg.get('hasta'))
+        
+        desde_mes = desde_obj.strftime('%m') if desde_obj else ''
+        desde_año = desde_obj.strftime('%Y') if desde_obj else ''
+        hasta_mes = hasta_obj.strftime('%m') if hasta_obj else ''
+        hasta_año = hasta_obj.strftime('%Y') if hasta_obj else ''
+        
+        # Escribir cada campo en su coordenada
+        campos = [
+            (nums["razon_social"][fila], nombre_direccion[:60]),
+            (nums["cuit1"][fila], cuit),
+            (nums["cuit2"][fila], cuit),
+            (nums["acta"][fila], acta),
+            (nums["vto_dia"][fila], vto_dia),
+            (nums["vto_mes"][fila], vto_mes),
+            (nums["vto_año"][fila], vto_año),
+            (nums["desde_mes"][fila], desde_mes),
+            (nums["desde_año"][fila], desde_año),
+            (nums["hasta_mes"][fila], hasta_mes),
+            (nums["hasta_año"][fila], hasta_año),
+            (nums["deuda"][fila], deuda),
+        ]
+        
+        for num, texto in campos:
+            if num in COORDENADAS:
+                x = COORDENADAS[num]["x"]
+                y = altura - COORDENADAS[num]["y"]
+                page.insert_text((x, y), str(texto), fontsize=8, color=(0, 0, 0))
+    
+    doc.save(output_path)
+    doc.close()
 
 # ── Obtener inspectores ──────────────────────────────────────────────────────
 inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
 opciones_inspectores = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins for ins in inspectores.data}
 opciones_inspectores["TODOS"] = None
 
+# ── Interfaz ─────────────────────────────────────────────────────────────────
 st.markdown("### Seleccionar Inspector")
 inspector_sel = st.selectbox("Inspector", options=list(opciones_inspectores.keys()))
 
@@ -213,16 +286,16 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
     if not registros:
         st.warning("No hay registros listos para este inspector")
     else:
-        st.success(f"✅ Se encontraron {len(registros)} registros listos")
+        total_registros = sum(len(regs) for regs in grupos.values())
+        st.success(f"✅ Se encontraron {total_registros} registros listos")
         
         total_paginas = 0
-        for leg, regs in grupos.items():
+        for regs in grupos.values():
             total_paginas += (len(regs) + 7) // 8
         
         st.info(f"📊 Se generarán {total_paginas} página(s)")
         
         with st.spinner("Generando PDFs..."):
-            import tempfile
             pdfs_generados = []
             
             for leg, regs in grupos.items():
@@ -234,69 +307,7 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
                     num_pagina = pagina_idx // 8 + 1
                     
                     temp_path = tempfile.mktemp(suffix=".pdf")
-                    import shutil
-                    shutil.copy(PDF_PATH, temp_path)
-                    
-                    # Escribir cabecera
-                    escribir_en_coordenada(temp_path, 1, "MAR DEL PLATA", temp_path)
-                    escribir_en_coordenada(temp_path, 2, nombre_limpio, temp_path)
-                    
-                    for i, reg in enumerate(batch):
-                        fila = i + 1
-                        
-                        # Mapeo de números por fila
-                        nums = {
-                            "razon_social": {1: 5, 2: 19, 3: 34, 4: 50, 5: 67, 6: 86, 7: 106, 8: 126},
-                            "cuit1": {1: 11, 2: 26, 3: 42, 4: 59, 5: 76, 6: 96, 7: 116, 8: 136},
-                            "cuit2": {1: 6, 2: 20, 3: 35, 4: 51, 5: 68, 6: 87, 7: 107, 8: 127},
-                            "acta": {1: 7, 2: 13, 3: 21, 4: 28, 5: 36, 6: 44, 7: 52, 8: 61},
-                            "vto_dia": {1: 381, 2: 372, 3: 374, 4: 376, 5: 380, 6: 383, 7: 385, 8: 386},
-                            "vto_mes": {1: 402, 2: 400, 3: 398, 4: 396, 5: 392, 6: 390, 7: 388, 8: 385},
-                            "vto_año": {1: 403, 2: 405, 3: 407, 4: 409, 5: 413, 6: 415, 7: 417, 8: 418},
-                            "desde_mes": {1: 338, 2: 337, 3: 308, 4: 310, 5: 312, 6: 314, 7: 316, 8: 318},
-                            "desde_año": {1: 335, 2: 333, 3: 331, 4: 329, 5: 327, 6: 325, 7: 323, 8: 321},
-                            "hasta_mes": {1: 339, 2: 341, 3: 343, 4: 345, 5: 347, 6: 349, 7: 351, 8: 353},
-                            "hasta_año": {1: 355, 2: 357, 3: 359, 4: 361, 5: 363, 6: 365, 7: 367, 8: 369},
-                            "deuda": {1: 167, 2: 156, 3: 158, 4: 160, 5: 162, 6: 172, 7: 164, 8: 173},
-                        }
-                        
-                        razon_social = reg.get('razon_social', '')
-                        direccion = f"{reg.get('calle', '')} {reg.get('numero', '')}".strip()
-                        nombre_direccion = f"{razon_social} - {direccion}" if direccion else razon_social
-                        
-                        cuit = reg.get('cuit', '')
-                        acta = reg.get('acta', '')
-                        deuda = reg.get('deuda_presunta', '')
-                        
-                        fecha_obj = formatear_fecha(reg.get('vto'))
-                        if fecha_obj:
-                            vto_dia = fecha_obj.strftime('%d')
-                            vto_mes = fecha_obj.strftime('%m')
-                            vto_año = fecha_obj.strftime('%Y')
-                        else:
-                            vto_dia = vto_mes = vto_año = ''
-                        
-                        desde_obj = formatear_fecha(reg.get('desde'))
-                        hasta_obj = formatear_fecha(reg.get('hasta'))
-                        
-                        desde_mes = desde_obj.strftime('%m') if desde_obj else ''
-                        desde_año = desde_obj.strftime('%Y') if desde_obj else ''
-                        hasta_mes = hasta_obj.strftime('%m') if hasta_obj else ''
-                        hasta_año = hasta_obj.strftime('%Y') if hasta_obj else ''
-                        
-                        # Escribir
-                        escribir_en_coordenada(temp_path, nums["razon_social"][fila], nombre_direccion[:60], temp_path)
-                        escribir_en_coordenada(temp_path, nums["cuit1"][fila], cuit, temp_path)
-                        escribir_en_coordenada(temp_path, nums["cuit2"][fila], cuit, temp_path)
-                        escribir_en_coordenada(temp_path, nums["acta"][fila], acta, temp_path)
-                        escribir_en_coordenada(temp_path, nums["vto_dia"][fila], vto_dia, temp_path)
-                        escribir_en_coordenada(temp_path, nums["vto_mes"][fila], vto_mes, temp_path)
-                        escribir_en_coordenada(temp_path, nums["vto_año"][fila], vto_año, temp_path)
-                        escribir_en_coordenada(temp_path, nums["desde_mes"][fila], desde_mes, temp_path)
-                        escribir_en_coordenada(temp_path, nums["desde_año"][fila], desde_año, temp_path)
-                        escribir_en_coordenada(temp_path, nums["hasta_mes"][fila], hasta_mes, temp_path)
-                        escribir_en_coordenada(temp_path, nums["hasta_año"][fila], hasta_año, temp_path)
-                        escribir_en_coordenada(temp_path, nums["deuda"][fila], deuda, temp_path)
+                    generar_pdf_con_datos(batch, nombre_limpio, temp_path)
                     
                     with open(temp_path, "rb") as f:
                         pdfs_generados.append({
