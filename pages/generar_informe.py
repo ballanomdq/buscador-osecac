@@ -39,148 +39,146 @@ st.markdown("""
 PDF_PATH = "ORIGINAL.pdf"
 
 # ════════════════════════════════════════════════════════════════════════════
-# MAPEO EXACTO DE CAMPOS POR EMPRESA (8 empresas por planilla)
-# Cada empresa ocupa una fila principal (impar) + una fila intermedia (par)
-# La fila intermedia solo lleva el CUIT repetido
+# MAPEO DE LAS 8 EMPRESAS
+# Fila principal (impar):  todos los datos
+# Fila intermedia (par):   el CUIT va en el campo RAZON SOCIAL (columna izquierda)
+#                          el campo NRO DE CUIT de esa fila queda vacío
 # ════════════════════════════════════════════════════════════════════════════
 
-# Lista con el mapeo de cada una de las 8 empresas
-# Todos los nombres son los nombres reales de los campos del PDF
 MAPEO_EMPRESAS = [
     # ── Empresa 1 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow1",
-        "cuit_ppal":   "NRO DE  CUITRow1",
-        "cuit_inter":  "NRO DE  CUITRow2",   # fila intermedia (casillero 11)
-        "acta":        "NRORow1",
-        "vto_dia":     "VTODIA1",
-        "vto_mes":     "VTOMES1",
-        "vto_año":     "VTOAÑO1",
-        "desde_mes":   "PVMES1",
-        "desde_año":   "PVAÑO1",
-        "hasta_mes":   "PVMES17",
-        "hasta_año":   "PVAÑO17",
-        "deuda":       "DEUDA DETERMINADARow1",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow1",
+        "cuit_ppal":    "NRO DE  CUITRow1",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow2",  # col izquierda fila intermedia
+        "acta":         "NRORow1",
+        "vto_dia":      "VTODIA1",
+        "vto_mes":      "VTOMES1",
+        "vto_año":      "VTOAÑO1",
+        "desde_mes":    "PVMES1",
+        "desde_año":    "PVAÑO1",
+        "hasta_mes":    "PVMES17",
+        "hasta_año":    "PVAÑO17",
+        "deuda":        "DEUDA DETERMINADARow1",
     },
     # ── Empresa 2 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow3",
-        "cuit_ppal":   "NRO DE  CUITRow3",
-        "cuit_inter":  "NRO DE  CUITRow4",   # fila intermedia (casillero 26)
-        "acta":        "NRORow3",
-        "vto_dia":     "VTODIA3",
-        "vto_mes":     "VTOMES3",
-        "vto_año":     "VTOAÑO3",
-        "desde_mes":   "PVMES3",
-        "desde_año":   "PVAÑO3",
-        "hasta_mes":   "PVMES19",
-        "hasta_año":   "PVAÑO19",
-        "deuda":       "DEUDA DETERMINADARow3",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow3",
+        "cuit_ppal":    "NRO DE  CUITRow3",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow4",
+        "acta":         "NRORow3",
+        "vto_dia":      "VTODIA3",
+        "vto_mes":      "VTOMES3",
+        "vto_año":      "VTOAÑO3",
+        "desde_mes":    "PVMES3",
+        "desde_año":    "PVAÑO3",
+        "hasta_mes":    "PVMES19",
+        "hasta_año":    "PVAÑO19",
+        "deuda":        "DEUDA DETERMINADARow3",
     },
     # ── Empresa 3 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow5",
-        "cuit_ppal":   "NRO DE  CUITRow5",
-        "cuit_inter":  "NRO DE  CUITRow6",   # fila intermedia (casillero 42)
-        "acta":        "NRORow5",
-        "vto_dia":     "VTODIA5",
-        "vto_mes":     "VTOMES5",
-        "vto_año":     "VTOAÑO5",
-        "desde_mes":   "PVMES5",
-        "desde_año":   "PVAÑO5",
-        "hasta_mes":   "PVMES21",
-        "hasta_año":   "PVAÑO21",
-        "deuda":       "DEUDA DETERMINADARow5",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow5",
+        "cuit_ppal":    "NRO DE  CUITRow5",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow6",
+        "acta":         "NRORow5",
+        "vto_dia":      "VTODIA5",
+        "vto_mes":      "VTOMES5",
+        "vto_año":      "VTOAÑO5",
+        "desde_mes":    "PVMES5",
+        "desde_año":    "PVAÑO5",
+        "hasta_mes":    "PVMES21",
+        "hasta_año":    "PVAÑO21",
+        "deuda":        "DEUDA DETERMINADARow5",
     },
     # ── Empresa 4 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow7",
-        "cuit_ppal":   "NRO DE  CUITRow7",
-        "cuit_inter":  "NRO DE  CUITRow8",
-        "acta":        "NRORow7",
-        "vto_dia":     "VTODIA7",
-        "vto_mes":     "VTOMES7",
-        "vto_año":     "VTOAÑO7",
-        "desde_mes":   "PVMES7",
-        "desde_año":   "PVAÑO7",
-        "hasta_mes":   "PVMES23",
-        "hasta_año":   "PVAÑO23",
-        "deuda":       "DEUDA DETERMINADARow7",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow7",
+        "cuit_ppal":    "NRO DE  CUITRow7",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow8",
+        "acta":         "NRORow7",
+        "vto_dia":      "VTODIA7",
+        "vto_mes":      "VTOMES7",
+        "vto_año":      "VTOAÑO7",
+        "desde_mes":    "PVMES7",
+        "desde_año":    "PVAÑO7",
+        "hasta_mes":    "PVMES23",
+        "hasta_año":    "PVAÑO23",
+        "deuda":        "DEUDA DETERMINADARow7",
     },
     # ── Empresa 5 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow9",
-        "cuit_ppal":   "NRO DE  CUITRow9",
-        "cuit_inter":  "NRO DE  CUITRow10",
-        "acta":        "NRORow9",
-        "vto_dia":     "VTODIA9",
-        "vto_mes":     "VTOMES9",
-        "vto_año":     "VTOAÑO9",
-        "desde_mes":   "PVMES9",
-        "desde_año":   "PVAÑO9",
-        "hasta_mes":   "PVMES25",
-        "hasta_año":   "PVAÑO25",
-        "deuda":       "DEUDA DETERMINADARow9",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow9",
+        "cuit_ppal":    "NRO DE  CUITRow9",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow10",
+        "acta":         "NRORow9",
+        "vto_dia":      "VTODIA9",
+        "vto_mes":      "VTOMES9",
+        "vto_año":      "VTOAÑO9",
+        "desde_mes":    "PVMES9",
+        "desde_año":    "PVAÑO9",
+        "hasta_mes":    "PVMES25",
+        "hasta_año":    "PVAÑO25",
+        "deuda":        "DEUDA DETERMINADARow9",
     },
     # ── Empresa 6 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow11",
-        "cuit_ppal":   "NRO DE  CUITRow11",
-        "cuit_inter":  "NRO DE  CUITRow12",
-        "acta":        "NRORow11",
-        "vto_dia":     "VTODIA11",
-        "vto_mes":     "VTOMES11",
-        "vto_año":     "VTOAÑO11",
-        "desde_mes":   "PVMES11",
-        "desde_año":   "PVAÑO11",
-        "hasta_mes":   "PVMES27",
-        "hasta_año":   "PVAÑO27",
-        "deuda":       "DEUDA DETERMINADARow11",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow11",
+        "cuit_ppal":    "NRO DE  CUITRow11",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow12",
+        "acta":         "NRORow11",
+        "vto_dia":      "VTODIA11",
+        "vto_mes":      "VTOMES11",
+        "vto_año":      "VTOAÑO11",
+        "desde_mes":    "PVMES11",
+        "desde_año":    "PVAÑO11",
+        "hasta_mes":    "PVMES27",
+        "hasta_año":    "PVAÑO27",
+        "deuda":        "DEUDA DETERMINADARow11",
     },
     # ── Empresa 7 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow13",
-        "cuit_ppal":   "NRO DE  CUITRow13",
-        "cuit_inter":  "NRO DE  CUITRow14",
-        "acta":        "NRORow13",
-        "vto_dia":     "VTODIA13",
-        "vto_mes":     "VTOMES13",
-        "vto_año":     "VTOAÑO13",
-        "desde_mes":   "PVMES13",
-        "desde_año":   "PVAÑO13",
-        "hasta_mes":   "PVMES29",
-        "hasta_año":   "PVAÑO29",
-        "deuda":       "DEUDA DETERMINADARow13",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow13",
+        "cuit_ppal":    "NRO DE  CUITRow13",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow14",
+        "acta":         "NRORow13",
+        "vto_dia":      "VTODIA13",
+        "vto_mes":      "VTOMES13",
+        "vto_año":      "VTOAÑO13",
+        "desde_mes":    "PVMES13",
+        "desde_año":    "PVAÑO13",
+        "hasta_mes":    "PVMES29",
+        "hasta_año":    "PVAÑO29",
+        "deuda":        "DEUDA DETERMINADARow13",
     },
     # ── Empresa 8 ──────────────────────────────────────────────────────────
     {
-        "razon":       "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow15",
-        "cuit_ppal":   "NRO DE  CUITRow15",
-        "cuit_inter":  "NRO DE  CUITRow16",
-        "acta":        "NRORow15",
-        "vto_dia":     "VTODIA15",
-        "vto_mes":     "VTOMES15",
-        "vto_año":     "VTOAÑO15",
-        "desde_mes":   "PVMES15",
-        "desde_año":   "PVAÑO15",
-        "hasta_mes":   "PVMES31",
-        "hasta_año":   "PVAÑO31",
-        "deuda":       "DEUDA DETERMINADARow15",
+        "razon":        "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow15",
+        "cuit_ppal":    "NRO DE  CUITRow15",
+        "cuit_inter":   "EMPRESA VISITADA RAZON SOCIAL  DIRECCIONRow16",
+        "acta":         "NRORow15",
+        "vto_dia":      "VTODIA15",
+        "vto_mes":      "VTOMES15",
+        "vto_año":      "VTOAÑO15",
+        "desde_mes":    "PVMES15",
+        "desde_año":    "PVAÑO15",
+        "hasta_mes":    "PVMES31",
+        "hasta_año":    "PVAÑO31",
+        "deuda":        "DEUDA DETERMINADARow15",
     },
 ]
 
-# ════════════════════════════════════════════════════════════════════════════
-# TODOS LOS CAMPOS DEL PDF — se limpian primero, luego se llenan solo los
-# que tienen datos. Así desaparecen los números de referencia que quedaron.
-# ════════════════════════════════════════════════════════════════════════════
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def año_corto(fecha_obj):
+    """Devuelve los últimos 2 dígitos del año  ej: 2024 → '24'"""
+    return fecha_obj.strftime("%y") if fecha_obj else ""
 
 @st.cache_data
 def obtener_todos_los_campos():
     reader = PdfReader(PDF_PATH)
     fields = reader.get_fields()
     return list(fields.keys()) if fields else []
-
-# ── Funciones ────────────────────────────────────────────────────────────────
 
 def obtener_registros_listos(legajo=None):
     query = (
@@ -204,38 +202,41 @@ def formatear_fecha(fecha_str):
     except Exception:
         return None
 
+# ── Generación del PDF ────────────────────────────────────────────────────────
+
 def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
     """
     Genera un PDF para un lote de hasta 8 empresas.
-    - Primero limpia TODOS los campos (borra los números de referencia).
-    - Luego llena solo los campos que corresponden a los datos reales.
+    Limpia todos los campos primero (elimina números de referencia),
+    luego escribe solo los datos reales.
     """
     reader = PdfReader(PDF_PATH)
     writer = PdfWriter()
     writer.append(reader)
     writer.set_need_appearances_writer(True)
 
-    # ── PASO 1: limpiar todos los campos ─────────────────────────────────────
+    # PASO 1 — limpiar todos los campos
     datos = {campo: "" for campo in todos_los_campos}
 
-    # ── PASO 2: cabecera ──────────────────────────────────────────────────────
-    datos["AREA DE FISCALIZACIONRow1"]       = "MAR DEL PLATA"
-    datos["APELLIDO Y NOMBRES INSPECTORRow1"] = inspector_nombre
+    # PASO 2 — cabecera
+    datos["AREA DE FISCALIZACIONRow1"]        = "MAR DEL PLATA"
+    datos["APELLIDO Y NOMBRES INSPECTORRow1"]  = inspector_nombre
 
     if registros_batch:
         fecha_cab = formatear_fecha(registros_batch[0].get("vto"))
         if fecha_cab:
-            datos["MES Y AÑORow1"] = fecha_cab.strftime("%m")
-            datos["MES Y AÑO"]     = fecha_cab.strftime("%Y")
+            # MES Y AÑORow1 = mes  |  MES Y AÑO = año (2 dígitos)
+            datos["MES Y AÑORow1"] = fecha_cab.strftime("%m")   # mes  → ej: 01
+            datos["MES Y AÑO"]     = año_corto(fecha_cab)        # año  → ej: 76
 
-    # ── PASO 3: llenar empresas ───────────────────────────────────────────────
+    # PASO 3 — empresas
     for i, reg in enumerate(registros_batch):
         m = MAPEO_EMPRESAS[i]
 
-        razon     = reg.get("razon_social", "")
-        calle     = reg.get("calle", "")
-        numero    = reg.get("numero", "")
-        direccion = f"{calle} {numero}".strip()
+        razon      = reg.get("razon_social", "")
+        calle      = reg.get("calle", "")
+        numero     = reg.get("numero", "")
+        direccion  = f"{calle} {numero}".strip()
         nombre_dir = f"{razon} - {direccion}" if direccion else razon
 
         cuit  = str(reg.get("cuit", ""))
@@ -246,26 +247,32 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
         desde_obj = formatear_fecha(reg.get("desde"))
         hasta_obj = formatear_fecha(reg.get("hasta"))
 
-        datos[m["razon"]]      = nombre_dir[:80]
-        datos[m["cuit_ppal"]]  = cuit
-        datos[m["cuit_inter"]] = cuit   # se repite en la fila intermedia
-        datos[m["acta"]]       = acta
-        datos[m["deuda"]]      = deuda
+        # Fila principal
+        datos[m["razon"]]     = nombre_dir[:80]
+        datos[m["cuit_ppal"]] = cuit
+        datos[m["acta"]]      = acta
+        datos[m["deuda"]]     = deuda
 
+        # Fecha VTO — día, mes, año (2 dígitos)
         if vto_obj:
             datos[m["vto_dia"]] = vto_obj.strftime("%d")
             datos[m["vto_mes"]] = vto_obj.strftime("%m")
-            datos[m["vto_año"]] = vto_obj.strftime("%Y")
+            datos[m["vto_año"]] = año_corto(vto_obj)        # ej: "76" en vez de "1976"
 
+        # Período DESDE — mes, año (2 dígitos)
         if desde_obj:
             datos[m["desde_mes"]] = desde_obj.strftime("%m")
-            datos[m["desde_año"]] = desde_obj.strftime("%Y")
+            datos[m["desde_año"]] = año_corto(desde_obj)
 
+        # Período HASTA — mes, año (2 dígitos)
         if hasta_obj:
             datos[m["hasta_mes"]] = hasta_obj.strftime("%m")
-            datos[m["hasta_año"]] = hasta_obj.strftime("%Y")
+            datos[m["hasta_año"]] = año_corto(hasta_obj)
 
-    # ── PASO 4: escribir en el PDF ────────────────────────────────────────────
+        # Fila intermedia — solo el CUIT en la columna izquierda (RAZON SOCIAL)
+        datos[m["cuit_inter"]] = cuit
+
+    # PASO 4 — escribir
     writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=True)
 
     output = io.BytesIO()
@@ -273,7 +280,7 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
     output.seek(0)
     return output
 
-# ── Interfaz ─────────────────────────────────────────────────────────────────
+# ── Interfaz ──────────────────────────────────────────────────────────────────
 
 todos_los_campos = obtener_todos_los_campos()
 if not todos_los_campos:
@@ -307,19 +314,17 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
 
         with st.spinner("Generando PDFs..."):
             pdfs = []
-
             for leg, regs in grupos.items():
                 nombre_insp = next(
                     (k for k, v in opciones.items() if v and v["legajo"] == leg),
                     str(leg)
                 )
                 nombre_limpio = nombre_insp.split(" (Legajo")[0]
+                total_pags    = (len(regs) + 7) // 8
 
-                # Dividir en grupos de 8 → un PDF por grupo
-                total_pags = (len(regs) + 7) // 8
                 for idx in range(0, len(regs), 8):
-                    batch     = regs[idx : idx + 8]
-                    num_pag   = idx // 8 + 1
+                    batch      = regs[idx : idx + 8]
+                    num_pag    = idx // 8 + 1
                     pdf_buffer = generar_pdf_informe(batch, nombre_limpio, todos_los_campos)
                     pdfs.append({
                         "nombre": f"INFORME_{nombre_limpio}_pag{num_pag}de{total_pags}.pdf",
