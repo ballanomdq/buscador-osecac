@@ -16,15 +16,11 @@ st.set_page_config(
     page_icon="🔍"
 )
 
-# ── ESTILOS MODERNOS CON LETRAS MÁS GRANDES EN LOS CARTELES ──────────────────
+# ── ESTILOS MODERNOS ─────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* === TEMA GENERAL === */
-    .stApp {
-        background: #f8fafc;
-    }
+    .stApp { background: #f8fafc; }
     
-    /* === HEADER === */
     .main-header {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
         padding: 0.8rem 1.5rem;
@@ -33,19 +29,9 @@ st.markdown("""
         margin-bottom: 1.5rem;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
-    .main-header h1 {
-        color: white;
-        margin: 0;
-        font-size: 1.35rem;
-        font-weight: 600;
-    }
-    .main-header p {
-        color: #94a3b8;
-        margin: 0;
-        font-size: 0.78rem;
-    }
+    .main-header h1 { color: white; margin: 0; font-size: 1.35rem; font-weight: 600; }
+    .main-header p { color: #94a3b8; margin: 0; font-size: 0.78rem; }
 
-    /* === KPI CARDS - CONTENIDO MÁS GRANDE === */
     .kpi-card {
         background: white;
         border-radius: 12px;
@@ -61,24 +47,9 @@ st.markdown("""
         border-color: #3b82f6;
         box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15);
     }
-    
-    /* AUMENTO IMPORTANTE DE TAMAÑO DE LETRA */
-    .kpi-card h1 {
-        font-size: 2.4rem !important;
-        font-weight: 700;
-        margin: 0.1rem 0 0.3rem 0;
-        line-height: 1;
-    }
-    .kpi-card p {
-        font-size: 0.95rem !important;
-        font-weight: 500;
-        margin: 0;
-        color: #334155;
-    }
-    .kpi-card .kpi-icon {
-        font-size: 1.8rem;
-        margin-bottom: 0.4rem;
-    }
+    .kpi-card h1 { font-size: 2.4rem !important; font-weight: 700; margin: 0.1rem 0 0.3rem 0; line-height: 1; }
+    .kpi-card p { font-size: 0.95rem !important; font-weight: 500; margin: 0; color: #334155; }
+    .kpi-card .kpi-icon { font-size: 1.8rem; margin-bottom: 0.4rem; }
 
     .kpi-total h1 { color: #3b82f6; }
     .kpi-con-legajo h1 { color: #10b981; }
@@ -87,7 +58,6 @@ st.markdown("""
     .kpi-mail h1 { color: #f97316; }
     .kpi-finalizado h1 { color: #10b981; }
 
-    /* === TARJETAS DE INSPECTORES - MÁS GRANDES === */
     .inspector-card {
         background: white;
         border-radius: 10px;
@@ -97,29 +67,11 @@ st.markdown("""
         transition: all 0.2s ease;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
-    .inspector-card:hover {
-        transform: translateY(-2px);
-        border-color: #10b981;
-    }
-    .inspector-card h3 {
-        font-size: 0.95rem !important;
-        color: #10b981;
-        margin: 0 0 0.3rem 0;
-        font-weight: 600;
-    }
-    .inspector-card h1 {
-        font-size: 1.65rem !important;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 0.1rem 0;
-    }
-    .inspector-card p {
-        font-size: 0.85rem !important;
-        color: #475569;
-        margin: 0;
-    }
+    .inspector-card:hover { transform: translateY(-2px); border-color: #10b981; }
+    .inspector-card h3 { font-size: 0.95rem !important; color: #10b981; margin: 0 0 0.3rem 0; font-weight: 600; }
+    .inspector-card h1 { font-size: 1.65rem !important; font-weight: 700; color: #1e293b; margin: 0.1rem 0; }
+    .inspector-card p { font-size: 0.85rem !important; color: #475569; margin: 0; }
 
-    /* === BOTONES === */
     .stButton > button {
         border-radius: 8px !important;
         font-weight: 600 !important;
@@ -131,29 +83,13 @@ st.markdown("""
         filter: brightness(1.02);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
-    .stButton > button[kind="secondary"] {
-        background: #10b981 !important;
-        color: white !important;
-    }
-    .stButton > button[kind="secondary"]:hover {
-        background: #059669 !important;
-    }
-    .stButton > button[kind="primary"] {
-        background: #3b82f6 !important;
-        color: white !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background: #2563eb !important;
-    }
+    .stButton > button[kind="secondary"] { background: #10b981 !important; color: white !important; }
+    .stButton > button[kind="secondary"]:hover { background: #059669 !important; }
+    .stButton > button[kind="primary"] { background: #3b82f6 !important; color: white !important; }
+    .stButton > button[kind="primary"]:hover { background: #2563eb !important; }
 
-    /* Botón BUSCAR */
-    .buscar-btn button {
-        background: #3b82f6 !important;
-        font-size: 0.9rem !important;
-        padding: 0.4rem 1rem !important;
-    }
+    .buscar-btn button { background: #3b82f6 !important; font-size: 0.9rem !important; padding: 0.4rem 1rem !important; }
 
-    /* === TABS === */
     .stTabs [data-baseweb="tab-list"] {
         gap: 0.3rem;
         background: #f1f5f9;
@@ -166,15 +102,9 @@ st.markdown("""
         transition: all 0.2s;
         color: #334155;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        background: #e2e8f0;
-    }
-    .stTabs [aria-selected="true"] {
-        background: #3b82f6 !important;
-        color: white !important;
-    }
+    .stTabs [data-baseweb="tab"]:hover { background: #e2e8f0; }
+    .stTabs [aria-selected="true"] { background: #3b82f6 !important; color: white !important; }
 
-    /* === EXPANDER === */
     .streamlit-expanderHeader {
         background: #f1f5f9 !important;
         border-radius: 10px !important;
@@ -182,55 +112,24 @@ st.markdown("""
         color: #1e293b !important;
         font-weight: 500 !important;
     }
-    .streamlit-expanderHeader:hover {
-        border-color: #3b82f6 !important;
-    }
+    .streamlit-expanderHeader:hover { border-color: #3b82f6 !important; }
 
-    /* === DATA EDITOR === */
-    .stDataEditor {
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
-    }
+    .stDataEditor { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; }
+    .filtro-titulo { font-size: 0.65rem; color: #64748b; margin-bottom: 0.2rem; letter-spacing: 0.3px; }
+    hr { margin: 1rem 0; border-color: #e2e8f0; }
 
-    /* === FILTROS === */
-    .filtro-titulo {
-        font-size: 0.65rem;
-        color: #64748b;
-        margin-bottom: 0.2rem;
-        letter-spacing: 0.3px;
-    }
-
-    /* === DIVIDERS === */
-    hr {
-        margin: 1rem 0;
-        border-color: #e2e8f0;
-    }
-
-    /* === DIALOGOS === */
     div[role="dialog"] {
         background: white !important;
         border-radius: 16px !important;
         border: 1px solid #e2e8f0 !important;
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
     }
-    div[role="dialog"] .stMarkdown p, div[role="dialog"] label {
-        color: #1e293b !important;
-    }
-    div[role="dialog"] button[aria-label="Close"] {
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
+    div[role="dialog"] .stMarkdown p, div[role="dialog"] label { color: #1e293b !important; }
+    div[role="dialog"] button[aria-label="Close"] { opacity: 0 !important; pointer-events: none !important; }
 
-    /* === TABLA === */
-    .stDataFrame {
-        background: white;
-    }
-
-    /* === OCULTAR ELEMENTOS === */
+    .stDataFrame { background: white; }
     #MainMenu, footer, header { display: none !important; }
     
-    /* === FICHA DE EDICIÓN === */
     .ficha-edicion {
         background: white;
         border-radius: 16px;
@@ -258,7 +157,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header Moderno
+# Header
 st.markdown("""
 <div class="main-header">
     <h1>🔍 Fiscalización · Deuda Presunta</h1>
@@ -276,7 +175,7 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# ── Utilidades generales ──────────────────────────────────────────────────────
+# ── Utilidades ──────────────────────────────────────────────────────────────
 def limpiar_str(v):
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return None
@@ -351,30 +250,30 @@ def generar_key_segura(texto):
 
 # ── Normalización de calles ───────────────────────────────────────────────────
 REEMPLAZOS_CALLE = [
-    (r'(?<![A-Z])H\.(\s*)',      r'HIPOLITO '),
-    (r'(?<![A-Z])J\.B\.(\s*)',   r'JB '),
-    (r'(?<![A-Z])JB\.(\s*)',     r'JB '),
-    (r'(?<![A-Z])GRAL\.(\s*)',   r'GENERAL '),
-    (r'(?<![A-Z])GRL\.(\s*)',    r'GENERAL '),
-    (r'(?<![A-Z])DR\.(\s*)',     r'DOCTOR '),
-    (r'(?<![A-Z])GOB\.(\s*)',    r'GOBERNADOR '),
-    (r'(?<![A-Z])PTE\.(\s*)',    r'PRESIDENTE '),
-    (r'(?<![A-Z])STA\.(\s*)',    r'SANTA '),
-    (r'(?<![A-Z])STO\.(\s*)',    r'SANTO '),
-    (r'([A-Z])\.([A-Z])',        r'\1\2'),
-    (r'([A-Z])\.',               r'\1'),
-    (r'\bYRIGOYEN\b',            'IRIGOYEN'),
-    (r'\bSETIEMBRE\b',           'SEPTIEMBRE'),
-    (r'\bSTIEMBRE\b',            'SEPTIEMBRE'),
-    (r'\bAVENIDA\b',             ''),
-    (r'\bAV\b',                  ''),
-    (r'\bCALLE\b',               ''),
-    (r'\bRUTA\b',                ''),
-    (r'\bPASAJE\b',              ''),
-    (r'\bBOULEVARD\b',           ''),
-    (r'\bBLEVARD\b',             ''),
-    (r'\bBLVD\b',                ''),
-    (r'C/',                      ''),
+    (r'(?<![A-Z])H\.(\s*)', r'HIPOLITO '),
+    (r'(?<![A-Z])J\.B\.(\s*)', r'JB '),
+    (r'(?<![A-Z])JB\.(\s*)', r'JB '),
+    (r'(?<![A-Z])GRAL\.(\s*)', r'GENERAL '),
+    (r'(?<![A-Z])GRL\.(\s*)', r'GENERAL '),
+    (r'(?<![A-Z])DR\.(\s*)', r'DOCTOR '),
+    (r'(?<![A-Z])GOB\.(\s*)', r'GOBERNADOR '),
+    (r'(?<![A-Z])PTE\.(\s*)', r'PRESIDENTE '),
+    (r'(?<![A-Z])STA\.(\s*)', r'SANTA '),
+    (r'(?<![A-Z])STO\.(\s*)', r'SANTO '),
+    (r'([A-Z])\.([A-Z])', r'\1\2'),
+    (r'([A-Z])\.', r'\1'),
+    (r'\bYRIGOYEN\b', 'IRIGOYEN'),
+    (r'\bSETIEMBRE\b', 'SEPTIEMBRE'),
+    (r'\bSTIEMBRE\b', 'SEPTIEMBRE'),
+    (r'\bAVENIDA\b', ''),
+    (r'\bAV\b', ''),
+    (r'\bCALLE\b', ''),
+    (r'\bRUTA\b', ''),
+    (r'\bPASAJE\b', ''),
+    (r'\bBOULEVARD\b', ''),
+    (r'\bBLEVARD\b', ''),
+    (r'\bBLVD\b', ''),
+    (r'C/', ''),
 ]
 
 def normalizar_calle(calle: str) -> str:
@@ -396,7 +295,7 @@ def normalizar_calle(calle: str) -> str:
     calle = re.sub(r'[^A-ZÁÉÍÓÚÜÑ0-9 ]', '', calle)
     return re.sub(r'\s+', ' ', calle).strip()
 
-# ── FUNCIÓN: Cargar palabras ancla ────────────────────────────────────────────
+# ── Palabras ancla ───────────────────────────────────────────────────────────
 def cargar_palabras_ancla():
     try:
         r = supabase.table("palabras_ancla").select("*").execute()
@@ -445,7 +344,7 @@ def asignar_legajo(localidad, calle, numero, lookup_localidades, lookup_zonas, l
             return zona['legajo']
     return None
 
-# ── Carga de datos ────────────────────────────────────────────────────────────
+# ── Carga de datos ───────────────────────────────────────────────────────────
 def cargar_inspectores_localidad():
     r = supabase.table("inspectores_localidad").select("*").execute()
     return r.data if r.data else []
@@ -730,7 +629,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros (la tabla editable original)
+# TAB 2 — Gestionar Registros
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
@@ -746,56 +645,20 @@ with tab2:
     with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.markdown(f"""
-            <div class="kpi-card kpi-total">
-                <div class="kpi-icon">📊</div>
-                <h1>{total_general:,}</h1>
-                <p>TOTAL REGISTROS</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card kpi-total"><div class="kpi-icon">📊</div><h1>{total_general:,}</h1><p>TOTAL REGISTROS</p></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"""
-            <div class="kpi-card kpi-con-legajo">
-                <div class="kpi-icon">✅</div>
-                <h1>{con_legajo:,}</h1>
-                <p>CON LEGAJO</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card kpi-con-legajo"><div class="kpi-icon">✅</div><h1>{con_legajo:,}</h1><p>CON LEGAJO</p></div>""", unsafe_allow_html=True)
         with col3:
-            st.markdown(f"""
-            <div class="kpi-card kpi-sin-legajo">
-                <div class="kpi-icon">⚠️</div>
-                <h1>{sin_legajo_total:,}</h1>
-                <p>SIN LEGAJO</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card kpi-sin-legajo"><div class="kpi-icon">⚠️</div><h1>{sin_legajo_total:,}</h1><p>SIN LEGAJO</p></div>""", unsafe_allow_html=True)
 
     with st.expander("🔄 ESTADO DE REGISTROS", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.markdown(f"""
-            <div class="kpi-card kpi-pendiente">
-                <div class="kpi-icon">📧</div>
-                <h1>{pendientes_sin_mail:,}</h1>
-                <p>PENDIENTES (sin mail)</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card kpi-pendiente"><div class="kpi-icon">📧</div><h1>{pendientes_sin_mail:,}</h1><p>PENDIENTES (sin mail)</p></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"""
-            <div class="kpi-card kpi-mail">
-                <div class="kpi-icon">📨</div>
-                <h1>{pendientes_con_mail:,}</h1>
-                <p>MAIL ENVIADO</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card kpi-mail"><div class="kpi-icon">📨</div><h1>{pendientes_con_mail:,}</h1><p>MAIL ENVIADO</p></div>""", unsafe_allow_html=True)
         with col3:
-            st.markdown(f"""
-            <div class="kpi-card kpi-finalizado">
-                <div class="kpi-icon">🏁</div>
-                <h1>{finalizados:,}</h1>
-                <p>FINALIZADOS</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="kpi-card kpi-finalizado"><div class="kpi-icon">🏁</div><h1>{finalizados:,}</h1><p>FINALIZADOS</p></div>""", unsafe_allow_html=True)
 
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
@@ -805,13 +668,7 @@ with tab2:
                 count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
                 nombre_corto = ins['nombre'].split(',')[0]
                 with cols[idx]:
-                    st.markdown(f"""
-                    <div class="inspector-card">
-                        <h3>{nombre_corto}</h3>
-                        <h1>{count}</h1>
-                        <p>Legajo: {ins['legajo']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div class="inspector-card"><h3>{nombre_corto}</h3><h1>{count}</h1><p>Legajo: {ins['legajo']}</p></div>""", unsafe_allow_html=True)
 
     st.divider()
 
@@ -873,22 +730,14 @@ with tab2:
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
             st.markdown("### Seleccioná el método de carga")
-            
-            opcion = st.radio(
-                "Método:",
-                ["📊 POR LOTES (por localidad, orden, etc.)", "🎯 POR CUIT (carga individual)"],
-                index=0,
-                horizontal=True
-            )
+            opcion = st.radio("Método:", ["📊 POR LOTES (por localidad, orden, etc.)", "🎯 POR CUIT (carga individual)"], index=0, horizontal=True)
             
             if opcion == "📊 POR LOTES (por localidad, orden, etc.)":
                 st.markdown("---")
                 st.info("Cargando todos los registros candidatos...")
-                
                 todos_los_registros = []
                 offset = 0
                 batch_size = 1000
-                
                 while True:
                     query = supabase.table("padron_deuda_presunta").select("*").not_.is_("leg", "null").eq("mail_enviado", "NO").is_("vto", "null").range(offset, offset + batch_size - 1).execute()
                     if not query.data:
@@ -897,20 +746,15 @@ with tab2:
                     offset += batch_size
                     if len(query.data) < batch_size:
                         break
-                
                 df_candidatos = pd.DataFrame(todos_los_registros) if todos_los_registros else pd.DataFrame()
-                
                 if df_candidatos.empty:
                     st.warning("No hay registros disponibles")
                     if st.button("Finalizar"):
                         st.session_state.preparar_mails = False
                         st.rerun()
                     return
-                
                 st.success(f"✅ Total de registros candidatos: {len(df_candidatos)}")
-                
                 col_f1, col_f2 = st.columns(2)
-                
                 with col_f1:
                     localidades = ["TODAS"] + sorted(df_candidatos['localidad'].unique().tolist())
                     localidad_filtro = st.selectbox("Localidad", localidades, key="dialog_localidad")
@@ -918,16 +762,13 @@ with tab2:
                     cantidad_personalizada = None
                     if not usar_todos:
                         cantidad_personalizada = st.number_input("Cantidad", min_value=1, max_value=len(df_candidatos), value=100, step=1, key="dialog_cantidad")
-                
                 with col_f2:
                     nueva_fecha_vto = st.date_input("Fecha VTO", value=date.today(), key="dialog_fecha")
                     ordenar_deuda = st.checkbox("Ordenar por DEUDA (mayor a menor)", value=True, key="dialog_deuda")
                     ordenar_hasta = st.checkbox("Ordenar por HASTA (más antiguo)", value=False, key="dialog_hasta")
-                
                 df_filtrado = df_candidatos.copy()
                 if localidad_filtro != "TODAS":
                     df_filtrado = df_filtrado[df_filtrado['localidad'] == localidad_filtro]
-                
                 if ordenar_deuda or ordenar_hasta:
                     def parse_deuda(val):
                         if val is None:
@@ -957,12 +798,10 @@ with tab2:
                         df_filtrado['_hasta_date'] = df_filtrado['hasta'].apply(parse_hasta)
                         df_filtrado = df_filtrado.sort_values('_hasta_date', ascending=True)
                     df_filtrado = df_filtrado.drop(columns=[c for c in ['_deuda_num', '_hasta_date'] if c in df_filtrado.columns])
-                
                 if usar_todos:
                     df_seleccionado = df_filtrado.copy()
                 else:
                     df_seleccionado = df_filtrado.head(int(cantidad_personalizada))
-                
                 if st.button("✅ PROCESAR Y DESCARGAR", type="primary", use_container_width=True):
                     progress_bar = st.progress(0)
                     fecha_str = nueva_fecha_vto.strftime('%Y-%m-%d')
@@ -981,69 +820,54 @@ with tab2:
                     st.session_state.nombre_excel = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                     st.session_state.preparar_mails = False
                     st.rerun()
-                
                 if st.button("❌ Cancelar", use_container_width=True):
                     st.session_state.preparar_mails = False
                     st.rerun()
-            
             else:
                 st.markdown("---")
                 st.markdown("### Ingresar CUITs manualmente")
                 st.caption("Pegá los CUITs separados por coma, espacio o salto de línea")
-                
                 cuit_input = st.text_area("CUITs", placeholder="Ej: 30-12345678-9, 33-98765432-1, 27-11111111-2", height=150)
                 nueva_fecha_vto_cuit = st.date_input("Fecha VTO a asignar", value=date.today(), key="dialog_fecha_cuit")
-                
                 if st.button("✅ PROCESAR CUITs", type="primary", use_container_width=True):
                     if not cuit_input.strip():
                         st.warning("Ingresá al menos un CUIT")
                         return
-                    
                     cuit_limpios = re.findall(r'\d{2,11}', cuit_input)
                     if not cuit_limpios:
                         st.warning("No se encontraron CUITs válidos")
                         return
-                    
                     cuit_unicos = list(set(cuit_limpios))
                     st.info(f"📊 Se encontraron {len(cuit_unicos)} CUIT(s) únicos")
-                    
                     registros_encontrados = []
                     no_encontrados = []
-                    
                     for cuit in cuit_unicos:
                         resultado = supabase.table("padron_deuda_presunta").select("*").eq("cuit", cuit).not_.is_("leg", "null").eq("mail_enviado", "NO").is_("vto", "null").execute()
                         if resultado.data:
                             registros_encontrados.extend(resultado.data)
                         else:
                             no_encontrados.append(cuit)
-                    
                     if not registros_encontrados:
                         st.warning("No se encontraron registros listos para los CUITs ingresados")
                         return
-                    
                     st.success(f"✅ {len(registros_encontrados)} registro(s) encontrado(s)")
                     if no_encontrados:
                         st.warning(f"⚠️ CUITs no encontrados o no disponibles: {', '.join(no_encontrados[:5])}")
-                    
                     progress_bar = st.progress(0)
                     fecha_str = nueva_fecha_vto_cuit.strftime('%Y-%m-%d')
                     fecha_mostrar = nueva_fecha_vto_cuit.strftime('%d/%m/%Y')
                     total_registros = len(registros_encontrados)
-                    
                     for i, reg in enumerate(registros_encontrados):
                         supabase.table("padron_deuda_presunta").update({"vto": fecha_str, "mail_enviado": "SI"}).eq("id", reg['id']).execute()
                         progress_bar.progress((i + 1) / total_registros)
                         time.sleep(0.02)
-                    
                     progress_bar.progress(1.0)
-                    
                     df_resultado = pd.DataFrame(registros_encontrados)
                     excel_data = generar_excel_para_mailing(df_resultado, fecha_mostrar)
                     st.session_state.excel_descarga = excel_data
                     st.session_state.nombre_excel = f"MAILING_CUIT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                     st.session_state.preparar_mails = False
                     st.rerun()
-                
                 if st.button("❌ Cancelar", use_container_width=True):
                     st.session_state.preparar_mails = False
                     st.rerun()
@@ -1201,7 +1025,6 @@ with tab2:
         st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'}")
 
     q = supabase.table("padron_deuda_presunta").select("*")
-    
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
     if filtro_mail == "SI":
@@ -1255,16 +1078,12 @@ with tab2:
     else:
         off = (st.session_state.pagina_actual - 1) * RPP
         df_p = df.iloc[off:off+RPP].reset_index(drop=True).copy()
-
         for col in df_p.columns:
             df_p[col] = df_p[col].apply(lambda x: "" if pd.isna(x) else str(x))
-        
         for col in ['fechareldependencia', 'desde', 'hasta', 'fecha_pago_obl', 'vto', 'fecha_carga']:
             if col in df_p.columns:
                 df_p[col] = df_p[col].apply(lambda x: fmt_fecha(x) if x and x != "" else "")
-
         df_orig = df_p.copy()
-        
         df_ed = df_p.rename(columns={
             'id':'ID', 'delegacion':'DELEGACION', 'localidad':'LOCALIDAD', 'cuit':'CUIT',
             'razon_social':'RAZON SOCIAL', 'deuda_presunta':'DEUDA PRESUNTA', 'cp':'CP',
@@ -1279,23 +1098,14 @@ with tab2:
             'acta':'ACTA', 'estado_gestion':'ESTADO GESTION',
         })
         df_ed.insert(0, "🗑️", False)
-
         if st.checkbox("Seleccionar todos los de esta página"):
             df_ed["🗑️"] = True
-
         editor_key = f"editor_{st.session_state.pagina_actual}_{st.session_state.ultima_recarga.timestamp()}"
-        
-        edited = st.data_editor(
-            df_ed, use_container_width=True, height=500,
-            column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar")},
-            key=editor_key,
-        )
-
+        edited = st.data_editor(df_ed, use_container_width=True, height=500, column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar")}, key=editor_key)
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
         if ids_sel:
             st.info(f"📌 {len(ids_sel)} registro(s) seleccionado(s) para eliminar")
-
         if guardar_click:
             mods = 0
             errores_fecha = 0
@@ -1305,7 +1115,6 @@ with tab2:
                         continue
                     orig = df_orig.iloc[idx]
                     upd = {}
-                    
                     for col_edit, col_orig in [
                         ('LEG', 'leg'), ('VTO', 'vto'), ('MAIL ENVIADO', 'mail_enviado'),
                         ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
@@ -1328,11 +1137,9 @@ with tab2:
                                     upd[col_orig] = None
                             else:
                                 upd[col_orig] = nv if nv and str(nv).strip() else None
-                    
                     if upd:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
                         mods += 1
-
             if mods > 0:
                 st.balloons()
                 st.success(f"✅ ¡{mods} registros actualizados correctamente!")
@@ -1386,10 +1193,8 @@ with tab3:
         
         try:
             df_raw = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig', nrows=5)
-            
             with st.expander("📄 Vista previa del archivo original"):
                 st.dataframe(df_raw.head(5), use_container_width=True, height=150)
-            
             if esta_amontonado(df_raw):
                 st.info("🔧 El archivo parece estar 'amontonado' (datos en una sola columna). Acomodando automáticamente...")
                 df_procesado = separar_csv_amontonado(df_raw)
@@ -1400,7 +1205,6 @@ with tab3:
                 df_procesado = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig')
             
             st.caption(f"Columnas detectadas: {', '.join(df_procesado.columns.tolist())}")
-            
             col_cuit = col_leg = col_vto = col_acta = col_deuda = None
             for c in df_procesado.columns:
                 cu = c.upper()
@@ -1415,32 +1219,25 @@ with tab3:
                 st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}, DEUDA={col_deuda}")
             else:
                 st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`" + (f" · DEUDA=`{col_deuda}`" if col_deuda else ""))
-                
                 if esta_amontonado(df_raw):
                     df_completo = df_procesado
                 else:
                     df_completo = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig')
-                
                 if st.button("📋 Procesar y actualizar actas", type="primary"):
                     with st.spinner("Procesando..."):
                         actualizados = 0
                         no_encontrados = 0
                         bar = st.progress(0)
                         errores = []
-                        
                         for i, row in df_completo.iterrows():
                             try:
                                 cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
                                 cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
-                                
                                 leg_raw = str(row[col_leg]) if pd.notna(row[col_leg]) else ""
                                 leg = re.sub(r'\D', '', leg_raw).strip() if leg_raw else None
-                                
                                 vto_raw = str(row[col_vto]) if pd.notna(row[col_vto]) else ""
                                 vto = norm_fecha(vto_raw)
-                                
                                 acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
-                                
                                 deuda_nueva = None
                                 if col_deuda and pd.notna(row.get(col_deuda)):
                                     deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
@@ -1449,7 +1246,6 @@ with tab3:
                                         deuda_nueva = fmt_moneda(deuda_valor)
                                     except:
                                         deuda_nueva = deuda_raw
-                                
                                 if cuit and leg and vto:
                                     resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
                                     if resultado.data:
@@ -1465,19 +1261,15 @@ with tab3:
                                     no_encontrados += 1
                             except Exception as e:
                                 errores.append(f"Fila {i+1}: {str(e)}")
-                            
                             bar.progress((i + 1) / len(df_completo))
-                        
                         bar.empty()
                         col_ok, col_no = st.columns(2)
                         col_ok.metric("✅ Actualizados", actualizados)
                         col_no.metric("❌ No encontrados", no_encontrados)
-                        
                         if errores:
                             with st.expander(f"⚠️ {len(errores)} error(es) durante el procesamiento"):
                                 for err in errores[:10]:
                                     st.caption(err)
-                        
                         if actualizados > 0:
                             st.success(f"✅ {actualizados} actas actualizadas correctamente.")
                         if no_encontrados > 0:
@@ -1487,29 +1279,29 @@ with tab3:
             st.info("Asegurate de que el archivo sea un CSV válido.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Editar Registro (NUEVO - RÁPIDO)
+# TAB 4 — Editar Registro (CORREGIDO - sin duplicados)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("#### ✏️ Editar Registro Individual")
     st.markdown("Buscá un registro por CUIT, Razón Social o Calle, editá sus campos y guardá los cambios.")
     
-    # Inicializar session state para navegación
     if 'registros_busqueda' not in st.session_state:
         st.session_state.registros_busqueda = []
     if 'indice_actual' not in st.session_state:
         st.session_state.indice_actual = 0
     if 'registro_editado' not in st.session_state:
         st.session_state.registro_editado = None
+    if 'ultima_busqueda' not in st.session_state:
+        st.session_state.ultima_busqueda = datetime.now().timestamp()
     
-    # Buscador
     col_busqueda1, col_busqueda2, col_busqueda3 = st.columns([2, 2, 1])
     with col_busqueda1:
-        tipo_busqueda = st.selectbox("Buscar por:", ["CUIT", "RAZÓN SOCIAL", "CALLE"], key="tipo_busqueda")
+        tipo_busqueda = st.selectbox("Buscar por:", ["CUIT", "RAZÓN SOCIAL", "CALLE"], key="tipo_busqueda_tab4")
     with col_busqueda2:
-        termino_busqueda = st.text_input("Término a buscar:", placeholder="Ej: 30-12345678-9 o nombre de empresa o calle", key="termino_busqueda")
+        termino_busqueda = st.text_input("Término a buscar:", placeholder="Ej: 30-12345678-9 o nombre de empresa o calle", key="termino_busqueda_tab4")
     with col_busqueda3:
         st.markdown("---")
-        if st.button("🔍 BUSCAR REGISTROS", type="primary", use_container_width=True):
+        if st.button("🔍 BUSCAR REGISTROS", type="primary", use_container_width=True, key="btn_buscar_tab4"):
             if termino_busqueda.strip():
                 with st.spinner("Buscando..."):
                     query = supabase.table("padron_deuda_presunta").select("*")
@@ -1518,71 +1310,63 @@ with tab4:
                         query = query.eq("cuit", cuit_limpio)
                     elif tipo_busqueda == "RAZÓN SOCIAL":
                         query = query.ilike("razon_social", f"%{termino_busqueda}%")
-                    else:  # CALLE
+                    else:
                         query = query.ilike("calle", f"%{termino_busqueda}%")
-                    
                     resultado = query.execute()
                     st.session_state.registros_busqueda = resultado.data if resultado.data else []
                     st.session_state.indice_actual = 0
                     st.session_state.registro_editado = None
+                    st.session_state.ultima_busqueda = datetime.now().timestamp()
                     st.rerun()
     
-    # Mostrar resultados de búsqueda
     if st.session_state.registros_busqueda:
         total_resultados = len(st.session_state.registros_busqueda)
         st.info(f"📊 Se encontraron {total_resultados} registro(s)")
-        
-        # Navegación
         if total_resultados > 1:
             col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([1, 1, 3, 1])
             with col_nav1:
-                if st.button("◀◀ Primero", disabled=st.session_state.indice_actual == 0):
+                if st.button("◀◀ Primero", key="nav_primero", disabled=st.session_state.indice_actual == 0):
                     st.session_state.indice_actual = 0
                     st.session_state.registro_editado = None
                     st.rerun()
             with col_nav2:
-                if st.button("◀ Anterior", disabled=st.session_state.indice_actual == 0):
+                if st.button("◀ Anterior", key="nav_anterior", disabled=st.session_state.indice_actual == 0):
                     st.session_state.indice_actual -= 1
                     st.session_state.registro_editado = None
                     st.rerun()
             with col_nav4:
-                if st.button("Siguiente ▶", disabled=st.session_state.indice_actual >= total_resultados - 1):
+                if st.button("Siguiente ▶", key="nav_siguiente", disabled=st.session_state.indice_actual >= total_resultados - 1):
                     st.session_state.indice_actual += 1
                     st.session_state.registro_editado = None
                     st.rerun()
             with col_nav3:
                 st.caption(f"Registro {st.session_state.indice_actual + 1} de {total_resultados}")
         
-        # Cargar el registro actual
         registro_actual = st.session_state.registros_busqueda[st.session_state.indice_actual]
-        
-        # Si no hay registro editado en memoria, copiarlo
         if st.session_state.registro_editado is None:
             st.session_state.registro_editado = registro_actual.copy()
         
-        # Mostrar ficha editable
+        registro_id = registro_actual.get('id', 0)
+        key_suffix = f"{registro_id}_{st.session_state.ultima_busqueda}"
+        
         st.markdown('<div class="ficha-edicion">', unsafe_allow_html=True)
         st.markdown('<div class="ficha-titulo">📋 Datos del Registro</div>', unsafe_allow_html=True)
         
-        # Organizar campos en dos columnas
         col_a, col_b = st.columns(2)
-        
         with col_a:
             st.markdown('<p class="campo-label">CUIT</p>', unsafe_allow_html=True)
-            nuevo_cuit = st.text_input("CUIT", value=st.session_state.registro_editado.get('cuit', ''), key="edit_cuit")
-            
+            nuevo_cuit = st.text_input("CUIT", value=st.session_state.registro_editado.get('cuit', ''), key=f"cuit_{key_suffix}")
             st.markdown('<p class="campo-label">RAZÓN SOCIAL</p>', unsafe_allow_html=True)
-            nueva_razon = st.text_input("Razón Social", value=st.session_state.registro_editado.get('razon_social', ''), key="edit_razon")
-            
+            nueva_razon = st.text_input("Razón Social", value=st.session_state.registro_editado.get('razon_social', ''), key=f"razon_{key_suffix}")
             st.markdown('<p class="campo-label">CALLE</p>', unsafe_allow_html=True)
-            nueva_calle = st.text_input("Calle", value=st.session_state.registro_editado.get('calle', ''), key="edit_calle")
-            
+            nueva_calle = st.text_input("Calle", value=st.session_state.registro_editado.get('calle', ''), key=f"calle_{key_suffix}")
             st.markdown('<p class="campo-label">NÚMERO</p>', unsafe_allow_html=True)
-            nuevo_numero = st.text_input("Número", value=st.session_state.registro_editado.get('numero', ''), key="edit_numero")
-            
+            nuevo_numero = st.text_input("Número", value=st.session_state.registro_editado.get('numero', ''), key=f"numero_{key_suffix}")
             st.markdown('<p class="campo-label">LOCALIDAD</p>', unsafe_allow_html=True)
             locs = get_localidades()
-            nueva_localidad = st.selectbox("Localidad", locs, index=locs.index(st.session_state.registro_editado.get('localidad', 'MAR DEL PLATA')) if st.session_state.registro_editado.get('localidad') in locs else 0, key="edit_localidad")
+            localidad_actual = st.session_state.registro_editado.get('localidad', 'MAR DEL PLATA')
+            localidad_index = locs.index(localidad_actual) if localidad_actual in locs else 0
+            nueva_localidad = st.selectbox("Localidad", locs, index=localidad_index, key=f"localidad_{key_suffix}")
         
         with col_b:
             st.markdown('<p class="campo-label">LEGAJO</p>', unsafe_allow_html=True)
@@ -1591,44 +1375,42 @@ with tab4:
             inspectores_opts["SIN LEGAJO"] = ""
             legajo_actual = st.session_state.registro_editado.get('leg', '')
             inspector_actual_nombre = next((k for k, v in inspectores_opts.items() if str(v) == str(legajo_actual)), "SIN LEGAJO")
-            inspector_seleccionado = st.selectbox("Inspector", options=list(inspectores_opts.keys()), index=list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0, key="edit_legajo")
+            inspector_index = list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0
+            inspector_seleccionado = st.selectbox("Inspector", options=list(inspectores_opts.keys()), index=inspector_index, key=f"inspector_{key_suffix}")
             nuevo_legajo = inspectores_opts[inspector_seleccionado] if inspector_seleccionado != "SIN LEGAJO" else None
-            
             st.markdown('<p class="campo-label">FECHA VTO</p>', unsafe_allow_html=True)
             vto_actual = st.session_state.registro_editado.get('vto', '')
             vto_fecha = norm_fecha(vto_actual) if vto_actual else None
-            nuevo_vto = st.date_input("Fecha VTO", value=datetime.strptime(vto_fecha, '%Y-%m-%d') if vto_fecha else date.today(), key="edit_vto")
-            
+            vto_default = datetime.strptime(vto_fecha, '%Y-%m-%d') if vto_fecha else date.today()
+            nuevo_vto = st.date_input("Fecha VTO", value=vto_default, key=f"vto_{key_suffix}")
             st.markdown('<p class="campo-label">DEUDA PRESUNTA</p>', unsafe_allow_html=True)
-            nueva_deuda = st.text_input("Deuda", value=st.session_state.registro_editado.get('deuda_presunta', ''), key="edit_deuda")
-            
+            nueva_deuda = st.text_input("Deuda", value=st.session_state.registro_editado.get('deuda_presunta', ''), key=f"deuda_{key_suffix}")
             st.markdown('<p class="campo-label">ESTADO GESTIÓN</p>', unsafe_allow_html=True)
             estados = ["PENDIENTE", "EN PROCESO", "COMPLETADO", "RECHAZADO", "FINALIZADO", "ACTA_SOLICITADA", "ACTA_SUBIDA"]
             estado_actual = st.session_state.registro_editado.get('estado_gestion', 'PENDIENTE')
-            nuevo_estado = st.selectbox("Estado", estados, index=estados.index(estado_actual) if estado_actual in estados else 0, key="edit_estado")
+            estado_index = estados.index(estado_actual) if estado_actual in estados else 0
+            nuevo_estado = st.selectbox("Estado", estados, index=estado_index, key=f"estado_{key_suffix}")
         
-        # Campos adicionales
         st.markdown('<p class="campo-label">EMAIL</p>', unsafe_allow_html=True)
-        nuevo_email = st.text_input("Email", value=st.session_state.registro_editado.get('email', ''), key="edit_email")
+        nuevo_email = st.text_input("Email", value=st.session_state.registro_editado.get('email', ''), key=f"email_{key_suffix}")
         
         col_c, col_d = st.columns(2)
         with col_c:
             st.markdown('<p class="campo-label">PERÍODO DESDE</p>', unsafe_allow_html=True)
             desde_actual = st.session_state.registro_editado.get('desde', '')
             desde_fecha = norm_fecha(desde_actual) if desde_actual else None
-            nuevo_desde = st.date_input("Desde", value=datetime.strptime(desde_fecha, '%Y-%m-%d') if desde_fecha else date.today(), key="edit_desde")
-        
+            desde_default = datetime.strptime(desde_fecha, '%Y-%m-%d') if desde_fecha else date.today()
+            nuevo_desde = st.date_input("Desde", value=desde_default, key=f"desde_{key_suffix}")
         with col_d:
             st.markdown('<p class="campo-label">PERÍODO HASTA</p>', unsafe_allow_html=True)
             hasta_actual = st.session_state.registro_editado.get('hasta', '')
             hasta_fecha = norm_fecha(hasta_actual) if hasta_actual else None
-            nuevo_hasta = st.date_input("Hasta", value=datetime.strptime(hasta_fecha, '%Y-%m-%d') if hasta_fecha else date.today(), key="edit_hasta")
+            hasta_default = datetime.strptime(hasta_fecha, '%Y-%m-%d') if hasta_fecha else date.today()
+            nuevo_hasta = st.date_input("Hasta", value=hasta_default, key=f"hasta_{key_suffix}")
         
-        # Botones de acción
         col_guardar_reg, col_cancelar_reg = st.columns(2)
         with col_guardar_reg:
-            if st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True):
-                # Preparar datos a actualizar
+            if st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True, key=f"guardar_{key_suffix}"):
                 update_data = {
                     "cuit": nuevo_cuit,
                     "razon_social": nueva_razon,
@@ -1643,15 +1425,12 @@ with tab4:
                     "desde": nuevo_desde.strftime('%Y-%m-%d'),
                     "hasta": nuevo_hasta.strftime('%Y-%m-%d'),
                 }
-                
                 with st.spinner("Guardando cambios..."):
                     try:
                         supabase.table("padron_deuda_presunta").update(update_data).eq("id", registro_actual['id']).execute()
                         st.balloons()
                         st.success("✅ Registro actualizado correctamente!")
-                        # Actualizar la copia en memoria
                         st.session_state.registro_editado.update(update_data)
-                        # También actualizar en la lista de resultados
                         st.session_state.registros_busqueda[st.session_state.indice_actual] = st.session_state.registro_editado.copy()
                         time.sleep(1)
                         st.rerun()
@@ -1659,13 +1438,11 @@ with tab4:
                         st.error(f"Error al guardar: {e}")
         
         with col_cancelar_reg:
-            if st.button("❌ Cancelar", use_container_width=True):
+            if st.button("❌ Cancelar", use_container_width=True, key=f"cancelar_{key_suffix}"):
                 st.session_state.registro_editado = None
                 st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Mostrar ID del registro
         st.caption(f"ID del registro: {registro_actual.get('id', 'N/A')}")
     
     elif termino_busqueda.strip() and st.session_state.registros_busqueda == []:
