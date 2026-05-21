@@ -1337,7 +1337,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas
+# TAB 3 — Subir Actas (CON AUTO-DETECCIÓN DE ARCHIVO AMONTONADO)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV)")
@@ -1352,58 +1352,140 @@ with tab3:
 
     if csv_file:
         st.caption(f"Archivo: **{csv_file.name}**")
+        
+        # Función para detectar si el CSV está "amontonado" (una sola columna con comas)
+        def esta_amontonado(df):
+            # Si tiene solo 1 columna y el contenido tiene comas, está amontonado
+            if len(df.columns) == 1:
+                primera_fila = str(df.iloc[0, 0]) if len(df) > 0 else ""
+                if ',' in primera_fila or ';' in primera_fila:
+                    return True
+            return False
+        
+        # Función para separar el CSV amontonado
+        def separar_csv_amontonado(df_original):
+            # Tomar la única columna
+            columna_unica = df_original.columns[0]
+            # Obtener la primera fila para detectar el separador
+            primera_fila = str(df_original.iloc[0, 0]) if len(df_original) > 0 else ""
+            
+            # Detectar separador (coma o punto y coma)
+            separador = ',' if ',' in primera_fila else ';'
+            
+            # Separar la columna en múltiples columnas
+            datos_separados = df_original[columna_unica].str.split(separador, expand=True)
+            
+            # Usar la primera fila como encabezados si tiene sentido
+            primera_fila_dividida = primera_fila.split(separador)
+            if len(primera_fila_dividida) > 1 and all(p.strip().upper() in ['CUIT', 'LEG', 'VTO', 'ACTA', 'NRO ACTA', 'FECHA VTO'] for p in primera_fila_dividida[:4]):
+                # La primera fila son encabezados
+                nuevos_encabezados = [p.strip().upper() for p in primera_fila_dividida]
+                datos_separados.columns = nuevos_encabezados
+                datos_separados = datos_separados.iloc[1:].reset_index(drop=True)
+            else:
+                # Asignar nombres genéricos
+                datos_separados.columns = [f"COL_{i+1}" for i in range(len(datos_separados.columns))]
+            
+            return datos_separados
+        
         try:
-            df_prev = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-            with st.expander("Vista previa (5 primeras filas)"):
-                st.dataframe(df_prev.head(5), use_container_width=True, height=200)
-        except:
-            pass
-        if st.button("📋 Procesar y actualizar actas", type="primary"):
-            with st.spinner("Procesando..."):
-                try:
-                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='utf-8-sig')
-                except:
-                    df4 = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=';', dtype=str, encoding='latin-1')
-                df4.columns = [str(c).strip().upper() for c in df4.columns]
-                col_cuit = col_leg = col_vto = col_acta = None
-                for c in df4.columns:
-                    cu = c.upper()
-                    if 'CUIT' in cu and not col_cuit: col_cuit = c
-                    if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
-                    if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
-                    if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
-                if not all([col_cuit, col_leg, col_vto]):
-                    st.error(f"❌ Columnas no detectadas — CUIT: {col_cuit}, LEG: {col_leg}, VTO: {col_vto}")
+            # Intentar leer el CSV
+            df_raw = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig', nrows=5)
+            
+            # Mostrar vista previa original
+            with st.expander("📄 Vista previa del archivo original"):
+                st.dataframe(df_raw.head(5), use_container_width=True, height=150)
+            
+            # Detectar si está amontonado
+            if esta_amontonado(df_raw):
+                st.info("🔧 El archivo parece estar 'amontonado' (datos en una sola columna). Acomodando automáticamente...")
+                df_procesado = separar_csv_amontonado(df_raw)
+                with st.expander("📄 Vista previa DESPUÉS de acomodar"):
+                    st.dataframe(df_procesado.head(5), use_container_width=True, height=150)
+            else:
+                st.success("✅ El archivo ya está en formato correcto.")
+                # Leer el CSV completo
+                df_procesado = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig')
+            
+            # Mostrar columnas detectadas
+            st.caption(f"Columnas detectadas: {', '.join(df_procesado.columns.tolist())}")
+            
+            # Detectar columnas necesarias
+            col_cuit = col_leg = col_vto = col_acta = None
+            for c in df_procesado.columns:
+                cu = c.upper()
+                if 'CUIT' in cu and not col_cuit: col_cuit = c
+                if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
+                if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
+                if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
+            
+            if not all([col_cuit, col_leg, col_vto]):
+                st.warning(f"⚠️ No se detectaron todas las columnas necesarias. Buscamos: CUIT, LEG, VTO")
+                st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}")
+                st.caption("Si el archivo tiene un formato diferente, asegurate de que las columnas se llamen CUIT, LEG, VTO (o FECHA VTO)")
+            else:
+                st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                
+                # Leer el CSV completo para procesar
+                if esta_amontonado(df_raw):
+                    # Ya tenemos df_procesado con los datos separados
+                    df_completo = df_procesado
                 else:
-                    st.caption(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
-                    actualizados = 0
-                    no_encontrados = 0
-                    bar = st.progress(0)
-                    for i, row in df4.iterrows():
-                        cuit = re.sub(r'[\.\-,\s]', '', str(row[col_cuit]).strip())
-                        leg = str(row[col_leg]).strip() if row[col_leg] else None
-                        vto = norm_fecha(row[col_vto])
-                        acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
-                        if cuit and leg and vto:
+                    df_completo = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig')
+                
+                if st.button("📋 Procesar y actualizar actas", type="primary"):
+                    with st.spinner("Procesando..."):
+                        actualizados = 0
+                        no_encontrados = 0
+                        bar = st.progress(0)
+                        errores = []
+                        
+                        for i, row in df_completo.iterrows():
                             try:
-                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
-                                if resultado.data:
-                                    for reg in resultado.data:
-                                        supabase.table("padron_deuda_presunta").update({"acta": acta, "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
-                                    actualizados += len(resultado.data)
+                                # Obtener valores
+                                cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
+                                cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
+                                
+                                leg_raw = str(row[col_leg]) if pd.notna(row[col_leg]) else ""
+                                leg = re.sub(r'\D', '', leg_raw).strip() if leg_raw else None
+                                
+                                vto_raw = str(row[col_vto]) if pd.notna(row[col_vto]) else ""
+                                vto = norm_fecha(vto_raw)
+                                
+                                acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+                                
+                                if cuit and leg and vto:
+                                    resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
+                                    if resultado.data:
+                                        for reg in resultado.data:
+                                            supabase.table("padron_deuda_presunta").update({"acta": acta, "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
+                                            actualizados += 1
+                                    else:
+                                        no_encontrados += 1
                                 else:
                                     no_encontrados += 1
                             except Exception as e:
-                                st.error(f"Error fila {i}: {e}")
-                        bar.progress((i + 1) / len(df4))
-                    bar.empty()
-                    col_ok, col_no = st.columns(2)
-                    col_ok.metric("✅ Actualizados", actualizados)
-                    col_no.metric("❌ No encontrados", no_encontrados)
-                    if actualizados > 0:
-                        st.success(f"✅ {actualizados} actas actualizadas correctamente.")
-                    if no_encontrados > 0:
-                        st.warning(f"⚠️ {no_encontrados} filas sin coincidencia.")
+                                errores.append(f"Fila {i+1}: {str(e)}")
+                            
+                            bar.progress((i + 1) / len(df_completo))
+                        
+                        bar.empty()
+                        col_ok, col_no = st.columns(2)
+                        col_ok.metric("✅ Actualizados", actualizados)
+                        col_no.metric("❌ No encontrados", no_encontrados)
+                        
+                        if errores:
+                            with st.expander(f"⚠️ {len(errores)} error(es) durante el procesamiento"):
+                                for err in errores[:10]:
+                                    st.caption(err)
+                        
+                        if actualizados > 0:
+                            st.success(f"✅ {actualizados} actas actualizadas correctamente.")
+                        if no_encontrados > 0:
+                            st.warning(f"⚠️ {no_encontrados} filas sin coincidencia en la base de datos.")
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {str(e)}")
+            st.info("Asegurate de que el archivo sea un CSV válido.")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 4 — Generar Informe
