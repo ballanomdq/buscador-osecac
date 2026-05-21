@@ -460,6 +460,21 @@ def get_pares_existentes():
             break
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
 
+# ── UNA SOLA QUERY para todos los conteos del dashboard ─────────────────────
+@st.cache_data(ttl=60)
+def get_dashboard_stats():
+    """
+    Reemplaza las 11 consultas separadas por una sola llamada RPC.
+    Requiere la función get_dashboard_stats() creada en Supabase SQL Editor.
+    """
+    try:
+        r = supabase.rpc("get_dashboard_stats").execute()
+        return r.data if r.data else {}
+    except Exception as e:
+        # Fallback: si la función RPC no existe aún, devuelve dict vacío
+        st.warning(f"⚠️ No se pudo cargar estadísticas vía RPC: {e}")
+        return {}
+
 def generar_informe_txt(registros_sin_legajo):
     contenido = []
     contenido.append("=" * 80)
@@ -623,6 +638,8 @@ with tab1:
                             res = supabase.table("padron_deuda_presunta").insert(nuevos[i:i+100]).execute()
                             n += len(res.data)
                     st.success(f"✅ {n} registros insertados.")
+                    # Invalida el cache de stats al cargar nuevos registros
+                    get_dashboard_stats.clear()
             else:
                 st.warning("⚠️ No hay registros nuevos.")
         except Exception as e:
@@ -634,13 +651,17 @@ with tab1:
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
 
-    total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
-    con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
-    sin_legajo_total = total_general - con_legajo
-    
-    pendientes_sin_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "NO").execute().count
-    pendientes_con_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI").execute().count
-    finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute().count
+    # ── UNA SOLA LLAMADA RPC en lugar de 11 queries separadas ──────────────
+    stats = get_dashboard_stats()
+
+    total_general       = stats.get('total', 0) or 0
+    con_legajo          = stats.get('con_legajo', 0) or 0
+    sin_legajo_total    = total_general - con_legajo
+    pendientes_sin_mail = stats.get('sin_mail', 0) or 0
+    pendientes_con_mail = stats.get('con_mail', 0) or 0
+    finalizados         = stats.get('finalizados', 0) or 0
+    por_inspector       = stats.get('por_inspector') or {}
+    # ───────────────────────────────────────────────────────────────────────
 
     with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
         col1, col2, col3 = st.columns(3)
@@ -660,12 +681,14 @@ with tab2:
         with col3:
             st.markdown(f"""<div class="kpi-card kpi-finalizado"><div class="kpi-icon">🏁</div><h1>{finalizados:,}</h1><p>FINALIZADOS</p></div>""", unsafe_allow_html=True)
 
+    # Inspectores: una sola query, conteos desde el dict ya cargado
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
         with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=False):
             cols = st.columns(len(inspectores.data))
             for idx, ins in enumerate(inspectores.data):
-                count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
+                # Conteo desde el dict RPC, sin query extra por inspector
+                count = por_inspector.get(str(ins['legajo']), 0)
                 nombre_corto = ins['nombre'].split(',')[0]
                 with cols[idx]:
                     st.markdown(f"""<div class="inspector-card"><h3>{nombre_corto}</h3><h1>{count}</h1><p>Legajo: {ins['legajo']}</p></div>""", unsafe_allow_html=True)
@@ -682,6 +705,7 @@ with tab2:
             if ids:
                 supabase.table("padron_deuda_presunta").delete().in_("id", ids).execute()
                 st.session_state.ids_a_eliminar = []
+                get_dashboard_stats.clear()
                 st.rerun()
     with col_elim_todo:
         if st.button("🗑 Eliminar TODO", use_container_width=True):
@@ -710,6 +734,7 @@ with tab2:
         if st.button("⟳ Recargar", use_container_width=True):
             st.session_state.ultima_recarga = datetime.now()
             st.session_state.pop('pagina_actual', None)
+            get_dashboard_stats.clear()
             st.rerun()
 
     if st.session_state.get('confirmar_del_todo'):
@@ -719,6 +744,7 @@ with tab2:
             if st.button("Sí, eliminar todo"):
                 supabase.table("padron_deuda_presunta").delete().neq("id", 0).execute()
                 st.session_state.confirmar_del_todo = False
+                get_dashboard_stats.clear()
                 st.rerun()
         with col_no:
             if st.button("Cancelar"):
@@ -819,6 +845,7 @@ with tab2:
                     st.session_state.excel_descarga = excel_data
                     st.session_state.nombre_excel = f"MAILING_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                     st.session_state.preparar_mails = False
+                    get_dashboard_stats.clear()
                     st.rerun()
                 if st.button("❌ Cancelar", use_container_width=True):
                     st.session_state.preparar_mails = False
@@ -867,6 +894,7 @@ with tab2:
                     st.session_state.excel_descarga = excel_data
                     st.session_state.nombre_excel = f"MAILING_CUIT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
                     st.session_state.preparar_mails = False
+                    get_dashboard_stats.clear()
                     st.rerun()
                 if st.button("❌ Cancelar", use_container_width=True):
                     st.session_state.preparar_mails = False
@@ -951,6 +979,7 @@ with tab2:
                 guardados = guardar_legajos_en_batch(asig)
             st.session_state.asignar_legajos = False
             st.session_state.ultima_asignacion = {"asignados": guardados, "no_asignados": len(no_asig), "detalle": no_asig}
+            get_dashboard_stats.clear()
             st.success(f"✅ {guardados} legajos asignados, {len(no_asig)} sin coincidencia.")
             st.rerun()
 
@@ -1145,6 +1174,7 @@ with tab2:
                 st.success(f"✅ ¡{mods} registros actualizados correctamente!")
                 if errores_fecha > 0:
                     st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
+                get_dashboard_stats.clear()
                 st.session_state.ultima_recarga = datetime.now()
                 st.rerun()
             elif errores_fecha > 0:
@@ -1272,6 +1302,7 @@ with tab3:
                                     st.caption(err)
                         if actualizados > 0:
                             st.success(f"✅ {actualizados} actas actualizadas correctamente.")
+                            get_dashboard_stats.clear()
                         if no_encontrados > 0:
                             st.warning(f"⚠️ {no_encontrados} filas sin coincidencia en la base de datos.")
         except Exception as e:
@@ -1432,6 +1463,7 @@ with tab4:
                         st.success("✅ Registro actualizado correctamente!")
                         st.session_state.registro_editado.update(update_data)
                         st.session_state.registros_busqueda[st.session_state.indice_actual] = st.session_state.registro_editado.copy()
+                        get_dashboard_stats.clear()
                         time.sleep(1)
                         st.rerun()
                     except Exception as e:
