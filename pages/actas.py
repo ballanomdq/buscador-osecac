@@ -229,6 +229,32 @@ st.markdown("""
 
     /* === OCULTAR ELEMENTOS === */
     #MainMenu, footer, header { display: none !important; }
+    
+    /* === FICHA DE EDICIÓN === */
+    .ficha-edicion {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        margin-top: 1rem;
+    }
+    .ficha-titulo {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #3b82f6;
+    }
+    .campo-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.2rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -658,13 +684,14 @@ def procesar_excel(archivo):
     return out
 
 # ══════════════════════════════════════════════════════════════════
-# TABS
+# TABS (6 pestañas)
 # ══════════════════════════════════════════════════════════════════
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📤 Cargar Padrón",
     "✏️ Gestionar Registros",
     "📋 Subir Actas",
+    "✏️ Editar Registro",
     "📧 Generar Informe",
     "👥 Inspectores"
 ])
@@ -703,12 +730,11 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros
+# TAB 2 — Gestionar Registros (la tabla editable original)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
 
-    # ── CONTADORES ──
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
@@ -717,9 +743,6 @@ with tab2:
     pendientes_con_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI").execute().count
     finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute().count
 
-    # ════════════════════════════════════════════════════════════════════════════
-    # FILA 1: CONTEO DE REGISTROS
-    # ════════════════════════════════════════════════════════════════════════════
     with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -747,9 +770,6 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
 
-    # ════════════════════════════════════════════════════════════════════════════
-    # FILA 2: ESTADO DE REGISTROS
-    # ════════════════════════════════════════════════════════════════════════════
     with st.expander("🔄 ESTADO DE REGISTROS", expanded=False):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -777,9 +797,6 @@ with tab2:
             </div>
             """, unsafe_allow_html=True)
 
-    # ════════════════════════════════════════════════════════════════════════════
-    # FILA 3: EMPRESAS POR INSPECTOR
-    # ════════════════════════════════════════════════════════════════════════════
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
         with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=False):
@@ -798,7 +815,6 @@ with tab2:
 
     st.divider()
 
-    # ── BOTONES DE ACCIÓN ──
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -970,7 +986,7 @@ with tab2:
                     st.session_state.preparar_mails = False
                     st.rerun()
             
-            else:  # Opción POR CUIT
+            else:
                 st.markdown("---")
                 st.markdown("### Ingresar CUITs manualmente")
                 st.caption("Pegá los CUITs separados por coma, espacio o salto de línea")
@@ -1034,7 +1050,6 @@ with tab2:
         
         mostrar_dialogo_preparar_mails()
 
-    # ── DESCARGA FUERA DEL MODAL ─────────────────────────────────────────────
     if st.session_state.get("excel_descarga"):
         st.success("🎉 ¡Mailing generado exitosamente! Descargue el archivo:")
         col_desc1, col_desc2, col_desc3 = st.columns([1, 2, 1])
@@ -1045,7 +1060,6 @@ with tab2:
                 del st.session_state["nombre_excel"]
                 st.rerun()
 
-    # ── GENERAR INFORMES ─────────────────────────────────────────────────────
     if st.session_state.get('generar_informe'):
         with st.spinner("Generando informe..."):
             registros_sin_legajo = traer_registros_sin_legajo()
@@ -1075,7 +1089,6 @@ with tab2:
             st.success("✅ Informe generado - Una hoja por inspector")
         st.session_state.generar_informe_por_inspector = False
 
-    # ── ASIGNACIÓN AUTOMÁTICA DE LEGAJOS ─────────────────────────────────────
     if st.session_state.get('asignar_legajos'):
         st.info("⏳ Asignando legajos...")
         with st.spinner("Cargando configuración..."):
@@ -1133,13 +1146,12 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS Y TABLA EDITABLE ─────────────────────────────────────────────
+    # ── FILTROS Y TABLA EDITABLE ──
     st.markdown("### 🔎 Filtros de búsqueda")
     
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
     
-    # Filtros rápidos
     col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
     with col_f1:
         st.markdown('<p class="filtro-titulo">📍 LOCALIDAD</p>', unsafe_allow_html=True)
@@ -1158,7 +1170,6 @@ with tab2:
         st.markdown('<p class="filtro-titulo">🏢 RAZÓN SOCIAL</p>', unsafe_allow_html=True)
         filtro_razon_temp = st.text_input("Razón Social", key="filtro_razon_temp", placeholder="Razón social", label_visibility="collapsed")
     
-    # Filtro CALLE y botón BUSCAR
     col_f6, col_f7 = st.columns([3, 1])
     with col_f6:
         st.markdown('<p class="filtro-titulo">🏠 CALLE</p>', unsafe_allow_html=True)
@@ -1168,7 +1179,6 @@ with tab2:
         buscar_click = st.button("🔍 BUSCAR", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Session state para filtros
     if 'filtro_cuit' not in st.session_state:
         st.session_state.filtro_cuit = ""
     if 'filtro_razon' not in st.session_state:
@@ -1190,7 +1200,6 @@ with tab2:
     if filtro_cuit or filtro_razon or filtro_calle_aprox:
         st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'}")
 
-    # ── CONSULTA ──
     q = supabase.table("padron_deuda_presunta").select("*")
     
     if localidad != "TODAS":
@@ -1337,7 +1346,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (CON AUTO-DETECCIÓN DE ARCHIVO AMONTONADO)
+# TAB 3 — Subir Actas (CON AUTO-DETECCIÓN Y ACTUALIZACIÓN DE DEUDA)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV)")
@@ -1345,6 +1354,7 @@ with tab3:
     <div style="background: #f1f5f9; padding: 0.5rem 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
     El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
     en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
+    Además, si el archivo contiene una columna con el monto actualizado de deuda, lo actualiza.
     </div>
     """, unsafe_allow_html=True)
 
@@ -1353,50 +1363,33 @@ with tab3:
     if csv_file:
         st.caption(f"Archivo: **{csv_file.name}**")
         
-        # Función para detectar si el CSV está "amontonado" (una sola columna con comas)
         def esta_amontonado(df):
-            # Si tiene solo 1 columna y el contenido tiene comas, está amontonado
             if len(df.columns) == 1:
                 primera_fila = str(df.iloc[0, 0]) if len(df) > 0 else ""
                 if ',' in primera_fila or ';' in primera_fila:
                     return True
             return False
         
-        # Función para separar el CSV amontonado
         def separar_csv_amontonado(df_original):
-            # Tomar la única columna
             columna_unica = df_original.columns[0]
-            # Obtener la primera fila para detectar el separador
             primera_fila = str(df_original.iloc[0, 0]) if len(df_original) > 0 else ""
-            
-            # Detectar separador (coma o punto y coma)
             separador = ',' if ',' in primera_fila else ';'
-            
-            # Separar la columna en múltiples columnas
             datos_separados = df_original[columna_unica].str.split(separador, expand=True)
-            
-            # Usar la primera fila como encabezados si tiene sentido
             primera_fila_dividida = primera_fila.split(separador)
-            if len(primera_fila_dividida) > 1 and all(p.strip().upper() in ['CUIT', 'LEG', 'VTO', 'ACTA', 'NRO ACTA', 'FECHA VTO'] for p in primera_fila_dividida[:4]):
-                # La primera fila son encabezados
+            if len(primera_fila_dividida) > 1 and all(p.strip().upper() in ['CUIT', 'LEG', 'VTO', 'ACTA', 'NRO ACTA', 'FECHA VTO', 'DEUDA_TOTAL', 'DEUDA', 'MONTO'] for p in primera_fila_dividida[:4]):
                 nuevos_encabezados = [p.strip().upper() for p in primera_fila_dividida]
                 datos_separados.columns = nuevos_encabezados
                 datos_separados = datos_separados.iloc[1:].reset_index(drop=True)
             else:
-                # Asignar nombres genéricos
                 datos_separados.columns = [f"COL_{i+1}" for i in range(len(datos_separados.columns))]
-            
             return datos_separados
         
         try:
-            # Intentar leer el CSV
             df_raw = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig', nrows=5)
             
-            # Mostrar vista previa original
             with st.expander("📄 Vista previa del archivo original"):
                 st.dataframe(df_raw.head(5), use_container_width=True, height=150)
             
-            # Detectar si está amontonado
             if esta_amontonado(df_raw):
                 st.info("🔧 El archivo parece estar 'amontonado' (datos en una sola columna). Acomodando automáticamente...")
                 df_procesado = separar_csv_amontonado(df_raw)
@@ -1404,31 +1397,26 @@ with tab3:
                     st.dataframe(df_procesado.head(5), use_container_width=True, height=150)
             else:
                 st.success("✅ El archivo ya está en formato correcto.")
-                # Leer el CSV completo
                 df_procesado = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig')
             
-            # Mostrar columnas detectadas
             st.caption(f"Columnas detectadas: {', '.join(df_procesado.columns.tolist())}")
             
-            # Detectar columnas necesarias
-            col_cuit = col_leg = col_vto = col_acta = None
+            col_cuit = col_leg = col_vto = col_acta = col_deuda = None
             for c in df_procesado.columns:
                 cu = c.upper()
                 if 'CUIT' in cu and not col_cuit: col_cuit = c
                 if ('LEG' in cu or 'LEGAJO' in cu) and not col_leg: col_leg = c
                 if ('VTO' in cu or 'FECHA_VTO' in cu) and not col_vto: col_vto = c
                 if ('NRO_ACTA' in cu or cu == 'ACTA') and not col_acta: col_acta = c
+                if ('DEUDA' in cu or 'MONTO' in cu) and not col_deuda: col_deuda = c
             
             if not all([col_cuit, col_leg, col_vto]):
                 st.warning(f"⚠️ No se detectaron todas las columnas necesarias. Buscamos: CUIT, LEG, VTO")
-                st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}")
-                st.caption("Si el archivo tiene un formato diferente, asegurate de que las columnas se llamen CUIT, LEG, VTO (o FECHA VTO)")
+                st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}, DEUDA={col_deuda}")
             else:
-                st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+                st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`" + (f" · DEUDA=`{col_deuda}`" if col_deuda else ""))
                 
-                # Leer el CSV completo para procesar
                 if esta_amontonado(df_raw):
-                    # Ya tenemos df_procesado con los datos separados
                     df_completo = df_procesado
                 else:
                     df_completo = pd.read_csv(io.BytesIO(csv_file.getvalue()), sep=None, engine='python', dtype=str, encoding='utf-8-sig')
@@ -1442,7 +1430,6 @@ with tab3:
                         
                         for i, row in df_completo.iterrows():
                             try:
-                                # Obtener valores
                                 cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
                                 cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
                                 
@@ -1454,11 +1441,23 @@ with tab3:
                                 
                                 acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
                                 
+                                deuda_nueva = None
+                                if col_deuda and pd.notna(row.get(col_deuda)):
+                                    deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
+                                    try:
+                                        deuda_valor = float(deuda_raw)
+                                        deuda_nueva = fmt_moneda(deuda_valor)
+                                    except:
+                                        deuda_nueva = deuda_raw
+                                
                                 if cuit and leg and vto:
                                     resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
                                     if resultado.data:
                                         for reg in resultado.data:
-                                            supabase.table("padron_deuda_presunta").update({"acta": acta, "estado_gestion": "FINALIZADO"}).eq("id", reg['id']).execute()
+                                            update_data = {"acta": acta, "estado_gestion": "FINALIZADO"}
+                                            if deuda_nueva:
+                                                update_data["deuda_presunta"] = deuda_nueva
+                                            supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
                                             actualizados += 1
                                     else:
                                         no_encontrados += 1
@@ -1488,9 +1487,194 @@ with tab3:
             st.info("Asegurate de que el archivo sea un CSV válido.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Generar Informe
+# TAB 4 — Editar Registro (NUEVO - RÁPIDO)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
+    st.markdown("#### ✏️ Editar Registro Individual")
+    st.markdown("Buscá un registro por CUIT, Razón Social o Calle, editá sus campos y guardá los cambios.")
+    
+    # Inicializar session state para navegación
+    if 'registros_busqueda' not in st.session_state:
+        st.session_state.registros_busqueda = []
+    if 'indice_actual' not in st.session_state:
+        st.session_state.indice_actual = 0
+    if 'registro_editado' not in st.session_state:
+        st.session_state.registro_editado = None
+    
+    # Buscador
+    col_busqueda1, col_busqueda2, col_busqueda3 = st.columns([2, 2, 1])
+    with col_busqueda1:
+        tipo_busqueda = st.selectbox("Buscar por:", ["CUIT", "RAZÓN SOCIAL", "CALLE"], key="tipo_busqueda")
+    with col_busqueda2:
+        termino_busqueda = st.text_input("Término a buscar:", placeholder="Ej: 30-12345678-9 o nombre de empresa o calle", key="termino_busqueda")
+    with col_busqueda3:
+        st.markdown("---")
+        if st.button("🔍 BUSCAR REGISTROS", type="primary", use_container_width=True):
+            if termino_busqueda.strip():
+                with st.spinner("Buscando..."):
+                    query = supabase.table("padron_deuda_presunta").select("*")
+                    if tipo_busqueda == "CUIT":
+                        cuit_limpio = re.sub(r'[\.\-,\s]', '', termino_busqueda).strip()
+                        query = query.eq("cuit", cuit_limpio)
+                    elif tipo_busqueda == "RAZÓN SOCIAL":
+                        query = query.ilike("razon_social", f"%{termino_busqueda}%")
+                    else:  # CALLE
+                        query = query.ilike("calle", f"%{termino_busqueda}%")
+                    
+                    resultado = query.execute()
+                    st.session_state.registros_busqueda = resultado.data if resultado.data else []
+                    st.session_state.indice_actual = 0
+                    st.session_state.registro_editado = None
+                    st.rerun()
+    
+    # Mostrar resultados de búsqueda
+    if st.session_state.registros_busqueda:
+        total_resultados = len(st.session_state.registros_busqueda)
+        st.info(f"📊 Se encontraron {total_resultados} registro(s)")
+        
+        # Navegación
+        if total_resultados > 1:
+            col_nav1, col_nav2, col_nav3, col_nav4 = st.columns([1, 1, 3, 1])
+            with col_nav1:
+                if st.button("◀◀ Primero", disabled=st.session_state.indice_actual == 0):
+                    st.session_state.indice_actual = 0
+                    st.session_state.registro_editado = None
+                    st.rerun()
+            with col_nav2:
+                if st.button("◀ Anterior", disabled=st.session_state.indice_actual == 0):
+                    st.session_state.indice_actual -= 1
+                    st.session_state.registro_editado = None
+                    st.rerun()
+            with col_nav4:
+                if st.button("Siguiente ▶", disabled=st.session_state.indice_actual >= total_resultados - 1):
+                    st.session_state.indice_actual += 1
+                    st.session_state.registro_editado = None
+                    st.rerun()
+            with col_nav3:
+                st.caption(f"Registro {st.session_state.indice_actual + 1} de {total_resultados}")
+        
+        # Cargar el registro actual
+        registro_actual = st.session_state.registros_busqueda[st.session_state.indice_actual]
+        
+        # Si no hay registro editado en memoria, copiarlo
+        if st.session_state.registro_editado is None:
+            st.session_state.registro_editado = registro_actual.copy()
+        
+        # Mostrar ficha editable
+        st.markdown('<div class="ficha-edicion">', unsafe_allow_html=True)
+        st.markdown('<div class="ficha-titulo">📋 Datos del Registro</div>', unsafe_allow_html=True)
+        
+        # Organizar campos en dos columnas
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.markdown('<p class="campo-label">CUIT</p>', unsafe_allow_html=True)
+            nuevo_cuit = st.text_input("CUIT", value=st.session_state.registro_editado.get('cuit', ''), key="edit_cuit")
+            
+            st.markdown('<p class="campo-label">RAZÓN SOCIAL</p>', unsafe_allow_html=True)
+            nueva_razon = st.text_input("Razón Social", value=st.session_state.registro_editado.get('razon_social', ''), key="edit_razon")
+            
+            st.markdown('<p class="campo-label">CALLE</p>', unsafe_allow_html=True)
+            nueva_calle = st.text_input("Calle", value=st.session_state.registro_editado.get('calle', ''), key="edit_calle")
+            
+            st.markdown('<p class="campo-label">NÚMERO</p>', unsafe_allow_html=True)
+            nuevo_numero = st.text_input("Número", value=st.session_state.registro_editado.get('numero', ''), key="edit_numero")
+            
+            st.markdown('<p class="campo-label">LOCALIDAD</p>', unsafe_allow_html=True)
+            locs = get_localidades()
+            nueva_localidad = st.selectbox("Localidad", locs, index=locs.index(st.session_state.registro_editado.get('localidad', 'MAR DEL PLATA')) if st.session_state.registro_editado.get('localidad') in locs else 0, key="edit_localidad")
+        
+        with col_b:
+            st.markdown('<p class="campo-label">LEGAJO</p>', unsafe_allow_html=True)
+            inspectores_list = supabase.table("inspectores").select("*").order("legajo").execute()
+            inspectores_opts = {ins['nombre']: ins['legajo'] for ins in inspectores_list.data}
+            inspectores_opts["SIN LEGAJO"] = ""
+            legajo_actual = st.session_state.registro_editado.get('leg', '')
+            inspector_actual_nombre = next((k for k, v in inspectores_opts.items() if str(v) == str(legajo_actual)), "SIN LEGAJO")
+            inspector_seleccionado = st.selectbox("Inspector", options=list(inspectores_opts.keys()), index=list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0, key="edit_legajo")
+            nuevo_legajo = inspectores_opts[inspector_seleccionado] if inspector_seleccionado != "SIN LEGAJO" else None
+            
+            st.markdown('<p class="campo-label">FECHA VTO</p>', unsafe_allow_html=True)
+            vto_actual = st.session_state.registro_editado.get('vto', '')
+            vto_fecha = norm_fecha(vto_actual) if vto_actual else None
+            nuevo_vto = st.date_input("Fecha VTO", value=datetime.strptime(vto_fecha, '%Y-%m-%d') if vto_fecha else date.today(), key="edit_vto")
+            
+            st.markdown('<p class="campo-label">DEUDA PRESUNTA</p>', unsafe_allow_html=True)
+            nueva_deuda = st.text_input("Deuda", value=st.session_state.registro_editado.get('deuda_presunta', ''), key="edit_deuda")
+            
+            st.markdown('<p class="campo-label">ESTADO GESTIÓN</p>', unsafe_allow_html=True)
+            estados = ["PENDIENTE", "EN PROCESO", "COMPLETADO", "RECHAZADO", "FINALIZADO", "ACTA_SOLICITADA", "ACTA_SUBIDA"]
+            estado_actual = st.session_state.registro_editado.get('estado_gestion', 'PENDIENTE')
+            nuevo_estado = st.selectbox("Estado", estados, index=estados.index(estado_actual) if estado_actual in estados else 0, key="edit_estado")
+        
+        # Campos adicionales
+        st.markdown('<p class="campo-label">EMAIL</p>', unsafe_allow_html=True)
+        nuevo_email = st.text_input("Email", value=st.session_state.registro_editado.get('email', ''), key="edit_email")
+        
+        col_c, col_d = st.columns(2)
+        with col_c:
+            st.markdown('<p class="campo-label">PERÍODO DESDE</p>', unsafe_allow_html=True)
+            desde_actual = st.session_state.registro_editado.get('desde', '')
+            desde_fecha = norm_fecha(desde_actual) if desde_actual else None
+            nuevo_desde = st.date_input("Desde", value=datetime.strptime(desde_fecha, '%Y-%m-%d') if desde_fecha else date.today(), key="edit_desde")
+        
+        with col_d:
+            st.markdown('<p class="campo-label">PERÍODO HASTA</p>', unsafe_allow_html=True)
+            hasta_actual = st.session_state.registro_editado.get('hasta', '')
+            hasta_fecha = norm_fecha(hasta_actual) if hasta_actual else None
+            nuevo_hasta = st.date_input("Hasta", value=datetime.strptime(hasta_fecha, '%Y-%m-%d') if hasta_fecha else date.today(), key="edit_hasta")
+        
+        # Botones de acción
+        col_guardar_reg, col_cancelar_reg = st.columns(2)
+        with col_guardar_reg:
+            if st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True):
+                # Preparar datos a actualizar
+                update_data = {
+                    "cuit": nuevo_cuit,
+                    "razon_social": nueva_razon,
+                    "calle": nueva_calle,
+                    "numero": nuevo_numero,
+                    "localidad": nueva_localidad,
+                    "leg": nuevo_legajo,
+                    "vto": nuevo_vto.strftime('%Y-%m-%d'),
+                    "deuda_presunta": nueva_deuda,
+                    "estado_gestion": nuevo_estado,
+                    "email": nuevo_email,
+                    "desde": nuevo_desde.strftime('%Y-%m-%d'),
+                    "hasta": nuevo_hasta.strftime('%Y-%m-%d'),
+                }
+                
+                with st.spinner("Guardando cambios..."):
+                    try:
+                        supabase.table("padron_deuda_presunta").update(update_data).eq("id", registro_actual['id']).execute()
+                        st.balloons()
+                        st.success("✅ Registro actualizado correctamente!")
+                        # Actualizar la copia en memoria
+                        st.session_state.registro_editado.update(update_data)
+                        # También actualizar en la lista de resultados
+                        st.session_state.registros_busqueda[st.session_state.indice_actual] = st.session_state.registro_editado.copy()
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
+        
+        with col_cancelar_reg:
+            if st.button("❌ Cancelar", use_container_width=True):
+                st.session_state.registro_editado = None
+                st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Mostrar ID del registro
+        st.caption(f"ID del registro: {registro_actual.get('id', 'N/A')}")
+    
+    elif termino_busqueda.strip() and st.session_state.registros_busqueda == []:
+        st.warning("No se encontraron registros con ese término de búsqueda.")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 5 — Generar Informe
+# ══════════════════════════════════════════════════════════════════
+with tab5:
     st.markdown("""
     <div style="background: white; border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">📄 Generar Informe Mensual</h3>
@@ -1502,9 +1686,9 @@ with tab4:
         st.page_link("pages/generar_informe.py", label="🔗 IR A GENERAR INFORME", icon="📄", use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 5 — INSPECTORES
+# TAB 6 — INSPECTORES
 # ══════════════════════════════════════════════════════════════════
-with tab5:
+with tab6:
     st.markdown("""
     <div style="background: white; border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <h3 style="color: #10b981; margin: 0 0 0.3rem 0; font-size: 1rem;">🗺️ Zonas de Inspectores</h3>
