@@ -8,241 +8,7 @@ import hashlib
 import time
 import io
 
-# ── CONFIGURACIÓN INICIAL ─────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Fiscalización - OSECAC",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-    page_icon="🔍"
-)
-
-# ── ESTILOS MODERNOS ─────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-    /* === TEMA GENERAL === */
-    .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-    }
-    
-    /* === HEADER MODERNO === */
-    .main-header {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 1rem 1.5rem;
-        border-radius: 16px;
-        border-left: 5px solid #3b82f6;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
-    }
-    .main-header h1 {
-        color: white;
-        margin: 0;
-        font-size: 1.5rem;
-        font-weight: 600;
-        letter-spacing: -0.3px;
-    }
-    .main-header p {
-        color: #94a3b8;
-        margin: 0;
-        font-size: 0.85rem;
-    }
-
-    /* === CARDS KPI MODERNAS === */
-    .kpi-card {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-radius: 16px;
-        padding: 1rem 0.8rem;
-        text-align: center;
-        border: 1px solid #334155;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        height: 100%;
-        position: relative;
-        overflow: hidden;
-    }
-    .kpi-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.1), transparent);
-        transition: left 0.5s;
-    }
-    .kpi-card:hover::before {
-        left: 100%;
-    }
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        border-color: #3b82f6;
-        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.25);
-    }
-    .kpi-card h1 {
-        font-size: 2rem !important;
-        font-weight: 700;
-        margin: 0;
-        line-height: 1.2;
-    }
-    .kpi-card p {
-        margin: 8px 0 0 0;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #94a3b8;
-    }
-    .kpi-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-    .kpi-total h1 { color: #60a5fa; }
-    .kpi-con-legajo h1 { color: #34d399; }
-    .kpi-sin-legajo h1 { color: #fbbf24; }
-    .kpi-pendiente h1 { color: #f87171; }
-    .kpi-mail h1 { color: #fb923c; }
-    .kpi-finalizado h1 { color: #34d399; }
-
-    /* === TARJETAS DE INSPECTORES === */
-    .inspector-card {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-radius: 12px;
-        padding: 0.5rem;
-        text-align: center;
-        border: 1px solid #334155;
-        transition: all 0.2s ease;
-    }
-    .inspector-card:hover {
-        transform: translateY(-3px);
-        border-color: #10b981;
-        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
-    }
-    .inspector-card h3 {
-        font-size: 0.75rem;
-        color: #34d399;
-        margin: 0 0 0.2rem 0;
-    }
-    .inspector-card h1 {
-        font-size: 1.3rem;
-        font-weight: 700;
-        color: white;
-        margin: 0;
-        line-height: 1.2;
-    }
-    .inspector-card p {
-        font-size: 0.55rem;
-        color: #94a3b8;
-        margin: 0;
-    }
-
-    /* === BOTONES MODERNOS === */
-    .stButton > button {
-        border-radius: 10px !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease !important;
-        border: none !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        filter: brightness(1.05);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    }
-    .stButton > button:active {
-        transform: translateY(0);
-    }
-    
-    /* Botón GUARDAR (verde) */
-    .stButton > button[kind="secondary"] {
-        background: linear-gradient(135deg, #059669, #047857) !important;
-    }
-    
-    /* Botón BUSCAR (azul) */
-    .buscar-btn button {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-        font-size: 0.9rem !important;
-        padding: 0.4rem 1rem !important;
-    }
-
-    /* === TABS MODERNAS === */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0.5rem;
-        background: #1e293b;
-        padding: 0.5rem;
-        border-radius: 12px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        transition: all 0.2s;
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        background: #334155;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-        color: white !important;
-    }
-
-    /* === EXPANDER === */
-    .streamlit-expanderHeader {
-        background: linear-gradient(135deg, #1e293b, #0f172a) !important;
-        border-radius: 10px !important;
-        border: 1px solid #334155 !important;
-        color: #e2e8f0 !important;
-        font-weight: 500 !important;
-    }
-    .streamlit-expanderHeader:hover {
-        border-color: #3b82f6 !important;
-    }
-
-    /* === DATA EDITOR === */
-    .stDataEditor {
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #334155;
-    }
-
-    /* === FILTROS === */
-    .filtro-titulo {
-        font-size: 0.6rem;
-        color: #94a3b8;
-        margin-bottom: 0.2rem;
-        letter-spacing: 0.3px;
-    }
-    .stSelectbox, .stTextInput {
-        background: #1e293b;
-        border-radius: 8px;
-    }
-
-    /* === DIVIDERS === */
-    hr {
-        margin: 1rem 0;
-        border-color: #334155;
-    }
-
-    /* === DIALOGOS === */
-    div[role="dialog"] {
-        background: linear-gradient(135deg, #1e293b, #0f172a) !important;
-        border-radius: 20px !important;
-        border: 1px solid #3b82f6 !important;
-    }
-    div[role="dialog"] button[aria-label="Close"] {
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
-
-    /* === OCULTAR ELEMENTOS === */
-    #MainMenu, footer, header { display: none !important; }
-</style>
-""", unsafe_allow_html=True)
-
-# Header Moderno
-st.markdown("""
-<div class="main-header">
-    <h1>🔍 Fiscalización · Deuda Presunta</h1>
-    <p>Sistema de Gestión y Seguimiento | OSECAC</p>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Conexión Supabase ───────────────────────────────────────────────────────
+# ── Conexión ──────────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_supabase():
     return create_client(
@@ -251,6 +17,221 @@ def get_supabase():
     )
 
 supabase = get_supabase()
+
+st.set_page_config(page_title="Fiscalización - OSECAC", layout="wide", initial_sidebar_state="collapsed")
+
+st.markdown("""
+<style>
+html, body, [class*="css"] { font-size: 13px !important; }
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 1rem;
+    background: #1e293b;
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+.app-header h3 { color: #fff; margin: 0; font-size: 1.2rem; font-weight: 500; }
+.app-header p { color: #94a3b8; margin: 0; font-size: 0.7rem; }
+div[data-testid="stButton"] > button {
+    padding: 0.2rem 0.6rem !important;
+    font-size: 0.75rem !important;
+    border-radius: 4px !important;
+}
+div[data-testid="stButton"] > button[kind="secondary"] {
+    background: #10b981 !important;
+    color: white !important;
+    border: 1px solid #059669 !important;
+    font-weight: bold !important;
+}
+div[data-testid="stButton"] > button[kind="secondary"]:hover {
+    background: #059669 !important;
+}
+div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]) {
+    background: #475569 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #334155 !important;
+}
+div[data-testid="stButton"] > button:not([kind="secondary"]):not([kind="primary"]):hover {
+    background: #334155 !important;
+}
+div[data-testid="stButton"] > button[kind="primary"] {
+    background: #2563eb !important;
+    border-color: #1d4ed8 !important;
+    color: white !important;
+}
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: #1d4ed8 !important;
+}
+#MainMenu, footer, header { display: none !important; }
+
+/* Botón BUSCAR grande */
+.buscar-btn button {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+    font-size: 1rem !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: bold !important;
+}
+.buscar-btn button:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af) !important;
+}
+
+/* ── CARTELES ── */
+.kpi-card {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 8px;
+    padding: 0.3rem 0.2rem;
+    text-align: center;
+    border: 1px solid #334155;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: #3b82f6;
+}
+.kpi-card h1 { 
+    margin: 0; 
+    font-size: 2rem !important; 
+    font-weight: 700; 
+    line-height: 1.1; 
+}
+.kpi-card p { 
+    margin: 0; 
+    font-size: 0.65rem !important; 
+    color: #94a3b8; 
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.kpi-total h1 { color: #3b82f6; }
+.kpi-con-legajo h1 { color: #10b981; }
+.kpi-sin-legajo h1 { color: #f59e0b; }
+.kpi-pendiente h1 { color: #ef4444; }
+.kpi-mail h1 { color: #f97316; }
+.kpi-finalizado h1 { color: #10b981; }
+
+.inspector-card {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border-radius: 6px;
+    padding: 0.2rem 0.1rem;
+    text-align: center;
+    border: 1px solid #334155;
+    transition: all 0.2s ease;
+}
+.inspector-card:hover {
+    transform: translateY(-1px);
+    border-color: #10b981;
+}
+.inspector-card h3 { 
+    margin: 0; 
+    font-size: 0.75rem !important; 
+    color: #10b981; 
+    line-height: 1.2;
+    font-weight: 600;
+}
+.inspector-card h1 { 
+    margin: 0; 
+    font-size: 1.3rem !important; 
+    color: #e2e8f0; 
+    font-weight: 700; 
+    line-height: 1.1; 
+}
+.inspector-card p { 
+    margin: 0; 
+    font-size: 0.55rem !important; 
+    color: #94a3b8; 
+    line-height: 1.2;
+}
+
+/* Expander personalizado */
+.streamlit-expanderHeader {
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    color: #e2e8f0 !important;
+    background-color: #1e293b !important;
+    border-radius: 6px !important;
+}
+.streamlit-expanderHeader:hover {
+    background-color: #334155 !important;
+}
+
+.filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
+hr { margin: 0.3rem 0 !important; }
+div.block-container { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+.stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+    font-size: 0.85rem !important;
+}
+
+/* ── ESTILO PARA DIÁLOGO ── */
+div[role="dialog"] {
+    background: #f8fafc !important;
+    border-radius: 16px !important;
+    border: 2px solid #3b82f6 !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2) !important;
+}
+div[role="dialog"] button[aria-label="Close"] {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 1px !important;
+}
+div[role="dialog"] p, div[role="dialog"] span, div[role="dialog"] label,
+div[role="dialog"] div, div[role="dialog"] h1, div[role="dialog"] h2,
+div[role="dialog"] h3, div[role="dialog"] .stMarkdown p {
+    color: #1e293b !important;
+}
+div[role="dialog"] .stSelectbox label, div[role="dialog"] .stTextInput label,
+div[role="dialog"] .stNumberInput label, div[role="dialog"] .stDateInput label,
+div[role="dialog"] .stCheckbox label {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+div[role="dialog"] hr { border-color: #cbd5e1 !important; }
+div[role="dialog"] .stAlert { background-color: #e2e8f0 !important; border-left: 3px solid #3b82f6 !important; }
+div[role="dialog"] .stAlert p { color: #0f172a !important; }
+div[role="dialog"] .stSelectbox div[data-baseweb="select"] {
+    background-color: white !important;
+    border: 1px solid #94a3b8 !important;
+}
+div[role="dialog"] .stSelectbox div[data-baseweb="select"] div { color: #1e293b !important; }
+div[role="dialog"] .stCheckbox span { color: #1e293b !important; }
+div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"] {
+    background-color: #10b981 !important;
+    color: white !important;
+    border: none !important;
+}
+div[role="dialog"] div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background-color: #059669 !important;
+}
+div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]) {
+    background-color: #64748b !important;
+    color: white !important;
+    border: none !important;
+}
+div[role="dialog"] div[data-testid="stButton"] > button:not([kind="primary"]):not([kind="secondary"]):hover {
+    background-color: #475569 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Header con título
+st.markdown("""
+<div class="app-header">
+    <div>
+        <h3>Fiscalización — Deuda Presunta</h3>
+        <p>Sistema de gestión y seguimiento</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Utilidades generales ──────────────────────────────────────────────────────
 def limpiar_str(v):
@@ -660,15 +641,15 @@ def procesar_excel(archivo):
     return out
 
 # ══════════════════════════════════════════════════════════════════
-# TABS MODERNAS
+# TABS
 # ══════════════════════════════════════════════════════════════════
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📤 Cargar Padrón",
-    "✏️ Gestionar Registros",
+    "📊 Cargar Padrón",
+    "✏️ Editar Legajos y Vtos",
     "📋 Subir Actas",
     "📧 Generar Informe",
-    "👥 Inspectores"
+    "👥 INSPECTORES"
 ])
 
 # ══════════════════════════════════════════════════════════════════
@@ -705,16 +686,17 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros (con KPIs modernos)
+# TAB 2 — Editar Legajos y Vtos (CON CARTELES COLAPSABLES)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
+    st.markdown("#### Editar Legajos y Fechas de Vencimiento")
 
-    # ── CONTADORES ──
+    # ── CONTADORES GENERALES ──
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
     
+    # ── CONTADORES PARA ESTADO ──
     pendientes_sin_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "NO").execute().count
     pendientes_con_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI").execute().count
     finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute().count
@@ -722,85 +704,42 @@ with tab2:
     # ════════════════════════════════════════════════════════════════════════════
     # FILA 1: CONTEO DE REGISTROS (colapsable)
     # ════════════════════════════════════════════════════════════════════════════
-    with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f"""
-            <div class="kpi-card kpi-total">
-                <div class="kpi-icon">📊</div>
-                <h1>{total_general:,}</h1>
-                <p>TOTAL REGISTROS</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class="kpi-card kpi-con-legajo">
-                <div class="kpi-icon">✅</div>
-                <h1>{con_legajo:,}</h1>
-                <p>CON LEGAJO</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"""
-            <div class="kpi-card kpi-sin-legajo">
-                <div class="kpi-icon">⚠️</div>
-                <h1>{sin_legajo_total:,}</h1>
-                <p>SIN LEGAJO</p>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.expander("📊 CONTEO DE REGISTROS", expanded=True):
+        col_t1, col_t2, col_t3 = st.columns(3)
+        with col_t1:
+            st.markdown(f'<div class="kpi-card kpi-total"><h1>{total_general:,}</h1><p>📊 TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
+        with col_t2:
+            st.markdown(f'<div class="kpi-card kpi-con-legajo"><h1>{con_legajo:,}</h1><p>✅ CON LEGAJO</p></div>', unsafe_allow_html=True)
+        with col_t3:
+            st.markdown(f'<div class="kpi-card kpi-sin-legajo"><h1>{sin_legajo_total:,}</h1><p>⚠️ SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════════
     # FILA 2: ESTADO DE REGISTROS (colapsable)
     # ════════════════════════════════════════════════════════════════════════════
-    with st.expander("🔄 ESTADO DE REGISTROS", expanded=False):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f"""
-            <div class="kpi-card kpi-pendiente">
-                <div class="kpi-icon">📧</div>
-                <h1>{pendientes_sin_mail:,}</h1>
-                <p>PENDIENTES (sin mail)</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-            <div class="kpi-card kpi-mail">
-                <div class="kpi-icon">📨</div>
-                <h1>{pendientes_con_mail:,}</h1>
-                <p>MAIL ENVIADO</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"""
-            <div class="kpi-card kpi-finalizado">
-                <div class="kpi-icon">🏁</div>
-                <h1>{finalizados:,}</h1>
-                <p>FINALIZADOS</p>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.expander("🔄 ESTADO DE REGISTROS", expanded=True):
+        col_e1, col_e2, col_e3 = st.columns(3)
+        with col_e1:
+            st.markdown(f'<div class="kpi-card kpi-pendiente"><h1>{pendientes_sin_mail:,}</h1><p>📧 PENDIENTES (sin mail)</p></div>', unsafe_allow_html=True)
+        with col_e2:
+            st.markdown(f'<div class="kpi-card kpi-mail"><h1>{pendientes_con_mail:,}</h1><p>📨 MAIL ENVIADO</p></div>', unsafe_allow_html=True)
+        with col_e3:
+            st.markdown(f'<div class="kpi-card kpi-finalizado"><h1>{finalizados:,}</h1><p>🏁 FINALIZADOS</p></div>', unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════════
     # FILA 3: EMPRESAS POR INSPECTOR (colapsable)
     # ════════════════════════════════════════════════════════════════════════════
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
-        with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=False):
-            cols = st.columns(len(inspectores.data))
+        with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=True):
+            cols_inspectores = st.columns(len(inspectores.data))
             for idx, ins in enumerate(inspectores.data):
                 count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
                 nombre_corto = ins['nombre'].split(',')[0]
-                with cols[idx]:
-                    st.markdown(f"""
-                    <div class="inspector-card">
-                        <h3>{nombre_corto}</h3>
-                        <h1>{count}</h1>
-                        <p>Legajo: {ins['legajo']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                with cols_inspectores[idx]:
+                    st.markdown(f'<div class="inspector-card"><h3>{nombre_corto}</h3><h1>{count}</h1><p>Legajo: {ins["legajo"]}</p></div>', unsafe_allow_html=True)
 
-    st.divider()
+    st.markdown("---")
 
-    # ── BOTONES DE ACCIÓN ──
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -1135,13 +1074,13 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS Y TABLA EDITABLE ─────────────────────────────────────────────
-    st.markdown("### 🔎 Filtros de búsqueda")
+    # ── FILTROS Y TABLA COMPLETA EDITABLE ─────────────────────────────────────
+    st.markdown("### 📋 Filtros")
     
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
     
-    # Filtros rápidos
+    # Filtros rápidos (menús desplegables)
     col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
     with col_f1:
         st.markdown('<p class="filtro-titulo">📍 LOCALIDAD</p>', unsafe_allow_html=True)
@@ -1170,7 +1109,7 @@ with tab2:
         buscar_click = st.button("🔍 BUSCAR", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Session state para filtros
+    # Inicializar session_state para los filtros de búsqueda
     if 'filtro_cuit' not in st.session_state:
         st.session_state.filtro_cuit = ""
     if 'filtro_razon' not in st.session_state:
@@ -1178,6 +1117,7 @@ with tab2:
     if 'filtro_calle' not in st.session_state:
         st.session_state.filtro_calle = ""
     
+    # Cuando se aprieta BUSCAR, actualizar los filtros
     if buscar_click:
         st.session_state.filtro_cuit = filtro_cuit_temp
         st.session_state.filtro_razon = filtro_razon_temp
@@ -1185,14 +1125,16 @@ with tab2:
         st.session_state.pagina_actual = 1
         st.rerun()
     
+    # Usar los filtros guardados
     filtro_cuit = st.session_state.filtro_cuit
     filtro_razon = st.session_state.filtro_razon
     filtro_calle_aprox = st.session_state.filtro_calle
     
+    # Mostrar filtros activos
     if filtro_cuit or filtro_razon or filtro_calle_aprox:
         st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'}")
 
-    # ── CONSULTA ──
+    # ── CONSTRUIR CONSULTA ──
     q = supabase.table("padron_deuda_presunta").select("*")
     
     if localidad != "TODAS":
@@ -1211,6 +1153,7 @@ with tab2:
     
     df = pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
     
+    # Aplicar filtros de búsqueda
     if not df.empty and filtro_cuit:
         df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
     if not df.empty and filtro_razon:
@@ -1292,6 +1235,7 @@ with tab2:
         if guardar_click:
             mods = 0
             errores_fecha = 0
+            actualizados = []
             with st.spinner("Guardando cambios en Supabase..."):
                 for idx, row in edited.iterrows():
                     if idx >= len(df_orig):
@@ -1325,6 +1269,7 @@ with tab2:
                     if upd:
                         supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
                         mods += 1
+                        actualizados.append(row['ID'])
 
             if mods > 0:
                 st.balloons()
@@ -1344,7 +1289,7 @@ with tab2:
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV)")
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 0.5rem 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
+    <div style="background:#1e293b; padding:0.5rem 1rem; border-radius:6px; border-left:3px solid #3b82f6; margin-bottom:1rem;">
     El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
     en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza el estado.
     </div>
@@ -1412,7 +1357,7 @@ with tab3:
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6;">
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #3b82f6; margin: 0.5rem 0;">
         <h3 style="color: #3b82f6; margin: 0 0 0.3rem 0; font-size: 1rem;">📄 Generar Informe Mensual</h3>
         <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Completá el formulario PDF con los datos de los registros listos</p>
     </div>
@@ -1426,7 +1371,7 @@ with tab4:
 # ══════════════════════════════════════════════════════════════════
 with tab5:
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #10b981;">
+    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 12px; padding: 1rem; text-align: center; border: 1px solid #10b981; margin: 0.5rem 0;">
         <h3 style="color: #10b981; margin: 0 0 0.3rem 0; font-size: 1rem;">🗺️ Zonas de Inspectores</h3>
         <p style="color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.7rem;">Administre inspectores, localidades y calles de Mar del Plata</p>
     </div>
