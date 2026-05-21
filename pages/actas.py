@@ -79,82 +79,86 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 
 /* ── CARTELES ── */
-.big-number {
+.kpi-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
     border-radius: 8px;
-    padding: 0.2rem 0.1rem;
+    padding: 0.3rem 0.2rem;
     text-align: center;
-    border: 1px solid #3b82f6;
+    border: 1px solid #334155;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    transition: all 0.2s ease;
 }
-.big-number h1 { 
+.kpi-card:hover {
+    transform: translateY(-2px);
+    border-color: #3b82f6;
+}
+.kpi-card h1 { 
     margin: 0; 
-    font-size: 2.2rem !important; 
-    color: #3b82f6; 
+    font-size: 2rem !important; 
     font-weight: 700; 
     line-height: 1.1; 
 }
-.big-number p { 
+.kpi-card p { 
     margin: 0; 
-    font-size: 0.7rem !important; 
+    font-size: 0.65rem !important; 
     color: #94a3b8; 
     line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
-
-/* Semáforos */
-.semaforo-rojo {
-    background: linear-gradient(135deg, #7f1a1a, #991b1b);
-    border: 1px solid #ef4444;
-}
-.semaforo-rojo h1 { color: #fecaca !important; }
-.semaforo-rojo p { color: #fca5a5 !important; }
-
-.semaforo-amarillo {
-    background: linear-gradient(135deg, #78350f, #92400e);
-    border: 1px solid #f59e0b;
-}
-.semaforo-amarillo h1 { color: #fef3c7 !important; }
-.semaforo-amarillo p { color: #fde68a !important; }
-
-.semaforo-verde {
-    background: linear-gradient(135deg, #064e3b, #065f46);
-    border: 1px solid #10b981;
-}
-.semaforo-verde h1 { color: #a7f3d0 !important; }
-.semaforo-verde p { color: #6ee7b7 !important; }
+.kpi-total h1 { color: #3b82f6; }
+.kpi-con-legajo h1 { color: #10b981; }
+.kpi-sin-legajo h1 { color: #f59e0b; }
+.kpi-pendiente h1 { color: #ef4444; }
+.kpi-mail h1 { color: #f97316; }
+.kpi-finalizado h1 { color: #10b981; }
 
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
-    border-radius: 8px;
-    padding: 0.15rem 0.05rem;
+    border-radius: 6px;
+    padding: 0.2rem 0.1rem;
     text-align: center;
-    border: 1px solid #10b981;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    border: 1px solid #334155;
+    transition: all 0.2s ease;
+}
+.inspector-card:hover {
+    transform: translateY(-1px);
+    border-color: #10b981;
 }
 .inspector-card h3 { 
     margin: 0; 
-    font-size: 0.85rem !important; 
+    font-size: 0.75rem !important; 
     color: #10b981; 
     line-height: 1.2;
+    font-weight: 600;
 }
 .inspector-card h1 { 
     margin: 0; 
-    font-size: 1.8rem !important; 
+    font-size: 1.3rem !important; 
     color: #e2e8f0; 
     font-weight: 700; 
     line-height: 1.1; 
 }
 .inspector-card p { 
     margin: 0; 
-    font-size: 0.65rem !important; 
+    font-size: 0.55rem !important; 
     color: #94a3b8; 
     line-height: 1.2;
+}
+
+/* Expander personalizado */
+.streamlit-expanderHeader {
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    color: #e2e8f0 !important;
+    background-color: #1e293b !important;
+    border-radius: 6px !important;
+}
+.streamlit-expanderHeader:hover {
+    background-color: #334155 !important;
 }
 
 .filtro-titulo { font-size: 0.65rem; color: #94a3b8; margin-bottom: 0.1rem; }
@@ -682,7 +686,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON SEMÁFOROS, BOTÓN BUSCAR Y 200 REGISTROS)
+# TAB 2 — Editar Legajos y Vtos (CON CARTELES COLAPSABLES)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -692,37 +696,48 @@ with tab2:
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
     
-    # ── CONTADORES PARA SEMÁFOROS ──
+    # ── CONTADORES PARA ESTADO ──
     pendientes_sin_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "NO").execute().count
     pendientes_con_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI").execute().count
     finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute().count
 
-    # ── FILA DE 6 TARJETAS (3 originales + 3 semáforos) ──
-    col_t1, col_t2, col_t3, col_t4, col_t5, col_t6 = st.columns(6)
-    
-    with col_t1:
-        st.markdown(f'<div class="big-number"><h1>{total_general:,}</h1><p>📊 TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
-    with col_t2:
-        st.markdown(f'<div class="big-number"><h1>{con_legajo:,}</h1><p>✅ CON LEGAJO</p></div>', unsafe_allow_html=True)
-    with col_t3:
-        st.markdown(f'<div class="big-number"><h1>{sin_legajo_total:,}</h1><p>⚠️ SIN LEGAJO</p></div>', unsafe_allow_html=True)
-    with col_t4:
-        st.markdown(f'<div class="big-number semaforo-rojo"><h1>{pendientes_sin_mail:,}</h1><p>🔴 PENDIENTES (sin mail)</p></div>', unsafe_allow_html=True)
-    with col_t5:
-        st.markdown(f'<div class="big-number semaforo-amarillo"><h1>{pendientes_con_mail:,}</h1><p>🟡 MAIL ENVIADO</p></div>', unsafe_allow_html=True)
-    with col_t6:
-        st.markdown(f'<div class="big-number semaforo-verde"><h1>{finalizados:,}</h1><p>🟢 FINALIZADOS</p></div>', unsafe_allow_html=True)
+    # ════════════════════════════════════════════════════════════════════════════
+    # FILA 1: CONTEO DE REGISTROS (colapsable)
+    # ════════════════════════════════════════════════════════════════════════════
+    with st.expander("📊 CONTEO DE REGISTROS", expanded=True):
+        col_t1, col_t2, col_t3 = st.columns(3)
+        with col_t1:
+            st.markdown(f'<div class="kpi-card kpi-total"><h1>{total_general:,}</h1><p>📊 TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
+        with col_t2:
+            st.markdown(f'<div class="kpi-card kpi-con-legajo"><h1>{con_legajo:,}</h1><p>✅ CON LEGAJO</p></div>', unsafe_allow_html=True)
+        with col_t3:
+            st.markdown(f'<div class="kpi-card kpi-sin-legajo"><h1>{sin_legajo_total:,}</h1><p>⚠️ SIN LEGAJO</p></div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    
+    # ════════════════════════════════════════════════════════════════════════════
+    # FILA 2: ESTADO DE REGISTROS (colapsable)
+    # ════════════════════════════════════════════════════════════════════════════
+    with st.expander("🔄 ESTADO DE REGISTROS", expanded=True):
+        col_e1, col_e2, col_e3 = st.columns(3)
+        with col_e1:
+            st.markdown(f'<div class="kpi-card kpi-pendiente"><h1>{pendientes_sin_mail:,}</h1><p>📧 PENDIENTES (sin mail)</p></div>', unsafe_allow_html=True)
+        with col_e2:
+            st.markdown(f'<div class="kpi-card kpi-mail"><h1>{pendientes_con_mail:,}</h1><p>📨 MAIL ENVIADO</p></div>', unsafe_allow_html=True)
+        with col_e3:
+            st.markdown(f'<div class="kpi-card kpi-finalizado"><h1>{finalizados:,}</h1><p>🏁 FINALIZADOS</p></div>', unsafe_allow_html=True)
+
+    # ════════════════════════════════════════════════════════════════════════════
+    # FILA 3: EMPRESAS POR INSPECTOR (colapsable)
+    # ════════════════════════════════════════════════════════════════════════════
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
-        cols_inspectores = st.columns(len(inspectores.data))
-        for idx, ins in enumerate(inspectores.data):
-            count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
-            nombre_corto = ins['nombre'].split(',')[0]
-            with cols_inspectores[idx]:
-                st.markdown(f'<div class="inspector-card"><h3>{nombre_corto}</h3><h1>{count}</h1><p>Legajo: {ins["legajo"]}</p></div>', unsafe_allow_html=True)
+        with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=True):
+            cols_inspectores = st.columns(len(inspectores.data))
+            for idx, ins in enumerate(inspectores.data):
+                count = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("leg", ins['legajo']).execute().count
+                nombre_corto = ins['nombre'].split(',')[0]
+                with cols_inspectores[idx]:
+                    st.markdown(f'<div class="inspector-card"><h3>{nombre_corto}</h3><h1>{count}</h1><p>Legajo: {ins["legajo"]}</p></div>', unsafe_allow_html=True)
+
     st.markdown("---")
 
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
@@ -1059,9 +1074,8 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS Y TABLA COMPLETA EDITABLE (CON BOTÓN BUSCAR) ──────────────────
+    # ── FILTROS Y TABLA COMPLETA EDITABLE ─────────────────────────────────────
     st.markdown("### 📋 Filtros")
-    st.info("💡 **Consejo:** Escribí el CUIT, Razón Social o Calle y luego apretá **🔍 BUSCAR** para evitar que la pantalla se trabe mientras escribís.")
     
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
@@ -1153,7 +1167,7 @@ with tab2:
             df = df.drop(columns=['calle_norm', 'similitud'])
 
     total_en_tabla = len(df)
-    RPP = 200  # ← CAMBIADO DE 300 A 200 REGISTROS POR PÁGINA
+    RPP = 200
     pages = max(1, (total_en_tabla + RPP - 1) // RPP)
 
     if 'pagina_actual' not in st.session_state:
