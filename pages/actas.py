@@ -67,6 +67,18 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 #MainMenu, footer, header { display: none !important; }
 
+/* Botón BUSCAR grande */
+.buscar-btn button {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+    font-size: 1rem !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: bold !important;
+}
+
+.buscar-btn button:hover {
+    background: linear-gradient(135deg, #2563eb, #1e40af) !important;
+}
+
 /* ── CARTELES ── */
 .big-number {
     background: linear-gradient(135deg, #1e293b, #0f172a);
@@ -649,7 +661,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (TABLA COMPLETA EDITABLE)
+# TAB 2 — Editar Legajos y Vtos (CON BOTÓN BUSCAR Y 200 REGISTROS POR PÁGINA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
@@ -731,7 +743,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO PREPARAR MAILS (DOS OPCIONES) ─────────────────────────────────
+    # ── DIÁLOGO PREPARAR MAILS ───────────────────────────────────────────────
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -862,7 +874,6 @@ with tab2:
                         st.warning("Ingresá al menos un CUIT")
                         return
                     
-                    # Extraer CUITs (solo números)
                     cuit_limpios = re.findall(r'\d{2,11}', cuit_input)
                     if not cuit_limpios:
                         st.warning("No se encontraron CUITs válidos")
@@ -871,7 +882,6 @@ with tab2:
                     cuit_unicos = list(set(cuit_limpios))
                     st.info(f"📊 Se encontraron {len(cuit_unicos)} CUIT(s) únicos")
                     
-                    # Buscar registros con esos CUITs
                     registros_encontrados = []
                     no_encontrados = []
                     
@@ -890,7 +900,6 @@ with tab2:
                     if no_encontrados:
                         st.warning(f"⚠️ CUITs no encontrados o no disponibles: {', '.join(no_encontrados[:5])}")
                     
-                    # Actualizar
                     progress_bar = st.progress(0)
                     fecha_str = nueva_fecha_vto_cuit.strftime('%Y-%m-%d')
                     fecha_mostrar = nueva_fecha_vto_cuit.strftime('%d/%m/%Y')
@@ -903,7 +912,6 @@ with tab2:
                     
                     progress_bar.progress(1.0)
                     
-                    # Generar Excel con los registros procesados
                     df_resultado = pd.DataFrame(registros_encontrados)
                     excel_data = generar_excel_para_mailing(df_resultado, fecha_mostrar)
                     st.session_state.excel_descarga = excel_data
@@ -1016,34 +1024,70 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS Y TABLA COMPLETA EDITABLE ─────────────────────────────────────
+    # ── FILTROS Y TABLA COMPLETA EDITABLE (CON BOTÓN BUSCAR) ──────────────────
     st.markdown("### 📋 Filtros")
+    st.info("💡 **Consejo:** Escribí el CUIT, Razón Social o Calle y luego apretá **🔍 BUSCAR** para evitar que la pantalla se trabe mientras escribís.")
     
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
     
-    f1, f2, f3, f4, f5, f6 = st.columns(6)
-    with f1:
-        st.markdown('<p class="filtro-titulo">CUIT</p>', unsafe_allow_html=True)
-        filtro_cuit = st.text_input("CUIT", key="input_filtro_cuit", placeholder="Ej: 30707685243", label_visibility="collapsed")
-    with f2:
-        st.markdown('<p class="filtro-titulo">RAZÓN SOCIAL</p>', unsafe_allow_html=True)
-        filtro_razon = st.text_input("Razón", key="input_filtro_razon", placeholder="Razón social", label_visibility="collapsed")
-    with f3:
-        st.markdown('<p class="filtro-titulo">LOCALIDAD</p>', unsafe_allow_html=True)
+    # Filtros rápidos (menús desplegables)
+    col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
+    with col_f1:
+        st.markdown('<p class="filtro-titulo">📍 LOCALIDAD</p>', unsafe_allow_html=True)
         locs = get_localidades()
         localidad = st.selectbox("Localidad", ["TODAS"] + locs, key="filtro_localidad", label_visibility="collapsed")
-    with f4:
-        st.markdown('<p class="filtro-titulo">MAIL</p>', unsafe_allow_html=True)
+    with col_f2:
+        st.markdown('<p class="filtro-titulo">✉️ MAIL</p>', unsafe_allow_html=True)
         filtro_mail = st.selectbox("Mail", ["AMBOS", "NO", "SI"], key="filtro_mail", label_visibility="collapsed")
-    with f5:
-        st.markdown('<p class="filtro-titulo">LEGAJO</p>', unsafe_allow_html=True)
+    with col_f3:
+        st.markdown('<p class="filtro-titulo">🆔 LEGAJO</p>', unsafe_allow_html=True)
         filtro_leg = st.selectbox("Legajo", ["TODOS", "CON LEGAJO", "SIN LEGAJO"], key="filtro_leg", label_visibility="collapsed")
-    with f6:
-        st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
-        filtro_calle_aprox = st.text_input("Calle", key="filtro_calle_aproximacion", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
+    with col_f4:
+        st.markdown('<p class="filtro-titulo">🔢 CUIT</p>', unsafe_allow_html=True)
+        filtro_cuit_temp = st.text_input("CUIT", key="filtro_cuit_temp", placeholder="Ej: 30707685243", label_visibility="collapsed")
+    with col_f5:
+        st.markdown('<p class="filtro-titulo">🏢 RAZÓN SOCIAL</p>', unsafe_allow_html=True)
+        filtro_razon_temp = st.text_input("Razón Social", key="filtro_razon_temp", placeholder="Razón social", label_visibility="collapsed")
+    
+    # Filtro CALLE y botón BUSCAR
+    col_f6, col_f7 = st.columns([3, 1])
+    with col_f6:
+        st.markdown('<p class="filtro-titulo">🏠 CALLE</p>', unsafe_allow_html=True)
+        filtro_calle_temp = st.text_input("Calle", key="filtro_calle_temp", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
+    with col_f7:
+        st.markdown('<div class="buscar-btn" style="margin-top: 18px;">', unsafe_allow_html=True)
+        buscar_click = st.button("🔍 BUSCAR", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Inicializar session_state para los filtros de búsqueda
+    if 'filtro_cuit' not in st.session_state:
+        st.session_state.filtro_cuit = ""
+    if 'filtro_razon' not in st.session_state:
+        st.session_state.filtro_razon = ""
+    if 'filtro_calle' not in st.session_state:
+        st.session_state.filtro_calle = ""
+    
+    # Cuando se aprieta BUSCAR, actualizar los filtros
+    if buscar_click:
+        st.session_state.filtro_cuit = filtro_cuit_temp
+        st.session_state.filtro_razon = filtro_razon_temp
+        st.session_state.filtro_calle = filtro_calle_temp
+        st.session_state.pagina_actual = 1
+        st.rerun()
+    
+    # Usar los filtros guardados
+    filtro_cuit = st.session_state.filtro_cuit
+    filtro_razon = st.session_state.filtro_razon
+    filtro_calle_aprox = st.session_state.filtro_calle
+    
+    # Mostrar filtros activos
+    if filtro_cuit or filtro_razon or filtro_calle_aprox:
+        st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'}")
 
+    # ── CONSTRUIR CONSULTA ──
     q = supabase.table("padron_deuda_presunta").select("*")
+    
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
     if filtro_mail == "SI":
@@ -1060,6 +1104,7 @@ with tab2:
     
     df = pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
     
+    # Aplicar filtros de búsqueda
     if not df.empty and filtro_cuit:
         df = df[df['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
     if not df.empty and filtro_razon:
@@ -1073,7 +1118,7 @@ with tab2:
             df = df.drop(columns=['calle_norm', 'similitud'])
 
     total_en_tabla = len(df)
-    RPP = 300
+    RPP = 200  # ← CAMBIADO DE 300 A 200 REGISTROS POR PÁGINA
     pages = max(1, (total_en_tabla + RPP - 1) // RPP)
 
     if 'pagina_actual' not in st.session_state:
@@ -1107,7 +1152,6 @@ with tab2:
 
         df_orig = df_p.copy()
         
-        # TABLA COMPLETA EDITABLE - TODAS LAS COLUMNAS
         df_ed = df_p.rename(columns={
             'id':'ID', 'delegacion':'DELEGACION', 'localidad':'LOCALIDAD', 'cuit':'CUIT',
             'razon_social':'RAZON SOCIAL', 'deuda_presunta':'DEUDA PRESUNTA', 'cp':'CP',
@@ -1150,7 +1194,6 @@ with tab2:
                     orig = df_orig.iloc[idx]
                     upd = {}
                     
-                    # Comparar TODAS las columnas editables
                     for col_edit, col_orig in [
                         ('LEG', 'leg'), ('VTO', 'vto'), ('MAIL ENVIADO', 'mail_enviado'),
                         ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
