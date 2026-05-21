@@ -133,7 +133,7 @@ st.markdown("""
     .ficha-edicion {
         background: white;
         border-radius: 16px;
-        padding: 1.5rem;
+        padding: 1.2rem;
         border: 1px solid #e2e8f0;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         margin-top: 1rem;
@@ -147,7 +147,7 @@ st.markdown("""
         border-bottom: 2px solid #3b82f6;
     }
     .campo-label {
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         font-weight: 600;
         color: #64748b;
         text-transform: uppercase;
@@ -463,16 +463,10 @@ def get_pares_existentes():
 # ── UNA SOLA QUERY para todos los conteos del dashboard ─────────────────────
 @st.cache_data(ttl=60)
 def get_dashboard_stats():
-    """
-    Reemplaza las 11 consultas separadas por una sola llamada RPC.
-    Requiere la función get_dashboard_stats() creada en Supabase SQL Editor.
-    """
     try:
         r = supabase.rpc("get_dashboard_stats").execute()
         return r.data if r.data else {}
     except Exception as e:
-        # Fallback: si la función RPC no existe aún, devuelve dict vacío
-        st.warning(f"⚠️ No se pudo cargar estadísticas vía RPC: {e}")
         return {}
 
 def generar_informe_txt(registros_sin_legajo):
@@ -638,7 +632,6 @@ with tab1:
                             res = supabase.table("padron_deuda_presunta").insert(nuevos[i:i+100]).execute()
                             n += len(res.data)
                     st.success(f"✅ {n} registros insertados.")
-                    # Invalida el cache de stats al cargar nuevos registros
                     get_dashboard_stats.clear()
             else:
                 st.warning("⚠️ No hay registros nuevos.")
@@ -651,7 +644,6 @@ with tab1:
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
 
-    # ── UNA SOLA LLAMADA RPC en lugar de 11 queries separadas ──────────────
     stats = get_dashboard_stats()
 
     total_general       = stats.get('total', 0) or 0
@@ -661,7 +653,6 @@ with tab2:
     pendientes_con_mail = stats.get('con_mail', 0) or 0
     finalizados         = stats.get('finalizados', 0) or 0
     por_inspector       = stats.get('por_inspector') or {}
-    # ───────────────────────────────────────────────────────────────────────
 
     with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
         col1, col2, col3 = st.columns(3)
@@ -681,13 +672,11 @@ with tab2:
         with col3:
             st.markdown(f"""<div class="kpi-card kpi-finalizado"><div class="kpi-icon">🏁</div><h1>{finalizados:,}</h1><p>FINALIZADOS</p></div>""", unsafe_allow_html=True)
 
-    # Inspectores: una sola query, conteos desde el dict ya cargado
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
         with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=False):
             cols = st.columns(len(inspectores.data))
             for idx, ins in enumerate(inspectores.data):
-                # Conteo desde el dict RPC, sin query extra por inspector
                 count = por_inspector.get(str(ins['legajo']), 0)
                 nombre_corto = ins['nombre'].split(',')[0]
                 with cols[idx]:
@@ -1144,6 +1133,12 @@ with tab2:
                         continue
                     orig = df_orig.iloc[idx]
                     upd = {}
+                    
+                    # Verificar que el ID sea válido
+                    id_valor = row.get('ID')
+                    if pd.isna(id_valor) or id_valor is None or str(id_valor).strip() == '':
+                        continue
+                    
                     for col_edit, col_orig in [
                         ('LEG', 'leg'), ('VTO', 'vto'), ('MAIL ENVIADO', 'mail_enviado'),
                         ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
@@ -1152,25 +1147,34 @@ with tab2:
                         ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta')
                     ]:
                         nv = row.get(col_edit)
+                        # Convertir valor vacío a None (NULL en la base)
+                        if nv is None or (isinstance(nv, float) and pd.isna(nv)) or (isinstance(nv, str) and nv.strip() == ''):
+                            nv = None
+                        elif isinstance(nv, str):
+                            nv = nv.strip()
+                        
                         if nv != orig.get(col_orig):
-                            if col_orig == 'vto' and nv and str(nv).strip():
+                            if col_orig == 'vto' and nv:
                                 fecha_ok = norm_fecha(str(nv))
                                 if fecha_ok:
                                     upd[col_orig] = fecha_ok
                                 else:
                                     errores_fecha += 1
-                            elif col_orig == 'leg' and nv and str(nv).strip():
+                            elif col_orig == 'leg' and nv:
                                 try:
                                     upd[col_orig] = int(float(str(nv)))
                                 except:
                                     upd[col_orig] = None
                             else:
-                                upd[col_orig] = nv if nv and str(nv).strip() else None
+                                upd[col_orig] = nv
+                    
                     if upd:
-                        supabase.table("padron_deuda_presunta").update(upd).eq("id", row['ID']).execute()
-                        mods += 1
+                        try:
+                            supabase.table("padron_deuda_presunta").update(upd).eq("id", int(id_valor)).execute()
+                            mods += 1
+                        except Exception as e:
+                            st.error(f"Error actualizando registro ID {id_valor}: {e}")
             if mods > 0:
-                st.balloons()
                 st.success(f"✅ ¡{mods} registros actualizados correctamente!")
                 if errores_fecha > 0:
                     st.warning(f"⚠️ {errores_fecha} fecha(s) no se pudieron guardar (formato incorrecto). Usá DD/MM/YYYY.")
@@ -1310,7 +1314,7 @@ with tab3:
             st.info("Asegurate de que el archivo sea un CSV válido.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Editar Registro (CORREGIDO - sin duplicados)
+# TAB 4 — Editar Registro (TODOS LOS CAMPOS - COMPACTO)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("#### ✏️ Editar Registro Individual")
@@ -1383,21 +1387,30 @@ with tab4:
         st.markdown('<div class="ficha-edicion">', unsafe_allow_html=True)
         st.markdown('<div class="ficha-titulo">📋 Datos del Registro</div>', unsafe_allow_html=True)
         
-        col_a, col_b = st.columns(2)
+        # Organizar en 3 columnas para más compacto
+        col_a, col_b, col_c = st.columns(3)
+        
         with col_a:
             st.markdown('<p class="campo-label">CUIT</p>', unsafe_allow_html=True)
             nuevo_cuit = st.text_input("CUIT", value=st.session_state.registro_editado.get('cuit', ''), key=f"cuit_{key_suffix}")
+            
             st.markdown('<p class="campo-label">RAZÓN SOCIAL</p>', unsafe_allow_html=True)
             nueva_razon = st.text_input("Razón Social", value=st.session_state.registro_editado.get('razon_social', ''), key=f"razon_{key_suffix}")
+            
             st.markdown('<p class="campo-label">CALLE</p>', unsafe_allow_html=True)
             nueva_calle = st.text_input("Calle", value=st.session_state.registro_editado.get('calle', ''), key=f"calle_{key_suffix}")
+            
             st.markdown('<p class="campo-label">NÚMERO</p>', unsafe_allow_html=True)
             nuevo_numero = st.text_input("Número", value=st.session_state.registro_editado.get('numero', ''), key=f"numero_{key_suffix}")
+            
             st.markdown('<p class="campo-label">LOCALIDAD</p>', unsafe_allow_html=True)
             locs = get_localidades()
             localidad_actual = st.session_state.registro_editado.get('localidad', 'MAR DEL PLATA')
             localidad_index = locs.index(localidad_actual) if localidad_actual in locs else 0
             nueva_localidad = st.selectbox("Localidad", locs, index=localidad_index, key=f"localidad_{key_suffix}")
+            
+            st.markdown('<p class="campo-label">CP</p>', unsafe_allow_html=True)
+            nuevo_cp = st.text_input("CP", value=st.session_state.registro_editado.get('cp', ''), key=f"cp_{key_suffix}")
         
         with col_b:
             st.markdown('<p class="campo-label">LEGAJO</p>', unsafe_allow_html=True)
@@ -1409,36 +1422,48 @@ with tab4:
             inspector_index = list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0
             inspector_seleccionado = st.selectbox("Inspector", options=list(inspectores_opts.keys()), index=inspector_index, key=f"inspector_{key_suffix}")
             nuevo_legajo = inspectores_opts[inspector_seleccionado] if inspector_seleccionado != "SIN LEGAJO" else None
+            
             st.markdown('<p class="campo-label">FECHA VTO</p>', unsafe_allow_html=True)
             vto_actual = st.session_state.registro_editado.get('vto', '')
             vto_fecha = norm_fecha(vto_actual) if vto_actual else None
             vto_default = datetime.strptime(vto_fecha, '%Y-%m-%d') if vto_fecha else date.today()
             nuevo_vto = st.date_input("Fecha VTO", value=vto_default, key=f"vto_{key_suffix}")
+            
+            st.markdown('<p class="campo-label">ACTA</p>', unsafe_allow_html=True)
+            nueva_acta = st.text_input("Acta", value=st.session_state.registro_editado.get('acta', ''), key=f"acta_{key_suffix}")
+            
             st.markdown('<p class="campo-label">DEUDA PRESUNTA</p>', unsafe_allow_html=True)
             nueva_deuda = st.text_input("Deuda", value=st.session_state.registro_editado.get('deuda_presunta', ''), key=f"deuda_{key_suffix}")
+            
             st.markdown('<p class="campo-label">ESTADO GESTIÓN</p>', unsafe_allow_html=True)
             estados = ["PENDIENTE", "EN PROCESO", "COMPLETADO", "RECHAZADO", "FINALIZADO", "ACTA_SOLICITADA", "ACTA_SUBIDA"]
             estado_actual = st.session_state.registro_editado.get('estado_gestion', 'PENDIENTE')
             estado_index = estados.index(estado_actual) if estado_actual in estados else 0
             nuevo_estado = st.selectbox("Estado", estados, index=estado_index, key=f"estado_{key_suffix}")
         
-        st.markdown('<p class="campo-label">EMAIL</p>', unsafe_allow_html=True)
-        nuevo_email = st.text_input("Email", value=st.session_state.registro_editado.get('email', ''), key=f"email_{key_suffix}")
-        
-        col_c, col_d = st.columns(2)
         with col_c:
+            st.markdown('<p class="campo-label">EMAIL</p>', unsafe_allow_html=True)
+            nuevo_email = st.text_input("Email", value=st.session_state.registro_editado.get('email', ''), key=f"email_{key_suffix}")
+            
+            st.markdown('<p class="campo-label">TELÉFONO LEGAL</p>', unsafe_allow_html=True)
+            nuevo_tel_legal = st.text_input("Teléfono Legal", value=st.session_state.registro_editado.get('tel_dom_legal', ''), key=f"tel_legal_{key_suffix}")
+            
+            st.markdown('<p class="campo-label">TELÉFONO REAL</p>', unsafe_allow_html=True)
+            nuevo_tel_real = st.text_input("Teléfono Real", value=st.session_state.registro_editado.get('tel_dom_real', ''), key=f"tel_real_{key_suffix}")
+            
             st.markdown('<p class="campo-label">PERÍODO DESDE</p>', unsafe_allow_html=True)
             desde_actual = st.session_state.registro_editado.get('desde', '')
             desde_fecha = norm_fecha(desde_actual) if desde_actual else None
             desde_default = datetime.strptime(desde_fecha, '%Y-%m-%d') if desde_fecha else date.today()
             nuevo_desde = st.date_input("Desde", value=desde_default, key=f"desde_{key_suffix}")
-        with col_d:
+            
             st.markdown('<p class="campo-label">PERÍODO HASTA</p>', unsafe_allow_html=True)
             hasta_actual = st.session_state.registro_editado.get('hasta', '')
             hasta_fecha = norm_fecha(hasta_actual) if hasta_actual else None
             hasta_default = datetime.strptime(hasta_fecha, '%Y-%m-%d') if hasta_fecha else date.today()
             nuevo_hasta = st.date_input("Hasta", value=hasta_default, key=f"hasta_{key_suffix}")
         
+        # Botones
         col_guardar_reg, col_cancelar_reg = st.columns(2)
         with col_guardar_reg:
             if st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True, key=f"guardar_{key_suffix}"):
@@ -1448,19 +1473,22 @@ with tab4:
                     "calle": nueva_calle,
                     "numero": nuevo_numero,
                     "localidad": nueva_localidad,
+                    "cp": nuevo_cp,
                     "leg": nuevo_legajo,
                     "vto": nuevo_vto.strftime('%Y-%m-%d'),
+                    "acta": nueva_acta if nueva_acta.strip() else None,
                     "deuda_presunta": nueva_deuda,
                     "estado_gestion": nuevo_estado,
                     "email": nuevo_email,
+                    "tel_dom_legal": nuevo_tel_legal,
+                    "tel_dom_real": nuevo_tel_real,
                     "desde": nuevo_desde.strftime('%Y-%m-%d'),
                     "hasta": nuevo_hasta.strftime('%Y-%m-%d'),
                 }
                 with st.spinner("Guardando cambios..."):
                     try:
                         supabase.table("padron_deuda_presunta").update(update_data).eq("id", registro_actual['id']).execute()
-                        st.balloons()
-                        st.success("✅ Registro actualizado correctamente!")
+                        st.success("✅ Carga correcta")
                         st.session_state.registro_editado.update(update_data)
                         st.session_state.registros_busqueda[st.session_state.indice_actual] = st.session_state.registro_editado.copy()
                         get_dashboard_stats.clear()
