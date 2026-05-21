@@ -74,7 +74,6 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
     padding: 0.5rem 1rem !important;
     font-weight: bold !important;
 }
-
 .buscar-btn button:hover {
     background: linear-gradient(135deg, #2563eb, #1e40af) !important;
 }
@@ -93,17 +92,39 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 }
 .big-number h1 { 
     margin: 0; 
-    font-size: 2.8rem !important; 
+    font-size: 2.2rem !important; 
     color: #3b82f6; 
     font-weight: 700; 
     line-height: 1.1; 
 }
 .big-number p { 
     margin: 0; 
-    font-size: 0.8rem !important; 
+    font-size: 0.7rem !important; 
     color: #94a3b8; 
     line-height: 1.2;
 }
+
+/* Semáforos */
+.semaforo-rojo {
+    background: linear-gradient(135deg, #7f1a1a, #991b1b);
+    border: 1px solid #ef4444;
+}
+.semaforo-rojo h1 { color: #fecaca !important; }
+.semaforo-rojo p { color: #fca5a5 !important; }
+
+.semaforo-amarillo {
+    background: linear-gradient(135deg, #78350f, #92400e);
+    border: 1px solid #f59e0b;
+}
+.semaforo-amarillo h1 { color: #fef3c7 !important; }
+.semaforo-amarillo p { color: #fde68a !important; }
+
+.semaforo-verde {
+    background: linear-gradient(135deg, #064e3b, #065f46);
+    border: 1px solid #10b981;
+}
+.semaforo-verde h1 { color: #a7f3d0 !important; }
+.semaforo-verde p { color: #6ee7b7 !important; }
 
 .inspector-card {
     background: linear-gradient(135deg, #1e293b, #0f172a);
@@ -661,22 +682,36 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Editar Legajos y Vtos (CON BOTÓN BUSCAR Y 200 REGISTROS POR PÁGINA)
+# TAB 2 — Editar Legajos y Vtos (CON SEMÁFOROS, BOTÓN BUSCAR Y 200 REGISTROS)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Editar Legajos y Fechas de Vencimiento")
 
+    # ── CONTADORES GENERALES ──
     total_general = supabase.table("padron_deuda_presunta").select("id", count="exact").execute().count
     con_legajo    = supabase.table("padron_deuda_presunta").select("id", count="exact").not_.is_("leg", "null").execute().count
     sin_legajo_total = total_general - con_legajo
+    
+    # ── CONTADORES PARA SEMÁFOROS ──
+    pendientes_sin_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "NO").execute().count
+    pendientes_con_mail = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("mail_enviado", "SI").execute().count
+    finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute().count
 
-    col_t1, col_t2, col_t3 = st.columns(3)
+    # ── FILA DE 6 TARJETAS (3 originales + 3 semáforos) ──
+    col_t1, col_t2, col_t3, col_t4, col_t5, col_t6 = st.columns(6)
+    
     with col_t1:
-        st.markdown(f'<div class="big-number"><h1>{total_general:,}</h1><p>TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{total_general:,}</h1><p>📊 TOTAL REGISTROS</p></div>', unsafe_allow_html=True)
     with col_t2:
-        st.markdown(f'<div class="big-number"><h1>{con_legajo:,}</h1><p>CON LEGAJO</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{con_legajo:,}</h1><p>✅ CON LEGAJO</p></div>', unsafe_allow_html=True)
     with col_t3:
-        st.markdown(f'<div class="big-number"><h1>{sin_legajo_total:,}</h1><p>SIN LEGAJO</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="big-number"><h1>{sin_legajo_total:,}</h1><p>⚠️ SIN LEGAJO</p></div>', unsafe_allow_html=True)
+    with col_t4:
+        st.markdown(f'<div class="big-number semaforo-rojo"><h1>{pendientes_sin_mail:,}</h1><p>🔴 PENDIENTES (sin mail)</p></div>', unsafe_allow_html=True)
+    with col_t5:
+        st.markdown(f'<div class="big-number semaforo-amarillo"><h1>{pendientes_con_mail:,}</h1><p>🟡 MAIL ENVIADO</p></div>', unsafe_allow_html=True)
+    with col_t6:
+        st.markdown(f'<div class="big-number semaforo-verde"><h1>{finalizados:,}</h1><p>🟢 FINALIZADOS</p></div>', unsafe_allow_html=True)
 
     st.markdown("---")
     
