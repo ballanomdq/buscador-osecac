@@ -137,6 +137,8 @@ if 'pass_pc_valida' not in st.session_state:
     st.session_state.pass_pc_valida = False
 if 'pass_corresp_valida' not in st.session_state:
     st.session_state.pass_corresp_valida = False
+if 'actas_pass_valida' not in st.session_state:
+    st.session_state.actas_pass_valida = False
 # Variables para edición de prácticas
 if 'editando_practica_idx' not in st.session_state:
     st.session_state.editando_practica_idx = None
@@ -610,17 +612,42 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         st.session_state.novedades_expandido = False
         st.rerun()
 
-# ================= EXPANDER 8. FISCALIZACIÓN =================
+# ================= EXPANDER 8. FISCALIZACIÓN (MODIFICADO) =================
 with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
+    
+    # Botón BOLETIN (sin cambios)
     if st.button("📰 BOLETIN"):
         st.switch_page("pages/boletin.py")
+    
+    # Botón ACTAS CON CLAVE
     if st.button("📋 ACTAS"):
-        st.switch_page("pages/actas.py")
-    if st.button("🗺️ ZONA DE INSPECTORES"):
-        st.switch_page("pages/zonas.py")
+        st.session_state.mostrar_clave_actas = True
+    
+    # Botón PAGINA ACTAS INSPECTORES (nuevo)
+    if st.button("📋 PAGINA ACTAS INSPECTORES"):
+        st.switch_page("pages/pagactasinspectores.py")
+    
+    # NOTA: Se eliminó el botón "🗺️ ZONA DE INSPECTORES"
 
-# ================= BOTONES FINALES =================
+# --- Modal para la clave de ACTAS ---
+if st.session_state.get('mostrar_clave_actas', False):
+    with st.popover("🔐 ACCESO A ACTAS"):
+        st.markdown("### Ingrese la clave para acceder")
+        with st.form("form_clave_actas"):
+            clave_ingresada = st.text_input("Clave:", type="password")
+            if st.form_submit_button("✅ ACCEDER"):
+                if clave_ingresada == "fisca123":
+                    st.session_state.actas_pass_valida = True
+                    st.session_state.mostrar_clave_actas = False
+                    st.switch_page("pages/actas.py")
+                else:
+                    st.error("❌ Clave incorrecta")
+            if st.form_submit_button("❌ Cancelar"):
+                st.session_state.mostrar_clave_actas = False
+                st.rerun()
+
+# ================= BOTONES FINALES (sin cambios) =================
 st.markdown('<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:0.2rem;">', unsafe_allow_html=True)
 
 popover_corresp = st.popover("📬 CORRESPONDENCIA")
