@@ -249,6 +249,14 @@ div[data-testid="stPopover"] button:hover {
 .stTextArea textarea {
     min-height: 120px !important;
 }
+/* OCULTAR MENÚ LATERAL DE NAVEGACIÓN */
+[data-testid="stSidebarNav"] a {
+    font-size: 0px !important;
+    padding: 0px !important;
+    margin: 0px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
