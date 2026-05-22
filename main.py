@@ -635,7 +635,7 @@ if st.session_state.get('mostrar_clave_actas', False):
                 if clave_ingresada == "fisca123":
                     st.session_state.actas_pass_valida = True
                     st.session_state.mostrar_clave_actas = False
-                    st.switch_page("pages/actas.py")
+                    st.switch_page("pages/_actas.py")
                 else:
                     st.error("❌ Clave incorrecta")
             if st.form_submit_button("❌ Cancelar"):
