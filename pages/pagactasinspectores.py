@@ -8,6 +8,7 @@ import tempfile
 import os
 from folium.plugins import Fullscreen, HeatMap
 import time
+import hashlib
 
 st.set_page_config(page_title="Panel de Inspector - OSECAC", layout="wide")
 
@@ -40,15 +41,12 @@ iframe {
     border: none !important;
     border-radius: 8px !important;
 }
-.anotacion-card, .contacto-card {
+.anotacion-card {
     background: #1e293b;
     padding: 0.5rem;
     border-radius: 8px;
     margin: 0.5rem 0;
     border-left: 3px solid #3b82f6;
-}
-.contacto-manual {
-    border-left-color: #10b981;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -56,7 +54,7 @@ iframe {
 st.markdown("""
 <div class="main-header">
     <h2>👤 Panel del Inspector</h2>
-    <p>Visualice sus empresas asignadas - Gestión de contactos y anotaciones</p>
+    <p>Visualice sus empresas asignadas - Acceso solo de consulta</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -78,77 +76,38 @@ def get_supabase():
 supabase = get_supabase()
 
 # ── Funciones para agenda telefónica ─────────────────────────────────────────
-def sincronizar_agenda_desde_padron(cuit, razon_social, telefono_sistema, email):
-    """Sincroniza los datos del padrón SIN pisar los agregados manualmente"""
-    if not cuit:
-        return
-    
-    try:
-        if telefono_sistema and str(telefono_sistema).strip():
-            telefono_str = str(telefono_sistema).strip()
-            existente = supabase.table("agenda_telefonica").select("id").eq("cuit", str(cuit)).eq("telefono", telefono_str).eq("tipo", "sistema").execute()
+def actualizar_agenda_telefonica(empresas_df):
+    """Actualiza la agenda telefónica con los datos actuales de las empresas"""
+    for _, row in empresas_df.iterrows():
+        cuit = row.get('cuit')
+        razon_social = row.get('razon_social')
+        telefono = row.get('tel_dom_legal') or row.get('tel_dom_real')
+        email = row.get('email')
+        
+        if cuit:
+            # Verificar si ya existe
+            existente = supabase.table("agenda_telefonica").select("*").eq("cuit", cuit).execute()
             
-            if not existente.data:
+            if existente.data:
+                # Actualizar si cambió algo
+                if (existente.data[0].get('razon_social') != razon_social or
+                    existente.data[0].get('telefono') != telefono or
+                    existente.data[0].get('email') != email):
+                    supabase.table("agenda_telefonica").update({
+                        "razon_social": razon_social,
+                        "telefono": telefono,
+                        "email": email,
+                        "ultima_actualizacion": "now()"
+                    }).eq("cuit", cuit).execute()
+            else:
+                # Insertar nuevo
                 supabase.table("agenda_telefonica").insert({
-                    "cuit": str(cuit),
-                    "razon_social": razon_social or "",
-                    "telefono": telefono_str,
-                    "email": email or "",
-                    "tipo": "sistema",
-                    "fuente": "padron"
+                    "cuit": cuit,
+                    "razon_social": razon_social,
+                    "telefono": telefono,
+                    "email": email,
+                    "ultima_actualizacion": "now()"
                 }).execute()
-    except Exception as e:
-        pass  # Error silencioso para no romper la app
-
-def obtener_agenda_completa(cuit):
-    """Obtiene TODOS los contactos de una empresa (sistema + manual)"""
-    try:
-        datos = supabase.table("agenda_telefonica").select("*").eq("cuit", str(cuit)).execute()
-        return datos.data if datos.data else []
-    except Exception as e:
-        return []
-
-def agregar_contacto_manual(cuit, razon_social, telefono, email, legajo_inspector):
-    """Agrega un contacto manual (no se pisa nunca)"""
-    try:
-        supabase.table("agenda_telefonica").insert({
-            "cuit": str(cuit),
-            "razon_social": razon_social,
-            "telefono": telefono,
-            "email": email,
-            "tipo": "manual",
-            "fuente": "inspector",
-            "legajo_inspector": legajo_inspector
-        }).execute()
-        return True
-    except Exception as e:
-        if "duplicate" in str(e).lower():
-            st.warning("Este número ya existe en la agenda")
-        return False
-
-def eliminar_contacto(contacto_id, legajo_inspector):
-    """Elimina un contacto (solo si es manual)"""
-    try:
-        contacto = supabase.table("agenda_telefonica").select("*").eq("id", contacto_id).execute()
-        if contacto.data and contacto.data[0]['tipo'] == 'manual':
-            supabase.table("agenda_telefonica").delete().eq("id", contacto_id).execute()
-            return True
-        else:
-            st.warning("No se pueden eliminar contactos del sistema")
-            return False
-    except Exception as e:
-        return False
-
-def editar_contacto_manual(contacto_id, nuevo_telefono, nuevo_email):
-    """Edita un contacto manual"""
-    try:
-        supabase.table("agenda_telefonica").update({
-            "telefono": nuevo_telefono,
-            "email": nuevo_email
-        }).eq("id", contacto_id).execute()
-        return True
-    except Exception as e:
-        return False
 
 # ── Cargar datos ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
@@ -164,6 +123,13 @@ def cargar_coordenadas():
     return {}
 
 @st.cache_data(ttl=300)
+def cargar_agenda():
+    datos = supabase.table("agenda_telefonica").select("*").execute()
+    if datos.data:
+        return {d['cuit']: {'telefono': d.get('telefono', ''), 'email': d.get('email', ''), 'razon_social': d.get('razon_social', '')} for d in datos.data}
+    return {}
+
+@st.cache_data(ttl=300)
 def cargar_anotaciones(legajo):
     datos = supabase.table("anotaciones_inspectores").select("*").eq("legajo_inspector", legajo).execute()
     if datos.data:
@@ -171,6 +137,7 @@ def cargar_anotaciones(legajo):
     return {}
 
 def guardar_anotacion(id_empresa, legajo, anotacion):
+    """Guarda o actualiza una anotación"""
     existente = supabase.table("anotaciones_inspectores").select("*").eq("id_empresa", id_empresa).eq("legajo_inspector", legajo).execute()
     
     if existente.data:
@@ -193,6 +160,7 @@ if not inspectores:
     st.warning("No hay inspectores cargados en el sistema.")
     st.stop()
 
+# ── Selector de inspector ────────────────────────────────────────────────────
 st.markdown("### 🔑 Seleccione su inspector")
 
 opciones_inspectores = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins['legajo'] for ins in inspectores}
@@ -217,18 +185,12 @@ with st.spinner("Cargando sus empresas..."):
     df_empresas = supabase.table("padron_deuda_presunta").select("*").eq("leg", legajo_seleccionado).execute()
     df_empresas = pd.DataFrame(df_empresas.data) if df_empresas.data else pd.DataFrame()
     
-    # Sincronizar agenda (sin pisar manuales)
+    # Actualizar agenda telefónica automáticamente
     if not df_empresas.empty:
-        for _, row in df_empresas.iterrows():
-            telefono = row.get('tel_dom_legal') or row.get('tel_dom_real')
-            sincronizar_agenda_desde_padron(
-                row.get('cuit'), 
-                row.get('razon_social'),
-                telefono,
-                row.get('email')
-            )
+        actualizar_agenda_telefonica(df_empresas)
     
     coordenadas = cargar_coordenadas()
+    agenda = cargar_agenda()
     anotaciones = cargar_anotaciones(legajo_seleccionado)
 
 if df_empresas.empty:
@@ -237,7 +199,13 @@ if df_empresas.empty:
 
 # ── Contadores ───────────────────────────────────────────────────────────────
 total_registros = len(df_empresas)
-con_coordenadas = sum(1 for _, row in df_empresas.iterrows() if coordenadas.get(row['id']) is not None)
+con_coordenadas = 0
+sin_coordenadas = 0
+for _, row in df_empresas.iterrows():
+    if coordenadas.get(row['id']) is not None:
+        con_coordenadas += 1
+    else:
+        sin_coordenadas += 1
 
 col_c1, col_c2, col_c3 = st.columns(3)
 with col_c1:
@@ -245,7 +213,7 @@ with col_c1:
 with col_c2:
     st.metric("📍 Con ubicación", con_coordenadas)
 with col_c3:
-    st.metric("⚠️ Sin ubicación", total_registros - con_coordenadas)
+    st.metric("⚠️ Sin ubicación", sin_coordenadas)
 
 st.markdown("---")
 
@@ -264,15 +232,23 @@ with tab_lista:
     st.markdown("### 📋 Listado de sus empresas")
     st.caption("🔒 Modo solo consulta - No se pueden editar datos")
     
+    # Filtros
+    st.markdown("#### 🔎 Filtros de búsqueda")
+    
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
-        filtro_cuit = st.text_input("CUIT", key="filtro_cuit_lista", placeholder="Ej: 30707685243")
+        st.markdown('<p class="filtro-titulo">CUIT</p>', unsafe_allow_html=True)
+        filtro_cuit = st.text_input("CUIT", key="filtro_cuit_lista", placeholder="Ej: 30707685243", label_visibility="collapsed")
     with col_f2:
-        filtro_razon = st.text_input("Razón Social", key="filtro_razon_lista", placeholder="Razón social")
+        st.markdown('<p class="filtro-titulo">RAZÓN SOCIAL</p>', unsafe_allow_html=True)
+        filtro_razon = st.text_input("Razón Social", key="filtro_razon_lista", placeholder="Razón social", label_visibility="collapsed")
     with col_f3:
-        filtro_calle = st.text_input("Calle", key="filtro_calle_lista", placeholder="Ej: San Luis")
+        st.markdown('<p class="filtro-titulo">CALLE</p>', unsafe_allow_html=True)
+        filtro_calle = st.text_input("Calle", key="filtro_calle_lista", placeholder="Ej: San Luis", label_visibility="collapsed")
     
+    # Aplicar filtros
     df_filtrado = df_empresas.copy()
+    
     if filtro_cuit:
         df_filtrado = df_filtrado[df_filtrado['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
     if filtro_razon:
@@ -282,15 +258,64 @@ with tab_lista:
     
     st.markdown(f"**📊 Mostrando {len(df_filtrado)} de {total_registros} registros**")
     
-    columnas_mostrar = ['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'vto', 'acta']
-    df_tabla = df_filtrado[[c for c in columnas_mostrar if c in df_filtrado.columns]].copy()
+    # Preparar datos para mostrar
+    df_mostrar = df_filtrado.copy()
     
-    if 'vto' in df_tabla.columns:
-        df_tabla['vto'] = df_tabla['vto'].apply(lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else ""))
+    # Agregar teléfono y email desde la agenda
+    df_mostrar['telefono'] = df_mostrar['cuit'].apply(lambda x: agenda.get(str(x), {}).get('telefono', '') if x else '')
+    df_mostrar['email'] = df_mostrar['cuit'].apply(lambda x: agenda.get(str(x), {}).get('email', '') if x else '')
     
-    st.dataframe(df_tabla, use_container_width=True, height=500)
+    # Seleccionar columnas a mostrar
+    columnas_mostrar = {
+        'cuit': 'CUIT',
+        'razon_social': 'RAZÓN SOCIAL',
+        'localidad': 'LOCALIDAD',
+        'calle': 'CALLE',
+        'numero': 'NÚMERO',
+        'telefono': 'TELÉFONO',
+        'email': 'EMAIL',
+        'vto': 'VENCIMIENTO',
+        'acta': 'ACTA'
+    }
     
-    if st.button("📥 Descargar listado (CSV)"):
+    df_tabla = pd.DataFrame()
+    for col_orig, col_nuevo in columnas_mostrar.items():
+        if col_orig in df_mostrar.columns:
+            df_tabla[col_nuevo] = df_mostrar[col_orig]
+    
+    # Formatear fechas
+    if 'VENCIMIENTO' in df_tabla.columns:
+        df_tabla['VENCIMIENTO'] = df_tabla['VENCIMIENTO'].apply(
+            lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else "")
+        )
+    
+    # Paginación
+    RPP = 200
+    total_paginas = max(1, (len(df_tabla) + RPP - 1) // RPP)
+    
+    if 'pagina_lista' not in st.session_state:
+        st.session_state.pagina_lista = 1
+    st.session_state.pagina_lista = max(1, min(st.session_state.pagina_lista, total_paginas))
+    
+    off = (st.session_state.pagina_lista - 1) * RPP
+    df_paginado = df_tabla.iloc[off:off+RPP]
+    
+    col_pag1, col_pag2, col_pag3 = st.columns([1, 3, 1])
+    with col_pag1:
+        if st.button("◀ Anterior", key="btn_ant_lista") and st.session_state.pagina_lista > 1:
+            st.session_state.pagina_lista -= 1
+            st.rerun()
+    with col_pag2:
+        st.caption(f"Página {st.session_state.pagina_lista} de {total_paginas}")
+    with col_pag3:
+        if st.button("Siguiente ▶", key="btn_sig_lista") and st.session_state.pagina_lista < total_paginas:
+            st.session_state.pagina_lista += 1
+            st.rerun()
+    
+    st.dataframe(df_paginado, use_container_width=True, height=500)
+    
+    # Botón para descargar CSV
+    if st.button("📥 Descargar listado (CSV)", key="btn_descargar_csv"):
         csv_data = df_tabla.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="✅ Hacer clic para descargar",
@@ -304,20 +329,22 @@ with tab_lista:
 # ══════════════════════════════════════════════════════════════════
 with tab_mapa:
     st.markdown("### 🗺️ Ubicación de sus empresas")
-    st.caption("💡 Mapa de calor: zonas rojas/amarillas = mayor concentración de empresas")
+    st.caption("💡 Los puntos muestran la ubicación de cada empresa. El mapa de calor muestra las zonas con mayor concentración.")
     
+    # Detectar si el inspector tiene localidades fuera de MDP
     localidades_inspector = supabase.table("inspectores_localidad").select("localidad").eq("legajo", legajo_seleccionado).execute()
     tiene_localidades = localidades_inspector.data and len(localidades_inspector.data) > 0
     
     if tiene_localidades:
-        st.info(f"📍 Este inspector tiene asignadas localidades fuera de Mar del Plata.")
+        st.info(f"📍 Este inspector tiene asignadas localidades fuera de Mar del Plata. El mapa muestra también esas ubicaciones.")
     
+    # Preparar datos para el mapa
     datos_mapa = []
-    empresas_sin_coords = []
+    total_sin_coords_mapa = 0
     
     colores_inspectores = {
         "RODRIGUEZ": "#2563eb",
-        "POLINESSI": "#10b981", 
+        "POLINESSI": "#10b981",
         "LOPEZ": "#f59e0b",
         "CARBAYO": "#8b5cf6",
         "GARCIA": "#fcd34d",
@@ -332,71 +359,73 @@ with tab_mapa:
         numero = row.get('numero', '')
         localidad = row.get('localidad', '')
         cuit = row.get('cuit', '')
-        vto = row.get('vto', '')
         
         coords = coordenadas.get(id_empresa)
         
-        if coords:
-            lat, lon = coords
-            contactos = obtener_agenda_completa(cuit)
-            telefonos = [c['telefono'] for c in contactos if c.get('telefono')]
-            emails = [c['email'] for c in contactos if c.get('email')]
-            
-            popup_text = f"""
-            <div style="min-width: 280px; max-width: 350px;">
-                <b>{razon_social}</b><br>
-                <b>CUIT:</b> {cuit}<br>
-                <b>Dirección:</b> {calle} {numero}<br>
-                <b>Localidad:</b> {localidad}<br>
-                <b>Vencimiento:</b> {vto if vto else 'N/A'}<br>
-                <b>Teléfonos:</b> {', '.join(telefonos) if telefonos else 'No registrado'}<br>
-                <b>Emails:</b> {', '.join(emails) if emails else 'No registrado'}
-            </div>
-            """
-            
-            datos_mapa.append({
-                "coords": [lat, lon],
-                "popup": popup_text,
-                "razon_social": razon_social,
-                "localidad": localidad
-            })
-        else:
-            empresas_sin_coords.append({
-                "Razón Social": razon_social,
-                "CUIT": cuit,
-                "Dirección": f"{calle} {numero}",
-                "Localidad": localidad
-            })
-    
-    if datos_mapa:
-        st.info(f"📍 Mostrando {len(datos_mapa)} empresas con ubicación. {len(empresas_sin_coords)} sin geolocalizar.")
+        if not coords:
+            total_sin_coords_mapa += 1
+            continue
         
+        lat, lon = coords
+        
+        telefono = agenda.get(str(cuit), {}).get('telefono', '') if cuit else ''
+        email = agenda.get(str(cuit), {}).get('email', '') if cuit else ''
+        
+        popup_text = f"""
+        <div style="min-width: 250px;">
+            <b>{razon_social}</b><br>
+            <b>CUIT:</b> {cuit}<br>
+            <b>Dirección:</b> {calle} {numero}<br>
+            <b>Localidad:</b> {localidad}<br>
+            <b>Teléfono:</b> {telefono}<br>
+            <b>Email:</b> {email}
+        </div>
+        """
+        
+        datos_mapa.append({
+            "coords": [lat, lon],
+            "popup": popup_text,
+            "razon_social": razon_social,
+            "localidad": localidad
+        })
+    
+    if not datos_mapa:
+        st.info(f"📌 No hay empresas con ubicación disponible para {nombre_inspector}. Use el botón 'ACTUALIZAR COORDENADAS' en el mapa general para geocodificar las direcciones.")
+    else:
+        st.info(f"📍 Mostrando {len(datos_mapa)} de {total_registros} empresas (las que tienen coordenadas cargadas)")
+        
+        # Calcular centro
         centro_lat = sum(d["coords"][0] for d in datos_mapa) / len(datos_mapa)
         centro_lon = sum(d["coords"][1] for d in datos_mapa) / len(datos_mapa)
         
         m = folium.Map(location=[centro_lat, centro_lon], zoom_start=11, tiles="cartodbpositron")
         
+        # Agregar marcadores por localidad (diferentes íconos para MDP vs otras)
         for dato in datos_mapa:
-            icon_color = color_inspector
-            if "MAR DEL PLATA" not in dato["localidad"].upper():
+            if "MAR DEL PLATA" in dato["localidad"].upper():
+                icon_color = color_inspector
+                icon_type = "circle"
+            else:
                 icon_color = "#ffaa00"
+                icon_type = "circle"
             
             folium.CircleMarker(
                 location=dato["coords"],
-                radius=7,
-                popup=folium.Popup(dato["popup"], max_width=400),
+                radius=8,
+                popup=folium.Popup(dato["popup"], max_width=350),
                 color=icon_color,
                 fill=True,
                 fill_color=icon_color,
                 fill_opacity=0.7,
-                tooltip=f"{dato['razon_social'][:35]}"
+                tooltip=f"{dato['razon_social'][:35]} - {dato['localidad']}"
             ).add_to(m)
         
-        if len(datos_mapa) > 3:
-            heat_data = [[d["coords"][0], d["coords"][1]] for d in datos_mapa]
-            HeatMap(heat_data, radius=25, blur=15, min_opacity=0.3, max_zoom=13).add_to(m)
+        # Mapa de calor
+        heat_data = [[d["coords"][0], d["coords"][1]] for d in datos_mapa]
+        if len(heat_data) > 5:
+            HeatMap(heat_data, radius=20, blur=15, max_zoom=13, min_opacity=0.3).add_to(m)
         
-        Fullscreen(position="topleft").add_to(m)
+        Fullscreen(position="topleft", title="Pantalla completa", title_cancel="Salir").add_to(m)
         folium.LayerControl(collapsed=False).add_to(m)
         
         with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as tmp:
@@ -407,116 +436,64 @@ with tab_mapa:
         
         st.components.v1.html(html_content, height=550, width=None)
         
+        # Resumen
         st.markdown("---")
-        st.markdown("### 📊 Distribución por localidad")
-        localidades_count = df_empresas['localidad'].value_counts().head(15)
+        st.markdown("### 📊 Resumen de su zona")
         
+        localidades_count = df_empresas['localidad'].value_counts().head(10)
+        st.markdown("**Distribución por localidad:**")
         for loc, count in localidades_count.items():
-            st.markdown(f"- **{loc}**: {count} empresas")
-    
-    else:
-        st.warning(f"⚠️ No hay empresas con ubicación para {nombre_inspector}.")
-    
-    if empresas_sin_coords:
-        with st.expander(f"📌 Ver {len(empresas_sin_coords)} empresas sin ubicación en el mapa"):
-            st.dataframe(pd.DataFrame(empresas_sin_coords), use_container_width=True)
+            st.markdown(f"- {loc}: {count} empresas")
+        
+        if total_sin_coords_mapa > 0:
+            st.warning(f"⚠️ {total_sin_coords_mapa} empresas no tienen coordenadas cargadas.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3: AGENDA TELEFÓNICA (EDITABLE)
+# TAB 3: AGENDA TELEFÓNICA
 # ══════════════════════════════════════════════════════════════════
 with tab_agenda:
-    st.markdown("### 📞 Agenda Telefónica - Gestión de Contactos")
-    st.caption("""
-    - 📞 **Teléfonos azules**: Vienen del padrón (solo lectura)
-    - ✏️ **Teléfonos verdes**: Agregados por usted (puede editar/eliminar)
-    - ➕ **Agregar contacto**: Puede añadir teléfonos adicionales manualmente
-    """)
+    st.markdown("### 📞 Agenda Telefónica")
+    st.caption("Todos los contactos de sus empresas asignadas")
     
-    empresa_buscar = st.selectbox(
-        "Seleccionar empresa",
-        options=[f"{row['razon_social']} (CUIT: {row['cuit']})" for _, row in df_empresas.iterrows()],
-        key="selector_empresa_agenda"
-    )
+    # Buscar en agenda por CUIT o Razón Social
+    col_bus1, col_bus2 = st.columns(2)
+    with col_bus1:
+        buscar_cuit = st.text_input("Buscar por CUIT", placeholder="Ej: 30707685243", key="buscar_cuit_agenda")
+    with col_bus2:
+        buscar_razon = st.text_input("Buscar por Razón Social", placeholder="Ej: PEPSICO", key="buscar_razon_agenda")
     
-    if empresa_buscar:
-        cuit_match = re.search(r'CUIT:\s*(\d+)', empresa_buscar)
-        if cuit_match:
-            cuit_seleccionado = cuit_match.group(1)
-            empresa_data = df_empresas[df_empresas['cuit'].astype(str) == cuit_seleccionado].iloc[0]
-            razon_social = empresa_data['razon_social']
-            
-            st.markdown(f"**Empresa:** {razon_social}")
-            st.markdown(f"**CUIT:** {cuit_seleccionado}")
-            st.markdown("---")
-            
-            contactos = obtener_agenda_completa(cuit_seleccionado)
-            
-            if contactos:
-                for contacto in contactos:
-                    es_manual = contacto['tipo'] == 'manual'
-                    
-                    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-                    
-                    with col1:
-                        st.markdown(f"**📞 {contacto['telefono']}**" if contacto['telefono'] else "Sin teléfono")
-                    with col2:
-                        st.markdown(f"✉️ {contacto['email']}" if contacto['email'] else "Sin email")
-                    with col3:
-                        if es_manual:
-                            st.markdown("🟢 **Manual**")
-                        else:
-                            st.markdown("🔵 **Sistema**")
-                    with col4:
-                        if es_manual:
-                            if st.button("✏️", key=f"edit_btn_{contacto['id']}"):
-                                st.session_state[f"editando_contacto_{contacto['id']}"] = True
-                            if st.button("🗑️", key=f"del_btn_{contacto['id']}"):
-                                if eliminar_contacto(contacto['id'], legajo_seleccionado):
-                                    st.success("Contacto eliminado")
-                                    st.cache_data.clear()
-                                    time.sleep(0.5)
-                                    st.rerun()
-                        else:
-                            st.markdown("*(solo lectura)*")
-                    
-                    if st.session_state.get(f"editando_contacto_{contacto['id']}"):
-                        with st.expander(f"✏️ Editando {contacto['telefono']}", expanded=True):
-                            nuevo_tel = st.text_input("Nuevo teléfono", value=contacto['telefono'] or "", key=f"edit_tel_{contacto['id']}")
-                            nuevo_email = st.text_input("Nuevo email", value=contacto['email'] or "", key=f"edit_email_{contacto['id']}")
-                            col_edit1, col_edit2 = st.columns(2)
-                            with col_edit1:
-                                if st.button("💾 Guardar", key=f"save_{contacto['id']}"):
-                                    editar_contacto_manual(contacto['id'], nuevo_tel, nuevo_email)
-                                    st.success("Contacto actualizado")
-                                    del st.session_state[f"editando_contacto_{contacto['id']}"]
-                                    st.cache_data.clear()
-                                    st.rerun()
-                            with col_edit2:
-                                if st.button("❌ Cancelar", key=f"cancel_{contacto['id']}"):
-                                    del st.session_state[f"editando_contacto_{contacto['id']}"]
-                                    st.rerun()
-                    
-                    st.markdown("---")
-            else:
-                st.info("No hay contactos registrados para esta empresa")
-            
-            st.markdown("### ➕ Agregar nuevo contacto")
-            with st.form("form_nuevo_contacto"):
-                col_n1, col_n2 = st.columns(2)
-                with col_n1:
-                    nuevo_telefono = st.text_input("Teléfono", placeholder="Ej: 2235551234")
-                with col_n2:
-                    nuevo_email = st.text_input("Email", placeholder="Ej: contacto@empresa.com")
-                
-                if st.form_submit_button("➕ AGREGAR CONTACTO"):
-                    if nuevo_telefono or nuevo_email:
-                        if agregar_contacto_manual(cuit_seleccionado, razon_social, nuevo_telefono, nuevo_email, legajo_seleccionado):
-                            st.success("✅ Contacto agregado correctamente")
-                            st.cache_data.clear()
-                            time.sleep(0.5)
-                            st.rerun()
-                    else:
-                        st.warning("Ingrese al menos un teléfono o email")
+    # Filtrar agenda
+    agenda_filtrada = []
+    for cuit, datos in agenda.items():
+        # Verificar si esta empresa está asignada a este inspector
+        empresa_asignada = df_empresas[df_empresas['cuit'].astype(str) == str(cuit)]
+        if not empresa_asignada.empty:
+            if buscar_cuit and str(cuit) != buscar_cuit:
+                continue
+            if buscar_razon and buscar_razon.lower() not in datos.get('razon_social', '').lower():
+                continue
+            agenda_filtrada.append({
+                "CUIT": cuit,
+                "RAZÓN SOCIAL": datos.get('razon_social', ''),
+                "TELÉFONO": datos.get('telefono', ''),
+                "EMAIL": datos.get('email', '')
+            })
+    
+    if agenda_filtrada:
+        df_agenda = pd.DataFrame(agenda_filtrada)
+        st.dataframe(df_agenda, use_container_width=True, height=500)
+        
+        # Botón para descargar agenda
+        if st.button("📥 Descargar agenda (CSV)", key="btn_descargar_agenda"):
+            csv_data = df_agenda.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="✅ Hacer clic para descargar",
+                data=csv_data,
+                file_name=f"agenda_{nombre_inspector.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+    else:
+        st.info("No hay contactos en la agenda para sus empresas asignadas")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 4: ANOTACIONES
@@ -525,14 +502,17 @@ with tab_anotaciones:
     st.markdown("### 📝 Mis Anotaciones")
     st.caption("Aquí puede guardar notas sobre sus gestiones con cada empresa")
     
+    # Selector de empresa para anotar
     empresas_opciones = {f"{row['razon_social']} (CUIT: {row['cuit']})": row['id'] for _, row in df_empresas.iterrows()}
     
     if empresas_opciones:
         empresa_seleccionada = st.selectbox("Seleccionar empresa", options=list(empresas_opciones.keys()), key="selector_empresa_anotacion")
         id_empresa_sel = empresas_opciones[empresa_seleccionada]
         
+        # Obtener anotación existente
         anotacion_actual = anotaciones.get(id_empresa_sel, "")
         
+        # Textarea para anotación
         nueva_anotacion = st.text_area("Anotación", value=anotacion_actual, height=150, 
                                        placeholder="Ej: 15/05/2025 - Llamé al Sr. Pérez, quedó en enviar documentación...")
         
@@ -545,6 +525,8 @@ with tab_anotaciones:
                 st.rerun()
         
         st.markdown("---")
+        
+        # Mostrar todas las anotaciones del inspector
         st.markdown("### 📋 Todas sus anotaciones")
         
         if anotaciones:
