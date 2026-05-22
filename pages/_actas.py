@@ -1,4 +1,7 @@
 import streamlit as st
+if not st.session_state.get('actas_pass_valida', False):
+    st.error("🔒 Acceso restringido.")
+    st.stop()
 import pandas as pd
 from supabase import create_client
 from datetime import datetime, date
