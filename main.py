@@ -165,7 +165,7 @@ def abrir_novedades():
 # ================== CSS ==================
 st.markdown("""
 <style>
-[data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header { display: none !important; }
+[data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header, [data-testid="stSidebarNavItems"], [data-testid="stSidebarNavSeparator"], section[data-testid="stSidebar"], div[data-testid="stSidebarNavItems"], nav[data-testid="stSidebarNav"] { display: none !important; }
 .stApp { background-color: #0f172a !important; color: #e2e8f0 !important; }
 .stMarkdown p, label { color: #ffffff !important; }
 div[data-testid="stExpander"] details summary { background-color: rgba(30, 41, 59, 0.9) !important; color: #ffffff !important; border-radius: 14px !important; border: 2px solid rgba(56, 189, 248, 0.4) !important; padding: 14px 18px !important; font-weight: 600 !important; }
@@ -612,23 +612,18 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         st.session_state.novedades_expandido = False
         st.rerun()
 
-# ================= EXPANDER 8. FISCALIZACIÓN (MODIFICADO) =================
+# ================= EXPANDER 8. FISCALIZACIÓN =================
 with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
     
-    # Botón BOLETIN (sin cambios)
     if st.button("📰 BOLETIN"):
         st.switch_page("pages/boletin.py")
     
-    # Botón ACTAS CON CLAVE
     if st.button("📋 ACTAS"):
         st.session_state.mostrar_clave_actas = True
     
-    # Botón PAGINA ACTAS INSPECTORES (nuevo)
     if st.button("📋 PAGINA ACTAS INSPECTORES"):
         st.switch_page("pages/pagactasinspectores.py")
-    
-    # NOTA: Se eliminó el botón "🗺️ ZONA DE INSPECTORES"
 
 # --- Modal para la clave de ACTAS ---
 if st.session_state.get('mostrar_clave_actas', False):
@@ -647,7 +642,7 @@ if st.session_state.get('mostrar_clave_actas', False):
                 st.session_state.mostrar_clave_actas = False
                 st.rerun()
 
-# ================= BOTONES FINALES (sin cambios) =================
+# ================= BOTONES FINALES =================
 st.markdown('<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:0.2rem;">', unsafe_allow_html=True)
 
 popover_corresp = st.popover("📬 CORRESPONDENCIA")
