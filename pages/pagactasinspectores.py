@@ -50,12 +50,6 @@ iframe {
 .contacto-manual {
     border-left-color: #10b981;
 }
-.btn-editar {
-    background: #f59e0b !important;
-}
-.btn-eliminar {
-    background: #ef4444 !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -83,31 +77,36 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# ── Funciones para agenda telefónica (MEJORADA) ──────────────────────────────
+# ── Funciones para agenda telefónica ─────────────────────────────────────────
 def sincronizar_agenda_desde_padron(cuit, razon_social, telefono_sistema, email):
     """Sincroniza los datos del padrón SIN pisar los agregados manualmente"""
-    # Solo actualizar si hay datos nuevos del padrón
-    if telefono_sistema:
-        # Verificar si ya existe este teléfono como 'sistema'
-        existente = supabase.table("agenda_telefonica").select("*").eq("cuit", str(cuit)).eq("telefono", telefono_sistema).eq("tipo", "sistema").execute()
-        if not existente.data:
-            # Insertar nuevo teléfono de sistema
-            supabase.table("agenda_telefonica").insert({
-                "cuit": str(cuit),
-                "razon_social": razon_social,
-                "telefono": telefono_sistema,
-                "email": email,
-                "tipo": "sistema",
-                "fuente": "padron"
-            }).execute()
+    if not cuit:
+        return
     
-    if email:
-        pass  # Similar para email si se necesita
+    try:
+        if telefono_sistema and str(telefono_sistema).strip():
+            telefono_str = str(telefono_sistema).strip()
+            existente = supabase.table("agenda_telefonica").select("id").eq("cuit", str(cuit)).eq("telefono", telefono_str).eq("tipo", "sistema").execute()
+            
+            if not existente.data:
+                supabase.table("agenda_telefonica").insert({
+                    "cuit": str(cuit),
+                    "razon_social": razon_social or "",
+                    "telefono": telefono_str,
+                    "email": email or "",
+                    "tipo": "sistema",
+                    "fuente": "padron"
+                }).execute()
+    except Exception as e:
+        pass  # Error silencioso para no romper la app
 
 def obtener_agenda_completa(cuit):
     """Obtiene TODOS los contactos de una empresa (sistema + manual)"""
-    datos = supabase.table("agenda_telefonica").select("*").eq("cuit", str(cuit)).execute()
-    return datos.data if datos.data else []
+    try:
+        datos = supabase.table("agenda_telefonica").select("*").eq("cuit", str(cuit)).execute()
+        return datos.data if datos.data else []
+    except Exception as e:
+        return []
 
 def agregar_contacto_manual(cuit, razon_social, telefono, email, legajo_inspector):
     """Agrega un contacto manual (no se pisa nunca)"""
@@ -128,25 +127,28 @@ def agregar_contacto_manual(cuit, razon_social, telefono, email, legajo_inspecto
         return False
 
 def eliminar_contacto(contacto_id, legajo_inspector):
-    """Elimina un contacto (solo si es manual o si es sistema con verificación)"""
-    contacto = supabase.table("agenda_telefonica").select("*").eq("id", contacto_id).execute()
-    if contacto.data:
-        if contacto.data[0]['tipo'] == 'manual':
+    """Elimina un contacto (solo si es manual)"""
+    try:
+        contacto = supabase.table("agenda_telefonica").select("*").eq("id", contacto_id).execute()
+        if contacto.data and contacto.data[0]['tipo'] == 'manual':
             supabase.table("agenda_telefonica").delete().eq("id", contacto_id).execute()
             return True
         else:
-            st.warning("No se pueden eliminar contactos del sistema (solo ocultar)")
+            st.warning("No se pueden eliminar contactos del sistema")
             return False
-    return False
+    except Exception as e:
+        return False
 
 def editar_contacto_manual(contacto_id, nuevo_telefono, nuevo_email):
     """Edita un contacto manual"""
-    supabase.table("agenda_telefonica").update({
-        "telefono": nuevo_telefono,
-        "email": nuevo_email,
-        "fecha_actualizacion": "now()"
-    }).eq("id", contacto_id).execute()
-    return True
+    try:
+        supabase.table("agenda_telefonica").update({
+            "telefono": nuevo_telefono,
+            "email": nuevo_email
+        }).eq("id", contacto_id).execute()
+        return True
+    except Exception as e:
+        return False
 
 # ── Cargar datos ─────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
@@ -298,22 +300,20 @@ with tab_lista:
         )
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2: MAPA DE UBICACIONES (MEJORADO - TODAS LAS EMPRESAS)
+# TAB 2: MAPA DE UBICACIONES
 # ══════════════════════════════════════════════════════════════════
 with tab_mapa:
     st.markdown("### 🗺️ Ubicación de sus empresas")
     st.caption("💡 Mapa de calor: zonas rojas/amarillas = mayor concentración de empresas")
     
-    # Ver localidades asignadas
     localidades_inspector = supabase.table("inspectores_localidad").select("localidad").eq("legajo", legajo_seleccionado).execute()
     tiene_localidades = localidades_inspector.data and len(localidades_inspector.data) > 0
     
     if tiene_localidades:
         st.info(f"📍 Este inspector tiene asignadas localidades fuera de Mar del Plata.")
     
-    # PREPARAR DATOS PARA EL MAPA (todas las empresas)
-    datos_mapa = []  # Para puntos con coordenadas
-    empresas_sin_coords = []  # Para mostrar lista
+    datos_mapa = []
+    empresas_sin_coords = []
     
     colores_inspectores = {
         "RODRIGUEZ": "#2563eb",
@@ -338,8 +338,6 @@ with tab_mapa:
         
         if coords:
             lat, lon = coords
-            
-            # Obtener contactos para el popup
             contactos = obtener_agenda_completa(cuit)
             telefonos = [c['telefono'] for c in contactos if c.get('telefono')]
             emails = [c['email'] for c in contactos if c.get('email')]
@@ -370,17 +368,14 @@ with tab_mapa:
                 "Localidad": localidad
             })
     
-    # Mostrar mapa si hay datos
     if datos_mapa:
         st.info(f"📍 Mostrando {len(datos_mapa)} empresas con ubicación. {len(empresas_sin_coords)} sin geolocalizar.")
         
-        # Calcular centro
         centro_lat = sum(d["coords"][0] for d in datos_mapa) / len(datos_mapa)
         centro_lon = sum(d["coords"][1] for d in datos_mapa) / len(datos_mapa)
         
         m = folium.Map(location=[centro_lat, centro_lon], zoom_start=11, tiles="cartodbpositron")
         
-        # Agregar marcadores
         for dato in datos_mapa:
             icon_color = color_inspector
             if "MAR DEL PLATA" not in dato["localidad"].upper():
@@ -397,7 +392,6 @@ with tab_mapa:
                 tooltip=f"{dato['razon_social'][:35]}"
             ).add_to(m)
         
-        # MAPA DE CALOR (todas las empresas del inspector)
         if len(datos_mapa) > 3:
             heat_data = [[d["coords"][0], d["coords"][1]] for d in datos_mapa]
             HeatMap(heat_data, radius=25, blur=15, min_opacity=0.3, max_zoom=13).add_to(m)
@@ -413,25 +407,16 @@ with tab_mapa:
         
         st.components.v1.html(html_content, height=550, width=None)
         
-        # Resumen por localidad
         st.markdown("---")
         st.markdown("### 📊 Distribución por localidad")
         localidades_count = df_empresas['localidad'].value_counts().head(15)
         
-        col_loc1, col_loc2 = st.columns(2)
-        with col_loc1:
-            for loc, count in localidades_count.items():
-                st.markdown(f"- **{loc}**: {count} empresas")
-        
-        with col_loc2:
-            st.metric("Total empresas", total_registros)
-            st.metric("Con ubicación", len(datos_mapa))
-            st.metric("Sin ubicación", len(empresas_sin_coords))
+        for loc, count in localidades_count.items():
+            st.markdown(f"- **{loc}**: {count} empresas")
     
     else:
         st.warning(f"⚠️ No hay empresas con ubicación para {nombre_inspector}.")
     
-    # Mostrar empresas sin coordenadas
     if empresas_sin_coords:
         with st.expander(f"📌 Ver {len(empresas_sin_coords)} empresas sin ubicación en el mapa"):
             st.dataframe(pd.DataFrame(empresas_sin_coords), use_container_width=True)
@@ -447,7 +432,6 @@ with tab_agenda:
     - ➕ **Agregar contacto**: Puede añadir teléfonos adicionales manualmente
     """)
     
-    # Buscar empresa
     empresa_buscar = st.selectbox(
         "Seleccionar empresa",
         options=[f"{row['razon_social']} (CUIT: {row['cuit']})" for _, row in df_empresas.iterrows()],
@@ -455,7 +439,6 @@ with tab_agenda:
     )
     
     if empresa_buscar:
-        # Extraer CUIT
         cuit_match = re.search(r'CUIT:\s*(\d+)', empresa_buscar)
         if cuit_match:
             cuit_seleccionado = cuit_match.group(1)
@@ -466,10 +449,8 @@ with tab_agenda:
             st.markdown(f"**CUIT:** {cuit_seleccionado}")
             st.markdown("---")
             
-            # Obtener todos los contactos
             contactos = obtener_agenda_completa(cuit_seleccionado)
             
-            # Mostrar contactos existentes
             if contactos:
                 for contacto in contactos:
                     es_manual = contacto['tipo'] == 'manual'
@@ -498,7 +479,6 @@ with tab_agenda:
                         else:
                             st.markdown("*(solo lectura)*")
                     
-                    # Edición de contacto manual
                     if st.session_state.get(f"editando_contacto_{contacto['id']}"):
                         with st.expander(f"✏️ Editando {contacto['telefono']}", expanded=True):
                             nuevo_tel = st.text_input("Nuevo teléfono", value=contacto['telefono'] or "", key=f"edit_tel_{contacto['id']}")
@@ -520,7 +500,6 @@ with tab_agenda:
             else:
                 st.info("No hay contactos registrados para esta empresa")
             
-            # Agregar nuevo contacto manual
             st.markdown("### ➕ Agregar nuevo contacto")
             with st.form("form_nuevo_contacto"):
                 col_n1, col_n2 = st.columns(2)
