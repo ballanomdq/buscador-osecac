@@ -7,7 +7,7 @@ import tempfile
 import os
 from folium.plugins import Fullscreen, HeatMap
 import time
-import uuid
+import math
 
 st.set_page_config(page_title="Panel de Inspector - OSECAC", layout="wide")
 
@@ -66,62 +66,112 @@ def get_supabase():
 
 supabase = get_supabase()
 
+# ── FUNCIÓN LIMPIAR (para evitar errores de serialización JSON) ──────────────
+def limpiar(valor):
+    """Convierte valores no serializables a string limpio o None."""
+    if valor is None:
+        return None
+    try:
+        if isinstance(valor, float) and math.isnan(valor):
+            return None
+    except:
+        pass
+    # Tipos numpy
+    try:
+        import numpy as np
+        if isinstance(valor, (np.integer, np.int64, np.int32)):
+            return int(valor)
+        if isinstance(valor, (np.floating, np.float64)):
+            return None if np.isnan(valor) else float(valor)
+        if isinstance(valor, np.bool_):
+            return bool(valor)
+    except ImportError:
+        pass
+    # pandas NaT / NA
+    try:
+        import pandas as pd
+        if pd.isna(valor):
+            return None
+    except:
+        pass
+    val_str = str(valor).strip()
+    return val_str if val_str and val_str.lower() not in ('nan', 'nat', 'none', '') else None
+
 # ── FUNCIONES AGENDA ─────────────────────────────────────────────────────────
 def sincronizar_agenda(df_empresas):
+    """Sincroniza empresas del inspector con la agenda"""
     if df_empresas.empty:
         return 0
     
     contador = 0
     for _, row in df_empresas.iterrows():
-        cuit = row.get('cuit')
+        cuit = limpiar(row.get('cuit'))
         if not cuit:
             continue
         
-        direccion = f"{row.get('calle', '')} {row.get('numero', '')}".strip()
+        direccion = f"{limpiar(row.get('calle')) or ''} {limpiar(row.get('numero')) or ''}".strip()
         
-        existente = supabase.table("agenda_telefonica").select("*").eq("cuit", str(cuit)).execute()
+        existente = supabase.table("agenda_telefonica").select("*").eq("cuit", cuit).execute()
         
         if existente.data:
             update_data = {"ultima_actualizacion": "now()"}
             cambios = False
             
-            if row.get('razon_social') and row.get('razon_social') != existente.data[0].get('razon_social'):
-                update_data["razon_social"] = row.get('razon_social')
+            # Razón social
+            razon = limpiar(row.get('razon_social'))
+            if razon and razon != existente.data[0].get('razon_social'):
+                update_data["razon_social"] = razon
                 cambios = True
-            if row.get('tel_dom_legal') and row.get('tel_dom_legal') != existente.data[0].get('telefono_legal'):
-                update_data["telefono_legal"] = row.get('tel_dom_legal')
+            
+            # Teléfono legal
+            tel_legal = limpiar(row.get('tel_dom_legal'))
+            if tel_legal and tel_legal != existente.data[0].get('telefono_legal'):
+                update_data["telefono_legal"] = tel_legal
                 cambios = True
-            if row.get('tel_dom_real') and row.get('tel_dom_real') != existente.data[0].get('telefono_real'):
-                update_data["telefono_real"] = row.get('tel_dom_real')
+            
+            # Teléfono real
+            tel_real = limpiar(row.get('tel_dom_real'))
+            if tel_real and tel_real != existente.data[0].get('telefono_real'):
+                update_data["telefono_real"] = tel_real
                 cambios = True
-            if row.get('email') and row.get('email') != existente.data[0].get('email'):
-                update_data["email"] = row.get('email')
+            
+            # Email
+            email = limpiar(row.get('email'))
+            if email and email != existente.data[0].get('email'):
+                update_data["email"] = email
                 cambios = True
+            
+            # Dirección
             if direccion and direccion != existente.data[0].get('direccion'):
                 update_data["direccion"] = direccion
                 cambios = True
-            if row.get('localidad') and row.get('localidad') != existente.data[0].get('localidad'):
-                update_data["localidad"] = row.get('localidad')
+            
+            # Localidad
+            localidad = limpiar(row.get('localidad'))
+            if localidad and localidad != existente.data[0].get('localidad'):
+                update_data["localidad"] = localidad
                 cambios = True
             
             if cambios:
-                supabase.table("agenda_telefonica").update(update_data).eq("cuit", str(cuit)).execute()
+                supabase.table("agenda_telefonica").update(update_data).eq("cuit", cuit).execute()
                 contador += 1
         else:
-            supabase.table("agenda_telefonica").insert({
-                "cuit": str(cuit),
-                "razon_social": row.get('razon_social', ''),
-                "telefono_legal": row.get('tel_dom_legal', ''),
-                "telefono_real": row.get('tel_dom_real', ''),
-                "email": row.get('email', ''),
-                "direccion": direccion,
-                "localidad": row.get('localidad', '')
-            }).execute()
+            insert_data = {
+                "cuit": cuit,
+                "razon_social": limpiar(row.get('razon_social')) or "",
+                "telefono_legal": limpiar(row.get('tel_dom_legal')) or "",
+                "telefono_real": limpiar(row.get('tel_dom_real')) or "",
+                "email": limpiar(row.get('email')) or "",
+                "direccion": direccion or None,
+                "localidad": limpiar(row.get('localidad')) or "",
+            }
+            supabase.table("agenda_telefonica").insert(insert_data).execute()
             contador += 1
     
     return contador
 
 def obtener_agenda():
+    """Obtiene toda la agenda"""
     try:
         datos = supabase.table("agenda_telefonica").select("*").order("razon_social").execute()
         return pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
@@ -129,6 +179,7 @@ def obtener_agenda():
         return pd.DataFrame()
 
 def guardar_telefono_extra(cuit, telefono):
+    """Guarda teléfono extra"""
     try:
         supabase.table("agenda_telefonica").update({
             "telefono_extra": telefono if telefono else None,
@@ -225,11 +276,14 @@ with tab_lista:
     
     st.markdown(f"**Mostrando {len(df_filtrado)} de {total} registros**")
     
-    df_mostrar = df_filtrado[['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto']].copy()
-    df_mostrar.columns = ['CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO']
+    df_mostrar = df_filtrado[['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto', 'fecha_carga']].copy()
+    df_mostrar.columns = ['CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO', 'FECHA CARGA']
     
-    if 'VTO' in df_mostrar.columns:
-        df_mostrar['VTO'] = df_mostrar['VTO'].apply(lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else ""))
+    for col_fecha in ['VTO', 'FECHA CARGA']:
+        if col_fecha in df_mostrar.columns:
+            df_mostrar[col_fecha] = df_mostrar[col_fecha].apply(
+                lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else "")
+            )
     
     st.dataframe(df_mostrar, use_container_width=True, height=500)
 
@@ -241,8 +295,8 @@ with tab_mapa:
     for _, row in df_empresas.iterrows():
         coords = coordenadas.get(row['id'])
         if coords:
-            popup = f"<b>{row.get('razon_social', '')}</b><br>CUIT: {row.get('cuit', '')}<br>{row.get('calle', '')} {row.get('numero', '')}"
-            datos_mapa.append({"coords": coords, "popup": popup, "nombre": row.get('razon_social', '')[:35]})
+            popup = f"<b>{limpiar(row.get('razon_social')) or ''}</b><br>CUIT: {limpiar(row.get('cuit')) or ''}<br>{limpiar(row.get('calle')) or ''} {limpiar(row.get('numero')) or ''}"
+            datos_mapa.append({"coords": coords, "popup": popup, "nombre": (limpiar(row.get('razon_social')) or '')[:35]})
     
     if not datos_mapa:
         st.info("No hay empresas con ubicación")
@@ -310,7 +364,6 @@ with tab_agenda:
         
         st.markdown(f"**📊 {len(df_agenda)} contactos**")
         
-        # Usar un contador para keys únicas
         for idx, (_, row) in enumerate(df_agenda.iterrows()):
             unique_key = f"empresa_{idx}_{row.get('cuit', idx)}"
             
@@ -332,8 +385,6 @@ with tab_agenda:
                 st.markdown("**📱 Teléfono adicional**")
                 
                 extra_actual = row.get('telefono_extra', '')
-                
-                # Usar el índice como parte de la key
                 input_key = f"extra_input_{unique_key}"
                 btn_key = f"extra_btn_{unique_key}"
                 
