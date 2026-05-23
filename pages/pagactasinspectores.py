@@ -99,7 +99,7 @@ def limpiar(valor):
 
 # ── FUNCIONES AGENDA ─────────────────────────────────────────────────────────
 def sincronizar_agenda(df_empresas):
-    """Sincroniza empresas del inspector con la agenda"""
+    """Sincroniza empresas del inspector con la agenda usando UPSERT"""
     if df_empresas.empty:
         return 0
     
@@ -109,64 +109,33 @@ def sincronizar_agenda(df_empresas):
         if not cuit:
             continue
         
-        direccion = f"{limpiar(row.get('calle')) or ''} {limpiar(row.get('numero')) or ''}".strip()
+        calle = limpiar(row.get('calle')) or ''
+        numero = limpiar(row.get('numero')) or ''
+        direccion = f"{calle} {numero}".strip() or None
         
-        existente = supabase.table("agenda_telefonica").select("*").eq("cuit", cuit).execute()
+        # Datos para upsert (NO incluye telefono_extra para no pisar lo que puso el inspector)
+        upsert_data = {
+            "cuit": cuit,
+            "razon_social": limpiar(row.get('razon_social')) or "",
+            "telefono_legal": limpiar(row.get('tel_dom_legal')) or "",
+            "telefono_real": limpiar(row.get('tel_dom_real')) or "",
+            "email": limpiar(row.get('email')) or "",
+            "direccion": direccion,
+            "localidad": limpiar(row.get('localidad')) or "",
+            "ultima_actualizacion": "now()"
+        }
         
-        if existente.data:
-            update_data = {"ultima_actualizacion": "now()"}
-            cambios = False
-            
-            # Razón social
-            razon = limpiar(row.get('razon_social'))
-            if razon and razon != existente.data[0].get('razon_social'):
-                update_data["razon_social"] = razon
-                cambios = True
-            
-            # Teléfono legal
-            tel_legal = limpiar(row.get('tel_dom_legal'))
-            if tel_legal and tel_legal != existente.data[0].get('telefono_legal'):
-                update_data["telefono_legal"] = tel_legal
-                cambios = True
-            
-            # Teléfono real
-            tel_real = limpiar(row.get('tel_dom_real'))
-            if tel_real and tel_real != existente.data[0].get('telefono_real'):
-                update_data["telefono_real"] = tel_real
-                cambios = True
-            
-            # Email
-            email = limpiar(row.get('email'))
-            if email and email != existente.data[0].get('email'):
-                update_data["email"] = email
-                cambios = True
-            
-            # Dirección
-            if direccion and direccion != existente.data[0].get('direccion'):
-                update_data["direccion"] = direccion
-                cambios = True
-            
-            # Localidad
-            localidad = limpiar(row.get('localidad'))
-            if localidad and localidad != existente.data[0].get('localidad'):
-                update_data["localidad"] = localidad
-                cambios = True
-            
-            if cambios:
-                supabase.table("agenda_telefonica").update(update_data).eq("cuit", cuit).execute()
-                contador += 1
-        else:
-            insert_data = {
-                "cuit": cuit,
-                "razon_social": limpiar(row.get('razon_social')) or "",
-                "telefono_legal": limpiar(row.get('tel_dom_legal')) or "",
-                "telefono_real": limpiar(row.get('tel_dom_real')) or "",
-                "email": limpiar(row.get('email')) or "",
-                "direccion": direccion or None,
-                "localidad": limpiar(row.get('localidad')) or "",
-            }
-            supabase.table("agenda_telefonica").insert(insert_data).execute()
+        try:
+            # UPSERT: inserta si no existe, actualiza si ya existe (por CUIT)
+            supabase.table("agenda_telefonica").upsert(
+                upsert_data,
+                on_conflict="cuit",
+                ignore_duplicates=False
+            ).execute()
             contador += 1
+        except Exception as e:
+            st.warning(f"No se pudo sincronizar CUIT {cuit}: {e}")
+            continue
     
     return contador
 
@@ -179,7 +148,7 @@ def obtener_agenda():
         return pd.DataFrame()
 
 def guardar_telefono_extra(cuit, telefono):
-    """Guarda teléfono extra"""
+    """Guarda teléfono extra (NO se pisa con la sincronización)"""
     try:
         supabase.table("agenda_telefonica").update({
             "telefono_extra": telefono if telefono else None,
@@ -371,7 +340,7 @@ with tab_agenda:
                 col_a, col_b = st.columns(2)
                 
                 with col_a:
-                    st.markdown("**📞 Teléfonos**")
+                    st.markdown("**📞 Teléfonos del sistema**")
                     st.markdown(f"- Legal: {row.get('telefono_legal', '—')}")
                     st.markdown(f"- Real: {row.get('telefono_real', '—')}")
                     st.markdown(f"✉️ Email: {row.get('email', '—')}")
@@ -382,7 +351,7 @@ with tab_agenda:
                     st.markdown(f"Localidad: {row.get('localidad', '—')}")
                 
                 st.markdown("---")
-                st.markdown("**📱 Teléfono adicional**")
+                st.markdown("**📱 Teléfono adicional (solo usted lo ve)**")
                 
                 extra_actual = row.get('telefono_extra', '')
                 input_key = f"extra_input_{unique_key}"
