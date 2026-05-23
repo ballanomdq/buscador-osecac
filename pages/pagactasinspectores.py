@@ -7,6 +7,7 @@ import tempfile
 import os
 from folium.plugins import Fullscreen, HeatMap
 import time
+import uuid
 
 st.set_page_config(page_title="Panel de Inspector - OSECAC", layout="wide")
 
@@ -67,7 +68,6 @@ supabase = get_supabase()
 
 # ── FUNCIONES AGENDA ─────────────────────────────────────────────────────────
 def sincronizar_agenda(df_empresas):
-    """Sincroniza empresas del inspector con la agenda"""
     if df_empresas.empty:
         return 0
     
@@ -79,13 +79,11 @@ def sincronizar_agenda(df_empresas):
         
         direccion = f"{row.get('calle', '')} {row.get('numero', '')}".strip()
         
-        # Verificar si existe
         existente = supabase.table("agenda_telefonica").select("*").eq("cuit", str(cuit)).execute()
         
         if existente.data:
-            # Actualizar solo si hay cambios
-            cambios = False
             update_data = {"ultima_actualizacion": "now()"}
+            cambios = False
             
             if row.get('razon_social') and row.get('razon_social') != existente.data[0].get('razon_social'):
                 update_data["razon_social"] = row.get('razon_social')
@@ -110,7 +108,6 @@ def sincronizar_agenda(df_empresas):
                 supabase.table("agenda_telefonica").update(update_data).eq("cuit", str(cuit)).execute()
                 contador += 1
         else:
-            # Crear nuevo
             supabase.table("agenda_telefonica").insert({
                 "cuit": str(cuit),
                 "razon_social": row.get('razon_social', ''),
@@ -125,29 +122,16 @@ def sincronizar_agenda(df_empresas):
     return contador
 
 def obtener_agenda():
-    """Obtiene toda la agenda"""
     try:
         datos = supabase.table("agenda_telefonica").select("*").order("razon_social").execute()
         return pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
     except:
         return pd.DataFrame()
 
-def agregar_telefono_extra(cuit, telefono):
-    """Agrega/modifica teléfono extra"""
+def guardar_telefono_extra(cuit, telefono):
     try:
         supabase.table("agenda_telefonica").update({
-            "telefono_extra": telefono,
-            "ultima_actualizacion": "now()"
-        }).eq("cuit", str(cuit)).execute()
-        return True
-    except:
-        return False
-
-def eliminar_telefono_extra(cuit):
-    """Elimina teléfono extra"""
-    try:
-        supabase.table("agenda_telefonica").update({
-            "telefono_extra": None,
+            "telefono_extra": telefono if telefono else None,
             "ultima_actualizacion": "now()"
         }).eq("cuit", str(cuit)).execute()
         return True
@@ -229,9 +213,9 @@ with tab_lista:
     
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        filtro_cuit = st.text_input("CUIT", placeholder="Buscar por CUIT")
+        filtro_cuit = st.text_input("CUIT", placeholder="Buscar por CUIT", key="filtro_cuit")
     with col_f2:
-        filtro_razon = st.text_input("Razón Social", placeholder="Buscar por razón social")
+        filtro_razon = st.text_input("Razón Social", placeholder="Buscar por razón social", key="filtro_razon")
     
     df_filtrado = df_empresas.copy()
     if filtro_cuit:
@@ -241,7 +225,6 @@ with tab_lista:
     
     st.markdown(f"**Mostrando {len(df_filtrado)} de {total} registros**")
     
-    # Tabla simplificada
     df_mostrar = df_filtrado[['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto']].copy()
     df_mostrar.columns = ['CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO']
     
@@ -289,10 +272,9 @@ with tab_mapa:
                 st.components.v1.html(f.read(), height=550)
             os.unlink(tmp.name)
 
-# ==================== TAB 3: AGENDA MINIMALISTA ====================
+# ==================== TAB 3: AGENDA ====================
 with tab_agenda:
     st.markdown("### 📞 Agenda de Contactos")
-    st.caption("Los datos se actualizan desde sus empresas asignadas. Puede agregar un teléfono extra por empresa.")
     
     col_sync1, col_sync2 = st.columns([1, 3])
     with col_sync1:
@@ -316,13 +298,11 @@ with tab_agenda:
     with col_b2:
         buscar_razon = st.text_input("Buscar por Razón Social", placeholder="Ej: PEPSICO", key="buscar_razon")
     
-    # Mostrar agenda
     df_agenda = obtener_agenda()
     
     if df_agenda.empty:
         st.info("Agenda vacía. Presione 'Actualizar agenda' para cargar sus empresas.")
     else:
-        # Filtrar
         if buscar_cuit:
             df_agenda = df_agenda[df_agenda['cuit'].astype(str).str.contains(buscar_cuit, case=False, na=False)]
         if buscar_razon:
@@ -330,8 +310,10 @@ with tab_agenda:
         
         st.markdown(f"**📊 {len(df_agenda)} contactos**")
         
-        # Mostrar como tabla interactiva simple
-        for _, row in df_agenda.iterrows():
+        # Usar un contador para keys únicas
+        for idx, (_, row) in enumerate(df_agenda.iterrows()):
+            unique_key = f"empresa_{idx}_{row.get('cuit', idx)}"
+            
             with st.expander(f"🏢 {row.get('razon_social', 'Sin nombre')} - {row.get('cuit', 'N/D')}"):
                 col_a, col_b = st.columns(2)
                 
@@ -351,21 +333,22 @@ with tab_agenda:
                 
                 extra_actual = row.get('telefono_extra', '')
                 
-                col_extra1, col_extra2 = st.columns([3, 1])
-                with col_extra1:
-                    nuevo_extra = st.text_input("", value=extra_actual if extra_actual else "", 
-                                                placeholder="Agregar teléfono extra", key=f"extra_{row['cuit']}",
-                                                label_visibility="collapsed")
-                with col_extra2:
-                    if st.button("Guardar", key=f"guardar_{row['cuit']}"):
-                        if nuevo_extra:
-                            if agregar_telefono_extra(row['cuit'], nuevo_extra):
-                                st.success("Guardado")
-                                st.rerun()
-                        else:
-                            if extra_actual and eliminar_telefono_extra(row['cuit']):
-                                st.success("Eliminado")
-                                st.rerun()
+                # Usar el índice como parte de la key
+                input_key = f"extra_input_{unique_key}"
+                btn_key = f"extra_btn_{unique_key}"
+                
+                nuevo_extra = st.text_input(
+                    "", 
+                    value=extra_actual if extra_actual else "", 
+                    placeholder="Agregar teléfono extra", 
+                    key=input_key,
+                    label_visibility="collapsed"
+                )
+                
+                if st.button("Guardar", key=btn_key):
+                    if guardar_telefono_extra(row['cuit'], nuevo_extra):
+                        st.success("Guardado")
+                        st.rerun()
 
 st.markdown("---")
 st.caption(f"Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
