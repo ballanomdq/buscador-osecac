@@ -88,6 +88,20 @@ st.markdown("""
     .stButton > button[kind="primary"] { background: #3b82f6 !important; color: white !important; }
     .stButton > button[kind="primary"]:hover { background: #2563eb !important; }
 
+    /* Botón de eliminar cancelados - ROJO LLAMATIVO */
+    .stButton > button[kind="danger"] {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+        color: white !important;
+        font-size: 1rem !important;
+        padding: 0.5rem 1rem !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+    }
+    .stButton > button[kind="danger"]:hover {
+        background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4) !important;
+    }
+
     .buscar-btn button { background: #3b82f6 !important; font-size: 0.9rem !important; padding: 0.4rem 1rem !important; }
 
     .stTabs [data-baseweb="tab-list"] {
@@ -460,6 +474,31 @@ def get_pares_existentes():
             break
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
 
+# ── FUNCIÓN PARA ELIMINAR REGISTROS CANCELADOS ────────────────────────────────
+def eliminar_registros_cancelados():
+    """Obtiene los registros cancelados, descarga Excel y los elimina"""
+    # Traer registros con deuda_cancelada = TRUE
+    registros = supabase.table("padron_deuda_presunta").select("*").eq("deuda_cancelada", True).execute()
+    
+    if not registros.data:
+        st.warning("⚠️ No hay registros con deuda cancelada para eliminar.")
+        return None
+    
+    df_cancelados = pd.DataFrame(registros.data)
+    
+    # Generar Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_cancelados.to_excel(writer, sheet_name='Cancelados', index=False)
+    
+    excel_data = output.getvalue()
+    
+    # Eliminar los registros de Supabase
+    ids_a_eliminar = [r['id'] for r in registros.data]
+    supabase.table("padron_deuda_presunta").delete().in_("id", ids_a_eliminar).execute()
+    
+    return excel_data, len(ids_a_eliminar)
+
 # ── UNA SOLA QUERY para todos los conteos del dashboard ─────────────────────
 @st.cache_data(ttl=60)
 def get_dashboard_stats():
@@ -616,7 +655,7 @@ with tab1:
             registros = procesar_excel(archivo)
             hoy = date.today().isoformat()
             for r in registros:
-                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None, 'fecha_carga':hoy,'estado_gestion':'PENDIENTE'})
+                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None, 'fecha_carga':hoy,'estado_gestion':'PENDIENTE', 'deuda_cancelada':False})
             pares = get_pares_existentes()
             nuevos = [r for r in registros if (str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) not in pares]
             dupl = len(registros) - len(nuevos)
@@ -684,6 +723,7 @@ with tab2:
 
     st.divider()
 
+    # Fila de botones (agrego el botón de eliminar cancelados)
     col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
     
     with col_guardar:
@@ -725,6 +765,26 @@ with tab2:
             st.session_state.pop('pagina_actual', None)
             get_dashboard_stats.clear()
             st.rerun()
+
+    # BOTÓN ROJO LLAMATIVO PARA ELIMINAR CANCELADOS (debajo de los botones)
+    st.markdown("---")
+    col_elim_cancel1, col_elim_cancel2, col_elim_cancel3 = st.columns([1, 2, 1])
+    with col_elim_cancel2:
+        if st.button("🗑️ EMPAQUETAR Y ELIMINAR REGISTROS CON DEUDA CANCELADA", type="primary", use_container_width=True):
+            resultado = eliminar_registros_cancelados()
+            if resultado:
+                excel_data, cantidad = resultado
+                st.success(f"✅ {cantidad} registros eliminados. Descargando backup...")
+                st.download_button(
+                    label="📥 DESCARGAR BACKUP (Excel)",
+                    data=excel_data,
+                    file_name=f"BACKUP_DEUDA_CANCELADA_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+                get_dashboard_stats.clear()
+                time.sleep(1)
+                st.rerun()
 
     if st.session_state.get('confirmar_del_todo'):
         st.warning("⚠️ Esta acción eliminará **TODOS** los registros.")
@@ -1113,13 +1173,13 @@ with tab2:
             'empl_10_2025':'EMPL 10-2025', 'emp_11_2025':'EMP 11-2025', 'empl_12_2025':'EMPL 12-2025',
             'actividad':'ACTIVIDAD', 'situacion':'SITUACION',
             'leg':'LEG', 'vto':'VTO', 'mail_enviado':'MAIL ENVIADO',
-            'acta':'ACTA', 'estado_gestion':'ESTADO GESTION',
+            'acta':'ACTA', 'estado_gestion':'ESTADO GESTION', 'deuda_cancelada':'CANCELAR',
         })
         df_ed.insert(0, "🗑️", False)
         if st.checkbox("Seleccionar todos los de esta página"):
             df_ed["🗑️"] = True
         editor_key = f"editor_{st.session_state.pagina_actual}_{st.session_state.ultima_recarga.timestamp()}"
-        edited = st.data_editor(df_ed, use_container_width=True, height=500, column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar")}, key=editor_key)
+        edited = st.data_editor(df_ed, use_container_width=True, height=500, column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar"), "CANCELAR": st.column_config.CheckboxColumn("Cancelar Deuda")}, key=editor_key)
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
         if ids_sel:
@@ -1134,7 +1194,6 @@ with tab2:
                     orig = df_orig.iloc[idx]
                     upd = {}
                     
-                    # Verificar que el ID sea válido
                     id_valor = row.get('ID')
                     if pd.isna(id_valor) or id_valor is None or str(id_valor).strip() == '':
                         continue
@@ -1144,10 +1203,10 @@ with tab2:
                         ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
                         ('LOCALIDAD', 'localidad'), ('RAZON SOCIAL', 'razon_social'),
                         ('CUIT', 'cuit'), ('CALLE', 'calle'), ('NUMERO', 'numero'),
-                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta')
+                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta'),
+                        ('CANCELAR', 'deuda_cancelada')
                     ]:
                         nv = row.get(col_edit)
-                        # Convertir valor vacío a None (NULL en la base)
                         if nv is None or (isinstance(nv, float) and pd.isna(nv)) or (isinstance(nv, str) and nv.strip() == ''):
                             nv = None
                         elif isinstance(nv, str):
@@ -1387,7 +1446,6 @@ with tab4:
         st.markdown('<div class="ficha-edicion">', unsafe_allow_html=True)
         st.markdown('<div class="ficha-titulo">📋 Datos del Registro</div>', unsafe_allow_html=True)
         
-        # Organizar en 3 columnas para más compacto
         col_a, col_b, col_c = st.columns(3)
         
         with col_a:
@@ -1463,9 +1521,13 @@ with tab4:
             hasta_default = datetime.strptime(hasta_fecha, '%Y-%m-%d') if hasta_fecha else date.today()
             nuevo_hasta = st.date_input("Hasta", value=hasta_default, key=f"hasta_{key_suffix}")
         
-        # Botones
         col_guardar_reg, col_cancelar_reg = st.columns(2)
         with col_guardar_reg:
+            # Agregar campo DEUDA CANCELADA en el editor
+            st.markdown('<p class="campo-label">DEUDA CANCELADA</p>', unsafe_allow_html=True)
+            cancelada_actual = st.session_state.registro_editado.get('deuda_cancelada', False)
+            nueva_cancelada = st.checkbox("Marcar como deuda cancelada", value=cancelada_actual, key=f"cancelada_{key_suffix}")
+            
             if st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True, key=f"guardar_{key_suffix}"):
                 update_data = {
                     "cuit": nuevo_cuit,
@@ -1484,6 +1546,7 @@ with tab4:
                     "tel_dom_real": nuevo_tel_real,
                     "desde": nuevo_desde.strftime('%Y-%m-%d'),
                     "hasta": nuevo_hasta.strftime('%Y-%m-%d'),
+                    "deuda_cancelada": nueva_cancelada,
                 }
                 with st.spinner("Guardando cambios..."):
                     try:
