@@ -66,9 +66,8 @@ def get_supabase():
 
 supabase = get_supabase()
 
-# ── FUNCIÓN LIMPIAR (para evitar errores de serialización JSON) ──────────────
+# ── FUNCIÓN LIMPIAR ──────────────────────────────────────────────────────────
 def limpiar(valor):
-    """Convierte valores no serializables a string limpio o None."""
     if valor is None:
         return None
     try:
@@ -76,18 +75,6 @@ def limpiar(valor):
             return None
     except:
         pass
-    # Tipos numpy
-    try:
-        import numpy as np
-        if isinstance(valor, (np.integer, np.int64, np.int32)):
-            return int(valor)
-        if isinstance(valor, (np.floating, np.float64)):
-            return None if np.isnan(valor) else float(valor)
-        if isinstance(valor, np.bool_):
-            return bool(valor)
-    except ImportError:
-        pass
-    # pandas NaT / NA
     try:
         import pandas as pd
         if pd.isna(valor):
@@ -98,13 +85,20 @@ def limpiar(valor):
     return val_str if val_str and val_str.lower() not in ('nan', 'nat', 'none', '') else None
 
 # ── FUNCIONES AGENDA ─────────────────────────────────────────────────────────
-def sincronizar_agenda(df_empresas):
-    """Sincroniza empresas del inspector con la agenda usando UPSERT"""
+def sincronizar_agenda(df_empresas, progress_bar, status_text):
+    """Sincroniza usando UPSERT con barra de progreso"""
     if df_empresas.empty:
-        return 0
+        return 0, 0
     
+    total = len(df_empresas)
     contador = 0
-    for _, row in df_empresas.iterrows():
+    errores = 0
+    
+    for i, (_, row) in enumerate(df_empresas.iterrows()):
+        progress = (i + 1) / total
+        progress_bar.progress(progress)
+        status_text.text(f"Procesando {i+1} de {total}...")
+        
         cuit = limpiar(row.get('cuit'))
         if not cuit:
             continue
@@ -113,7 +107,6 @@ def sincronizar_agenda(df_empresas):
         numero = limpiar(row.get('numero')) or ''
         direccion = f"{calle} {numero}".strip() or None
         
-        # Datos para upsert (NO incluye telefono_extra para no pisar lo que puso el inspector)
         upsert_data = {
             "cuit": cuit,
             "razon_social": limpiar(row.get('razon_social')) or "",
@@ -126,21 +119,19 @@ def sincronizar_agenda(df_empresas):
         }
         
         try:
-            # UPSERT: inserta si no existe, actualiza si ya existe (por CUIT)
             supabase.table("agenda_telefonica").upsert(
                 upsert_data,
-                on_conflict="cuit",
-                ignore_duplicates=False
+                on_conflict="cuit"
             ).execute()
             contador += 1
-        except Exception as e:
-            st.warning(f"No se pudo sincronizar CUIT {cuit}: {e}")
-            continue
+        except Exception:
+            errores += 1
+        
+        time.sleep(0.005)
     
-    return contador
+    return contador, errores
 
 def obtener_agenda():
-    """Obtiene toda la agenda"""
     try:
         datos = supabase.table("agenda_telefonica").select("*").order("razon_social").execute()
         return pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
@@ -148,7 +139,6 @@ def obtener_agenda():
         return pd.DataFrame()
 
 def guardar_telefono_extra(cuit, telefono):
-    """Guarda teléfono extra (NO se pisa con la sincronización)"""
     try:
         supabase.table("agenda_telefonica").update({
             "telefono_extra": telefono if telefono else None,
@@ -204,7 +194,7 @@ st.success(f"✅ Bienvenido/a {nombre_inspector}")
 st.markdown("---")
 
 # ── Cargar datos ─────────────────────────────────────────────────────────────
-with st.spinner("Cargando..."):
+with st.spinner("Cargando sus empresas..."):
     df_empresas = cargar_empresas_por_inspector(legajo_seleccionado)
     coordenadas = cargar_coordenadas()
 
@@ -216,55 +206,53 @@ if df_empresas.empty:
 total = len(df_empresas)
 con_coords = sum(1 for _, row in df_empresas.iterrows() if coordenadas.get(row['id']))
 
-col1, col2, col3 = st.columns(3)
-col1.metric("📋 Total empresas", total)
-col2.metric("📍 Con ubicación", con_coords)
-col3.metric("⚠️ Sin ubicación", total - con_coords)
+c1, c2, c3 = st.columns(3)
+c1.metric("📋 Total empresas", total)
+c2.metric("📍 Con ubicación", con_coords)
+c3.metric("⚠️ Sin ubicación", total - con_coords)
 
 st.markdown("---")
 
 # ── PESTAÑAS ─────────────────────────────────────────────────────────────────
-tab_lista, tab_mapa, tab_agenda = st.tabs(["📋 Listado", "🗺️ Mapa", "📞 Agenda"])
+t1, t2, t3 = st.tabs(["📋 Listado", "🗺️ Mapa", "📞 Agenda"])
 
 # ==================== TAB 1: LISTADO ====================
-with tab_lista:
+with t1:
     st.markdown("### 📋 Listado de empresas")
-    st.caption("🔒 Solo consulta")
     
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        filtro_cuit = st.text_input("CUIT", placeholder="Buscar por CUIT", key="filtro_cuit")
-    with col_f2:
-        filtro_razon = st.text_input("Razón Social", placeholder="Buscar por razón social", key="filtro_razon")
+    cf1, cf2 = st.columns(2)
+    with cf1:
+        f_cuit = st.text_input("CUIT", placeholder="Buscar por CUIT", key="f_cuit")
+    with cf2:
+        f_razon = st.text_input("Razón Social", placeholder="Buscar por razón social", key="f_razon")
     
     df_filtrado = df_empresas.copy()
-    if filtro_cuit:
-        df_filtrado = df_filtrado[df_filtrado['cuit'].astype(str).str.contains(filtro_cuit, case=False, na=False)]
-    if filtro_razon:
-        df_filtrado = df_filtrado[df_filtrado['razon_social'].astype(str).str.contains(filtro_razon, case=False, na=False)]
+    if f_cuit:
+        df_filtrado = df_filtrado[df_filtrado['cuit'].astype(str).str.contains(f_cuit, case=False, na=False)]
+    if f_razon:
+        df_filtrado = df_filtrado[df_filtrado['razon_social'].astype(str).str.contains(f_razon, case=False, na=False)]
     
     st.markdown(f"**Mostrando {len(df_filtrado)} de {total} registros**")
     
-    df_mostrar = df_filtrado[['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto', 'fecha_carga']].copy()
-    df_mostrar.columns = ['CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO', 'FECHA CARGA']
+    df_mostrar = df_filtrado[['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto']].copy()
+    df_mostrar.columns = ['CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO']
     
-    for col_fecha in ['VTO', 'FECHA CARGA']:
-        if col_fecha in df_mostrar.columns:
-            df_mostrar[col_fecha] = df_mostrar[col_fecha].apply(
-                lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else "")
-            )
+    if 'VTO' in df_mostrar.columns:
+        df_mostrar['VTO'] = df_mostrar['VTO'].apply(
+            lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else "")
+        )
     
     st.dataframe(df_mostrar, use_container_width=True, height=500)
 
 # ==================== TAB 2: MAPA ====================
-with tab_mapa:
+with t2:
     st.markdown("### 🗺️ Mapa de ubicaciones")
     
     datos_mapa = []
     for _, row in df_empresas.iterrows():
         coords = coordenadas.get(row['id'])
         if coords:
-            popup = f"<b>{limpiar(row.get('razon_social')) or ''}</b><br>CUIT: {limpiar(row.get('cuit')) or ''}<br>{limpiar(row.get('calle')) or ''} {limpiar(row.get('numero')) or ''}"
+            popup = f"<b>{limpiar(row.get('razon_social')) or ''}</b><br>CUIT: {limpiar(row.get('cuit')) or ''}"
             datos_mapa.append({"coords": coords, "popup": popup, "nombre": (limpiar(row.get('razon_social')) or '')[:35]})
     
     if not datos_mapa:
@@ -296,35 +284,41 @@ with tab_mapa:
             os.unlink(tmp.name)
 
 # ==================== TAB 3: AGENDA ====================
-with tab_agenda:
+with t3:
     st.markdown("### 📞 Agenda de Contactos")
     
-    col_sync1, col_sync2 = st.columns([1, 3])
-    with col_sync1:
-        if st.button("🔄 Actualizar agenda", type="primary", use_container_width=True):
-            with st.spinner("Sincronizando..."):
-                actualizados = sincronizar_agenda(df_empresas)
-                if actualizados > 0:
-                    st.success(f"✅ {actualizados} empresas actualizadas")
-                else:
-                    st.info("Agenda al día")
-                st.cache_data.clear()
-                time.sleep(0.5)
-                st.rerun()
+    if st.button("🔄 ACTUALIZAR AGENDA", type="primary", use_container_width=True):
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        actualizados, errores = sincronizar_agenda(df_empresas, progress_bar, status_text)
+        
+        progress_bar.empty()
+        status_text.empty()
+        
+        if actualizados > 0:
+            st.success(f"✅ {actualizados} empresas sincronizadas")
+        if errores > 0:
+            st.warning(f"⚠️ {errores} errores (verifique la tabla)")
+        if actualizados == 0 and errores == 0:
+            st.info("Agenda al día")
+        
+        time.sleep(1)
+        st.rerun()
     
     st.markdown("---")
     
     # Buscador
-    col_b1, col_b2 = st.columns(2)
-    with col_b1:
+    cb1, cb2 = st.columns(2)
+    with cb1:
         buscar_cuit = st.text_input("Buscar por CUIT", placeholder="Ej: 30707685243", key="buscar_cuit")
-    with col_b2:
+    with cb2:
         buscar_razon = st.text_input("Buscar por Razón Social", placeholder="Ej: PEPSICO", key="buscar_razon")
     
     df_agenda = obtener_agenda()
     
     if df_agenda.empty:
-        st.info("Agenda vacía. Presione 'Actualizar agenda' para cargar sus empresas.")
+        st.info("📭 Agenda vacía. Presione 'ACTUALIZAR AGENDA'")
     else:
         if buscar_cuit:
             df_agenda = df_agenda[df_agenda['cuit'].astype(str).str.contains(buscar_cuit, case=False, na=False)]
@@ -334,41 +328,35 @@ with tab_agenda:
         st.markdown(f"**📊 {len(df_agenda)} contactos**")
         
         for idx, (_, row) in enumerate(df_agenda.iterrows()):
-            unique_key = f"empresa_{idx}_{row.get('cuit', idx)}"
+            key = f"emp_{idx}_{row.get('cuit', idx)}"
             
-            with st.expander(f"🏢 {row.get('razon_social', 'Sin nombre')} - {row.get('cuit', 'N/D')}"):
+            with st.expander(f"🏢 {row.get('razon_social', 'Sin nombre')}"):
                 col_a, col_b = st.columns(2)
                 
                 with col_a:
-                    st.markdown("**📞 Teléfonos del sistema**")
-                    st.markdown(f"- Legal: {row.get('telefono_legal', '—')}")
-                    st.markdown(f"- Real: {row.get('telefono_real', '—')}")
-                    st.markdown(f"✉️ Email: {row.get('email', '—')}")
+                    st.markdown(f"**CUIT:** {row.get('cuit', '—')}")
+                    st.markdown(f"**Teléfono legal:** {row.get('telefono_legal', '—')}")
+                    st.markdown(f"**Teléfono real:** {row.get('telefono_real', '—')}")
+                    st.markdown(f"**Email:** {row.get('email', '—')}")
                 
                 with col_b:
-                    st.markdown("**📍 Dirección**")
-                    st.markdown(f"{row.get('direccion', '—')}")
-                    st.markdown(f"Localidad: {row.get('localidad', '—')}")
+                    st.markdown(f"**Dirección:** {row.get('direccion', '—')}")
+                    st.markdown(f"**Localidad:** {row.get('localidad', '—')}")
                 
                 st.markdown("---")
-                st.markdown("**📱 Teléfono adicional (solo usted lo ve)**")
+                st.markdown("**📱 Teléfono adicional**")
                 
                 extra_actual = row.get('telefono_extra', '')
-                input_key = f"extra_input_{unique_key}"
-                btn_key = f"extra_btn_{unique_key}"
-                
                 nuevo_extra = st.text_input(
-                    "", 
-                    value=extra_actual if extra_actual else "", 
-                    placeholder="Agregar teléfono extra", 
-                    key=input_key,
+                    "", value=extra_actual or "", 
+                    placeholder="Agregar teléfono extra", key=f"inp_{key}",
                     label_visibility="collapsed"
                 )
                 
-                if st.button("Guardar", key=btn_key):
+                if st.button("Guardar", key=f"btn_{key}"):
                     if guardar_telefono_extra(row['cuit'], nuevo_extra):
                         st.success("Guardado")
                         st.rerun()
 
 st.markdown("---")
-st.caption(f"Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"{datetime.now().strftime('%d/%m/%Y %H:%M')}")
