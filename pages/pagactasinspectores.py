@@ -7,6 +7,7 @@ import re
 import tempfile
 import os
 from folium.plugins import Fullscreen, HeatMap
+import io
 
 st.set_page_config(page_title="Panel de Inspector - OSECAC", layout="wide")
 
@@ -30,6 +31,12 @@ div[data-testid="stButton"] button {
     border-radius: 6px !important;
 }
 div[data-testid="stButton"] button:hover { background: #2563eb !important; }
+div[data-testid="stButton"] button[kind="secondary"] {
+    background: #10b981 !important;
+}
+div[data-testid="stButton"] button[kind="secondary"]:hover {
+    background: #059669 !important;
+}
 .stDataFrame { font-size: 0.75rem; }
 .filtro-titulo { font-size: 0.65rem; color: #64748b; margin-bottom: 0.2rem; }
 iframe {
@@ -66,6 +73,41 @@ def get_supabase():
 
 supabase = get_supabase()
 
+# ── Funciones ────────────────────────────────────────────────────────────────
+def generar_informe_txt(df_empresas, nombre_inspector, legajo):
+    """Genera un informe TXT con formato de fichas por empresa"""
+    contenido = []
+    contenido.append("=" * 80)
+    contenido.append(f"                    INFORME DE EMPRESAS ASIGNADAS")
+    contenido.append(f"                  Inspector: {nombre_inspector} (Legajo: {legajo})")
+    contenido.append(f"                        Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    contenido.append(f"                        Total de empresas: {len(df_empresas)}")
+    contenido.append("=" * 80)
+    contenido.append("")
+    
+    for i, (_, row) in enumerate(df_empresas.iterrows(), 1):
+        contenido.append("┌" + "─" * 78 + "┐")
+        contenido.append(f"│ EMPRESA N° {i:<70}│")
+        contenido.append("├" + "─" * 78 + "┤")
+        contenido.append(f"│ CUIT:           {str(row.get('cuit', 'N/D')):<61}│")
+        contenido.append(f"│ RAZÓN SOCIAL:   {str(row.get('razon_social', 'N/D')):<61}│")
+        contenido.append(f"│ DOMICILIO:      {str(row.get('calle', 'N/D'))} {str(row.get('numero', '')):<61}│")
+        contenido.append(f"│ LOCALIDAD:      {str(row.get('localidad', 'N/D')):<61}│")
+        contenido.append(f"│ TELÉFONO LEGAL: {str(row.get('tel_dom_legal', 'N/D')):<61}│")
+        contenido.append(f"│ TELÉFONO REAL:  {str(row.get('tel_dom_real', 'N/D')):<61}│")
+        contenido.append(f"│ EMAIL:          {str(row.get('email', 'N/D')):<61}│")
+        contenido.append(f"│ VENCIMIENTO:    {str(row.get('vto', 'N/D')):<61}│")
+        contenido.append(f"│ ACTA:           {str(row.get('acta', 'N/D')):<61}│")
+        contenido.append(f"│ MAIL ENVIADO:   {str(row.get('mail_enviado', 'N/D')):<61}│")
+        contenido.append("└" + "─" * 78 + "┘")
+        contenido.append("")
+    
+    contenido.append("=" * 80)
+    contenido.append("                        FIN DEL INFORME")
+    contenido.append("=" * 80)
+    
+    return "\n".join(contenido)
+
 # ── Cargar inspectores ───────────────────────────────────────────────────────
 @st.cache_data(ttl=300)
 def cargar_inspectores():
@@ -80,12 +122,14 @@ def cargar_coordenadas():
         return {d['id_empresa']: (d['lat'], d['lon']) for d in datos.data if d['lat'] is not None}
     return {}
 
-# ── Cargar empresas por inspector ────────────────────────────────────────────
+# ── Cargar empresas por inspector (con MÁS datos) ────────────────────────────
 @st.cache_data(ttl=300)
 def cargar_empresas_por_inspector(legajo):
     datos = supabase.table("padron_deuda_presunta").select(
         "id", "cuit", "razon_social", "localidad", "calle", "numero", 
-        "vto", "acta", "mail_enviado", "tel_dom_legal", "tel_dom_real", "email"
+        "piso", "dpto", "cp", "vto", "acta", "mail_enviado", 
+        "tel_dom_legal", "tel_dom_real", "email", "deuda_presunta",
+        "desde", "hasta", "actividad", "situacion"
     ).eq("leg", legajo).execute()
     return pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
 
@@ -140,10 +184,10 @@ with col_c3:
 st.markdown("---")
 
 # ── Pestañas ─────────────────────────────────────────────────────────────────
-tab_lista, tab_mapa = st.tabs(["📋 Listado de Empresas", "🗺️ Mapa de Ubicaciones"])
+tab_lista, tab_mapa, tab_informe = st.tabs(["📋 Listado de Empresas", "🗺️ Mapa de Ubicaciones", "📄 Generar Informe"])
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 1: LISTADO DE EMPRESAS
+# TAB 1: LISTADO DE EMPRESAS (con MÁS datos)
 # ══════════════════════════════════════════════════════════════════
 with tab_lista:
     st.markdown("### 📋 Listado de sus empresas")
@@ -168,7 +212,7 @@ with tab_lista:
     
     st.markdown(f"**📊 Mostrando {len(df_filtrado)} de {total_registros} registros**")
     
-    # Mostrar datos
+    # Mostrar datos (ahora con MÁS columnas)
     df_mostrar = df_filtrado.copy()
     
     columnas_mostrar = {
@@ -177,9 +221,16 @@ with tab_lista:
         'localidad': 'LOCALIDAD',
         'calle': 'CALLE',
         'numero': 'NÚMERO',
+        'piso': 'PISO',
+        'dpto': 'DPTO',
+        'tel_dom_legal': 'TEL. LEGAL',
+        'tel_dom_real': 'TEL. REAL',
+        'email': 'EMAIL',
         'vto': 'VENCIMIENTO',
         'acta': 'ACTA',
-        'mail_enviado': 'MAIL'
+        'deuda_presunta': 'DEUDA',
+        'actividad': 'ACTIVIDAD',
+        'situacion': 'SITUACIÓN'
     }
     
     df_tabla = pd.DataFrame()
@@ -187,21 +238,17 @@ with tab_lista:
         if col_orig in df_mostrar.columns:
             df_tabla[col_nuevo] = df_mostrar[col_orig]
     
+    # Formatear fechas
     if 'VENCIMIENTO' in df_tabla.columns:
         df_tabla['VENCIMIENTO'] = df_tabla['VENCIMIENTO'].apply(
             lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else "")
         )
     
-    st.dataframe(df_tabla, use_container_width=True, height=500)
+    # Formatear deuda
+    if 'DEUDA' in df_tabla.columns:
+        df_tabla['DEUDA'] = df_tabla['DEUDA'].apply(lambda x: f"${x:,.0f}" if isinstance(x, (int, float)) else str(x) if x else "")
     
-    if st.button("📥 Descargar listado (CSV)"):
-        csv_data = df_tabla.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="✅ Hacer clic para descargar",
-            data=csv_data,
-            file_name=f"empresas_{nombre_inspector.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
-        )
+    st.dataframe(df_tabla, use_container_width=True, height=500)
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 2: MAPA DE UBICACIONES
@@ -230,6 +277,7 @@ with tab_mapa:
         numero = row.get('numero', '')
         localidad = row.get('localidad', '')
         cuit = row.get('cuit', '')
+        telefono = row.get('tel_dom_legal') or row.get('tel_dom_real')
         
         coords = coordenadas.get(id_empresa)
         
@@ -240,11 +288,12 @@ with tab_mapa:
         lat, lon = coords
         
         popup_text = f"""
-        <div style="min-width: 220px;">
+        <div style="min-width: 250px;">
             <b>{razon_social}</b><br>
             <b>CUIT:</b> {cuit}<br>
             <b>Dirección:</b> {calle} {numero}<br>
-            <b>Localidad:</b> {localidad}
+            <b>Localidad:</b> {localidad}<br>
+            <b>Teléfono:</b> {telefono if telefono else 'No registrado'}
         </div>
         """
         
@@ -300,6 +349,39 @@ with tab_mapa:
         
         if total_sin_coords_mapa > 0:
             st.warning(f"⚠️ {total_sin_coords_mapa} empresas no tienen coordenadas cargadas.")
+
+# ══════════════════════════════════════════════════════════════════
+# TAB 3: GENERAR INFORME (TXT con formato de fichas)
+# ══════════════════════════════════════════════════════════════════
+with tab_informe:
+    st.markdown("### 📄 Generar Informe de sus empresas")
+    st.markdown("""
+    <div style="background: #f1f5f9; padding: 0.8rem 1rem; border-radius: 10px; margin-bottom: 1rem;">
+        <p style="margin: 0; font-size: 0.85rem;">📋 El informe se genera en formato TXT con una ficha detallada por cada empresa, incluyendo todos los datos disponibles.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_info1, col_info2, col_info3 = st.columns(3)
+    with col_info1:
+        st.metric("📊 Total empresas", len(df_empresas))
+    with col_info2:
+        st.metric("👤 Inspector", nombre_inspector)
+    with col_info3:
+        st.metric("📅 Fecha", datetime.now().strftime('%d/%m/%Y'))
+    
+    st.markdown("---")
+    
+    if st.button("📥 GENERAR Y DESCARGAR INFORME", type="primary", use_container_width=True):
+        with st.spinner("Generando informe..."):
+            contenido_txt = generar_informe_txt(df_empresas, nombre_inspector, legajo_seleccionado)
+            st.download_button(
+                label="✅ Hacer clic para descargar el archivo TXT",
+                data=contenido_txt.encode('utf-8'),
+                file_name=f"INFORME_{nombre_inspector.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+            st.success("✅ Informe generado correctamente")
 
 st.markdown("---")
 st.caption(f"🔒 Acceso solo de consulta - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
