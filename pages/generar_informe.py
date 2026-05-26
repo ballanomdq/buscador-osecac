@@ -183,7 +183,15 @@ def obtener_registros_listos(legajo=None):
     if legajo:
         query = query.eq("leg", legajo)
     result = query.execute()
-    return result.data if result.data else []
+    
+    if not result.data:
+        return []
+    
+    # ORDENAR POR NÚMERO DE ACTA (de menor a mayor)
+    registros = result.data
+    registros.sort(key=lambda x: int(x.get('acta', 0)) if str(x.get('acta', '0')).isdigit() else 0)
+    
+    return registros
 
 def formatear_fecha(fecha_str):
     if not fecha_str:
@@ -220,18 +228,14 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
     if registros_batch:
         fecha_cab = formatear_fecha(registros_batch[0].get("vto"))
         if fecha_cab:
-            # "MES Y AÑO"     = casillero de la IZQUIERDA → mes          ej: 01
-            # "MES Y AÑORow1" = casillero de la DERECHA   → año completo ej: 1976
-            datos["MES Y AÑO"]     = fecha_cab.strftime("%m")  # mes  → 01
-            datos["MES Y AÑORow1"] = año_completo(fecha_cab)   # año  → 1976
+            datos["MES Y AÑO"]     = fecha_cab.strftime("%m")
+            datos["MES Y AÑORow1"] = año_completo(fecha_cab)
 
     # PASO 3 — empresas
     for i, reg in enumerate(registros_batch):
         m = MAPEO_EMPRESAS[i]
 
-        # Solo la razón social — sin dirección
         razon_social = str(reg.get("razon_social", ""))
-
         cuit  = str(reg.get("cuit", ""))
         acta  = str(reg.get("acta", ""))
         deuda = str(reg.get("deuda_presunta", ""))
@@ -240,32 +244,26 @@ def generar_pdf_informe(registros_batch, inspector_nombre, todos_los_campos):
         desde_obj = formatear_fecha(reg.get("desde"))
         hasta_obj = formatear_fecha(reg.get("hasta"))
 
-        # Fila principal
         datos[m["razon"]]     = razon_social[:80]
         datos[m["cuit_ppal"]] = cuit
         datos[m["acta"]]      = acta
         datos[m["deuda"]]     = deuda
 
-        # Fecha VTO — año en 2 dígitos (casillero chico)
         if vto_obj:
             datos[m["vto_dia"]] = vto_obj.strftime("%d")
             datos[m["vto_mes"]] = vto_obj.strftime("%m")
             datos[m["vto_año"]] = año_corto(vto_obj)
 
-        # Período DESDE — año en 2 dígitos
         if desde_obj:
             datos[m["desde_mes"]] = desde_obj.strftime("%m")
             datos[m["desde_año"]] = año_corto(desde_obj)
 
-        # Período HASTA — año en 2 dígitos
         if hasta_obj:
             datos[m["hasta_mes"]] = hasta_obj.strftime("%m")
             datos[m["hasta_año"]] = año_corto(hasta_obj)
 
-        # Fila intermedia — solo CUIT en columna izquierda
         datos[m["cuit_inter"]] = cuit
 
-    # PASO 4 — escribir
     writer.update_page_form_field_values(writer.pages[0], datos, auto_regenerate=True)
 
     output = io.BytesIO()
@@ -308,6 +306,9 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
         with st.spinner("Generando PDFs..."):
             pdfs = []
             for leg, regs in grupos.items():
+                # ORDENAR POR ACTA DENTRO DE CADA GRUPO
+                regs.sort(key=lambda x: int(x.get('acta', 0)) if str(x.get('acta', '0')).isdigit() else 0)
+                
                 nombre_insp = next(
                     (k for k, v in opciones.items() if v and v["legajo"] == leg),
                     str(leg)
@@ -327,7 +328,6 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
         st.info(f"📊 Se generaron {len(pdfs)} archivo(s)")
 
         if len(pdfs) == 1:
-            # Un solo PDF → descarga directa
             st.download_button(
                 label=f"📥 Descargar {pdfs[0]['nombre']}",
                 data=pdfs[0]["buffer"].getvalue(),
@@ -336,7 +336,6 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
                 use_container_width=True,
             )
         else:
-            # Varios PDFs → un solo ZIP
             nombre_zip = f"INFORMES_{date.today().strftime('%Y%m%d')}.zip"
             zip_buffer = empaquetar_zip(pdfs)
             st.markdown("### 📥 Descargar todos los informes:")
