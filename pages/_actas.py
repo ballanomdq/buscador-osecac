@@ -88,20 +88,6 @@ st.markdown("""
     .stButton > button[kind="primary"] { background: #3b82f6 !important; color: white !important; }
     .stButton > button[kind="primary"]:hover { background: #2563eb !important; }
 
-    /* Botón de eliminar cancelados - ROJO LLAMATIVO */
-    .stButton > button[kind="danger"] {
-        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-        color: white !important;
-        font-size: 1rem !important;
-        padding: 0.5rem 1rem !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    .stButton > button[kind="danger"]:hover {
-        background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4) !important;
-    }
-
     .buscar-btn button { background: #3b82f6 !important; font-size: 0.9rem !important; padding: 0.4rem 1rem !important; }
 
     .stTabs [data-baseweb="tab-list"] {
@@ -478,16 +464,22 @@ def get_pares_existentes():
 def eliminar_registros_cancelados():
     """Obtiene los registros cancelados, descarga Excel y los elimina"""
     registros = supabase.table("padron_deuda_presunta").select("*").eq("deuda_cancelada", True).execute()
+    
     if not registros.data:
         st.warning("⚠️ No hay registros con deuda cancelada para eliminar.")
         return None
+    
     df_cancelados = pd.DataFrame(registros.data)
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_cancelados.to_excel(writer, sheet_name='Cancelados', index=False)
+    
     excel_data = output.getvalue()
+    
     ids_a_eliminar = [r['id'] for r in registros.data]
     supabase.table("padron_deuda_presunta").delete().in_("id", ids_a_eliminar).execute()
+    
     return excel_data, len(ids_a_eliminar)
 
 # ── UNA SOLA QUERY para todos los conteos del dashboard ─────────────────────
@@ -624,7 +616,6 @@ def procesar_excel(archivo):
 # ══════════════════════════════════════════════════════════════════
 # TABS (6 pestañas)
 # ══════════════════════════════════════════════════════════════════
-
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📤 Cargar Padrón",
     "✏️ Gestionar Registros",
@@ -669,7 +660,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros (con filtro de estado)
+# TAB 2 — Gestionar Registros (CON FILTROS: LOCALIDAD, MAIL, LEGAJO, CUIT, RAZÓN SOCIAL, CALLE, ESTADO GESTIÓN, ACTA)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
@@ -746,7 +737,7 @@ with tab2:
             st.session_state.generar_informe_por_inspector = True
     with col_reset:
         if st.button("↺ Resetear filtros", use_container_width=True):
-            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad', 'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual','filtro_estado']:
+            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad', 'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual','filtro_estado','filtro_acta']:
                 st.session_state.pop(k, None)
             st.rerun()
     with col_recargar:
@@ -789,7 +780,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO PREPARAR MAILS (resumido) ───────────────────────────────────
+    # ── DIÁLOGO PREPARAR MAILS (se mantiene igual, no se modifica) ──
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -937,7 +928,6 @@ with tab2:
                 if st.button("❌ Cancelar", use_container_width=True):
                     st.session_state.preparar_mails = False
                     st.rerun()
-        
         mostrar_dialogo_preparar_mails()
 
     if st.session_state.get("excel_descarga"):
@@ -1037,16 +1027,20 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS Y TABLA EDITABLE ──
+    # ── FILTROS Y TABLA EDITABLE (con filtros: localidad, mail, legajo, cuit, razón social, calle, estado gestión, acta) ──
     st.markdown("### 🔎 Filtros de búsqueda")
     
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
     
+    # Inicializar filtros
     if 'filtro_estado' not in st.session_state:
         st.session_state.filtro_estado = "AMBOS"
+    if 'filtro_acta' not in st.session_state:
+        st.session_state.filtro_acta = "AMBOS"
     
-    col_f1, col_f2, col_f3, col_f4, col_f5, col_f6 = st.columns(6)
+    # Primera fila de filtros (5 columnas)
+    col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
     with col_f1:
         st.markdown('<p class="filtro-titulo">📍 LOCALIDAD</p>', unsafe_allow_html=True)
         locs = get_localidades()
@@ -1063,18 +1057,22 @@ with tab2:
     with col_f5:
         st.markdown('<p class="filtro-titulo">🏢 RAZÓN SOCIAL</p>', unsafe_allow_html=True)
         filtro_razon_temp = st.text_input("Razón Social", key="filtro_razon_temp", placeholder="Razón social", label_visibility="collapsed")
-    with col_f6:
-        st.markdown('<p class="filtro-titulo">📌 ESTADO GESTIÓN</p>', unsafe_allow_html=True)
-        filtro_estado_temp = st.selectbox("Estado Gestión", ["AMBOS", "PENDIENTE", "FINALIZADO"], key="filtro_estado_temp", label_visibility="collapsed")
     
-    col_f7, col_f8 = st.columns([3, 1])
-    with col_f7:
+    # Segunda fila de filtros (2 columnas: calle + botón, y luego estado y acta en dos columnas más)
+    col_f6, col_f7, col_f8, col_f9 = st.columns([2, 0.8, 1, 1])
+    with col_f6:
         st.markdown('<p class="filtro-titulo">🏠 CALLE</p>', unsafe_allow_html=True)
         filtro_calle_temp = st.text_input("Calle", key="filtro_calle_temp", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
-    with col_f8:
+    with col_f7:
         st.markdown('<div class="buscar-btn" style="margin-top: 18px;">', unsafe_allow_html=True)
         buscar_click = st.button("🔍 BUSCAR", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
+    with col_f8:
+        st.markdown('<p class="filtro-titulo">📌 ESTADO GESTIÓN</p>', unsafe_allow_html=True)
+        filtro_estado_temp = st.selectbox("Estado", ["AMBOS", "PENDIENTE", "FINALIZADO"], key="filtro_estado_temp", label_visibility="collapsed")
+    with col_f9:
+        st.markdown('<p class="filtro-titulo">📋 ACTA</p>', unsafe_allow_html=True)
+        filtro_acta_temp = st.selectbox("Acta", ["AMBOS", "CON NÚMERO", "SIN NÚMERO"], key="filtro_acta_temp", label_visibility="collapsed")
     
     if 'filtro_cuit' not in st.session_state:
         st.session_state.filtro_cuit = ""
@@ -1088,6 +1086,7 @@ with tab2:
         st.session_state.filtro_razon = filtro_razon_temp
         st.session_state.filtro_calle = filtro_calle_temp
         st.session_state.filtro_estado = filtro_estado_temp
+        st.session_state.filtro_acta = filtro_acta_temp
         st.session_state.pagina_actual = 1
         st.rerun()
     
@@ -1095,9 +1094,10 @@ with tab2:
     filtro_razon = st.session_state.filtro_razon
     filtro_calle_aprox = st.session_state.filtro_calle
     filtro_estado = st.session_state.filtro_estado
+    filtro_acta = st.session_state.filtro_acta
     
-    if filtro_cuit or filtro_razon or filtro_calle_aprox or filtro_estado != "AMBOS":
-        st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'} | Estado: {filtro_estado}")
+    if filtro_cuit or filtro_razon or filtro_calle_aprox or filtro_estado != "AMBOS" or filtro_acta != "AMBOS":
+        st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'} | Estado: {filtro_estado} | Acta: {filtro_acta}")
 
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
@@ -1129,6 +1129,13 @@ with tab2:
             df['similitud'] = df['calle_norm'].apply(lambda x: difflib.SequenceMatcher(None, filtro_norm, x).ratio() if x else 0)
             df = df[df['similitud'] > 0.4].sort_values('similitud', ascending=False)
             df = df.drop(columns=['calle_norm', 'similitud'])
+    
+    # FILTRO POR ACTA (con número / sin número)
+    if filtro_acta != "AMBOS" and not df.empty:
+        if filtro_acta == "CON NÚMERO":
+            df = df[df['acta'].notna() & (df['acta'].astype(str).str.strip() != "")]
+        elif filtro_acta == "SIN NÚMERO":
+            df = df[df['acta'].isna() | (df['acta'].astype(str).str.strip() == "")]
 
     total_en_tabla = len(df)
     RPP = 200
@@ -1245,7 +1252,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (con períodos DESDE y HASTA)
+# TAB 3 — Subir Actas (CON PERÍODOS DESDE/HASTA)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV)")
@@ -1287,8 +1294,8 @@ with tab3:
                 datos_separados.columns = [f"COL_{i+1}" for i in range(len(datos_separados.columns))]
             return datos_separados
         
-        # Función para parsear fecha "AAAA/MM" a "YYYY-MM-01"
         def parsear_periodo(valor):
+            """Recibe string como '2024/09' o '2024/9' y devuelve '2024-09-01' (primer día del mes)."""
             if not valor or pd.isna(valor):
                 return None
             try:
@@ -1332,7 +1339,7 @@ with tab3:
                 st.warning(f"⚠️ No se detectaron todas las columnas necesarias. Buscamos: CUIT, LEG, VTO")
                 st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}, DEUDA={col_deuda}, DESDE={col_desde}, HASTA={col_hasta}")
             else:
-                st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`" +
+                st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`" + 
                           (f" · DEUDA=`{col_deuda}`" if col_deuda else "") +
                           (f" · PERIODO_DESDE=`{col_desde}`" if col_desde else "") +
                           (f" · PERIODO_HASTA=`{col_hasta}`" if col_hasta else ""))
