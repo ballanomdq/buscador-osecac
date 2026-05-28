@@ -88,6 +88,20 @@ st.markdown("""
     .stButton > button[kind="primary"] { background: #3b82f6 !important; color: white !important; }
     .stButton > button[kind="primary"]:hover { background: #2563eb !important; }
 
+    /* Botón de eliminar finalizados - ROJO LLAMATIVO */
+    .stButton > button[kind="danger"] {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+        color: white !important;
+        font-size: 1rem !important;
+        padding: 0.5rem 1rem !important;
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+    }
+    .stButton > button[kind="danger"]:hover {
+        background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4) !important;
+    }
+
     .buscar-btn button { background: #3b82f6 !important; font-size: 0.9rem !important; padding: 0.4rem 1rem !important; }
 
     .stTabs [data-baseweb="tab-list"] {
@@ -460,20 +474,20 @@ def get_pares_existentes():
             break
     return {(str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) for r in todos if r.get('cuit')}
 
-# ── FUNCIÓN PARA ELIMINAR REGISTROS CANCELADOS ────────────────────────────────
-def eliminar_registros_cancelados():
-    """Obtiene los registros cancelados, descarga Excel y los elimina"""
-    registros = supabase.table("padron_deuda_presunta").select("*").eq("deuda_cancelada", True).execute()
+# ── FUNCIÓN PARA ELIMINAR REGISTROS FINALIZADOS ────────────────────────────────
+def eliminar_registros_finalizados():
+    """Obtiene los registros finalizados, descarga Excel y los elimina"""
+    registros = supabase.table("padron_deuda_presunta").select("*").eq("estado_gestion", "FINALIZADO").execute()
     
     if not registros.data:
-        st.warning("⚠️ No hay registros con deuda cancelada para eliminar.")
+        st.warning("⚠️ No hay registros con estado FINALIZADO para eliminar.")
         return None
     
-    df_cancelados = pd.DataFrame(registros.data)
+    df_finalizados = pd.DataFrame(registros.data)
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df_cancelados.to_excel(writer, sheet_name='Cancelados', index=False)
+        df_finalizados.to_excel(writer, sheet_name='Finalizados', index=False)
     
     excel_data = output.getvalue()
     
@@ -637,7 +651,7 @@ with tab1:
             registros = procesar_excel(archivo)
             hoy = date.today().isoformat()
             for r in registros:
-                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None, 'fecha_carga':hoy,'estado_gestion':'PENDIENTE', 'deuda_cancelada':False})
+                r.update({'leg':None,'vto':None,'mail_enviado':'NO','acta':None, 'fecha_carga':hoy,'estado_gestion':'PENDIENTE'})
             pares = get_pares_existentes()
             nuevos = [r for r in registros if (str(r.get('cuit') or ''), str(r.get('ultima_acta') or '*')) not in pares]
             dupl = len(registros) - len(nuevos)
@@ -660,7 +674,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros (CON FILTROS: LOCALIDAD, MAIL, LEGAJO, CUIT, RAZÓN SOCIAL, CALLE, ESTADO GESTIÓN, ACTA)
+# TAB 2 — Gestionar Registros (CON FILTROS, SIN COLUMNA CANCELAR)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
@@ -748,22 +762,46 @@ with tab2:
             st.rerun()
 
     st.markdown("---")
+    
+    # BOTÓN PARA ELIMINAR REGISTROS FINALIZADOS
+    # Obtener cantidad de registros FINALIZADOS
+    count_finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute()
+    cantidad_finalizados = count_finalizados.count if count_finalizados.count is not None else 0
+    
     col_elim_cancel1, col_elim_cancel2, col_elim_cancel3 = st.columns([1, 2, 1])
     with col_elim_cancel2:
-        if st.button("🗑️ EMPAQUETAR Y ELIMINAR REGISTROS CON DEUDA CANCELADA", type="primary", use_container_width=True):
-            resultado = eliminar_registros_cancelados()
-            if resultado:
-                excel_data, cantidad = resultado
-                st.success(f"✅ {cantidad} registros eliminados. Descargando backup...")
-                st.download_button(
-                    label="📥 DESCARGAR BACKUP (Excel)",
-                    data=excel_data,
-                    file_name=f"BACKUP_DEUDA_CANCELADA_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-                get_dashboard_stats.clear()
-                time.sleep(1)
+        if st.button(f"🗑️ EMPAQUETAR Y ELIMINAR REGISTROS FINALIZADOS ({cantidad_finalizados})", type="primary", use_container_width=True):
+            if cantidad_finalizados == 0:
+                st.warning("⚠️ No hay registros con estado FINALIZADO para eliminar.")
+            else:
+                st.session_state.confirmar_eliminar_finalizados = True
+
+    if st.session_state.get('confirmar_eliminar_finalizados'):
+        st.warning(f"⚠️ Esta acción eliminará **{cantidad_finalizados}** registros con estado FINALIZADO. Se descargará un backup en Excel antes de eliminar.")
+        col_si, col_no = st.columns(2)
+        with col_si:
+            if st.button("✅ Sí, eliminar"):
+                resultado = eliminar_registros_finalizados()
+                if resultado:
+                    excel_data, cantidad = resultado
+                    st.success(f"✅ {cantidad} registros eliminados. Descargando backup...")
+                    st.download_button(
+                        label="📥 DESCARGAR BACKUP (Excel)",
+                        data=excel_data,
+                        file_name=f"REGISTROS_FINALIZADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                    get_dashboard_stats.clear()
+                    del st.session_state.confirmar_eliminar_finalizados
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    del st.session_state.confirmar_eliminar_finalizados
+                    st.rerun()
+        with col_no:
+            if st.button("❌ No, cancelar"):
+                del st.session_state.confirmar_eliminar_finalizados
                 st.rerun()
 
     if st.session_state.get('confirmar_del_todo'):
@@ -780,7 +818,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO PREPARAR MAILS (se mantiene igual, no se modifica) ──
+    # ── DIÁLOGO PREPARAR MAILS (sin cambios) ──
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -1027,19 +1065,17 @@ with tab2:
             del st.session_state.ultima_asignacion
             st.rerun()
 
-    # ── FILTROS Y TABLA EDITABLE (con filtros: localidad, mail, legajo, cuit, razón social, calle, estado gestión, acta) ──
+    # ── FILTROS Y TABLA EDITABLE (sin columna CANCELAR) ──
     st.markdown("### 🔎 Filtros de búsqueda")
     
     if 'ultima_recarga' not in st.session_state:
         st.session_state.ultima_recarga = datetime.now()
     
-    # Inicializar filtros
     if 'filtro_estado' not in st.session_state:
         st.session_state.filtro_estado = "AMBOS"
     if 'filtro_acta' not in st.session_state:
         st.session_state.filtro_acta = "AMBOS"
     
-    # Primera fila de filtros (5 columnas)
     col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
     with col_f1:
         st.markdown('<p class="filtro-titulo">📍 LOCALIDAD</p>', unsafe_allow_html=True)
@@ -1058,7 +1094,6 @@ with tab2:
         st.markdown('<p class="filtro-titulo">🏢 RAZÓN SOCIAL</p>', unsafe_allow_html=True)
         filtro_razon_temp = st.text_input("Razón Social", key="filtro_razon_temp", placeholder="Razón social", label_visibility="collapsed")
     
-    # Segunda fila de filtros (2 columnas: calle + botón, y luego estado y acta en dos columnas más)
     col_f6, col_f7, col_f8, col_f9 = st.columns([2, 0.8, 1, 1])
     with col_f6:
         st.markdown('<p class="filtro-titulo">🏠 CALLE</p>', unsafe_allow_html=True)
@@ -1130,7 +1165,6 @@ with tab2:
             df = df[df['similitud'] > 0.4].sort_values('similitud', ascending=False)
             df = df.drop(columns=['calle_norm', 'similitud'])
     
-    # FILTRO POR ACTA (con número / sin número)
     if filtro_acta != "AMBOS" and not df.empty:
         if filtro_acta == "CON NÚMERO":
             df = df[df['acta'].notna() & (df['acta'].astype(str).str.strip() != "")]
@@ -1179,13 +1213,13 @@ with tab2:
             'empl_10_2025':'EMPL 10-2025', 'emp_11_2025':'EMP 11-2025', 'empl_12_2025':'EMPL 12-2025',
             'actividad':'ACTIVIDAD', 'situacion':'SITUACION',
             'leg':'LEG', 'vto':'VTO', 'mail_enviado':'MAIL ENVIADO',
-            'acta':'ACTA', 'estado_gestion':'ESTADO GESTION', 'deuda_cancelada':'CANCELAR',
+            'acta':'ACTA', 'estado_gestion':'ESTADO GESTION'
         })
         df_ed.insert(0, "🗑️", False)
         if st.checkbox("Seleccionar todos los de esta página"):
             df_ed["🗑️"] = True
         editor_key = f"editor_{st.session_state.pagina_actual}_{st.session_state.ultima_recarga.timestamp()}"
-        edited = st.data_editor(df_ed, use_container_width=True, height=500, column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar"), "CANCELAR": st.column_config.CheckboxColumn("Cancelar Deuda")}, key=editor_key)
+        edited = st.data_editor(df_ed, use_container_width=True, height=500, column_config={"🗑️": st.column_config.CheckboxColumn("Eliminar")}, key=editor_key)
         ids_sel = edited[edited["🗑️"]]["ID"].tolist() if "ID" in edited.columns else []
         st.session_state.ids_a_eliminar = ids_sel
         if ids_sel:
@@ -1209,8 +1243,7 @@ with tab2:
                         ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
                         ('LOCALIDAD', 'localidad'), ('RAZON SOCIAL', 'razon_social'),
                         ('CUIT', 'cuit'), ('CALLE', 'calle'), ('NUMERO', 'numero'),
-                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta'),
-                        ('CANCELAR', 'deuda_cancelada')
+                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta')
                     ]:
                         nv = row.get(col_edit)
                         if nv is None or (isinstance(nv, float) and pd.isna(nv)) or (isinstance(nv, str) and nv.strip() == ''):
@@ -1295,7 +1328,6 @@ with tab3:
             return datos_separados
         
         def parsear_periodo(valor):
-            """Recibe string como '2024/09' o '2024/9' y devuelve '2024-09-01' (primer día del mes)."""
             if not valor or pd.isna(valor):
                 return None
             try:
@@ -1416,7 +1448,7 @@ with tab3:
             st.info("Asegurate de que el archivo sea un CSV válido.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Editar Registro (TODOS LOS CAMPOS - COMPACTO)
+# TAB 4 — Editar Registro (TODOS LOS CAMPOS - COMPACTO, SIN CHECKBOX CANCELAR)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("#### ✏️ Editar Registro Individual")
@@ -1566,10 +1598,6 @@ with tab4:
         
         col_guardar_reg, col_cancelar_reg = st.columns(2)
         with col_guardar_reg:
-            st.markdown('<p class="campo-label">DEUDA CANCELADA</p>', unsafe_allow_html=True)
-            cancelada_actual = st.session_state.registro_editado.get('deuda_cancelada', False)
-            nueva_cancelada = st.checkbox("Marcar como deuda cancelada", value=cancelada_actual, key=f"cancelada_{key_suffix}")
-            
             if st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True, key=f"guardar_{key_suffix}"):
                 update_data = {
                     "cuit": nuevo_cuit,
@@ -1588,7 +1616,6 @@ with tab4:
                     "tel_dom_real": nuevo_tel_real,
                     "desde": nuevo_desde.strftime('%Y-%m-%d'),
                     "hasta": nuevo_hasta.strftime('%Y-%m-%d'),
-                    "deuda_cancelada": nueva_cancelada,
                 }
                 with st.spinner("Guardando cambios..."):
                     try:
