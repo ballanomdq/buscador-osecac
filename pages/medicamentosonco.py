@@ -98,7 +98,8 @@ planillas = [
     ("F-PAD-2-075 PRESCRIPCIÓN ONCOLÓGICA CONTINUIDAD DE TRATAMIENTO", "1aslyVdHH56NU3nHacLl7fHu0opvbEueY", True),
     ("F-PAD-2-112 Formulario de Prescripcion Especial-1ra Vez Tratamiento del Dolor", "1bF033XJeJiXFvspa80pIJAXI-5SsG4aP", True),
     ("PLANILLA DE TUTELAJE", "1RJMQ5KbTltrYpRXAcfL6gUOSyF7OgjlC", True),
-    ("RESUMEN HISTORIA CLINICA EDITABLE", "1rTj7CXisIbvfhiF5iDph7p30sqHn2VXN", True)
+    ("RESUMEN HISTORIA CLINICA EDITABLE", "1rTj7CXisIbvfhiF5iDph7p30sqHn2VXN", True),
+    ("CARTA COMPROMISO", "1OsYQRJ0_-jQ-_Tg9gOZhWLKzKdJ3tOGd", False)   # NUEVA PLANILLA, NO EDITABLE
 ]
 
 for nombre, doc_id, editable in planillas:
