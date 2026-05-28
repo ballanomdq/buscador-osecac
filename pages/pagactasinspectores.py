@@ -54,7 +54,7 @@ iframe {
 st.markdown("""
 <div class="main-header">
     <h2>👤 Panel del Inspector</h2>
-    <p>Consulta de empresas | Gestión de cancelación de deudas</p>
+    <p>Consulta de empresas | Gestión de contactos</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -174,20 +174,9 @@ def cargar_empresas_por_inspector(legajo):
     datos = supabase.table("padron_deuda_presunta").select(
         "id", "cuit", "razon_social", "localidad", "calle", "numero", 
         "vto", "acta", "mail_enviado", "tel_dom_legal", "tel_dom_real", 
-        "email", "fecha_carga", "hasta", "estado_gestion", "deuda_cancelada"
+        "email", "fecha_carga", "hasta", "estado_gestion"
     ).eq("leg", legajo).execute()
     return pd.DataFrame(datos.data) if datos.data else pd.DataFrame()
-
-# ── FUNCIÓN PARA ACTUALIZAR CANCELACIÓN ──────────────────────────────────────
-def actualizar_cancelacion(id_empresa, cancelado):
-    try:
-        supabase.table("padron_deuda_presunta").update({
-            "deuda_cancelada": cancelado
-        }).eq("id", id_empresa).execute()
-        return True
-    except Exception as e:
-        st.error(f"Error al actualizar: {e}")
-        return False
 
 # ── Cargar inspectores ───────────────────────────────────────────────────────
 inspectores = cargar_inspectores()
@@ -224,23 +213,21 @@ if df_empresas.empty:
 # ── Contadores ───────────────────────────────────────────────────────────────
 total = len(df_empresas)
 con_coords = sum(1 for _, row in df_empresas.iterrows() if coordenadas.get(row['id']))
-canceladas = sum(1 for _, row in df_empresas.iterrows() if row.get('deuda_cancelada') == True)
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3 = st.columns(3)
 c1.metric("📋 Total empresas", total)
 c2.metric("📍 Con ubicación", con_coords)
 c3.metric("⚠️ Sin ubicación", total - con_coords)
-c4.metric("✅ Deuda cancelada", canceladas)
 
 st.markdown("---")
 
 # ── PESTAÑAS ─────────────────────────────────────────────────────────────────
 tab_lista, tab_mapa, tab_agenda = st.tabs(["📋 Listado", "🗺️ Mapa", "📞 Agenda"])
 
-# ==================== TAB 1: LISTADO (CON CHECKBOX PARA CANCELAR) ====================
+# ==================== TAB 1: LISTADO (SIN CANCELAR) ====================
 with tab_lista:
     st.markdown("### 📋 Listado de sus empresas")
-    st.markdown("✅ **Usted puede marcar/desmarcar 'Cancelar Deuda' cuando una empresa haya pagado toda su deuda.**")
+    st.caption("🔒 Modo solo consulta - No se pueden editar datos")
     
     col_f1, col_f2 = st.columns(2)
     with col_f1:
@@ -256,59 +243,17 @@ with tab_lista:
     
     st.markdown(f"**Mostrando {len(df_filtrado)} de {total} registros**")
     
-    # Preparar DataFrame para mostrar con checkbox
-    df_mostrar = df_filtrado[['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto', 'hasta', 'estado_gestion', 'deuda_cancelada']].copy()
-    df_mostrar.columns = ['ID', 'CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO', 'HASTA', 'ESTADO', 'CANCELAR']
+    # Mostrar datos relevantes (sin columna de cancelar)
+    df_mostrar = df_filtrado[['cuit', 'razon_social', 'localidad', 'calle', 'numero', 'tel_dom_legal', 'tel_dom_real', 'vto', 'hasta', 'estado_gestion']].copy()
+    df_mostrar.columns = ['CUIT', 'RAZÓN SOCIAL', 'LOCALIDAD', 'CALLE', 'NÚMERO', 'TEL. LEGAL', 'TEL. REAL', 'VTO', 'HASTA', 'ESTADO']
     
-    # Formatear fechas
     for col_fecha in ['VTO', 'HASTA']:
         if col_fecha in df_mostrar.columns:
             df_mostrar[col_fecha] = df_mostrar[col_fecha].apply(
                 lambda x: x.strftime('%d/%m/%Y') if hasattr(x, 'strftime') else (str(x) if x else "")
             )
     
-    # Mostrar tabla con checkbox editable para CANCELAR
-    edited_df = st.data_editor(
-        df_mostrar,
-        use_container_width=True,
-        height=500,
-        column_config={
-            "ID": st.column_config.TextColumn("ID", disabled=True),
-            "CUIT": st.column_config.TextColumn("CUIT", disabled=True),
-            "RAZÓN SOCIAL": st.column_config.TextColumn("RAZÓN SOCIAL", disabled=True),
-            "LOCALIDAD": st.column_config.TextColumn("LOCALIDAD", disabled=True),
-            "CALLE": st.column_config.TextColumn("CALLE", disabled=True),
-            "NÚMERO": st.column_config.TextColumn("NÚMERO", disabled=True),
-            "TEL. LEGAL": st.column_config.TextColumn("TEL. LEGAL", disabled=True),
-            "TEL. REAL": st.column_config.TextColumn("TEL. REAL", disabled=True),
-            "VTO": st.column_config.TextColumn("VTO", disabled=True),
-            "HASTA": st.column_config.TextColumn("HASTA", disabled=True),
-            "ESTADO": st.column_config.TextColumn("ESTADO", disabled=True),
-            "CANCELAR": st.column_config.CheckboxColumn("✅ Cancelar Deuda", help="Marque si la deuda fue cancelada"),
-        },
-        hide_index=True,
-        key="tabla_cancelar"
-    )
-    
-    # Botón para guardar cambios en cancelación
-    if st.button("💾 GUARDAR CAMBIOS (Cancelación de deuda)", type="primary", use_container_width=True):
-        modificados = 0
-        for _, row in edited_df.iterrows():
-            id_emp = row['ID']
-            cancelado_nuevo = row['CANCELAR']
-            # Buscar el valor original
-            original = df_mostrar[df_mostrar['ID'] == id_emp]['CANCELAR'].values[0] if len(df_mostrar[df_mostrar['ID'] == id_emp]) > 0 else None
-            if original is not None and cancelado_nuevo != original:
-                if actualizar_cancelacion(id_emp, cancelado_nuevo):
-                    modificados += 1
-        
-        if modificados > 0:
-            st.success(f"✅ {modificados} registro(s) actualizado(s)")
-            st.cache_data.clear()
-            time.sleep(0.5)
-            st.rerun()
-        else:
-            st.info("No se detectaron cambios")
+    st.dataframe(df_mostrar, use_container_width=True, height=500)
 
 # ==================== TAB 2: MAPA ====================
 with tab_mapa:
@@ -318,8 +263,7 @@ with tab_mapa:
     for _, row in df_empresas.iterrows():
         coords = coordenadas.get(row['id'])
         if coords:
-            cancelado_texto = "✅ DEUDA CANCELADA" if row.get('deuda_cancelada') else "Pendiente"
-            popup = f"<b>{limpiar(row.get('razon_social')) or ''}</b><br>CUIT: {limpiar(row.get('cuit')) or ''}<br>{limpiar(row.get('calle')) or ''} {limpiar(row.get('numero')) or ''}<br><b>{cancelado_texto}</b>"
+            popup = f"<b>{limpiar(row.get('razon_social')) or ''}</b><br>CUIT: {limpiar(row.get('cuit')) or ''}<br>{limpiar(row.get('calle')) or ''} {limpiar(row.get('numero')) or ''}<br><b>Estado: {row.get('estado_gestion', '')}</b>"
             datos_mapa.append({"coords": coords, "popup": popup, "nombre": (limpiar(row.get('razon_social')) or '')[:35]})
     
     if not datos_mapa:
@@ -427,4 +371,4 @@ with tab_agenda:
                         st.rerun()
 
 st.markdown("---")
-st.caption(f"🔒 Solo puede modificar el campo 'Cancelar Deuda' - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🔒 Acceso solo de consulta - {datetime.now().strftime('%d/%m/%Y %H:%M')}")
