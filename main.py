@@ -434,6 +434,7 @@ with st.expander("🌐 3. PÁGINAS ÚTILES", expanded=False):
         ("🏥 sanatorio belgrano", "https://www.sanatoriobelgrano.com.ar/"),
         ("🏥 HPC", "https://www.hpc.org.ar/"),
         ("🏥 amec", "https://amec.org.ar/"),
+        ("📰 BOLETIN OFICIAL DISCAPACIDAD", "https://www.boletinoficial.gob.ar/detalleAviso/primera/340953/20260420"),
         ("📋 SEC", "https://secza.org.ar/"),
         ("💼 PORTAL SUELDOS", "http://portalrrhh.osecac.org.ar:8092/?ReturnUrl=%2fLiquidaciones%2fIndex"),
         ("🏢 FABA", "http://www.aol.faba.org.ar/"),
