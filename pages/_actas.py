@@ -88,20 +88,6 @@ st.markdown("""
     .stButton > button[kind="primary"] { background: #3b82f6 !important; color: white !important; }
     .stButton > button[kind="primary"]:hover { background: #2563eb !important; }
 
-    /* Botón de eliminar finalizados - ROJO LLAMATIVO */
-    .stButton > button[kind="danger"] {
-        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-        color: white !important;
-        font-size: 1rem !important;
-        padding: 0.5rem 1rem !important;
-        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
-    }
-    .stButton > button[kind="danger"]:hover {
-        background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(220, 38, 38, 0.4) !important;
-    }
-
     .buscar-btn button { background: #3b82f6 !important; font-size: 0.9rem !important; padding: 0.4rem 1rem !important; }
 
     .stTabs [data-baseweb="tab-list"] {
@@ -478,22 +464,16 @@ def get_pares_existentes():
 def eliminar_registros_finalizados():
     """Obtiene los registros finalizados, descarga Excel y los elimina"""
     registros = supabase.table("padron_deuda_presunta").select("*").eq("estado_gestion", "FINALIZADO").execute()
-    
     if not registros.data:
         st.warning("⚠️ No hay registros con estado FINALIZADO para eliminar.")
         return None
-    
     df_finalizados = pd.DataFrame(registros.data)
-    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_finalizados.to_excel(writer, sheet_name='Finalizados', index=False)
-    
     excel_data = output.getvalue()
-    
     ids_a_eliminar = [r['id'] for r in registros.data]
     supabase.table("padron_deuda_presunta").delete().in_("id", ids_a_eliminar).execute()
-    
     return excel_data, len(ids_a_eliminar)
 
 # ── UNA SOLA QUERY para todos los conteos del dashboard ─────────────────────
@@ -674,7 +654,7 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros (CON FILTROS, SIN COLUMNA CANCELAR)
+# TAB 2 — Gestionar Registros (sin columna CANCELAR)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
@@ -763,8 +743,7 @@ with tab2:
 
     st.markdown("---")
     
-    # BOTÓN PARA ELIMINAR REGISTROS FINALIZADOS
-    # Obtener cantidad de registros FINALIZADOS
+    # Botón para eliminar registros FINALIZADOS
     count_finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute()
     cantidad_finalizados = count_finalizados.count if count_finalizados.count is not None else 0
     
@@ -818,7 +797,7 @@ with tab2:
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
 
-    # ── DIÁLOGO PREPARAR MAILS (sin cambios) ──
+    # ── DIÁLOGO PREPARAR MAILS (completo) ──
     if st.session_state.get('preparar_mails'):
         @st.dialog("📧 PREPARAR MAILS")
         def mostrar_dialogo_preparar_mails():
@@ -1131,9 +1110,6 @@ with tab2:
     filtro_estado = st.session_state.filtro_estado
     filtro_acta = st.session_state.filtro_acta
     
-    if filtro_cuit or filtro_razon or filtro_calle_aprox or filtro_estado != "AMBOS" or filtro_acta != "AMBOS":
-        st.caption(f"🔍 Búsqueda activa - CUIT: {filtro_cuit or 'todo'} | Razón Social: {filtro_razon or 'todo'} | Calle: {filtro_calle_aprox or 'todo'} | Estado: {filtro_estado} | Acta: {filtro_acta}")
-
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
         q = q.eq("localidad", localidad)
@@ -1285,7 +1261,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (CON PERÍODOS DESDE/HASTA)
+# TAB 3 — Subir Actas (con períodos DESDE/HASTA)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV)")
@@ -1448,7 +1424,7 @@ with tab3:
             st.info("Asegurate de que el archivo sea un CSV válido.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 4 — Editar Registro (TODOS LOS CAMPOS - COMPACTO, SIN CHECKBOX CANCELAR)
+# TAB 4 — Editar Registro (sin checkbox cancelar)
 # ══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("#### ✏️ Editar Registro Individual")
