@@ -656,7 +656,8 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 1 — Cargar Padrón# ══════════════════════════════════════════════════════════════════
+# TAB 1 — Cargar Padrón
+# ══════════════════════════════════════════════════════════════════
 with tab1:
     st.markdown("#### Cargar Padrón de Deuda Presunta")
     archivo = st.file_uploader("Archivo Excel", type=["xls","xlsx"], key="upload_padron")
@@ -1296,7 +1297,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (VERSIÓN DEFINITIVA CON DOS BOTONES Y REPORTE COMPLETO)
+# TAB 3 — Subir Actas (VERSIÓN DEFINITIVA CON DESCARGAS AUTOMÁTICAS)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV o Excel)")
@@ -1307,7 +1308,7 @@ with tab3:
     <ul>
         <li>ACTA y ESTADO GESTIÓN a FINALIZADO</li>
         <li>DEUDA PRESUNTA (si la columna existe)</li>
-        <li>PERÍODO DESDE y PERÍODO HASTA (si las columnas existen, formato AAAA/MM → se completa con día 1)</li>
+        <li>PERÍODO DESDE y PERÍODO HASTA (si las columnas existen)</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -1341,10 +1342,11 @@ with tab3:
             
             if nombre.endswith('.xls') or nombre.endswith('.xlsx'):
                 engine = 'xlrd' if nombre.endswith('.xls') else 'openpyxl'
-                df = pd.read_excel(io.BytesIO(actas_file.getvalue()), engine=engine, dtype=str, header=0)
-                df.columns = [str(c).strip().upper() for c in df.columns]
-                total_filas_archivo = len(df) + 1
+                df_original = pd.read_excel(io.BytesIO(actas_file.getvalue()), engine=engine, dtype=str, header=0)
+                df_original.columns = [str(c).strip().upper() for c in df_original.columns]
+                total_filas_archivo = len(df_original) + 1
                 errores_formato = []
+                df = df_original.copy()
             else:
                 # Para CSV: leer línea por línea
                 contenido = actas_file.getvalue().decode('utf-8-sig', errors='replace')
@@ -1382,14 +1384,15 @@ with tab3:
                     df = pd.DataFrame(filas_ok, columns=encabezado)
                 else:
                     df = pd.DataFrame(columns=encabezado)
+                
+                df_original = df.copy()
         
         # Vista previa
         with st.expander("📄 Vista previa del archivo (primeras 5 filas válidas)"):
             st.dataframe(df.head(5), use_container_width=True, height=180)
         
         if errores_formato:
-            st.warning(f"⚠️ **{len(errores_formato)} fila(s) con problemas de formato** (no se pudieron leer):")
-            st.dataframe(pd.DataFrame(errores_formato), use_container_width=True, height=250)
+            st.warning(f"⚠️ **{len(errores_formato)} fila(s) con problemas de formato**")
         
         st.caption(f"Columnas detectadas: {', '.join(df.columns.tolist())}")
         
@@ -1418,7 +1421,7 @@ with tab3:
         else:
             st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
             
-            # GENERAR REPORTE AUTOMÁTICAMENTE (sin botón adicional)
+            # GENERAR REPORTE AUTOMÁTICAMENTE
             with st.spinner("Generando reporte de validación..."):
                 # Obtener registros de la BD con mail_enviado = SI
                 registros_bd = []
@@ -1435,9 +1438,11 @@ with tab3:
                 
                 bd_lookup = {(str(r.get('cuit', '')), str(r.get('leg', '')), str(r.get('vto', ''))): True for r in registros_bd}
                 
-                # Validar cada fila
-                filas_correctas = []
-                filas_incorrectas = []
+                # Validar cada fila y guardar los DataFrames originales para exportar
+                filas_correctas_indices = []
+                filas_incorrectas_indices = []
+                filas_correctas_datos = []
+                filas_incorrectas_datos = []
                 
                 for idx, row in df.iterrows():
                     fila_num = idx + 2
@@ -1452,35 +1457,63 @@ with tab3:
                     
                     if cuit and leg and vto:
                         if (cuit, str(leg), vto) in bd_lookup:
-                            filas_correctas.append({'Fila': fila_num, 'CUIT': cuit, 'LEG': leg, 'VTO': vto})
+                            filas_correctas_indices.append(idx)
+                            filas_correctas_datos.append(fila_num)
                         else:
-                            filas_incorrectas.append({
-                                'Fila': fila_num, 
-                                'CUIT': cuit, 
-                                'LEG': leg, 
-                                'VTO': vto_raw,
-                                'Motivo': 'No coincide con BD (CUIT+LEG+VTO) o mail_enviado != SI'
-                            })
+                            filas_incorrectas_indices.append(idx)
+                            filas_incorrectas_datos.append(fila_num)
                     else:
-                        motivos = []
-                        if not cuit: motivos.append('CUIT vacío')
-                        if not leg: motivos.append('LEG vacío')
-                        if not vto: motivos.append(f'VTO inválido: "{vto_raw}"')
-                        filas_incorrectas.append({
-                            'Fila': fila_num,
-                            'CUIT': cuit if cuit else '(vacío)',
-                            'LEG': leg if leg else '(vacío)',
-                            'VTO': vto_raw if vto_raw else '(vacío)',
-                            'Motivo': ' | '.join(motivos)
-                        })
+                        filas_incorrectas_indices.append(idx)
+                        filas_incorrectas_datos.append(fila_num)
+                
+                # Crear DataFrames para exportar (con el MISMO formato original)
+                df_correctas = df.iloc[filas_correctas_indices].copy() if filas_correctas_indices else pd.DataFrame(columns=df.columns)
+                df_incorrectas = df.iloc[filas_incorrectas_indices].copy() if filas_incorrectas_indices else pd.DataFrame(columns=df.columns)
+                
+                # Agregar filas con error de formato a las incorrectas
+                if errores_formato:
+                    # Para las filas con error de formato, no tenemos los datos originales en df
+                    # Solo agregamos una fila de advertencia
+                    for err in errores_formato:
+                        fila_placeholder = {col: f"ERROR: {err['Motivo']}" for col in df.columns}
+                        df_incorrectas = pd.concat([df_incorrectas, pd.DataFrame([fila_placeholder])], ignore_index=True)
+                
+                total_filas_datos = total_filas_archivo - 1
+                total_correctas = len(filas_correctas_indices)
+                total_incorrectas = len(filas_incorrectas_indices) + len(errores_formato)
+                
+                # GENERAR EXCEL PARA DESCARGAR (automáticamente)
+                fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                
+                # Excel de registros que SÍ se cargan
+                if not df_correctas.empty:
+                    output_correctas = io.BytesIO()
+                    with pd.ExcelWriter(output_correctas, engine='openpyxl') as writer:
+                        df_correctas.to_excel(writer, sheet_name='Correctos', index=False)
+                    st.download_button(
+                        label="📥 DESCARGAR EXCEL - REGISTROS QUE SÍ SE CARGAN",
+                        data=output_correctas.getvalue(),
+                        file_name=f"REGISTROS_QUE_SI_SE_CARGAN_{fecha_str}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="descargar_correctas"
+                    )
+                
+                # Excel de registros que NO se cargan
+                if not df_incorrectas.empty:
+                    output_incorrectas = io.BytesIO()
+                    with pd.ExcelWriter(output_incorrectas, engine='openpyxl') as writer:
+                        df_incorrectas.to_excel(writer, sheet_name='Incorrectos', index=False)
+                    st.download_button(
+                        label="📥 DESCARGAR EXCEL - REGISTROS QUE NO SE CARGAN",
+                        data=output_incorrectas.getvalue(),
+                        file_name=f"REGISTROS_QUE_NO_SE_CARGARON_{fecha_str}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="descargar_incorrectas"
+                    )
             
             # Mostrar resultados del reporte
             st.markdown("---")
             st.markdown("### 📊 REPORTE DE VALIDACIÓN")
-            
-            total_filas_datos = total_filas_archivo - 1
-            total_correctas = len(filas_correctas)
-            total_incorrectas = len(filas_incorrectas) + len(errores_formato)
             
             col1, col2 = st.columns(2)
             with col1:
@@ -1500,34 +1533,6 @@ with tab3:
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Mostrar detalles de filas que NO se cargan
-            if errores_formato or filas_incorrectas:
-                st.markdown("### ❌ LISTA DE FILAS QUE NO SE CARGARÁN")
-                
-                # Primero las que tienen error de formato
-                if errores_formato:
-                    st.markdown(f"**⚠️ {len(errores_formato)} fila(s) con error de FORMATO (no se pudieron leer):**")
-                    for err in errores_formato:
-                        st.markdown(f"- **Fila {err['Fila']}**: {err['Motivo']}")
-                
-                # Luego las que tienen error de contenido
-                if filas_incorrectas:
-                    st.markdown(f"**⚠️ {len(filas_incorrectas)} fila(s) con error de CONTENIDO (no coinciden con la BD):**")
-                    for err in filas_incorrectas[:50]:  # Mostrar hasta 50
-                        st.markdown(f"- **Fila {err['Fila']}**: CUIT={err['CUIT']}, LEG={err['LEG']}, VTO={err['VTO']} → {err['Motivo']}")
-                    
-                    if len(filas_incorrectas) > 50:
-                        st.warning(f"⚠️ Y {len(filas_incorrectas) - 50} filas más con problemas...")
-                    
-                    # Opción de ver tabla completa
-                    with st.expander(f"📋 Ver todas las {len(filas_incorrectas)} filas en tabla"):
-                        st.dataframe(pd.DataFrame(filas_incorrectas), use_container_width=True, height=400)
-            
-            # Mostrar resumen de filas correctas
-            if filas_correctas:
-                with st.expander(f"✅ Ver los {len(filas_correctas)} registros que SÍ se cargarán"):
-                    st.dataframe(pd.DataFrame(filas_correctas), use_container_width=True, height=300)
-            
             # Botones de acción
             st.markdown("---")
             st.markdown("### ¿Qué desea hacer?")
@@ -1536,12 +1541,13 @@ with tab3:
             with col_btn1:
                 st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
                 if st.button("✅ PROCESAR REGISTROS CORRECTOS", use_container_width=True):
-                    if filas_correctas:
+                    if filas_correctas_indices:
                         with st.spinner("Procesando registros..."):
                             actualizados = 0
                             bar = st.progress(0)
                             
-                            for i, row in df.iterrows():
+                            for i, idx in enumerate(filas_correctas_indices):
+                                row = df.iloc[idx]
                                 cuit_raw = str(row[col_cuit]) if pd.notna(row.get(col_cuit)) else ""
                                 cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
                                 leg_raw = str(row[col_leg]) if pd.notna(row.get(col_leg)) else ""
@@ -1549,34 +1555,33 @@ with tab3:
                                 vto_raw = str(row[col_vto]) if pd.notna(row.get(col_vto)) else ""
                                 vto = norm_fecha(vto_raw)
                                 
-                                if cuit and leg and vto and (cuit, str(leg), vto) in bd_lookup:
-                                    acta_val = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
-                                    deuda_nueva = None
-                                    if col_deuda and pd.notna(row.get(col_deuda)):
-                                        deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
-                                        try:
-                                            deuda_nueva = fmt_moneda(float(deuda_raw))
-                                        except:
-                                            deuda_nueva = deuda_raw
-                                    desde_nuevo = None
-                                    if col_desde and pd.notna(row.get(col_desde)):
-                                        desde_nuevo = parsear_periodo(row[col_desde])
-                                    hasta_nuevo = None
-                                    if col_hasta and pd.notna(row.get(col_hasta)):
-                                        hasta_nuevo = parsear_periodo(row[col_hasta])
-                                    
-                                    resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
-                                    for reg in resultado.data:
-                                        update_data = {"acta": acta_val, "estado_gestion": "FINALIZADO"}
-                                        if deuda_nueva:
-                                            update_data["deuda_presunta"] = deuda_nueva
-                                        if desde_nuevo:
-                                            update_data["desde"] = desde_nuevo
-                                        if hasta_nuevo:
-                                            update_data["hasta"] = hasta_nuevo
-                                        supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
-                                        actualizados += 1
-                                bar.progress((i + 1) / len(df))
+                                acta_val = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+                                deuda_nueva = None
+                                if col_deuda and pd.notna(row.get(col_deuda)):
+                                    deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
+                                    try:
+                                        deuda_nueva = fmt_moneda(float(deuda_raw))
+                                    except:
+                                        deuda_nueva = deuda_raw
+                                desde_nuevo = None
+                                if col_desde and pd.notna(row.get(col_desde)):
+                                    desde_nuevo = parsear_periodo(row[col_desde])
+                                hasta_nuevo = None
+                                if col_hasta and pd.notna(row.get(col_hasta)):
+                                    hasta_nuevo = parsear_periodo(row[col_hasta])
+                                
+                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
+                                for reg in resultado.data:
+                                    update_data = {"acta": acta_val, "estado_gestion": "FINALIZADO"}
+                                    if deuda_nueva:
+                                        update_data["deuda_presunta"] = deuda_nueva
+                                    if desde_nuevo:
+                                        update_data["desde"] = desde_nuevo
+                                    if hasta_nuevo:
+                                        update_data["hasta"] = hasta_nuevo
+                                    supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
+                                    actualizados += 1
+                                bar.progress((i + 1) / len(filas_correctas_indices))
                             
                             bar.empty()
                             st.success(f"✅ ¡Proceso completado! {actualizados} actas actualizadas correctamente.")
