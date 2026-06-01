@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (con períodos DESDE/HASTA) - VERSIÓN CORREGIDA
+# TAB 3 — Subir Actas (con períodos DESDE/HASTA)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV)")
@@ -36,32 +36,28 @@ with tab3:
                 return None
         
         try:
-            # LEER EL CSV DE FORMA ROBUSTA - IGNORANDO FILAS CON ERRORES
+            # LEER CSV DE FORMA ROBUSTA - IGNORANDO FILAS CON ERRORES
             contenido = csv_file.getvalue().decode('utf-8-sig')
             lineas = contenido.split('\n')
             
             # Detectar separador ( , o ; )
             separador = ',' if ',' in lineas[0] else ';'
             
-            # Contar columnas en primeras líneas para determinar el número esperado
+            # Determinar número de columnas esperado (de la primera línea no vacía)
             num_columnas_esperado = None
-            for linea in lineas[:10]:
+            for linea in lineas:
                 if linea.strip():
-                    num_cols = len(linea.split(separador))
-                    if num_columnas_esperado is None:
-                        num_columnas_esperado = num_cols
-                    elif num_cols != num_columnas_esperado:
-                        # Si hay variación, tomamos el más común o el de la primera línea
-                        pass
+                    num_columnas_esperado = len(linea.split(separador))
+                    break
             
             if num_columnas_esperado is None:
                 num_columnas_esperado = 1
             
-            # Procesar línea por línea, corrigiendo automáticamente
+            # Corregir líneas con distinto número de columnas
             lineas_corregidas = []
             lineas_error = 0
             
-            for i, linea in enumerate(lineas):
+            for linea in lineas:
                 if not linea.strip():
                     continue
                 
@@ -70,27 +66,23 @@ with tab3:
                 if len(partes) == num_columnas_esperado:
                     lineas_corregidas.append(linea)
                 elif len(partes) > num_columnas_esperado:
-                    # Tiene columnas de más: unimos las extras a la última columna
+                    # Tiene columnas de más: unir las extras a la última columna
                     nuevas_partes = partes[:num_columnas_esperado-1]
-                    extras = ''.join(partes[num_columnas_esperado-1:])
-                    nuevas_partes.append(extras)
+                    nuevas_partes.append(''.join(partes[num_columnas_esperado-1:]))
                     lineas_corregidas.append(separador.join(nuevas_partes))
                     lineas_error += 1
                 else:
-                    # Tiene menos columnas: agregamos vacías al final
+                    # Tiene menos columnas: rellenar con vacías
                     nuevas_partes = partes + [''] * (num_columnas_esperado - len(partes))
                     lineas_corregidas.append(separador.join(nuevas_partes))
                     lineas_error += 1
             
-            # Reconstruir el CSV corregido
-            contenido_corregido = '\n'.join(lineas_corregidas)
-            
             if lineas_error > 0:
-                st.warning(f"⚠️ Se encontraron {lineas_error} línea(s) con formato incorrecto. Se corrigieron automáticamente.")
+                st.warning(f"⚠️ Se corrigieron {lineas_error} línea(s) con formato incorrecto automáticamente.")
             
-            # Leer el CSV corregido
+            # Leer CSV corregido
             from io import StringIO
-            df_completo = pd.read_csv(StringIO(contenido_corregido), sep=separador, dtype=str, encoding='utf-8-sig')
+            df_completo = pd.read_csv(StringIO('\n'.join(lineas_corregidas)), sep=separador, dtype=str, encoding='utf-8-sig')
             
             st.success(f"✅ Archivo cargado correctamente. {len(df_completo)} filas procesadas.")
             
@@ -118,21 +110,15 @@ with tab3:
                 if 'PERIODO_HASTA' in cu and not col_hasta: 
                     col_hasta = c
             
-            # Mostrar qué columnas se encontraron
-            st.info(f"""
-            **Columnas detectadas:**
-            - CUIT: `{col_cuit or '❌ No encontrada'}`
-            - LEGAJO: `{col_leg or '❌ No encontrada'}`
-            - FECHA VTO: `{col_vto or '❌ No encontrada'}`
-            - ACTA: `{col_acta or '⚠️ Opcional (se usará "ACTUALIZADO")'}`
-            - DEUDA: `{col_deuda or '⚠️ Opcional'}`
-            - PERÍODO DESDE: `{col_desde or '⚠️ Opcional'}`
-            - PERÍODO HASTA: `{col_hasta or '⚠️ Opcional'}`
-            """)
-            
             if not all([col_cuit, col_leg, col_vto]):
-                st.warning(f"⚠️ Faltan columnas obligatorias: CUIT, LEGAJO y/o FECHA VTO")
+                st.warning(f"⚠️ No se detectaron todas las columnas necesarias. Buscamos: CUIT, LEG, VTO")
+                st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}, ACTA={col_acta}, DEUDA={col_deuda}")
             else:
+                st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`" + 
+                          (f" · DEUDA=`{col_deuda}`" if col_deuda else "") +
+                          (f" · PERIODO_DESDE=`{col_desde}`" if col_desde else "") +
+                          (f" · PERIODO_HASTA=`{col_hasta}`" if col_hasta else ""))
+                
                 if st.button("📋 Procesar y actualizar actas", type="primary"):
                     with st.spinner("Procesando..."):
                         actualizados = 0
@@ -143,7 +129,7 @@ with tab3:
                         
                         for i, row in df_completo.iterrows():
                             try:
-                                # Extraer CUIT (limpiando caracteres)
+                                # Extraer CUIT
                                 cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
                                 cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
                                 
@@ -162,7 +148,7 @@ with tab3:
                                     if acta_raw:
                                         acta = acta_raw
                                 
-                                # Extraer DEUDA (opcional)
+                                # Extraer DEUDA (opcional) - PISA EL IMPORTE SI EXISTE
                                 deuda_nueva = None
                                 if col_deuda and pd.notna(row.get(col_deuda)):
                                     deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
@@ -181,7 +167,7 @@ with tab3:
                                 if col_hasta and pd.notna(row.get(col_hasta)):
                                     hasta_nuevo = parsear_periodo(row[col_hasta])
                                 
-                                # Buscar coincidencia en la base de datos
+                                # Buscar coincidencia y actualizar
                                 if cuit and leg and vto:
                                     resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
                                     
@@ -207,10 +193,9 @@ with tab3:
                                     
                             except Exception as e:
                                 errores_fila += 1
-                                if len(errores) < 20:  # Limitar cantidad de errores mostrados
+                                if len(errores) < 20:
                                     errores.append(f"Fila {i+1}: {str(e)[:100]}")
                             
-                            # Actualizar barra de progreso
                             bar.progress((i + 1) / len(df_completo))
                         
                         bar.empty()
@@ -233,8 +218,8 @@ with tab3:
                             st.warning("⚠️ No se pudo actualizar ningún registro. Verificá que los CUIT, LEGAJO y FECHAS VTO coincidan exactamente con registros que tengan MAIL ENVIADO = SI.")
                         
                         if no_encontrados > 0:
-                            st.info(f"ℹ️ {no_encontrados} filas no encontraron coincidencia en la base de datos. Puede ser que esos registros no existan, no tengan legajo asignado, o no tengan mail enviado.")
-                        
+                            st.info(f"ℹ️ {no_encontrados} filas no encontraron coincidencia en la base de datos.")
+        
         except Exception as e:
             st.error(f"❌ Error al procesar el archivo: {str(e)}")
-            st.info("💡 Consejo: Asegurate de que el archivo CSV tenga al menos las columnas: CUIT, LEGAJO y FECHA VTO. El resto son opcionales.")
+            st.info("💡 Asegurate de que el archivo CSV tenga al menos las columnas: CUIT, LEGAJO y FECHA VTO")
