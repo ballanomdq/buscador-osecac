@@ -1311,19 +1311,33 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (VERSIÓN ESTRICTA - SIN PREGUNTAS)
+# TAB 3 — Subir Actas (VERSIÓN DEFINITIVA)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas")
     st.markdown("""
     <div style="background: #f1f5f9; padding: 0.5rem 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
-    <strong>✅ Acepta archivos CSV o Excel (.xls, .xlsx)</strong><br>
-    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
-    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza:
+    <strong>✅ Acepta archivos CSV o Excel (.xls, .xlsx)</strong><br><br>
+    
+    <strong>🔍 ¿QUÉ HACE ESTE PROCESO?</strong><br>
+    El sistema busca coincidencias <strong>EXACTAS</strong> por <strong>CUIT + LEGAJO + FECHA VTO</strong><br>
+    en registros de su base de datos que tengan <strong>MAIL ENVIADO = SI</strong> y actualiza:
+    
     <ul>
-        <li>ACTA y ESTADO GESTIÓN a FINALIZADO</li>
-        <li>DEUDA PRESUNTA (si la columna existe)</li>
-        <li>PERÍODO DESDE y PERÍODO HASTA (si las columnas existen)</li>
+        <li>✅ <strong>ACTA</strong> → con el número de acta del archivo</li>
+        <li>✅ <strong>ESTADO GESTIÓN</strong> → lo cambia a <strong>"FINALIZADO"</strong></li>
+        <li>✅ <strong>DEUDA PRESUNTA</strong> → pisa (sobreescribe) el valor con el del archivo</li>
+        <li>✅ <strong>PERÍODO DESDE</strong> → pisa la fecha (si la columna existe en el archivo)</li>
+        <li>✅ <strong>PERÍODO HASTA</strong> → pisa la fecha (si la columna existe en el archivo)</li>
+    </ul>
+    
+    <strong>⚠️ IMPORTANTE:</strong>
+    <ul>
+        <li>❌ Si el CUIT del archivo <strong>NO EXISTE</strong> en su base de datos → NO se procesa</li>
+        <li>❌ Si el LEGAJO del archivo <strong>NO COINCIDE</strong> con el de su base → NO se procesa</li>
+        <li>❌ Si la FECHA VTO del archivo <strong>NO COINCIDE</strong> con la de su base → NO se procesa</li>
+        <li>❌ Si el registro en su base tiene <strong>MAIL ENVIADO = NO</strong> → NO se procesa</li>
+        <li>✅ Solo si <strong>TODAS las condiciones se cumplen</strong> → se actualiza</li>
     </ul>
     </div>
     """, unsafe_allow_html=True)
@@ -1353,15 +1367,11 @@ with tab3:
                 return None
         
         try:
-            # 1. LEER EL ARCHIVO - VALIDACIÓN ESTRICTA
+            # 1. LEER EL ARCHIVO
             nombre_archivo = archivo_actas.name.lower()
-            filas_ignoradas_por_formato = []
             
             if nombre_archivo.endswith('.csv'):
                 contenido = archivo_actas.getvalue().decode('utf-8-sig')
-                lineas_originales = contenido.split('\n')
-                
-                # Intentar leer línea por línea para detectar exactamente cuáles se pierden
                 df_completo = pd.read_csv(
                     io.StringIO(contenido), 
                     sep=None, 
@@ -1406,282 +1416,263 @@ with tab3:
             else:
                 st.success(f"✅ Columnas detectadas: **{col_cuit}** · **{col_leg}** · **{col_vto}**")
                 
-                # 4. VALIDAR FILA POR FILA (DETECCIÓN ESTRICTA)
+                # 4. OBTENER DATOS DE LA BASE DE DATOS PARA COMPARAR
                 st.markdown("---")
-                st.markdown("### 🔍 Validando archivo...")
+                st.markdown("### 🔍 Consultando base de datos...")
                 
-                filas_con_problemas = []
-                filas_validas = []
-                errores_por_fila = []
+                with st.spinner("Obteniendo registros de la base de datos..."):
+                    # Obtener todos los registros con mail_enviado = SI
+                    registros_bd = []
+                    offset = 0
+                    batch_size = 1000
+                    while True:
+                        query = supabase.table("padron_deuda_presunta").select("cuit, leg, vto, mail_enviado, deuda_presunta, estado_gestion").eq("mail_enviado", "SI").range(offset, offset + batch_size - 1).execute()
+                        if not query.data:
+                            break
+                        registros_bd.extend(query.data)
+                        offset += batch_size
+                        if len(query.data) < batch_size:
+                            break
+                    
+                    # Crear un diccionario para búsqueda rápida por (cuit, leg, vto)
+                    bd_lookup = {}
+                    for reg in registros_bd:
+                        key = (str(reg.get('cuit', '')), str(reg.get('leg', '')), str(reg.get('vto', '')))
+                        bd_lookup[key] = reg
+                
+                st.success(f"✅ Base de datos: {len(registros_bd)} registros con MAIL ENVIADO = SI")
+                
+                # 5. VALIDAR CADA FILA DEL ARCHIVO
+                st.markdown("### 📊 VALIDANDO FILAS DEL ARCHIVO")
+                
+                filas_que_se_actualizan = []
+                filas_con_error = []
+                total_filas_archivo = len(df_completo)
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
                 
                 for idx, row in df_completo.iterrows():
                     fila_numero = idx + 2
-                    problemas = []
+                    status_text.text(f"Validando fila {fila_numero} de {total_filas_archivo + 1}...")
                     
+                    # Obtener datos del archivo
                     cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
-                    cuit_limpio = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
-                    cuit_valido = cuit_limpio and len(cuit_limpio) >= 10 and cuit_limpio.isdigit()
+                    cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
                     
                     leg_raw = str(row[col_leg]) if pd.notna(row[col_leg]) else ""
-                    leg_limpio = re.sub(r'\D', '', leg_raw).strip()
-                    leg_valido = bool(leg_limpio)
+                    leg = re.sub(r'\D', '', leg_raw).strip() if leg_raw else None
                     
                     vto_raw = str(row[col_vto]) if pd.notna(row[col_vto]) else ""
-                    vto_valido = norm_fecha(vto_raw) is not None
+                    vto = norm_fecha(vto_raw)
                     
-                    if not cuit_valido:
-                        if cuit_limpio and not cuit_limpio.isdigit():
-                            problemas.append(f"CUIT contiene letras: '{cuit_raw[:30]}'")
-                        elif not cuit_limpio:
-                            problemas.append("CUIT vacío")
-                        elif len(cuit_limpio) < 10:
-                            problemas.append(f"CUIT muy corto: '{cuit_raw[:30]}'")
+                    acta = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
                     
-                    if not leg_valido:
-                        problemas.append("LEGAJO vacío o inválido")
+                    deuda_nueva = None
+                    if col_deuda and pd.notna(row.get(col_deuda)):
+                        deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
+                        try:
+                            deuda_valor = float(deuda_raw)
+                            deuda_nueva = fmt_moneda(deuda_valor)
+                        except:
+                            deuda_nueva = deuda_raw
                     
-                    if not vto_valido:
-                        if vto_raw:
-                            problemas.append(f"FECHA VTO inválida: '{vto_raw[:30]}' (debe ser DD/MM/AAAA)")
+                    desde_nuevo = None
+                    if col_desde and pd.notna(row.get(col_desde)):
+                        desde_nuevo = parsear_periodo(row[col_desde])
+                    
+                    hasta_nuevo = None
+                    if col_hasta and pd.notna(row.get(col_hasta)):
+                        hasta_nuevo = parsear_periodo(row[col_hasta])
+                    
+                    # Verificar condiciones
+                    problemas = []
+                    
+                    # Condición 1: ¿Existe el CUIT en la base?
+                    key_busqueda = (cuit, leg, vto) if leg and vto else None
+                    
+                    if not cuit:
+                        problemas.append("❌ CUIT vacío")
+                    elif not leg:
+                        problemas.append("❌ LEGAJO vacío")
+                    elif not vto:
+                        problemas.append(f"❌ FECHA VTO inválida: '{vto_raw}' (debe ser DD/MM/AAAA)")
+                    elif key_busqueda not in bd_lookup:
+                        # Verificar si al menos el CUIT existe
+                        cuit_exists = any(k[0] == cuit for k in bd_lookup.keys())
+                        if not cuit_exists:
+                            problemas.append(f"❌ CUIT '{cuit}' no existe en la base de datos")
                         else:
-                            problemas.append("FECHA VTO vacía")
+                            # Buscar coincidencias parciales para dar mejor mensaje
+                            leg_correcto = any(k[1] == leg and k[0] == cuit for k in bd_lookup.keys())
+                            vto_correcto = any(k[2] == vto and k[0] == cuit for k in bd_lookup.keys())
+                            
+                            if not leg_correcto:
+                                problemas.append(f"❌ LEGAJO '{leg}' no coincide con el registrado para ese CUIT")
+                            if not vto_correcto:
+                                problemas.append(f"❌ FECHA VTO '{vto_raw}' no coincide con la registrada para ese CUIT")
+                    else:
+                        # Todas las condiciones se cumplen → se actualizará
+                        filas_que_se_actualizan.append({
+                            "fila": fila_numero,
+                            "cuit": cuit,
+                            "legajo": leg,
+                            "vto": vto,
+                            "acta": acta,
+                            "deuda_nueva": deuda_nueva,
+                            "desde_nuevo": desde_nuevo,
+                            "hasta_nuevo": hasta_nuevo,
+                            "row": row,
+                            "deuda_original": bd_lookup[key_busqueda].get('deuda_presunta', 'N/D'),
+                            "estado_original": bd_lookup[key_busqueda].get('estado_gestion', 'N/D')
+                        })
                     
                     if problemas:
-                        filas_con_problemas.append({
+                        filas_con_error.append({
                             "fila": fila_numero,
-                            "problemas": problemas,
-                            "cuit": cuit_raw[:30] if cuit_raw else "(vacío)",
-                            "legajo": leg_raw[:15] if leg_raw else "(vacío)",
-                            "vto": vto_raw[:20] if vto_raw else "(vacío)"
+                            "cuit": cuit if cuit else "(vacío)",
+                            "legajo": leg if leg else "(vacío)",
+                            "vto": vto_raw if vto_raw else "(vacío)",
+                            "problemas": problemas
                         })
-                        errores_por_fila.append(f"Fila {fila_numero}")
-                    else:
-                        filas_validas.append(idx)
+                    
+                    progress_bar.progress((idx + 1) / total_filas_archivo)
                 
-                # 5. MOSTRAR RESULTADOS
+                progress_bar.empty()
+                status_text.empty()
+                
+                # 6. MOSTRAR RESULTADOS
                 st.markdown("### 📊 RESULTADO DE LA VALIDACIÓN")
                 
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(f"""
                     <div class="alerta-exito">
-                    ✅ <strong>FILAS CORRECTAS</strong><br>
-                    Se cargarán <strong>{len(filas_validas)} registros</strong>
+                    ✅ <strong>REGISTROS QUE SE ACTUALIZARÁN</strong><br>
+                    <strong style="font-size: 2rem;">{len(filas_que_se_actualizan)}</strong> registros
                     </div>
                     """, unsafe_allow_html=True)
                 with col2:
-                    total_problemas = len(filas_con_problemas)
-                    if total_problemas > 0:
-                        st.markdown(f"""
-                        <div class="alerta-error">
-                        ❌ <strong>FILAS CON PROBLEMAS</strong><br>
-                        <strong>{total_problemas} registros</strong> NO se cargarán
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div class="alerta-exito">
-                        🎉 <strong>¡ARCHIVO PERFECTO!</strong><br>
-                        Todas las filas son correctas
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                # 6. MOSTRAR FILAS PROBLEMÁTICAS EN DETALLE
-                if filas_con_problemas:
-                    nums_filas = ", ".join([str(p['fila']) for p in filas_con_problemas[:20]])
                     st.markdown(f"""
                     <div class="alerta-error">
-                    <strong>🚫 FILAS QUE NO SE CARGARÁN:</strong> {nums_filas}<br>
-                    <strong>Cantidad:</strong> {len(filas_con_problemas)} fila(s)
+                    ❌ <strong>REGISTROS QUE NO SE ACTUALIZARÁN</strong><br>
+                    <strong style="font-size: 2rem;">{len(filas_con_error)}</strong> registros
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # 7. MOSTRAR FILAS QUE NO SE ACTUALIZAN (CON VISTA PREVIA)
+                if filas_con_error:
+                    nums_filas = ", ".join([str(f['fila']) for f in filas_con_error[:30]])
+                    st.markdown(f"""
+                    <div class="alerta-error">
+                    <strong>🚫 FILAS QUE NO SE ACTUALIZARÁN:</strong> {nums_filas}<br>
+                    <strong>Cantidad:</strong> {len(filas_con_error)} fila(s)
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Tabla detallada
-                    st.markdown("### 📋 DETALLE DE FILAS PROBLEMÁTICAS")
+                    # VISTA PREVIA DE LAS FILAS PROBLEMÁTICAS
+                    st.markdown("### 🔍 VISTA PREVIA DE FILAS PROBLEMÁTICAS")
+                    st.markdown("Estas son las filas que NO se actualizarán. Revise el problema en cada una:")
                     
-                    for p in filas_con_problemas[:30]:
+                    for error in filas_con_error[:20]:
                         st.markdown(f"""
                         <div class="alerta-warning">
-                        <strong>⚠️ FILA N° {p['fila']}</strong><br>
-                        CUIT: <code>{p['cuit']}</code> | LEGAJO: <code>{p['legajo']}</code> | VTO: <code>{p['vto']}</code><br>
-                        {"<br>".join(p['problemas'])}
+                        <strong>⚠️ FILA N° {error['fila']}</strong><br>
+                        CUIT: <code>{error['cuit']}</code> | LEGAJO: <code>{error['legajo']}</code> | VTO: <code>{error['vto']}</code><br>
+                        {"<br>".join(error['problemas'])}
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    if len(filas_con_problemas) > 30:
-                        st.warning(f"⚠️ Y {len(filas_con_problemas) - 30} filas más con problemas...")
+                    if len(filas_con_error) > 20:
+                        st.warning(f"⚠️ Y {len(filas_con_error) - 20} filas más con problemas...")
                     
-                    # Tabla resumen
-                    with st.expander(f"📋 Ver todas las {len(filas_con_problemas)} filas en tabla"):
-                        df_problemas = pd.DataFrame([{
-                            "Fila": p['fila'],
-                            "CUIT": p['cuit'],
-                            "LEGAJO": p['legajo'],
-                            "FECHA VTO": p['vto'],
-                            "Problemas": "\n".join(p['problemas'])
-                        } for p in filas_con_problemas])
-                        st.dataframe(df_problemas, use_container_width=True, height=300)
-                    
-                    # BOTONES GRANDES VERDE Y ROJO
-                    st.markdown("---")
-                    st.markdown("### ¿Qué desea hacer?")
-                    
-                    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
-                    with col_btn1:
-                        st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
-                        if st.button("✅ CONFIRMAR CARGA (solo filas correctas)", use_container_width=True):
-                            st.session_state.confirmar_carga_actas = True
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col_btn3:
-                        st.markdown('<div class="btn-rojo">', unsafe_allow_html=True)
-                        if st.button("❌ CANCELAR CARGA", use_container_width=True):
-                            st.session_state.cancelar_carga_actas = True
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    # Procesar confirmación
-                    if st.session_state.get('confirmar_carga_actas'):
-                        if filas_validas:
-                            df_a_procesar = df_completo.iloc[filas_validas].copy()
-                            st.session_state.procesar_actas = True
-                            st.session_state.df_a_procesar = df_a_procesar
-                            st.session_state.filas_validas_count = len(filas_validas)
-                            st.session_state.filas_problema_count = len(filas_con_problemas)
-                            st.rerun()
-                        else:
-                            st.error("❌ No hay filas válidas para procesar.")
-                            st.session_state.confirmar_carga_actas = False
-                    
-                    if st.session_state.get('cancelar_carga_actas'):
-                        st.session_state.cancelar_carga_actas = False
-                        st.session_state.confirmar_carga_actas = False
-                        st.info("✅ Carga cancelada. Corrija el archivo y vuelva a subirlo.")
-                        st.stop()
+                    # Tabla completa
+                    with st.expander(f"📋 Ver todas las {len(filas_con_error)} filas problemáticas en tabla"):
+                        df_errores = pd.DataFrame([{
+                            "Fila": e['fila'],
+                            "CUIT": e['cuit'],
+                            "LEGAJO": e['legajo'],
+                            "FECHA VTO": e['vto'],
+                            "Problemas": "\n".join(e['problemas'])
+                        } for e in filas_con_error])
+                        st.dataframe(df_errores, use_container_width=True, height=400)
                 
-                else:
-                    # NO HAY PROBLEMAS - CARGA DIRECTA
-                    st.success("🎉 ¡ARCHIVO PERFECTO! Todas las filas son correctas.")
-                    st.markdown("### ✅ CONFIRMAR CARGA")
+                # 8. MOSTRAR FILAS QUE SÍ SE ACTUALIZAN
+                if filas_que_se_actualizan:
+                    st.markdown("### ✅ REGISTROS QUE SE ACTUALIZARÁN")
                     
-                    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
-                    with col_btn1:
-                        st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
-                        if st.button("✅ CONFIRMAR CARGA", use_container_width=True):
-                            st.session_state.procesar_actas = True
-                            st.session_state.df_a_procesar = df_completo
-                            st.session_state.filas_validas_count = len(df_completo)
-                            st.session_state.filas_problema_count = 0
-                            st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    
-                    with col_btn3:
-                        st.markdown('<div class="btn-rojo">', unsafe_allow_html=True)
-                        if st.button("❌ CANCELAR", use_container_width=True):
-                            st.info("✅ Carga cancelada.")
-                            st.stop()
-                        st.markdown('</div>', unsafe_allow_html=True)
+                    df_actualizan = pd.DataFrame([{
+                        "Fila": f['fila'],
+                        "CUIT": f['cuit'],
+                        "LEGAJO": f['legajo'],
+                        "FECHA VTO": f['vto'],
+                        "ACTA": f['acta'],
+                        "DEUDA ANTERIOR": f['deuda_original'],
+                        "DEUDA NUEVA": f['deuda_nueva'] if f['deuda_nueva'] else "(sin cambio)",
+                        "ESTADO ANTERIOR": f['estado_original'],
+                        "ESTADO NUEVO": "FINALIZADO"
+                    } for f in filas_que_se_actualizan])
+                    st.dataframe(df_actualizan, use_container_width=True, height=300)
                 
-                # 7. PROCESAR LA CARGA
-                if st.session_state.get('procesar_actas'):
-                    df_a_procesar = st.session_state.df_a_procesar
-                    total_validas = st.session_state.filas_validas_count
-                    total_problemas = st.session_state.filas_problema_count
-                    
-                    st.markdown("---")
-                    st.markdown("### 📥 PROCESANDO CARGA...")
-                    st.info(f"📊 Procesando {total_validas} registros...")
-                    
-                    if total_problemas > 0:
-                        st.warning(f"⚠️ Se ignoraron {total_problemas} filas con problemas")
-                    
-                    with st.spinner("Actualizando base de datos..."):
-                        actualizados = 0
-                        no_encontrados = 0
-                        bar = st.progress(0)
-                        
-                        for i, row in df_a_procesar.iterrows():
-                            try:
-                                cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
-                                cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
-                                
-                                leg_raw = str(row[col_leg]) if pd.notna(row[col_leg]) else ""
-                                leg = re.sub(r'\D', '', leg_raw).strip() if leg_raw else None
-                                
-                                vto_raw = str(row[col_vto]) if pd.notna(row[col_vto]) else ""
-                                vto = norm_fecha(vto_raw)
-                                
-                                acta = "ACTUALIZADO"
-                                if col_acta and pd.notna(row.get(col_acta)):
-                                    acta_raw = str(row[col_acta]).strip()
-                                    if acta_raw:
-                                        acta = acta_raw
-                                
-                                deuda_nueva = None
-                                if col_deuda and pd.notna(row.get(col_deuda)):
-                                    deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
-                                    try:
-                                        deuda_valor = float(deuda_raw)
-                                        deuda_nueva = fmt_moneda(deuda_valor)
-                                    except:
-                                        deuda_nueva = deuda_raw
-                                
-                                desde_nuevo = None
-                                if col_desde and pd.notna(row.get(col_desde)):
-                                    desde_nuevo = parsear_periodo(row[col_desde])
-                                
-                                hasta_nuevo = None
-                                if col_hasta and pd.notna(row.get(col_hasta)):
-                                    hasta_nuevo = parsear_periodo(row[col_hasta])
-                                
-                                if cuit and leg and vto:
-                                    resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
+                # 9. BOTONES DE CONFIRMACIÓN
+                st.markdown("---")
+                st.markdown("### ¿Qué desea hacer?")
+                
+                col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
+                with col_btn1:
+                    st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
+                    if st.button("✅ CONFIRMAR ACTUALIZACIÓN", use_container_width=True):
+                        st.session_state.confirmar_actualizacion = True
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                with col_btn3:
+                    st.markdown('<div class="btn-rojo">', unsafe_allow_html=True)
+                    if st.button("❌ CANCELAR", use_container_width=True):
+                        st.session_state.cancelar_actualizacion = True
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                if st.session_state.get('confirmar_actualizacion'):
+                    if filas_que_se_actualizan:
+                        with st.spinner("Actualizando registros..."):
+                            actualizados = 0
+                            bar = st.progress(0)
+                            
+                            for i, fila in enumerate(filas_que_se_actualizan):
+                                try:
+                                    # Buscar el registro en la base para obtener su ID
+                                    resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", fila['cuit']).eq("leg", fila['legajo']).eq("vto", fila['vto']).execute()
                                     
                                     if resultado.data:
-                                        for reg in resultado.data:
-                                            update_data = {
-                                                "acta": acta, 
-                                                "estado_gestion": "FINALIZADO"
-                                            }
-                                            if deuda_nueva:
-                                                update_data["deuda_presunta"] = deuda_nueva
-                                            if desde_nuevo:
-                                                update_data["desde"] = desde_nuevo
-                                            if hasta_nuevo:
-                                                update_data["hasta"] = hasta_nuevo
-                                            
-                                            supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
-                                            actualizados += 1
-                                    else:
-                                        no_encontrados += 1
-                                else:
-                                    no_encontrados += 1
-                                    
-                            except Exception as e:
-                                no_encontrados += 1
+                                        update_data = {
+                                            "acta": fila['acta'],
+                                            "estado_gestion": "FINALIZADO"
+                                        }
+                                        if fila['deuda_nueva']:
+                                            update_data["deuda_presunta"] = fila['deuda_nueva']
+                                        if fila['desde_nuevo']:
+                                            update_data["desde"] = fila['desde_nuevo']
+                                        if fila['hasta_nuevo']:
+                                            update_data["hasta"] = fila['hasta_nuevo']
+                                        
+                                        supabase.table("padron_deuda_presunta").update(update_data).eq("id", resultado.data[0]['id']).execute()
+                                        actualizados += 1
+                                except Exception as e:
+                                    st.error(f"Error en fila {fila['fila']}: {e}")
+                                
+                                bar.progress((i + 1) / len(filas_que_se_actualizan))
                             
-                            bar.progress((i + 1) / len(df_a_procesar))
-                        
-                        bar.empty()
-                        
-                        st.markdown("---")
-                        st.markdown("### 📊 RESULTADO DEL PROCESO")
-                        
-                        col1, col2 = st.columns(2)
-                        col1.metric("✅ ACTUALIZADOS", actualizados)
-                        col2.metric("❌ NO ENCONTRADOS", no_encontrados)
-                        
-                        if actualizados > 0:
+                            bar.empty()
                             st.success(f"✅ ¡Proceso completado! {actualizados} actas actualizadas correctamente.")
                             get_dashboard_stats.clear()
-                        else:
-                            st.warning("⚠️ No se pudo actualizar ningún registro.")
-                        
-                        # Limpiar estado
-                        del st.session_state.procesar_actas
-                        del st.session_state.df_a_procesar
-                        del st.session_state.filas_validas_count
-                        if total_problemas > 0:
-                            del st.session_state.filas_problema_count
+                            del st.session_state.confirmar_actualizacion
+                    else:
+                        st.warning("⚠️ No hay registros para actualizar.")
+                        del st.session_state.confirmar_actualizacion
+                
+                if st.session_state.get('cancelar_actualizacion'):
+                    st.info("✅ Carga cancelada. Corrija el archivo y vuelva a subirlo.")
+                    del st.session_state.cancelar_actualizacion
+                    st.stop()
         
         except Exception as e:
             st.error(f"❌ Error al procesar el archivo: {str(e)}")
