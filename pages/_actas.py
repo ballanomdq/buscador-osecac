@@ -183,6 +183,27 @@ st.markdown("""
         border-radius: 8px;
         margin: 0.5rem 0;
     }
+    
+    .btn-verde button {
+        background-color: #22c55e !important;
+        color: white !important;
+        font-size: 1.2rem !important;
+        padding: 0.75rem !important;
+        font-weight: bold !important;
+    }
+    .btn-verde button:hover {
+        background-color: #16a34a !important;
+    }
+    .btn-rojo button {
+        background-color: #ef4444 !important;
+        color: white !important;
+        font-size: 1.2rem !important;
+        padding: 0.75rem !important;
+        font-weight: bold !important;
+    }
+    .btn-rojo button:hover {
+        background-color: #dc2626 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1290,7 +1311,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (VERSIÓN FINAL: muestra EXACTAMENTE las filas problemáticas)
+# TAB 3 — Subir Actas (VERSIÓN ESTRICTA - SIN PREGUNTAS)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas")
@@ -1332,46 +1353,25 @@ with tab3:
                 return None
         
         try:
-            # 1. LEER EL ARCHIVO Y CONTAR FILAS ORIGINALES
+            # 1. LEER EL ARCHIVO - VALIDACIÓN ESTRICTA
             nombre_archivo = archivo_actas.name.lower()
             filas_ignoradas_por_formato = []
             
             if nombre_archivo.endswith('.csv'):
                 contenido = archivo_actas.getvalue().decode('utf-8-sig')
                 lineas_originales = contenido.split('\n')
-                total_lineas_archivo = len([l for l in lineas_originales if l.strip()])
                 
                 # Intentar leer línea por línea para detectar exactamente cuáles se pierden
-                from io import StringIO
                 df_completo = pd.read_csv(
-                    StringIO(contenido), 
+                    io.StringIO(contenido), 
                     sep=None, 
                     engine='python',
-                    on_bad_lines='skip',
+                    on_bad_lines='warn',
                     encoding='utf-8-sig',
                     dtype=str
                 )
-                
-                # Detectar qué líneas se perdieron
-                lineas_leidas = set()
-                for idx, row in df_completo.iterrows():
-                    # Intentar encontrar la línea original correspondiente
-                    for num_linea, linea in enumerate(lineas_originales, 1):
-                        if num_linea in lineas_leidas:
-                            continue
-                        if linea.strip() and str(row.iloc[0]) in linea[:50]:  # Comparación básica
-                            lineas_leidas.add(num_linea)
-                            break
-                
-                # Las líneas que no están en lineas_leidas (excepto encabezado) son las ignoradas
-                for num_linea in range(2, len(lineas_originales) + 1):
-                    if num_linea not in lineas_leidas and lineas_originales[num_linea-1].strip():
-                        filas_ignoradas_por_formato.append(num_linea)
-                
-                st.info(f"📄 Archivo CSV: {len(df_completo)} filas de datos (de {total_lineas_archivo - 1} filas totales)")
             else:
                 df_completo = pd.read_excel(archivo_actas, dtype=str)
-                st.info(f"📊 Archivo Excel cargado - {len(df_completo)} filas")
             
             # 2. BUSCAR COLUMNAS NECESARIAS
             col_cuit = col_leg = col_vto = col_acta = col_deuda = col_desde = col_hasta = None
@@ -1406,15 +1406,16 @@ with tab3:
             else:
                 st.success(f"✅ Columnas detectadas: **{col_cuit}** · **{col_leg}** · **{col_vto}**")
                 
-                # 4. VALIDAR FILA POR FILA
+                # 4. VALIDAR FILA POR FILA (DETECCIÓN ESTRICTA)
                 st.markdown("---")
                 st.markdown("### 🔍 Validando archivo...")
                 
                 filas_con_problemas = []
                 filas_validas = []
+                errores_por_fila = []
                 
                 for idx, row in df_completo.iterrows():
-                    fila_numero = idx + 2  # +2 porque Excel empieza en 1 y sumamos encabezado
+                    fila_numero = idx + 2
                     problemas = []
                     
                     cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
@@ -1439,8 +1440,11 @@ with tab3:
                     if not leg_valido:
                         problemas.append("LEGAJO vacío o inválido")
                     
-                    if vto_raw and not vto_valido:
-                        problemas.append(f"FECHA VTO inválida: '{vto_raw[:30]}' (debe ser DD/MM/AAAA)")
+                    if not vto_valido:
+                        if vto_raw:
+                            problemas.append(f"FECHA VTO inválida: '{vto_raw[:30]}' (debe ser DD/MM/AAAA)")
+                        else:
+                            problemas.append("FECHA VTO vacía")
                     
                     if problemas:
                         filas_con_problemas.append({
@@ -1450,6 +1454,7 @@ with tab3:
                             "legajo": leg_raw[:15] if leg_raw else "(vacío)",
                             "vto": vto_raw[:20] if vto_raw else "(vacío)"
                         })
+                        errores_por_fila.append(f"Fila {fila_numero}")
                     else:
                         filas_validas.append(idx)
                 
@@ -1465,43 +1470,39 @@ with tab3:
                     </div>
                     """, unsafe_allow_html=True)
                 with col2:
-                    total_problemas = len(filas_con_problemas) + len(filas_ignoradas_por_formato)
-                    st.markdown(f"""
-                    <div class="alerta-warning">
-                    ⚠️ <strong>FILAS CON PROBLEMAS</strong><br>
-                    <strong>{total_problemas} registros</strong> NO se cargarán
-                    </div>
-                    """, unsafe_allow_html=True)
+                    total_problemas = len(filas_con_problemas)
+                    if total_problemas > 0:
+                        st.markdown(f"""
+                        <div class="alerta-error">
+                        ❌ <strong>FILAS CON PROBLEMAS</strong><br>
+                        <strong>{total_problemas} registros</strong> NO se cargarán
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div class="alerta-exito">
+                        🎉 <strong>¡ARCHIVO PERFECTO!</strong><br>
+                        Todas las filas son correctas
+                        </div>
+                        """, unsafe_allow_html=True)
                 
-                # 6. MOSTRAR FILAS IGNORADAS POR FORMATO (las que el CSV no pudo leer)
-                if filas_ignoradas_por_formato:
-                    st.markdown("### 🔴 FILAS CON ERRORES GRAVES DE FORMATO")
-                    st.markdown("Estas filas no pudieron ser leídas por el sistema (tienen columnas de más o de menos):")
-                    
-                    nums_filas = ", ".join([str(f) for f in filas_ignoradas_por_formato[:20]])
+                # 6. MOSTRAR FILAS PROBLEMÁTICAS EN DETALLE
+                if filas_con_problemas:
+                    nums_filas = ", ".join([str(p['fila']) for p in filas_con_problemas[:20]])
                     st.markdown(f"""
                     <div class="alerta-error">
-                    <strong>📌 NÚMEROS DE FILA AFECTADAS:</strong> {nums_filas}<br>
-                    <strong>Cantidad:</strong> {len(filas_ignoradas_por_formato)} fila(s)
+                    <strong>🚫 FILAS QUE NO SE CARGARÁN:</strong> {nums_filas}<br>
+                    <strong>Cantidad:</strong> {len(filas_con_problemas)} fila(s)
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    # Mostrar las líneas originales para contexto
-                    if nombre_archivo.endswith('.csv') and len(filas_ignoradas_por_formato) <= 10:
-                        with st.expander("📄 Ver contenido de las filas problemáticas"):
-                            for num_fila in filas_ignoradas_por_formato[:10]:
-                                if num_fila - 1 < len(lineas_originales):
-                                    st.code(f"Fila {num_fila}: {lineas_originales[num_fila-1][:200]}")
-                
-                # 7. MOSTRAR FILAS CON DATOS INVÁLIDOS
-                if filas_con_problemas:
-                    st.markdown("### 🔴 FILAS CON DATOS INVÁLIDOS")
-                    st.markdown("Estas filas tienen datos incorrectos en las columnas obligatorias:")
+                    # Tabla detallada
+                    st.markdown("### 📋 DETALLE DE FILAS PROBLEMÁTICAS")
                     
                     for p in filas_con_problemas[:30]:
                         st.markdown(f"""
-                        <div class="alerta-error">
-                        <strong>📌 FILA N° {p['fila']}</strong><br>
+                        <div class="alerta-warning">
+                        <strong>⚠️ FILA N° {p['fila']}</strong><br>
                         CUIT: <code>{p['cuit']}</code> | LEGAJO: <code>{p['legajo']}</code> | VTO: <code>{p['vto']}</code><br>
                         {"<br>".join(p['problemas'])}
                         </div>
@@ -1510,8 +1511,8 @@ with tab3:
                     if len(filas_con_problemas) > 30:
                         st.warning(f"⚠️ Y {len(filas_con_problemas) - 30} filas más con problemas...")
                     
-                    # Tabla completa
-                    with st.expander(f"📋 Ver todas las {len(filas_con_problemas)} filas con datos inválidos"):
+                    # Tabla resumen
+                    with st.expander(f"📋 Ver todas las {len(filas_con_problemas)} filas en tabla"):
                         df_problemas = pd.DataFrame([{
                             "Fila": p['fila'],
                             "CUIT": p['cuit'],
@@ -1520,155 +1521,171 @@ with tab3:
                             "Problemas": "\n".join(p['problemas'])
                         } for p in filas_con_problemas])
                         st.dataframe(df_problemas, use_container_width=True, height=300)
-                
-                # 8. VISTA PREVIA DE LAS FILAS PROBLEMÁTICAS (NO de las buenas)
-                if filas_con_problemas or filas_ignoradas_por_formato:
+                    
+                    # BOTONES GRANDES VERDE Y ROJO
                     st.markdown("---")
-                    st.markdown("### 👁️ VISTA PREVIA DE FILAS PROBLEMÁTICAS")
-                    st.markdown("Estas son las filas que NO se cargarán. Revise cada una y corríjalas:")
+                    st.markdown("### ¿Qué desea hacer?")
                     
-                    # Mostrar las primeras 5 filas problemáticas con su contexto
-                    for p in filas_con_problemas[:5]:
-                        st.markdown(f"""
-                        <div class="alerta-warning">
-                        <strong>⚠️ FILA {p['fila']}</strong><br>
-                        • CUIT actual: <code>{p['cuit']}</code> → Debe ser solo números (10-11 dígitos)<br>
-                        • LEGAJO actual: <code>{p['legajo']}</code> → Debe ser un número<br>
-                        • FECHA VTO actual: <code>{p['vto']}</code> → Debe ser DD/MM/AAAA<br>
-                        </div>
-                        """, unsafe_allow_html=True)
+                    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
+                    with col_btn1:
+                        st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
+                        if st.button("✅ CONFIRMAR CARGA (solo filas correctas)", use_container_width=True):
+                            st.session_state.confirmar_carga_actas = True
+                        st.markdown('</div>', unsafe_allow_html=True)
                     
-                    st.markdown("""
-                    <div class="alerta-info">
-                    💡 <strong>¿Cómo corregir estos problemas?</strong><br>
-                    1. Anote los números de fila con problemas<br>
-                    2. Abra el archivo ORIGINAL en Excel<br>
-                    3. Localice esas filas y corrija los datos<br>
-                    4. Guarde el archivo (puede ser Excel o CSV)<br>
-                    5. Vuelva a subirlo al sistema
-                    </div>
-                    """, unsafe_allow_html=True)
+                    with col_btn3:
+                        st.markdown('<div class="btn-rojo">', unsafe_allow_html=True)
+                        if st.button("❌ CANCELAR CARGA", use_container_width=True):
+                            st.session_state.cancelar_carga_actas = True
+                        st.markdown('</div>', unsafe_allow_html=True)
                     
-                    # Preguntar si quiere continuar
-                    continuar = st.radio(
-                        "¿Desea continuar procesando SOLO las filas correctas?", 
-                        ["No, voy a corregir el archivo primero", "Sí, continuar con las filas correctas"],
-                        index=0
-                    )
+                    # Procesar confirmación
+                    if st.session_state.get('confirmar_carga_actas'):
+                        if filas_validas:
+                            df_a_procesar = df_completo.iloc[filas_validas].copy()
+                            st.session_state.procesar_actas = True
+                            st.session_state.df_a_procesar = df_a_procesar
+                            st.session_state.filas_validas_count = len(filas_validas)
+                            st.session_state.filas_problema_count = len(filas_con_problemas)
+                            st.rerun()
+                        else:
+                            st.error("❌ No hay filas válidas para procesar.")
+                            st.session_state.confirmar_carga_actas = False
                     
-                    if continuar == "No, voy a corregir el archivo primero":
-                        st.info("✅ Ok, corrija el archivo y luego vuelva a subirlo.")
+                    if st.session_state.get('cancelar_carga_actas'):
+                        st.session_state.cancelar_carga_actas = False
+                        st.session_state.confirmar_carga_actas = False
+                        st.info("✅ Carga cancelada. Corrija el archivo y vuelva a subirlo.")
                         st.stop()
-                    else:
-                        st.warning(f"⚠️ Se procesarán {len(filas_validas)} filas correctas. {len(filas_con_problemas) + len(filas_ignoradas_por_formato)} filas con problemas serán IGNORADAS.")
-                        df_a_procesar = df_completo.iloc[filas_validas].copy() if filas_validas else pd.DataFrame()
-                else:
-                    st.success("✅ ¡TODAS LAS FILAS ESTÁN CORRECTAS! No se encontraron problemas.")
-                    df_a_procesar = df_completo.copy()
-                    st.info(f"📊 Se cargarán {len(df_a_procesar)} registros para procesar.")
                 
-                # 9. BOTÓN PARA PROCESAR (solo si hay filas válidas)
-                if len(df_a_procesar) > 0:
-                    if st.button("📋 PROCESAR Y ACTUALIZAR ACTAS", type="primary", use_container_width=True):
-                        with st.spinner("Procesando..."):
-                            actualizados = 0
-                            no_encontrados = 0
-                            errores_fila = 0
-                            bar = st.progress(0)
-                            errores = []
-                            
-                            for i, row in df_a_procesar.iterrows():
-                                try:
-                                    cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
-                                    cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
+                else:
+                    # NO HAY PROBLEMAS - CARGA DIRECTA
+                    st.success("🎉 ¡ARCHIVO PERFECTO! Todas las filas son correctas.")
+                    st.markdown("### ✅ CONFIRMAR CARGA")
+                    
+                    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
+                    with col_btn1:
+                        st.markdown('<div class="btn-verde">', unsafe_allow_html=True)
+                        if st.button("✅ CONFIRMAR CARGA", use_container_width=True):
+                            st.session_state.procesar_actas = True
+                            st.session_state.df_a_procesar = df_completo
+                            st.session_state.filas_validas_count = len(df_completo)
+                            st.session_state.filas_problema_count = 0
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    with col_btn3:
+                        st.markdown('<div class="btn-rojo">', unsafe_allow_html=True)
+                        if st.button("❌ CANCELAR", use_container_width=True):
+                            st.info("✅ Carga cancelada.")
+                            st.stop()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                
+                # 7. PROCESAR LA CARGA
+                if st.session_state.get('procesar_actas'):
+                    df_a_procesar = st.session_state.df_a_procesar
+                    total_validas = st.session_state.filas_validas_count
+                    total_problemas = st.session_state.filas_problema_count
+                    
+                    st.markdown("---")
+                    st.markdown("### 📥 PROCESANDO CARGA...")
+                    st.info(f"📊 Procesando {total_validas} registros...")
+                    
+                    if total_problemas > 0:
+                        st.warning(f"⚠️ Se ignoraron {total_problemas} filas con problemas")
+                    
+                    with st.spinner("Actualizando base de datos..."):
+                        actualizados = 0
+                        no_encontrados = 0
+                        bar = st.progress(0)
+                        
+                        for i, row in df_a_procesar.iterrows():
+                            try:
+                                cuit_raw = str(row[col_cuit]) if pd.notna(row[col_cuit]) else ""
+                                cuit = re.sub(r'[\.\-,\s]', '', cuit_raw).strip()
+                                
+                                leg_raw = str(row[col_leg]) if pd.notna(row[col_leg]) else ""
+                                leg = re.sub(r'\D', '', leg_raw).strip() if leg_raw else None
+                                
+                                vto_raw = str(row[col_vto]) if pd.notna(row[col_vto]) else ""
+                                vto = norm_fecha(vto_raw)
+                                
+                                acta = "ACTUALIZADO"
+                                if col_acta and pd.notna(row.get(col_acta)):
+                                    acta_raw = str(row[col_acta]).strip()
+                                    if acta_raw:
+                                        acta = acta_raw
+                                
+                                deuda_nueva = None
+                                if col_deuda and pd.notna(row.get(col_deuda)):
+                                    deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
+                                    try:
+                                        deuda_valor = float(deuda_raw)
+                                        deuda_nueva = fmt_moneda(deuda_valor)
+                                    except:
+                                        deuda_nueva = deuda_raw
+                                
+                                desde_nuevo = None
+                                if col_desde and pd.notna(row.get(col_desde)):
+                                    desde_nuevo = parsear_periodo(row[col_desde])
+                                
+                                hasta_nuevo = None
+                                if col_hasta and pd.notna(row.get(col_hasta)):
+                                    hasta_nuevo = parsear_periodo(row[col_hasta])
+                                
+                                if cuit and leg and vto:
+                                    resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
                                     
-                                    leg_raw = str(row[col_leg]) if pd.notna(row[col_leg]) else ""
-                                    leg = re.sub(r'\D', '', leg_raw).strip() if leg_raw else None
-                                    
-                                    vto_raw = str(row[col_vto]) if pd.notna(row[col_vto]) else ""
-                                    vto = norm_fecha(vto_raw)
-                                    
-                                    acta = "ACTUALIZADO"
-                                    if col_acta and pd.notna(row.get(col_acta)):
-                                        acta_raw = str(row[col_acta]).strip()
-                                        if acta_raw:
-                                            acta = acta_raw
-                                    
-                                    deuda_nueva = None
-                                    if col_deuda and pd.notna(row.get(col_deuda)):
-                                        deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
-                                        try:
-                                            deuda_valor = float(deuda_raw)
-                                            deuda_nueva = fmt_moneda(deuda_valor)
-                                        except:
-                                            deuda_nueva = deuda_raw
-                                    
-                                    desde_nuevo = None
-                                    if col_desde and pd.notna(row.get(col_desde)):
-                                        desde_nuevo = parsear_periodo(row[col_desde])
-                                    
-                                    hasta_nuevo = None
-                                    if col_hasta and pd.notna(row.get(col_hasta)):
-                                        hasta_nuevo = parsear_periodo(row[col_hasta])
-                                    
-                                    if cuit and leg and vto:
-                                        resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
-                                        
-                                        if resultado.data:
-                                            for reg in resultado.data:
-                                                update_data = {
-                                                    "acta": acta, 
-                                                    "estado_gestion": "FINALIZADO"
-                                                }
-                                                if deuda_nueva:
-                                                    update_data["deuda_presunta"] = deuda_nueva
-                                                if desde_nuevo:
-                                                    update_data["desde"] = desde_nuevo
-                                                if hasta_nuevo:
-                                                    update_data["hasta"] = hasta_nuevo
-                                                
-                                                supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
-                                                actualizados += 1
-                                        else:
-                                            no_encontrados += 1
+                                    if resultado.data:
+                                        for reg in resultado.data:
+                                            update_data = {
+                                                "acta": acta, 
+                                                "estado_gestion": "FINALIZADO"
+                                            }
+                                            if deuda_nueva:
+                                                update_data["deuda_presunta"] = deuda_nueva
+                                            if desde_nuevo:
+                                                update_data["desde"] = desde_nuevo
+                                            if hasta_nuevo:
+                                                update_data["hasta"] = hasta_nuevo
+                                            
+                                            supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
+                                            actualizados += 1
                                     else:
                                         no_encontrados += 1
-                                        
-                                except Exception as e:
-                                    errores_fila += 1
-                                    if len(errores) < 20:
-                                        errores.append(f"Fila {i+2}: {str(e)[:100]}")
-                                
-                                bar.progress((i + 1) / len(df_a_procesar))
+                                else:
+                                    no_encontrados += 1
+                                    
+                            except Exception as e:
+                                no_encontrados += 1
                             
-                            bar.empty()
-                            
-                            st.markdown("---")
-                            st.markdown("### 📊 RESULTADO DEL PROCESO")
-                            
-                            col1, col2, col3 = st.columns(3)
-                            col1.metric("✅ ACTUALIZADOS", actualizados)
-                            col2.metric("❌ NO ENCONTRADOS", no_encontrados)
-                            col3.metric("⚠️ ERRORES", errores_fila)
-                            
-                            if errores:
-                                with st.expander(f"📋 Ver detalles de {len(errores)} error(es)"):
-                                    for err in errores[:10]:
-                                        st.caption(f"• {err}")
-                            
-                            if actualizados > 0:
-                                st.success(f"✅ ¡Proceso completado! {actualizados} actas actualizadas correctamente.")
-                                get_dashboard_stats.clear()
-                            else:
-                                st.warning("⚠️ No se pudo actualizar ningún registro.")
-                            
-                            if no_encontrados > 0:
-                                st.info(f"ℹ️ {no_encontrados} filas no encontraron coincidencia en la base de datos.")
-                else:
-                    st.warning("⚠️ No hay filas válidas para procesar. Corregí el archivo y volvé a subirlo.")
+                            bar.progress((i + 1) / len(df_a_procesar))
+                        
+                        bar.empty()
+                        
+                        st.markdown("---")
+                        st.markdown("### 📊 RESULTADO DEL PROCESO")
+                        
+                        col1, col2 = st.columns(2)
+                        col1.metric("✅ ACTUALIZADOS", actualizados)
+                        col2.metric("❌ NO ENCONTRADOS", no_encontrados)
+                        
+                        if actualizados > 0:
+                            st.success(f"✅ ¡Proceso completado! {actualizados} actas actualizadas correctamente.")
+                            get_dashboard_stats.clear()
+                        else:
+                            st.warning("⚠️ No se pudo actualizar ningún registro.")
+                        
+                        # Limpiar estado
+                        del st.session_state.procesar_actas
+                        del st.session_state.df_a_procesar
+                        del st.session_state.filas_validas_count
+                        if total_problemas > 0:
+                            del st.session_state.filas_problema_count
         
         except Exception as e:
             st.error(f"❌ Error al procesar el archivo: {str(e)}")
+            st.info("💡 Asegurate de que el archivo tenga al menos las columnas: CUIT, LEGAJO y FECHA VTO")
 
 # ══════════════════════════════════════════════════════════════════
 # TAB 4 — Editar Registro
