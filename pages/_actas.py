@@ -1297,7 +1297,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (VERSIÓN DEFINITIVA CON DESCARGAS AUTOMÁTICAS)
+# TAB 3 — Subir Actas (VERSIÓN DEFINITIVA CON EXCEL DE ERRORES EN FORMATO ORIGINAL)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV o Excel)")
@@ -1339,30 +1339,30 @@ with tab3:
         
         with st.spinner("Leyendo archivo..."):
             nombre = actas_file.name.lower()
+            lineas_originales = []
+            errores_formato = []
             
             if nombre.endswith('.xls') or nombre.endswith('.xlsx'):
                 engine = 'xlrd' if nombre.endswith('.xls') else 'openpyxl'
                 df_original = pd.read_excel(io.BytesIO(actas_file.getvalue()), engine=engine, dtype=str, header=0)
                 df_original.columns = [str(c).strip().upper() for c in df_original.columns]
                 total_filas_archivo = len(df_original) + 1
-                errores_formato = []
                 df = df_original.copy()
             else:
-                # Para CSV: leer línea por línea
+                # Para CSV: leer línea por línea y guardar el contenido original
                 contenido = actas_file.getvalue().decode('utf-8-sig', errors='replace')
-                lineas = contenido.split('\n')
-                total_filas_archivo = len([l for l in lineas if l.strip()])
+                lineas_originales = contenido.split('\n')
+                total_filas_archivo = len([l for l in lineas_originales if l.strip()])
                 
-                separador = ',' if ',' in lineas[0] else ';'
+                separador = ',' if ',' in lineas_originales[0] else ';'
                 
-                header_raw = list(csv_mod.reader([lineas[0]], delimiter=separador))[0]
+                header_raw = list(csv_mod.reader([lineas_originales[0]], delimiter=separador))[0]
                 encabezado = [c.strip().upper() for c in header_raw]
                 columnas_esperadas = len(encabezado)
                 
                 filas_ok = []
-                errores_formato = []
                 
-                for num_linea, linea in enumerate(lineas[1:], start=2):
+                for num_linea, linea in enumerate(lineas_originales[1:], start=2):
                     if not linea.strip():
                         continue
                     try:
@@ -1370,6 +1370,7 @@ with tab3:
                         if len(partes) != columnas_esperadas:
                             errores_formato.append({
                                 'Fila': num_linea,
+                                'Contenido original': linea.strip(),
                                 'Motivo': f"Tiene {len(partes)} columnas, se esperaban {columnas_esperadas}"
                             })
                         else:
@@ -1377,6 +1378,7 @@ with tab3:
                     except Exception as e:
                         errores_formato.append({
                             'Fila': num_linea,
+                            'Contenido original': linea.strip(),
                             'Motivo': str(e)[:50]
                         })
                 
@@ -1384,8 +1386,6 @@ with tab3:
                     df = pd.DataFrame(filas_ok, columns=encabezado)
                 else:
                     df = pd.DataFrame(columns=encabezado)
-                
-                df_original = df.copy()
         
         # Vista previa
         with st.expander("📄 Vista previa del archivo (primeras 5 filas válidas)"):
@@ -1393,6 +1393,8 @@ with tab3:
         
         if errores_formato:
             st.warning(f"⚠️ **{len(errores_formato)} fila(s) con problemas de formato**")
+            with st.expander("📋 Ver detalles de filas con error de formato"):
+                st.dataframe(pd.DataFrame(errores_formato), use_container_width=True, height=250)
         
         st.caption(f"Columnas detectadas: {', '.join(df.columns.tolist())}")
         
@@ -1438,11 +1440,10 @@ with tab3:
                 
                 bd_lookup = {(str(r.get('cuit', '')), str(r.get('leg', '')), str(r.get('vto', ''))): True for r in registros_bd}
                 
-                # Validar cada fila y guardar los DataFrames originales para exportar
+                # Validar cada fila
                 filas_correctas_indices = []
                 filas_incorrectas_indices = []
-                filas_correctas_datos = []
-                filas_incorrectas_datos = []
+                filas_incorrectas_motivos = []
                 
                 for idx, row in df.iterrows():
                     fila_num = idx + 2
@@ -1458,25 +1459,41 @@ with tab3:
                     if cuit and leg and vto:
                         if (cuit, str(leg), vto) in bd_lookup:
                             filas_correctas_indices.append(idx)
-                            filas_correctas_datos.append(fila_num)
                         else:
                             filas_incorrectas_indices.append(idx)
-                            filas_incorrectas_datos.append(fila_num)
+                            filas_incorrectas_motivos.append({
+                                'Fila': fila_num,
+                                'Motivo': 'No coincide con BD (CUIT+LEG+VTO) o mail_enviado != SI'
+                            })
                     else:
                         filas_incorrectas_indices.append(idx)
-                        filas_incorrectas_datos.append(fila_num)
+                        motivos = []
+                        if not cuit: motivos.append('CUIT vacío')
+                        if not leg: motivos.append('LEG vacío')
+                        if not vto: motivos.append(f'VTO inválido: "{vto_raw}"')
+                        filas_incorrectas_motivos.append({
+                            'Fila': fila_num,
+                            'Motivo': ' | '.join(motivos)
+                        })
                 
-                # Crear DataFrames para exportar (con el MISMO formato original)
+                # Crear DataFrames para exportar
                 df_correctas = df.iloc[filas_correctas_indices].copy() if filas_correctas_indices else pd.DataFrame(columns=df.columns)
                 df_incorrectas = df.iloc[filas_incorrectas_indices].copy() if filas_incorrectas_indices else pd.DataFrame(columns=df.columns)
                 
-                # Agregar filas con error de formato a las incorrectas
+                # Agregar una columna con el motivo a las incorrectas
+                if not df_incorrectas.empty and filas_incorrectas_motivos:
+                    df_incorrectas['Motivo'] = [m['Motivo'] for m in filas_incorrectas_motivos]
+                
+                # Agregar filas con error de formato (con contenido original)
                 if errores_formato:
-                    # Para las filas con error de formato, no tenemos los datos originales en df
-                    # Solo agregamos una fila de advertencia
                     for err in errores_formato:
-                        fila_placeholder = {col: f"ERROR: {err['Motivo']}" for col in df.columns}
-                        df_incorrectas = pd.concat([df_incorrectas, pd.DataFrame([fila_placeholder])], ignore_index=True)
+                        # Crear una fila con el contenido original en la primera columna
+                        fila_nueva = {col: "" for col in df_incorrectas.columns}
+                        if df_incorrectas.columns[0] in fila_nueva:
+                            fila_nueva[df_incorrectas.columns[0]] = f"⚠️ FILA {err['Fila']}: {err['Contenido original']}"
+                        if 'Motivo' in fila_nueva:
+                            fila_nueva['Motivo'] = err['Motivo']
+                        df_incorrectas = pd.concat([df_incorrectas, pd.DataFrame([fila_nueva])], ignore_index=True)
                 
                 total_filas_datos = total_filas_archivo - 1
                 total_correctas = len(filas_correctas_indices)
