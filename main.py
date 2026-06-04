@@ -162,7 +162,7 @@ def toggle_osecac():
 def abrir_novedades():
     st.session_state.novedades_expandido = True
 
-# ================== CSS ==================
+# ================= CSS ==================
 st.markdown("""
 <style>
 [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header, [data-testid="stSidebarNavItems"], [data-testid="stSidebarNavSeparator"], section[data-testid="stSidebar"], div[data-testid="stSidebarNavItems"], nav[data-testid="stSidebarNav"] { display: none !important; }
@@ -531,7 +531,7 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                                     st.session_state.eliminar_practica_idx = indices_originales[idx]
                                     st.rerun()
                             
-                            # Formulario de edición (sin botones dentro del form)
+                            # Formulario de edición
                             if st.session_state.get('editando_practica_idx') == indices_originales[idx]:
                                 st.markdown("---")
                                 st.markdown(f"### ✏️ Editando registro #{idx+1}")
@@ -545,7 +545,6 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
                                             nuevo_valor = st.text_input(f"{col}", value=valor_actual, key=f"edit_{idx}_{col}")
                                         nuevos_valores.append(nuevo_valor)
                                     
-                                    # Botones dentro del formulario
                                     col_guardar, col_cancelar = st.columns(2)
                                     with col_guardar:
                                         guardar_clicked = st.form_submit_button("💾 GUARDAR CAMBIOS", use_container_width=True)
@@ -594,7 +593,17 @@ with st.expander("🩺 5. PRÁCTICAS Y ESPECIALISTAS", expanded=False):
     else:
         st.info("🔍 Escribí un término de búsqueda para comenzar")
 
-with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
+# ================= CIRUGÍAS (NUEVO EXPANDER) =================
+with st.expander("🩺 6. CIRUGÍAS", expanded=False):
+    st.markdown("### 📋 Acceso a Cirugías")
+    
+    if st.button("🏥 CIRUGÍAS GRAL"):
+        st.switch_page("pages/cirugias.py")
+    
+    st.info("🔍 Para más información, contactar al área correspondiente.")
+
+# ================= AGENDAS / MAILS =================
+with st.expander("📞 7. AGENDAS / MAILS", expanded=False):
     bus_a = st.text_input("Buscá contactos...", key="bus_a")
     if bus_a and not df_agendas.empty:
         res = df_agendas[df_agendas.astype(str).apply(lambda r: r.str.contains(bus_a, case=False, na=False).any(), axis=1)]
@@ -602,7 +611,8 @@ with st.expander("📞 6. AGENDAS / MAILS", expanded=False):
             datos = [f"<b>{c}:</b> {v}" for c,v in row.items() if pd.notna(v)]
             st.markdown(f'<div class="ficha">{"<br>".join(datos)}</div>', unsafe_allow_html=True)
 
-with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expandido):
+# ================= NOVEDADES =================
+with st.expander("📢 8. NOVEDADES", expanded=st.session_state.novedades_expandido):
     st.markdown("## 📢 Últimos Comunicados")
     st.markdown("---")
     for n in st.session_state.historial_novedades:
@@ -621,8 +631,8 @@ with st.expander("📢 7. NOVEDADES", expanded=st.session_state.novedades_expand
         st.session_state.novedades_expandido = False
         st.rerun()
 
-# ================= EXPANDER 8. FISCALIZACIÓN =================
-with st.expander("🔍 8. FISCALIZACIÓN", expanded=False):
+# ================= EXPANDER 9. FISCALIZACIÓN =================
+with st.expander("🔍 9. FISCALIZACIÓN", expanded=False):
     st.markdown("### 📋 Acceso a herramientas de fiscalización")
     
     if st.button("📰 BOLETIN"):
