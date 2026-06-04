@@ -323,16 +323,6 @@ with st.expander("🤰 CESÁREA"):
     
     print_button(contenido_cesarea, "cesarea")
 
-# ================= NOTA ADICIONAL =================
+# ================= PIE DE PÁGINA SIMPLIFICADO =================
 st.markdown("---")
-st.markdown("""
-### 📌 Notas importantes
-- **Documentación actualizada:** Todas las planillas se actualizan directamente en las carpetas de Drive
-- **Firmas y sellos:** Todos los formularios deben tener firma y sello en original (excepto los descargados para completar)
-- **Consentimiento COVID:** Aplicar parcial o totalmente según cada caso
-- **Para consultas:** Comunicarse con el área de Cirugía de OSECAC MDP
-""", unsafe_allow_html=True)
-
-# ================= PIE DE PÁGINA =================
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #64748b; font-size: 1rem;'>📋 Documentación actualizada periódicamente - OSECAC MDP - Área Cirugía</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #64748b; font-size: 1rem;'>OSECAC MDP - Área Cirugía</p>", unsafe_allow_html=True)
