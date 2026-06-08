@@ -19,3 +19,5 @@ reportlab
 PyMuPDF
 pypdf
 beautifulsoup4
+supabase==1.2.0
+httpx==0.24.1
