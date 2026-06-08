@@ -18,3 +18,4 @@ streamlit-folium
 reportlab
 PyMuPDF
 pypdf
+beautifulsoup4
