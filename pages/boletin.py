@@ -9,30 +9,29 @@ from datetime import datetime, date, timedelta
 from bs4 import BeautifulSoup
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Supabase con retry — evita httpx.ConnectError en Streamlit Cloud
+# Supabase con retry — usando las credenciales que FUNCIONAN (ACTAS)
 # ──────────────────────────────────────────────────────────────────────────────
 def get_supabase():
-    """Crea el cliente Supabase; cachea en session_state para no reconectar."""
+    """Crea el cliente Supabase usando las credenciales ACTAS (las que funcionan)."""
     if "supabase_client" not in st.session_state:
         from supabase import create_client
         try:
-            url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL")
-            key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY")
+            # Usar las credenciales ACTAS que ya funcionan en tu página principal
+            url = st.secrets.get("SUPABASE_URL_ACTAS") or os.environ.get("SUPABASE_URL_ACTAS")
+            key = st.secrets.get("SUPABASE_KEY_ACTAS") or os.environ.get("SUPABASE_KEY_ACTAS")
         except Exception:
-            url = os.environ.get("SUPABASE_URL")
-            key = os.environ.get("SUPABASE_KEY")
+            url = os.environ.get("SUPABASE_URL_ACTAS")
+            key = os.environ.get("SUPABASE_KEY_ACTAS")
+        
         if not url or not key:
-            st.error("⚠️ Faltan credenciales de Supabase en secrets o variables de entorno.")
+            st.error("⚠️ Faltan credenciales de Supabase.")
             st.stop()
         st.session_state["supabase_client"] = create_client(url, key)
     return st.session_state["supabase_client"]
 
 
 def supabase_execute(query_obj, retries=3, delay=2):
-    """
-    Ejecuta una query de Supabase con reintentos automáticos.
-    Devuelve (data, error_msg).  data=None si todos los intentos fallan.
-    """
+    """Ejecuta una query de Supabase con reintentos automáticos."""
     last_err = None
     for intento in range(1, retries + 1):
         try:
@@ -41,7 +40,7 @@ def supabase_execute(query_obj, retries=3, delay=2):
         except Exception as e:
             last_err = e
             if intento < retries:
-                time.sleep(delay * intento)   # backoff progresivo
+                time.sleep(delay * intento)
     return None, str(last_err)
 
 
@@ -84,8 +83,8 @@ st.markdown("""
 
 /* ── Highlights ── */
 .hl   { background:#ffff99; font-weight:700; padding:1px 2px; border-radius:2px; }
-.hl-c { background:#bbf7d0; font-weight:700; padding:1px 2px; border-radius:2px; }  /* CUIT */
-.hl-n { background:#bfdbfe; font-weight:700; padding:1px 2px; border-radius:2px; }  /* Nombre */
+.hl-c { background:#bbf7d0; font-weight:700; padding:1px 2px; border-radius:2px; }
+.hl-n { background:#bfdbfe; font-weight:700; padding:1px 2px; border-radius:2px; }
 
 /* ── Header info ── */
 .hdr-meta {
@@ -100,10 +99,7 @@ st.markdown("""
 
 st.title("📚 Fiscalización · Boletines Oficiales PBA")
 st.caption(
-    "Mar del Plata · Alvarado · Miramar · Mechongue · Otamendi · Vivorata · Vidal · Pirán · "
-    "Las Armas · Maipú · Labardén · Guido · Dolores · Castelli · Tordillo · Conesa · Lavalle · "
-    "San Clemente · Las Toninas · Santa Teresita · Mar del Tuyú · San Bernardo · La Lucila del Mar · "
-    "Mar de Ajó · Costa del Este · Pinamar · Madariaga · Villa Gesell · Mar Chiquita"
+    "⚠️ Esta app SOLO LEE datos de la base. No modifica tu página principal."
 )
 
 supabase = get_supabase()
@@ -164,31 +160,26 @@ def descargar_boletin_gh(numero):
 
 
 def eliminar_boletin_db(fecha, numero):
+    """Elimina SOLO de la tabla de fiscalización, no toca tu tabla principal."""
     try:
         data, err = supabase_execute(
-            supabase.table("edictos").delete()
+            supabase.table("edictos_fiscalizacion").delete()
                 .eq("fecha", fecha.isoformat())
                 .eq("boletin_numero", str(numero))
         )
         if err:
             st.error(f"Error al eliminar: {err}")
         else:
-            st.success(f"Boletín N° {numero} del {fecha} eliminado.")
+            st.success(f"Boletín N° {numero} del {fecha} eliminado de fiscalización.")
             st.rerun()
     except Exception as e:
         st.error(str(e))
 
 
-def limpiar_viejos_auto(dias=60):
-    limite = date.today() - timedelta(days=dias)
-    supabase_execute(
-        supabase.table("edictos").delete().lt("fecha", limite.isoformat())
-    )
-
-
 def obtener_boletines_guardados():
+    """Lee SOLO de la tabla de fiscalización."""
     data, err = supabase_execute(
-        supabase.table("edictos").select("fecha,boletin_numero")
+        supabase.table("edictos_fiscalizacion").select("fecha,boletin_numero")
     )
     if err or not data:
         return pd.DataFrame()
@@ -202,8 +193,6 @@ def obtener_boletines_guardados():
 # ──────────────────────────────────────────────────────────────────────────────
 _RE_CUIT = re.compile(r'\b(\d{2}[-.\s]?\d{8}[-.\s]?\d{1})\b')
 _RE_DNI  = re.compile(r'\b(?:D\.?N\.?I\.?\s*N?[°º]?\s*)(\d{7,8})\b', re.IGNORECASE)
-
-# Palabras que suelen preceder al nombre en edictos de quiebra/concurso
 _RE_NOMBRE_CTX = re.compile(
     r'(?:'
     r'quiebra\s+de\s+|'
@@ -219,7 +208,6 @@ _RE_NOMBRE_CTX = re.compile(
 
 
 def extraer_cuits(texto: str) -> list[str]:
-    """Devuelve todos los CUIT/DNI encontrados en el texto, sin duplicados."""
     cuits = [re.sub(r'[\s.]', '-', c) for c in _RE_CUIT.findall(texto)]
     dnis  = [f"DNI {d}" for d in _RE_DNI.findall(texto)]
     vistos, resultado = set(), []
@@ -231,11 +219,6 @@ def extraer_cuits(texto: str) -> list[str]:
 
 
 def extraer_nombre(texto: str, nombre_guardado: str | None) -> str:
-    """
-    Intenta devolver el mejor nombre disponible:
-    1. Si el guardado en DB parece válido, lo usa.
-    2. Si no, intenta extraer del texto con contexto.
-    """
     invalidos = {"", "sin datos", "sin nombre", "none", "null"}
     if nombre_guardado and nombre_guardado.strip().lower() not in invalidos:
         return nombre_guardado.strip()
@@ -245,14 +228,10 @@ def extraer_nombre(texto: str, nombre_guardado: str | None) -> str:
     return "Sin datos"
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Resaltado de texto
-# ──────────────────────────────────────────────────────────────────────────────
 def resaltar(texto: str, localidad: str, nombre: str, cuits: list[str]) -> str:
     resultado = texto
     palabras_clave = ["quiebra", "concurso", "subasta", "transferencia",
                       "inhibición", "embargado", "citación"]
-    # Palabras clave generales → amarillo
     for p in palabras_clave + [localidad.lower()]:
         if p:
             resultado = re.sub(
@@ -260,7 +239,6 @@ def resaltar(texto: str, localidad: str, nombre: str, cuits: list[str]) -> str:
                 r'<span class="hl">\1</span>',
                 resultado
             )
-    # Nombre → azul
     if nombre and nombre != "Sin datos":
         for parte in nombre.split():
             if len(parte) > 3:
@@ -269,7 +247,6 @@ def resaltar(texto: str, localidad: str, nombre: str, cuits: list[str]) -> str:
                     r'<span class="hl-n">\1</span>',
                     resultado
                 )
-    # CUIT → verde
     for cuit in cuits:
         nro = re.sub(r'\D', '', cuit)
         if nro:
@@ -281,42 +258,6 @@ def resaltar(texto: str, localidad: str, nombre: str, cuits: list[str]) -> str:
     return resultado
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Impresión
-# ──────────────────────────────────────────────────────────────────────────────
-def generar_html_impresion(row, numero, fecha_str, nombre, cuits):
-    nivel  = row.get("nivel_confianza") or "BAJA"
-    color  = {"ALTA": "#fee2e2", "MEDIA": "#fef3c7"}.get(nivel, "#f3f4f6")
-    texto  = resaltar(row["texto_completo"], row["localidad"], nombre, cuits)
-    return f"""<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8">
-<title>Boletín N° {numero} — {fecha_str}</title>
-<style>
-  body {{ font-family: Arial, sans-serif; margin: 40px; font-size: 14px; }}
-  .info {{ padding: 12px; background: {color}; border-left: 6px solid #888; margin-bottom: 20px; border-radius: 4px; }}
-  .info dt {{ font-weight: bold; display: inline; }}
-  .texto {{ white-space: pre-wrap; line-height: 1.6; }}
-  .hl   {{ background: #ffff99; font-weight: bold; }}
-  .hl-c {{ background: #bbf7d0; font-weight: bold; }}
-  .hl-n {{ background: #bfdbfe; font-weight: bold; }}
-  @media print {{ .info {{ page-break-after: avoid; }} }}
-</style></head><body>
-<div class="info">
-  <strong>Boletín Oficial PBA — N° {numero} | {fecha_str}</strong><br>
-  <dt>Localidad:</dt> {row['localidad']} &nbsp;
-  <dt>Tipo:</dt> {row.get('tipo_edicto','?')} &nbsp;
-  <dt>Página:</dt> {row.get('pagina','?')}<br>
-  <dt>Sujeto:</dt> {nombre} &nbsp;
-  <dt>CUIT/DNI:</dt> {', '.join(cuits) or '—'} &nbsp;
-  <dt>Confianza:</dt> {nivel}
-</div>
-<div class="texto">{texto}</div>
-</body></html>"""
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Badges helpers
-# ──────────────────────────────────────────────────────────────────────────────
 def badge(nivel):
     m = {
         "ALTA":  ('<span class="badge badge-alta">🔴 ALTA</span>',  "alta"),
@@ -329,9 +270,6 @@ def prio(nivel):
     return {"ALTA": 0, "MEDIA": 1, "BAJA": 2}.get(nivel or "BAJA", 2)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Renderizado principal
-# ──────────────────────────────────────────────────────────────────────────────
 def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
     icono = "📘" if sec_nombre == "JUDICIAL" else "📕"
 
@@ -369,10 +307,8 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
                     localidad= row.get("localidad") or "?"
                     pagina   = row.get("pagina", "?")
 
-                    # ── Extracción mejorada ──────────────────────────────
                     nombre = extraer_nombre(texto_completo, row.get("sujetos"))
                     cuits  = extraer_cuits(texto_completo)
-                    # Si la DB ya tenía CUITs, combinarlos con los extraídos
                     cuit_db = row.get("cuit_detectados") or ""
                     for c in re.split(r'[,;\s]+', cuit_db):
                         c = c.strip()
@@ -383,7 +319,6 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
                     icono_niv = {"ALTA": "🚨", "MEDIA": "⚠️"}.get(nivel, "⚪")
                     cuit_resumen = cuits[0] if cuits else "—"
 
-                    # Título del edicto individual
                     rev_key = f"rev_{row['id']}"
                     check   = "🟢 " if st.session_state.get(rev_key) else ""
                     titulo_ed = (
@@ -394,7 +329,6 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
                     )
 
                     with st.expander(titulo_ed):
-                        # Metadata compacta
                         cuits_str = " · ".join(cuits) if cuits else "No detectado"
                         st.markdown(
                             f'<div class="hdr-meta">'
@@ -409,19 +343,14 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
                         )
                         st.divider()
 
-                        # Texto con resaltado
                         texto_r = resaltar(texto_completo, localidad, nombre, cuits)
                         st.markdown(
                             f'<div class="edicto-card {clase_css}">{texto_r}</div>',
                             unsafe_allow_html=True
                         )
 
-                        # Leyenda de colores del texto
-                        st.caption(
-                            "🟡 palabras clave · 🟢 CUIT/DNI · 🔵 nombre del sujeto"
-                        )
+                        st.caption("🟡 palabras clave · 🟢 CUIT/DNI · 🔵 nombre del sujeto")
 
-                        # Acciones
                         ca, cb, cc = st.columns(3)
                         with ca:
                             if st.button("✅ Revisado", key=f"rev_btn_{row['id']}"):
@@ -433,7 +362,7 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
                             if st.button(lbl, key=f"del_btn_{row['id']}"):
                                 if st.session_state.get(ck):
                                     data, err = supabase_execute(
-                                        supabase.table("edictos").delete().eq("id", row["id"])
+                                        supabase.table("edictos_fiscalizacion").delete().eq("id", row["id"])
                                     )
                                     if err:
                                         st.error(f"Error: {err}")
@@ -444,9 +373,7 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
                                     st.rerun()
                         with cc:
                             if st.button("🖨️ Imprimir", key=f"print_{row['id']}"):
-                                html_p = generar_html_impresion(
-                                    row, numero, fecha.strftime('%d/%m/%Y'), nombre, cuits
-                                )
+                                html_p = generar_html_impresion(row, numero, fecha.strftime('%d/%m/%Y'), nombre, cuits)
                                 b64 = base64.b64encode(html_p.encode()).decode()
                                 st.markdown(
                                     f'<a href="data:text/html;base64,{b64}" target="_blank">'
@@ -468,11 +395,42 @@ def renderizar_seccion(df_sec: pd.DataFrame, sec_nombre: str):
         st.markdown("---")
 
 
+def generar_html_impresion(row, numero, fecha_str, nombre, cuits):
+    nivel  = row.get("nivel_confianza") or "BAJA"
+    color  = {"ALTA": "#fee2e2", "MEDIA": "#fef3c7"}.get(nivel, "#f3f4f6")
+    texto  = resaltar(row["texto_completo"], row["localidad"], nombre, cuits)
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8">
+<title>Boletín N° {numero} — {fecha_str}</title>
+<style>
+  body {{ font-family: Arial, sans-serif; margin: 40px; font-size: 14px; }}
+  .info {{ padding: 12px; background: {color}; border-left: 6px solid #888; margin-bottom: 20px; border-radius: 4px; }}
+  .info dt {{ font-weight: bold; display: inline; }}
+  .texto {{ white-space: pre-wrap; line-height: 1.6; }}
+  .hl   {{ background: #ffff99; font-weight: bold; }}
+  .hl-c {{ background: #bbf7d0; font-weight: bold; }}
+  .hl-n {{ background: #bfdbfe; font-weight: bold; }}
+  @media print {{ .info {{ page-break-after: avoid; }} }}
+</style></head><body>
+<div class="info">
+  <strong>Boletín Oficial PBA — N° {numero} | {fecha_str}</strong><br>
+  <dt>Localidad:</dt> {row['localidad']} &nbsp;
+  <dt>Tipo:</dt> {row.get('tipo_edicto','?')} &nbsp;
+  <dt>Página:</dt> {row.get('pagina','?')}<br>
+  <dt>Sujeto:</dt> {nombre} &nbsp;
+  <dt>CUIT/DNI:</dt> {', '.join(cuits) or '—'} &nbsp;
+  <dt>Confianza:</dt> {nivel}
+</div>
+<div class="texto">{texto}</div>
+</body></html>"""
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Sidebar — filtros
 # ──────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("🔍 Filtros")
+    st.info("📌 Esta app SOLO LEE datos. No modifica tu página principal.")
 
     localidad_filtro = st.multiselect(
         "Localidad", ["Todas"] + LOCALIDADES, default=["Todas"]
@@ -520,8 +478,6 @@ with ac3:
     if st.button("🔄 Actualizar vista"):
         st.rerun()
 
-# Auto-limpiar más de 60 días (silencioso)
-limpiar_viejos_auto(60)
 
 # ── Panel: descargar ──────────────────────────────────────────────────────────
 if st.session_state.get("panel_descarga"):
@@ -557,9 +513,9 @@ if st.session_state.get("panel_eliminar"):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Consulta principal con manejo de error amigable
+# Consulta principal - USA TABLA SEPARADA "edictos_fiscalizacion"
 # ──────────────────────────────────────────────────────────────────────────────
-q = supabase.table("edictos").select("*").order("fecha", desc=True)
+q = supabase.table("edictos_fiscalizacion").select("*").order("fecha", desc=True)
 
 if "Todas" not in localidad_filtro and localidad_filtro:
     q = q.in_("localidad", localidad_filtro)
@@ -578,7 +534,7 @@ if err:
     st.stop()
 
 if not datos:
-    st.info("No hay edictos cargados aún.")
+    st.info("No hay edictos cargados aún en la tabla de fiscalización.")
     st.stop()
 
 df = pd.DataFrame(datos)
