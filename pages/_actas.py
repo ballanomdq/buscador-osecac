@@ -58,6 +58,7 @@ st.markdown("""
     .kpi-pendiente h1 { color: #ef4444; }
     .kpi-mail h1 { color: #f97316; }
     .kpi-finalizado h1 { color: #10b981; }
+    .kpi-anulado h1 { color: #8b5cf6; }
 
     .inspector-card {
         background: white;
@@ -170,6 +171,13 @@ st.markdown("""
         border-left: 4px solid #ef4444;
         text-align: center;
     }
+    .tarjeta-anulada {
+        background: #ede9fe;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        border-left: 4px solid #8b5cf6;
+        text-align: center;
+    }
     .btn-verde button {
         background-color: #22c55e !important;
         color: white !important;
@@ -189,6 +197,31 @@ st.markdown("""
     }
     .btn-rojo button:hover {
         background-color: #dc2626 !important;
+    }
+    .btn-morado button {
+        background-color: #8b5cf6 !important;
+        color: white !important;
+        font-size: 1.2rem !important;
+        padding: 0.75rem !important;
+        font-weight: bold !important;
+    }
+    .btn-morado button:hover {
+        background-color: #7c3aed !important;
+    }
+    
+    .explicacion-simple {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        padding: 0.8rem 1rem;
+        margin-bottom: 1rem;
+    }
+    .explicacion-simple p {
+        margin: 0;
+        color: #166534;
+    }
+    .explicacion-simple strong {
+        color: #15803d;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -512,6 +545,44 @@ def eliminar_registros_finalizados():
     supabase.table("padron_deuda_presunta").delete().in_("id", ids_a_eliminar).execute()
     return excel_data, len(ids_a_eliminar)
 
+# ── FUNCIÓN PARA GENERAR INFORME DE ANULADOS ───────────────────────────────────
+def generar_informe_anulados():
+    """Genera informe TXT de todos los registros con estado 'ANULADA'"""
+    registros = supabase.table("padron_deuda_presunta").select("*").eq("estado", "ANULADA").execute()
+    if not registros.data:
+        return None, 0
+    
+    contenido = []
+    contenido.append("=" * 80)
+    contenido.append("                    INFORME DE REGISTROS ANULADOS")
+    contenido.append(f"                        Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    contenido.append(f"                        Total de registros: {len(registros.data)}")
+    contenido.append("=" * 80)
+    contenido.append("")
+    
+    for i, reg in enumerate(registros.data, 1):
+        contenido.append("┌" + "─" * 78 + "┐")
+        contenido.append(f"│ REGISTRO N° {i:<70}│")
+        contenido.append("├" + "─" * 78 + "┤")
+        contenido.append(f"│ ID:            {str(reg.get('id', 'N/D')):<61}│")
+        contenido.append(f"│ LOCALIDAD:     {str(reg.get('localidad', 'N/D')):<61}│")
+        contenido.append(f"│ CUIT:          {str(reg.get('cuit', 'N/D')):<61}│")
+        contenido.append(f"│ RAZON SOCIAL:  {str(reg.get('razon_social', 'N/D')):<61}│")
+        contenido.append(f"│ CALLE:         {str(reg.get('calle', 'N/D'))} {str(reg.get('numero', '')):<61}│")
+        contenido.append(f"│ ESTADO:        ANULADA{' '*55}│")
+        contenido.append(f"│ LEGAJO:        {str(reg.get('leg', 'N/D')):<61}│")
+        contenido.append(f"│ DEUDA:         {str(reg.get('deuda_presunta', 'N/D')):<61}│")
+        contenido.append(f"│ TELEFONO LEGAL:{str(reg.get('tel_dom_legal', 'N/D')):<61}│")
+        contenido.append(f"│ TELEFONO REAL: {str(reg.get('tel_dom_real', 'N/D')):<61}│")
+        contenido.append("└" + "─" * 78 + "┘")
+        contenido.append("")
+    
+    contenido.append("=" * 80)
+    contenido.append("                        FIN DEL INFORME")
+    contenido.append("=" * 80)
+    
+    return "\n".join(contenido), len(registros.data)
+
 # ── UNA SOLA QUERY para todos los conteos del dashboard ─────────────────────
 @st.cache_data(ttl=60)
 def get_dashboard_stats():
@@ -585,7 +656,7 @@ def generar_excel_para_mailing(df_seleccionado, fecha_vto_str):
 
 def generar_excel_asignados(registros):
     df = pd.DataFrame(registros)
-    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion', 'tel_dom_legal', 'tel_dom_real', 'email']
+    columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'leg', 'vto', 'mail_enviado', 'acta', 'estado_gestion', 'tel_dom_legal', 'tel_dom_real', 'email', 'estado']
     df_excel = df[[c for c in columnas if c in df.columns]]
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -600,7 +671,7 @@ def generar_excel_por_inspector():
             registros = traer_registros_por_inspector(ins['legajo'])
             if registros:
                 df = pd.DataFrame(registros)
-                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'vto', 'mail_enviado', 'acta', 'estado_gestion', 'tel_dom_legal', 'tel_dom_real', 'email']
+                columnas = ['id', 'cuit', 'razon_social', 'localidad', 'calle', 'numero', 'vto', 'mail_enviado', 'acta', 'estado_gestion', 'tel_dom_legal', 'tel_dom_real', 'email', 'estado']
                 df_excel = df[[c for c in columnas if c in df.columns]]
                 nombre_hoja = f"{ins['nombre'].split(',')[0][:20]} {ins['legajo']}"
                 df_excel.to_excel(writer, sheet_name=nombre_hoja, index=False)
@@ -703,6 +774,11 @@ with tab2:
     pendientes_sin_mail = stats.get('sin_mail', 0) or 0
     pendientes_con_mail = stats.get('con_mail', 0) or 0
     finalizados         = stats.get('finalizados', 0) or 0
+    
+    # Contar anulados
+    count_anulados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado", "ANULADA").execute()
+    anulados = count_anulados.count if count_anulados.count is not None else 0
+    
     por_inspector       = stats.get('por_inspector') or {}
 
     with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
@@ -715,13 +791,15 @@ with tab2:
             st.markdown(f"""<div class="kpi-card kpi-sin-legajo"><div class="kpi-icon">⚠️</div><h1>{sin_legajo_total:,}</h1><p>SIN LEGAJO</p></div>""", unsafe_allow_html=True)
 
     with st.expander("🔄 ESTADO DE REGISTROS", expanded=False):
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown(f"""<div class="kpi-card kpi-pendiente"><div class="kpi-icon">📧</div><h1>{pendientes_sin_mail:,}</h1><p>PENDIENTES (sin mail)</p></div>""", unsafe_allow_html=True)
         with col2:
             st.markdown(f"""<div class="kpi-card kpi-mail"><div class="kpi-icon">📨</div><h1>{pendientes_con_mail:,}</h1><p>MAIL ENVIADO</p></div>""", unsafe_allow_html=True)
         with col3:
             st.markdown(f"""<div class="kpi-card kpi-finalizado"><div class="kpi-icon">🏁</div><h1>{finalizados:,}</h1><p>FINALIZADOS</p></div>""", unsafe_allow_html=True)
+        with col4:
+            st.markdown(f"""<div class="kpi-card kpi-anulado"><div class="kpi-icon">🚫</div><h1>{anulados:,}</h1><p>ANULADOS</p></div>""", unsafe_allow_html=True)
 
     inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
     if inspectores.data:
@@ -735,7 +813,7 @@ with tab2:
 
     st.divider()
 
-    col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_reset, col_recargar = st.columns(10)
+    col_guardar, col_elim_sel, col_elim_todo, col_asignar, col_preparar_mails, col_inf_no, col_inf_si, col_inf_insp, col_inf_anulados, col_reset, col_recargar = st.columns(11)
     
     with col_guardar:
         guardar_click = st.button("💾 GUARDAR CAMBIOS", type="secondary", use_container_width=True)
@@ -765,9 +843,12 @@ with tab2:
     with col_inf_insp:
         if st.button("📊 Inf. POR INSPECTOR", use_container_width=True):
             st.session_state.generar_informe_por_inspector = True
+    with col_inf_anulados:
+        if st.button("🚫 Inf. ANULADOS", use_container_width=True):
+            st.session_state.generar_informe_anulados = True
     with col_reset:
         if st.button("↺ Resetear filtros", use_container_width=True):
-            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad', 'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual','filtro_estado','filtro_acta']:
+            for k in ['input_filtro_cuit','input_filtro_razon','filtro_localidad', 'filtro_mail','filtro_leg','filtro_calle_aproximacion','pagina_actual','filtro_estado','filtro_acta','filtro_estado_anulado']:
                 st.session_state.pop(k, None)
             st.rerun()
     with col_recargar:
@@ -832,6 +913,22 @@ with tab2:
             if st.button("Cancelar"):
                 st.session_state.confirmar_del_todo = False
                 st.rerun()
+    
+    # Generar informe de anulados
+    if st.session_state.get('generar_informe_anulados'):
+        with st.spinner("Generando informe de registros ANULADOS..."):
+            contenido_txt, cantidad = generar_informe_anulados()
+            if contenido_txt:
+                st.download_button(
+                    label="📥 DESCARGAR INFORME ANULADOS (TXT)",
+                    data=contenido_txt.encode('utf-8'),
+                    file_name=f"INFORME_ANULADOS_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
+                )
+                st.info(f"📊 {cantidad} registros con estado ANULADA")
+            else:
+                st.success("✅ No hay registros con estado ANULADA")
+        st.session_state.generar_informe_anulados = False
 
     # ── DIÁLOGO PREPARAR MAILS ──
     if st.session_state.get('preparar_mails'):
@@ -1090,6 +1187,8 @@ with tab2:
         st.session_state.filtro_estado = "AMBOS"
     if 'filtro_acta' not in st.session_state:
         st.session_state.filtro_acta = "AMBOS"
+    if 'filtro_estado_anulado' not in st.session_state:
+        st.session_state.filtro_estado_anulado = "AMBOS"
     
     col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns(5)
     with col_f1:
@@ -1109,7 +1208,7 @@ with tab2:
         st.markdown('<p class="filtro-titulo">🏢 RAZÓN SOCIAL</p>', unsafe_allow_html=True)
         filtro_razon_temp = st.text_input("Razón Social", key="filtro_razon_temp", placeholder="Razón social", label_visibility="collapsed")
     
-    col_f6, col_f7, col_f8, col_f9 = st.columns([2, 0.8, 1, 1])
+    col_f6, col_f7, col_f8, col_f9, col_f10 = st.columns([1.5, 0.8, 1, 1, 1])
     with col_f6:
         st.markdown('<p class="filtro-titulo">🏠 CALLE</p>', unsafe_allow_html=True)
         filtro_calle_temp = st.text_input("Calle", key="filtro_calle_temp", placeholder="Ej: Yrigoyen", label_visibility="collapsed")
@@ -1123,6 +1222,9 @@ with tab2:
     with col_f9:
         st.markdown('<p class="filtro-titulo">📋 ACTA</p>', unsafe_allow_html=True)
         filtro_acta_temp = st.selectbox("Acta", ["AMBOS", "CON NÚMERO", "SIN NÚMERO"], key="filtro_acta_temp", label_visibility="collapsed")
+    with col_f10:
+        st.markdown('<p class="filtro-titulo">🚫 ESTADO ANULADO</p>', unsafe_allow_html=True)
+        filtro_estado_anulado_temp = st.selectbox("Anulado", ["AMBOS", "ANULADA", "NO ANULADA"], key="filtro_estado_anulado_temp", label_visibility="collapsed")
     
     if 'filtro_cuit' not in st.session_state:
         st.session_state.filtro_cuit = ""
@@ -1137,6 +1239,7 @@ with tab2:
         st.session_state.filtro_calle = filtro_calle_temp
         st.session_state.filtro_estado = filtro_estado_temp
         st.session_state.filtro_acta = filtro_acta_temp
+        st.session_state.filtro_estado_anulado = filtro_estado_anulado_temp
         st.session_state.pagina_actual = 1
         st.rerun()
     
@@ -1145,6 +1248,7 @@ with tab2:
     filtro_calle_aprox = st.session_state.filtro_calle
     filtro_estado = st.session_state.filtro_estado
     filtro_acta = st.session_state.filtro_acta
+    filtro_estado_anulado = st.session_state.filtro_estado_anulado
     
     q = supabase.table("padron_deuda_presunta").select("*")
     if localidad != "TODAS":
@@ -1159,6 +1263,10 @@ with tab2:
         q = q.is_("leg", "null")
     if filtro_estado != "AMBOS":
         q = q.eq("estado_gestion", filtro_estado)
+    if filtro_estado_anulado == "ANULADA":
+        q = q.eq("estado", "ANULADA")
+    elif filtro_estado_anulado == "NO ANULADA":
+        q = q.is_("estado", "null").or_("estado", "neq", "ANULADA")
     
     with st.spinner("Consultando base de datos..."):
         datos = q.execute()
@@ -1255,7 +1363,8 @@ with tab2:
                         ('ACTA', 'acta'), ('ESTADO GESTION', 'estado_gestion'),
                         ('LOCALIDAD', 'localidad'), ('RAZON SOCIAL', 'razon_social'),
                         ('CUIT', 'cuit'), ('CALLE', 'calle'), ('NUMERO', 'numero'),
-                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta')
+                        ('DEUDA PRESUNTA', 'deuda_presunta'), ('DESDE', 'desde'), ('HASTA', 'hasta'),
+                        ('ESTADO', 'estado')
                     ]:
                         nv = row.get(col_edit)
                         if nv is None or (isinstance(nv, float) and pd.isna(nv)) or (isinstance(nv, str) and nv.strip() == ''):
@@ -1297,22 +1406,22 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (VERSIÓN DEFINITIVA CON EXCEL DE ERRORES EN FORMATO ORIGINAL)
+# TAB 3 — Subir Actas (VERSIÓN CON DETECCIÓN DE ANULADAS)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV o Excel)")
+    
+    # EXPLICACIÓN SIMPLE
     st.markdown("""
-    <div style="background: #f1f5f9; padding: 0.5rem 1rem; border-radius: 10px; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
-    El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong>
-    en registros con <strong>MAIL ENVIADO = SI</strong> y actualiza:
-    <ul>
-        <li>ACTA y ESTADO GESTIÓN a FINALIZADO</li>
-        <li>DEUDA PRESUNTA (si la columna existe)</li>
-        <li>PERÍODO DESDE y PERÍODO HASTA (si las columnas existen)</li>
-    </ul>
+    <div class="explicacion-simple">
+        <p>📌 <strong>¿QUÉ HACE ESTA SOLAPA?</strong><br>
+        Subís un archivo con actas → El sistema busca coincidencias por <strong>CUIT + LEGAJO + FECHA VTO</strong><br>
+        → Si encuentra coincidencia y la fila tiene <strong>"ANULADA"</strong> en la columna ESTADO, <strong>CREA UN REGISTRO NUEVO</strong> (no pisa el existente)<br>
+        → Si encuentra coincidencia y NO tiene "ANULADA", <strong>ACTUALIZA</strong> el registro existente (lo marca como FINALIZADO y guarda el acta)<br>
+        → Si NO encuentra coincidencia, la fila se rechaza (te mostramos por qué)</p>
     </div>
     """, unsafe_allow_html=True)
-
+    
     actas_file = st.file_uploader(
         "Archivo de Actas (CSV, XLS o XLSX)",
         type=["csv", "xls", "xlsx"],
@@ -1349,7 +1458,6 @@ with tab3:
                 total_filas_archivo = len(df_original) + 1
                 df = df_original.copy()
             else:
-                # Para CSV: leer línea por línea y guardar el contenido original
                 contenido = actas_file.getvalue().decode('utf-8-sig', errors='replace')
                 lineas_originales = contenido.split('\n')
                 total_filas_archivo = len([l for l in lineas_originales if l.strip()])
@@ -1387,7 +1495,6 @@ with tab3:
                 else:
                     df = pd.DataFrame(columns=encabezado)
         
-        # Vista previa
         with st.expander("📄 Vista previa del archivo (primeras 5 filas válidas)"):
             st.dataframe(df.head(5), use_container_width=True, height=180)
         
@@ -1399,7 +1506,7 @@ with tab3:
         st.caption(f"Columnas detectadas: {', '.join(df.columns.tolist())}")
         
         # Detectar columnas
-        col_cuit = col_leg = col_vto = col_acta = col_deuda = col_desde = col_hasta = None
+        col_cuit = col_leg = col_vto = col_acta = col_deuda = col_desde = col_hasta = col_estado = None
         for c in df.columns:
             cu = c.upper()
             if 'CUIT' in cu and not col_cuit:
@@ -1416,12 +1523,18 @@ with tab3:
                 col_desde = c
             if 'PERIODO_HASTA' in cu and not col_hasta:
                 col_hasta = c
+            if cu == 'ESTADO' and not col_estado:
+                col_estado = c
         
         if not all([col_cuit, col_leg, col_vto]):
             st.warning("⚠️ No se detectaron todas las columnas necesarias (CUIT, LEG, VTO).")
             st.info(f"Columnas encontradas: CUIT={col_cuit}, LEG={col_leg}, VTO={col_vto}")
         else:
             st.success(f"✅ Columnas detectadas: CUIT=`{col_cuit}` · LEG=`{col_leg}` · VTO=`{col_vto}`")
+            if col_estado:
+                st.info(f"📌 Columna ESTADO detectada: `{col_estado}` (se buscará la palabra 'ANULADA')")
+            else:
+                st.info("📌 No se detectó columna ESTADO. Las filas se procesarán normalmente (sin lógica de anulación).")
             
             # GENERAR REPORTE AUTOMÁTICAMENTE
             with st.spinner("Generando reporte de validación..."):
@@ -1430,7 +1543,7 @@ with tab3:
                 offset = 0
                 batch_size = 1000
                 while True:
-                    query = supabase.table("padron_deuda_presunta").select("cuit, leg, vto").eq("mail_enviado", "SI").range(offset, offset + batch_size - 1).execute()
+                    query = supabase.table("padron_deuda_presunta").select("cuit, leg, vto, id").eq("mail_enviado", "SI").range(offset, offset + batch_size - 1).execute()
                     if not query.data:
                         break
                     registros_bd.extend(query.data)
@@ -1438,12 +1551,13 @@ with tab3:
                     if len(query.data) < batch_size:
                         break
                 
-                bd_lookup = {(str(r.get('cuit', '')), str(r.get('leg', '')), str(r.get('vto', ''))): True for r in registros_bd}
+                bd_lookup = {(str(r.get('cuit', '')), str(r.get('leg', '')), str(r.get('vto', ''))): r.get('id') for r in registros_bd}
                 
                 # Validar cada fila
                 filas_correctas_indices = []
                 filas_incorrectas_indices = []
                 filas_incorrectas_motivos = []
+                filas_anuladas_indices = []  # Filas que tienen "ANULADA" y van a crear nuevo registro
                 
                 for idx, row in df.iterrows():
                     fila_num = idx + 2
@@ -1456,9 +1570,19 @@ with tab3:
                     vto_raw = str(row[col_vto]) if pd.notna(row.get(col_vto)) else ""
                     vto = norm_fecha(vto_raw)
                     
+                    # Verificar si es ANULADA
+                    es_anulada = False
+                    if col_estado and pd.notna(row.get(col_estado)):
+                        valor_estado = str(row[col_estado]).strip().upper()
+                        es_anulada = 'ANULADA' in valor_estado
+                    
                     if cuit and leg and vto:
                         if (cuit, str(leg), vto) in bd_lookup:
-                            filas_correctas_indices.append(idx)
+                            if es_anulada:
+                                filas_anuladas_indices.append(idx)
+                                filas_correctas_indices.append(idx)  # También va a correctas porque se puede procesar
+                            else:
+                                filas_correctas_indices.append(idx)
                         else:
                             filas_incorrectas_indices.append(idx)
                             filas_incorrectas_motivos.append({
@@ -1484,10 +1608,13 @@ with tab3:
                 if not df_incorrectas.empty and filas_incorrectas_motivos:
                     df_incorrectas['Motivo'] = [m['Motivo'] for m in filas_incorrectas_motivos]
                 
-                # Agregar filas con error de formato (con contenido original)
+                # Agregar columna que indica si es ANULADA en correctas
+                if not df_correctas.empty and col_estado:
+                    df_correctas['Tipo'] = df_correctas.apply(lambda row: '🔄 ANULADA (CREARÁ NUEVO)' if col_estado and pd.notna(row.get(col_estado)) and 'ANULADA' in str(row[col_estado]).strip().upper() else '✅ ACTUALIZARÁ EXISTENTE', axis=1)
+                
+                # Agregar filas con error de formato
                 if errores_formato:
                     for err in errores_formato:
-                        # Crear una fila con el contenido original en la primera columna
                         fila_nueva = {col: "" for col in df_incorrectas.columns}
                         if df_incorrectas.columns[0] in fila_nueva:
                             fila_nueva[df_incorrectas.columns[0]] = f"⚠️ FILA {err['Fila']}: {err['Contenido original']}"
@@ -1498,8 +1625,9 @@ with tab3:
                 total_filas_datos = total_filas_archivo - 1
                 total_correctas = len(filas_correctas_indices)
                 total_incorrectas = len(filas_incorrectas_indices) + len(errores_formato)
+                total_anuladas = len(filas_anuladas_indices)
                 
-                # GENERAR EXCEL PARA DESCARGAR (automáticamente)
+                # GENERAR EXCEL PARA DESCARGAR
                 fecha_str = datetime.now().strftime("%Y%m%d_%H%M%S")
                 
                 # Excel de registros que SÍ se cargan
@@ -1532,7 +1660,7 @@ with tab3:
             st.markdown("---")
             st.markdown("### 📊 REPORTE DE VALIDACIÓN")
             
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 st.markdown(f"""
                 <div class="tarjeta-verde">
@@ -1549,6 +1677,14 @@ with tab3:
                     <p style="color:#991b1b; margin:0; font-size:0.8rem;">de {total_filas_datos} filas totales</p>
                 </div>
                 """, unsafe_allow_html=True)
+            with col3:
+                st.markdown(f"""
+                <div class="tarjeta-anulada">
+                    <h1 style="color:#5b21b6; margin:0; font-size:2.5rem;">{total_anuladas}</h1>
+                    <p style="color:#5b21b6; margin:0; font-weight:600;">REGISTROS ANULADOS</p>
+                    <p style="color:#5b21b6; margin:0; font-size:0.8rem;">Crearán NUEVO registro</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             # Botones de acción
             st.markdown("---")
@@ -1561,6 +1697,7 @@ with tab3:
                     if filas_correctas_indices:
                         with st.spinner("Procesando registros..."):
                             actualizados = 0
+                            creados = 0
                             bar = st.progress(0)
                             
                             for i, idx in enumerate(filas_correctas_indices):
@@ -1573,13 +1710,23 @@ with tab3:
                                 vto = norm_fecha(vto_raw)
                                 
                                 acta_val = str(row[col_acta]) if col_acta and pd.notna(row.get(col_acta)) else "ACTUALIZADO"
+                                
+                                # Verificar si es ANULADA
+                                es_anulada = False
+                                if col_estado and pd.notna(row.get(col_estado)):
+                                    valor_estado = str(row[col_estado]).strip().upper()
+                                    es_anulada = 'ANULADA' in valor_estado
+                                
                                 deuda_nueva = None
-                                if col_deuda and pd.notna(row.get(col_deuda)):
+                                if es_anulada:
+                                    deuda_nueva = "ANULADA"
+                                elif col_deuda and pd.notna(row.get(col_deuda)):
                                     deuda_raw = str(row[col_deuda]).replace(',', '.').strip()
                                     try:
                                         deuda_nueva = fmt_moneda(float(deuda_raw))
                                     except:
                                         deuda_nueva = deuda_raw
+                                
                                 desde_nuevo = None
                                 if col_desde and pd.notna(row.get(col_desde)):
                                     desde_nuevo = parsear_periodo(row[col_desde])
@@ -1587,21 +1734,72 @@ with tab3:
                                 if col_hasta and pd.notna(row.get(col_hasta)):
                                     hasta_nuevo = parsear_periodo(row[col_hasta])
                                 
-                                resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
-                                for reg in resultado.data:
-                                    update_data = {"acta": acta_val, "estado_gestion": "FINALIZADO"}
-                                    if deuda_nueva:
-                                        update_data["deuda_presunta"] = deuda_nueva
-                                    if desde_nuevo:
-                                        update_data["desde"] = desde_nuevo
-                                    if hasta_nuevo:
-                                        update_data["hasta"] = hasta_nuevo
-                                    supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
-                                    actualizados += 1
+                                if es_anulada:
+                                    # CREAR NUEVO REGISTRO en lugar de actualizar
+                                    # Primero, buscar el registro original para obtener los datos base
+                                    registro_original = supabase.table("padron_deuda_presunta").select("*").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
+                                    if registro_original.data:
+                                        orig = registro_original.data[0]
+                                        nuevo_registro = {
+                                            "delegacion": orig.get('delegacion'),
+                                            "localidad": orig.get('localidad'),
+                                            "cuit": cuit,
+                                            "razon_social": orig.get('razon_social'),
+                                            "deuda_presunta": "ANULADA",
+                                            "cp": orig.get('cp'),
+                                            "calle": orig.get('calle'),
+                                            "numero": orig.get('numero'),
+                                            "piso": orig.get('piso'),
+                                            "dpto": orig.get('dpto'),
+                                            "fechareldependencia": orig.get('fechareldependencia'),
+                                            "email": orig.get('email'),
+                                            "tel_dom_legal": orig.get('tel_dom_legal'),
+                                            "tel_dom_real": orig.get('tel_dom_real'),
+                                            "ultima_acta": orig.get('ultima_acta'),
+                                            "desde": desde_nuevo or orig.get('desde'),
+                                            "hasta": hasta_nuevo or orig.get('hasta'),
+                                            "detectado": orig.get('detectado'),
+                                            "estado": "ANULADA",
+                                            "fecha_pago_obl": orig.get('fecha_pago_obl'),
+                                            "empl_10_2025": orig.get('empl_10_2025'),
+                                            "emp_11_2025": orig.get('emp_11_2025'),
+                                            "empl_12_2025": orig.get('empl_12_2025'),
+                                            "actividad": orig.get('actividad'),
+                                            "situacion": orig.get('situacion'),
+                                            "leg": leg,
+                                            "vto": vto,
+                                            "mail_enviado": "SI",
+                                            "acta": acta_val,
+                                            "estado_gestion": "FINALIZADO",
+                                            "fecha_carga": date.today().isoformat()
+                                        }
+                                        supabase.table("padron_deuda_presunta").insert(nuevo_registro).execute()
+                                        creados += 1
+                                else:
+                                    # ACTUALIZAR registro existente
+                                    resultado = supabase.table("padron_deuda_presunta").select("id").eq("cuit", cuit).eq("leg", leg).eq("vto", vto).eq("mail_enviado", "SI").execute()
+                                    for reg in resultado.data:
+                                        update_data = {"acta": acta_val, "estado_gestion": "FINALIZADO"}
+                                        if deuda_nueva:
+                                            update_data["deuda_presunta"] = deuda_nueva
+                                        if desde_nuevo:
+                                            update_data["desde"] = desde_nuevo
+                                        if hasta_nuevo:
+                                            update_data["hasta"] = hasta_nuevo
+                                        supabase.table("padron_deuda_presunta").update(update_data).eq("id", reg['id']).execute()
+                                        actualizados += 1
+                                
                                 bar.progress((i + 1) / len(filas_correctas_indices))
                             
                             bar.empty()
-                            st.success(f"✅ ¡Proceso completado! {actualizados} actas actualizadas correctamente.")
+                            if creados > 0 and actualizados > 0:
+                                st.success(f"✅ Proceso completado! {actualizados} actas actualizadas, {creados} registros nuevos creados (ANULADAS).")
+                            elif creados > 0:
+                                st.success(f"✅ Proceso completado! {creados} registros nuevos creados (ANULADAS).")
+                            elif actualizados > 0:
+                                st.success(f"✅ Proceso completado! {actualizados} actas actualizadas correctamente.")
+                            else:
+                                st.warning("No se procesó ningún registro.")
                             get_dashboard_stats.clear()
                     else:
                         st.warning("⚠️ No hay registros correctos para procesar.")
@@ -1762,6 +1960,14 @@ with tab4:
             hasta_fecha = norm_fecha(hasta_actual) if hasta_actual else None
             hasta_default = datetime.strptime(hasta_fecha, '%Y-%m-%d') if hasta_fecha else date.today()
             nuevo_hasta = st.date_input("Hasta", value=hasta_default, key=f"hasta_{key_suffix}")
+            
+            st.markdown('<p class="campo-label">ESTADO (ANULADA)</p>', unsafe_allow_html=True)
+            estado_anulado_actual = st.session_state.registro_editado.get('estado', '')
+            estado_anulado_opts = ["", "ANULADA"]
+            estado_anulado_index = 1 if estado_anulado_actual == "ANULADA" else 0
+            nuevo_estado_anulado = st.selectbox("Estado Anulado", estado_anulado_opts, index=estado_anulado_index, key=f"estado_anulado_{key_suffix}")
+            if nuevo_estado_anulado == "":
+                nuevo_estado_anulado = None
         
         col_guardar_reg, col_cancelar_reg = st.columns(2)
         with col_guardar_reg:
@@ -1783,6 +1989,7 @@ with tab4:
                     "tel_dom_real": nuevo_tel_real,
                     "desde": nuevo_desde.strftime('%Y-%m-%d'),
                     "hasta": nuevo_hasta.strftime('%Y-%m-%d'),
+                    "estado": nuevo_estado_anulado,
                 }
                 with st.spinner("Guardando cambios..."):
                     try:
