@@ -4,9 +4,11 @@ import base64
 from io import BytesIO
 import qrcode
 import os
+from reportlab.lib.pagesizes import A5, landscape
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+import streamlit.components.v1 as components
 
 # Configuración de página
 st.set_page_config(
@@ -26,13 +28,13 @@ st.markdown("""
         background-color: #f0f2f6 !important;
     }
     
-    /* Contenedor del bono en pantalla */
+    /* Contenedor del bono en pantalla (similar al PDF) */
     .bono-container {
         background: white;
-        padding: 15px 20px;
-        border-radius: 12px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-        max-width: 580px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        max-width: 520px;
         margin: 0 auto;
         font-family: 'Arial', sans-serif;
         border: 2px solid #1a3c6e;
@@ -40,38 +42,36 @@ st.markdown("""
     }
     .bono-titulo {
         color: #1a3c6e;
-        font-size: 22px;
+        font-size: 20px;
         font-weight: bold;
         text-align: center;
-        border: 3px solid #1a3c6e;
-        padding: 8px;
-        margin: 8px 0;
-        border-radius: 8px;
-        letter-spacing: 1px;
+        border: 2px solid #1a3c6e;
+        padding: 6px;
+        margin: 6px 0;
+        border-radius: 6px;
         background: #f0f7ff;
     }
     .bono-subtitulo {
         color: #cc0000;
-        font-size: 26px;
+        font-size: 22px;
         font-weight: bold;
         text-align: center;
-        margin: 12px 0;
+        margin: 8px 0;
         text-transform: uppercase;
-        letter-spacing: 2px;
         background: #fef0f0;
-        padding: 6px 0;
+        padding: 4px 0;
         border-radius: 4px;
     }
     .bono-datos {
         background: #f8fafc;
-        padding: 12px 15px;
-        border-radius: 8px;
-        margin: 12px 0;
-        border-left: 5px solid #1a3c6e;
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin: 8px 0;
+        border-left: 4px solid #1a3c6e;
     }
     .bono-datos p {
-        margin: 6px 0;
-        font-size: 15px;
+        margin: 4px 0;
+        font-size: 14px;
         color: #1e293b;
     }
     .bono-datos strong {
@@ -81,63 +81,46 @@ st.markdown("""
         display: flex;
         justify-content: space-around;
         align-items: center;
-        margin-top: 15px;
-        padding-top: 12px;
+        margin-top: 12px;
+        padding-top: 10px;
         border-top: 2px dashed #1a3c6e;
     }
-    .bono-sello {
+    .bono-sello, .bono-firma {
         text-align: center;
         border-top: 2px dashed #1a3c6e;
-        padding-top: 8px;
-        width: 100px;
+        padding-top: 6px;
+        width: 90px;
         color: #1a3c6e;
-        font-size: 13px;
-        font-weight: bold;
-    }
-    .bono-firma {
-        text-align: center;
-        border-top: 2px dashed #1a3c6e;
-        padding-top: 8px;
-        width: 160px;
-        color: #1a3c6e;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: bold;
     }
     .bono-qr {
         text-align: center;
-        margin: 6px 0;
+        margin: 4px 0;
     }
     .bono-qr img {
-        width: 70px;
-        height: 70px;
+        width: 60px;
+        height: 60px;
     }
     .bono-fecha-impresion {
-        font-size: 9px;
+        font-size: 8px;
         color: #94a3b8;
         text-align: right;
         margin-top: 4px;
     }
     .logo-container {
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
     }
     .logo-container img {
-        width: 220px;  /* LOGO MÁS GRANDE */
+        width: 180px;  /* LOGO GRANDE */
         height: auto;
     }
     .no-print { 
         display: block; 
     }
     
-    /* ====== ESTILOS PARA IMPRESIÓN (media hoja legal) ====== */
-    @page {
-        size: auto;
-        margin: 0;
-    }
-    html, body {
-        margin: 0;
-        padding: 0;
-    }
+    /* ====== ESTILOS PARA IMPRESIÓN ====== */
     @media print {
         body * {
             visibility: hidden !important;
@@ -149,14 +132,14 @@ st.markdown("""
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 180mm !important;
-            max-width: 180mm !important;
-            margin: 0 auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 10px 12px !important;
+            padding: 8px 10px !important;
             border-radius: 0 !important;
             background: white !important;
+            margin: 0 auto !important;
         }
         .no-print {
             display: none !important;
@@ -167,18 +150,20 @@ st.markdown("""
         header, footer, [data-testid="stSidebar"] {
             display: none !important;
         }
-        .bono-titulo { font-size: 18px !important; }
-        .bono-subtitulo { font-size: 22px !important; }
-        .bono-datos p { font-size: 13px !important; }
-        .bono-sello, .bono-firma { font-size: 11px !important; }
-        .bono-qr img { width: 60px !important; height: 60px !important; }
-        .logo-container img { width: 180px !important; }
+        /* Ajustar para que quepa en media hoja */
+        .bono-titulo { font-size: 16px !important; }
+        .bono-subtitulo { font-size: 18px !important; }
+        .bono-datos p { font-size: 12px !important; }
+        .bono-sello, .bono-firma { font-size: 10px !important; }
+        .bono-qr img { width: 50px !important; height: 50px !important; }
+        .logo-container img { width: 140px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==================== FUNCIONES AUXILIARES ====================
 def get_image_base64(path):
+    """Obtiene la imagen en base64 desde una ruta local"""
     try:
         with open(path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
@@ -186,6 +171,7 @@ def get_image_base64(path):
         return None
 
 def generar_qr_base64(datos):
+    """Genera un código QR y lo devuelve en base64"""
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=3, border=2)
     qr.add_data(datos)
     qr.make(fit=True)
@@ -195,25 +181,29 @@ def generar_qr_base64(datos):
     return base64.b64encode(buffered.getvalue()).decode()
 
 def generar_pdf_media_hoja(nombre, dni, sector, fecha, qr_base64, logo_base64):
-    """Genera un PDF con tamaño media hoja legal (216 x 178 mm)"""
-    # Tamaño de página: media hoja legal
-    MEDIA_LEGAL = (216 * mm, 178 * mm)
+    """
+    Genera un PDF con tamaño EXACTO de media hoja legal (216 × 178 mm).
+    Diseño compacto, sin leyendas extras, con logo grande.
+    """
+    # Tamaño de página: 216 mm x 178 mm (media hoja legal)
+    ancho_mm = 216
+    alto_mm = 178
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=MEDIA_LEGAL)
-    width, height = MEDIA_LEGAL
+    c = canvas.Canvas(buffer, pagesize=(ancho_mm * mm, alto_mm * mm))
+    width, height = ancho_mm * mm, alto_mm * mm
 
-    # Márgenes reducidos (8 mm)
+    # Márgenes reducidos (8 mm) para aprovechar el espacio
     margen = 8 * mm
     contenido_ancho = width - 2 * margen
-    contenido_alto = height - 2 * margen
 
-    # --- LOGO GRANDE (150 px) ---
+    # --- LOGO GRANDE (160 px en PDF) ---
     if logo_base64:
         try:
             logo_data = base64.b64decode(logo_base64)
             logo_img = ImageReader(BytesIO(logo_data))
-            logo_ancho = 150
+            logo_ancho = 160  # Grande
             logo_alto = logo_ancho * (logo_img.getHeight() / logo_img.getWidth())
+            # Centrar el logo
             c.drawImage(logo_img, (width - logo_ancho) / 2, height - margen - logo_alto - 5,
                         width=logo_ancho, height=logo_alto, preserveAspectRatio=True)
         except:
@@ -223,50 +213,50 @@ def generar_pdf_media_hoja(nombre, dni, sector, fecha, qr_base64, logo_base64):
     c.setStrokeColorRGB(0.1, 0.24, 0.43)
     c.setFillColorRGB(0.1, 0.24, 0.43)
     c.setFont("Helvetica-Bold", 14)
-    y_titulo = height - margen - 60
+    y_titulo = height - margen - 55
     c.rect(margen, y_titulo - 12, contenido_ancho, 24, stroke=1, fill=0)
     c.drawCentredString(width/2, y_titulo, "COSEGURO ODONTOLÓGICO")
 
     # --- SUBTÍTULO ROJO ---
     c.setFillColorRGB(0.8, 0, 0)
     c.setFont("Helvetica-Bold", 18)
-    c.drawCentredString(width/2, y_titulo - 35, "NO AFILIADO AL SEC")
+    c.drawCentredString(width/2, y_titulo - 32, "NO AFILIADO AL SEC")
     c.setFillColorRGB(0, 0, 0)
 
-    # --- DATOS ---
+    # --- DATOS (fuente más pequeña para que quepa) ---
     c.setFont("Helvetica", 10)
-    y_datos = y_titulo - 65
-    c.drawString(margen + 10, y_datos, f"NOMBRE: {nombre.upper()}")
-    y_datos -= 18
-    c.drawString(margen + 10, y_datos, f"DNI: {dni}")
-    y_datos -= 18
-    c.drawString(margen + 10, y_datos, f"SECTOR: {sector.upper()}")
-    y_datos -= 18
-    c.drawString(margen + 10, y_datos, f"FECHA EMISIÓN: {fecha.strftime('%d/%m/%Y')}")
+    y_datos = y_titulo - 60
+    c.drawString(margen + 8, y_datos, f"NOMBRE: {nombre.upper()}")
+    y_datos -= 16
+    c.drawString(margen + 8, y_datos, f"DNI: {dni}")
+    y_datos -= 16
+    c.drawString(margen + 8, y_datos, f"SECTOR: {sector.upper()}")
+    y_datos -= 16
+    c.drawString(margen + 8, y_datos, f"FECHA EMISIÓN: {fecha.strftime('%d/%m/%Y')}")
 
     # --- QR ---
     if qr_base64:
         qr_data = base64.b64decode(qr_base64)
         qr_img = ImageReader(BytesIO(qr_data))
-        qr_tam = 60
-        c.drawImage(qr_img, width - margen - qr_tam - 10, y_datos - 35, width=qr_tam, height=qr_tam)
+        qr_tam = 55
+        c.drawImage(qr_img, width - margen - qr_tam - 8, y_datos - 30, width=qr_tam, height=qr_tam)
 
-    # --- SELLO Y FIRMA ---
-    y_footer = y_datos - 65
+    # --- SELLO Y FIRMA (más compactos) ---
+    y_footer = y_datos - 60
     c.setDash(3, 3)
-    c.line(margen + 10, y_footer, margen + 80, y_footer)
+    c.line(margen + 8, y_footer, margen + 70, y_footer)
     c.setDash()
     c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(margen + 45, y_footer - 15, "SELLO")
+    c.drawCentredString(margen + 39, y_footer - 14, "SELLO")
 
     c.setDash(3, 3)
-    c.line(width - margen - 120, y_footer, width - margen - 10, y_footer)
+    c.line(width - margen - 110, y_footer, width - margen - 8, y_footer)
     c.setDash()
-    c.drawCentredString(width - margen - 65, y_footer - 15, "FIRMA")
+    c.drawCentredString(width - margen - 59, y_footer - 14, "FIRMA")
 
     # --- FECHA DE IMPRESIÓN ---
     c.setFont("Helvetica", 8)
-    c.drawRightString(width - margen, margen + 10, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    c.drawRightString(width - margen, margen + 8, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
     c.save()
     return buffer.getvalue()
@@ -286,18 +276,13 @@ if 'pdf_bytes' not in st.session_state:
     st.session_state.pdf_bytes = None
 
 def limpiar_formulario():
+    """Limpia el estado y recarga la página"""
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
     st.session_state.pdf_bytes = None
     st.rerun()
-
-# ==================== RUTA DEL LOGO (con os.path) ====================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOGO_PATH = os.path.join(BASE_DIR, "logo osecac.png")
-# Si el logo está dentro de la carpeta "buscador-osecac", descomentar la línea de abajo y comentar la de arriba
-# LOGO_PATH = os.path.join(BASE_DIR, "buscador-osecac", "logo osecac.png")
 
 # ==================== FORMULARIO ====================
 st.markdown('<div class="no-print">', unsafe_allow_html=True)
@@ -319,22 +304,35 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # ==================== LÓGICA DE GENERACIÓN ====================
 if generar and nombre and dni and sector:
+    # Guardar datos en sesión
     st.session_state.bono_nombre = nombre
     st.session_state.bono_dni = dni
     st.session_state.bono_sector = sector
     st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
+    
     # Generar QR
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     qr_base64 = generar_qr_base64(qr_data)
-    logo_base64 = get_image_base64(LOGO_PATH)
-    # Generar PDF con media hoja
+    
+    # Obtener logo (ruta correcta)
+    # El logo está en la raíz del proyecto: buscador-osecac/logo osecac.png
+    # Usamos la ruta relativa
+    logo_path = os.path.join(os.path.dirname(__file__), "logo osecac.png")
+    # Si no está, probar con la ruta directa
+    if not os.path.exists(logo_path):
+        logo_path = "logo osecac.png"
+    logo_base64 = get_image_base64(logo_path)
+    
+    # Generar PDF con tamaño media hoja
     st.session_state.pdf_bytes = generar_pdf_media_hoja(
         nombre, dni, sector, fecha_emision, qr_base64, logo_base64
     )
-    # Limpiar formulario y recargar para que quede vacío
+    
+    # Limpiar formulario y recargar
     st.rerun()
 
+# ==================== MOSTRAR BONO ====================
 if st.session_state.bono_generado and st.session_state.bono_nombre:
     
     nombre_val = st.session_state.bono_nombre
@@ -342,15 +340,20 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     sector_val = st.session_state.bono_sector
     fecha_val = st.session_state.bono_fecha
     
-    # Generar QR para mostrar en pantalla
+    # Generar QR para vista previa
     qr_data = f"OSECAC|BONO|{nombre_val}|{dni_val}|{sector_val}|{fecha_val}|{datetime.now().timestamp()}"
     qr_base64 = generar_qr_base64(qr_data)
-    logo_base64 = get_image_base64(LOGO_PATH)
+    
+    # Logo para vista previa (usamos la misma ruta)
+    logo_path = os.path.join(os.path.dirname(__file__), "logo osecac.png")
+    if not os.path.exists(logo_path):
+        logo_path = "logo osecac.png"
+    logo_base64 = get_image_base64(logo_path)
     
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # ==================== BONO HTML (para pantalla e impresión) ====================
+    # ==================== BONO HTML (vista previa) ====================
     bono_html = f"""
     <div class="bono-container" id="bono-para-imprimir">
         <div class="logo-container">
@@ -375,7 +378,7 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     </div>
     """
     
-    # Mostrar previsualización
+    # Mostrar vista previa
     st.markdown("---")
     st.markdown('<div class="no-print"><h3>📄 Previsualización del Bono</h3></div>', unsafe_allow_html=True)
     st.markdown(bono_html, unsafe_allow_html=True)
@@ -385,9 +388,10 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     
     col1, col2 = st.columns([1, 1])
     with col1:
+        # Botón de descarga del PDF
         if st.session_state.pdf_bytes:
             st.download_button(
-                label="📄 DESCARGAR PDF",
+                label="📄 DESCARGAR BONO PDF",
                 data=st.session_state.pdf_bytes,
                 file_name=f"bono_{nombre_val.replace(' ', '_')}_{dni_val}.pdf",
                 mime="application/pdf",
@@ -399,7 +403,7 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    st.success("✅ Bono generado correctamente. Descarga el PDF e imprímelo desde el visor.")
+    st.success("✅ Bono generado correctamente. Descargá el PDF para imprimirlo.")
 
 else:
     if generar:
