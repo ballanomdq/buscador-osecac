@@ -4,11 +4,10 @@ import base64
 from io import BytesIO
 import qrcode
 import os
-from reportlab.lib.pagesizes import A5, landscape
+from reportlab.lib.pagesizes import A5
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-import streamlit.components.v1 as components
 
 # Configuración de página
 st.set_page_config(
@@ -17,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== CSS MEJORADO ====================
+# ==================== CSS COMPACTO Y PROFESIONAL ====================
 st.markdown("""
 <style>
     /* Ocultar elementos de Streamlit */
@@ -31,10 +30,10 @@ st.markdown("""
     /* Contenedor del bono en pantalla */
     .bono-container {
         background: white;
-        padding: 15px 20px;
-        border-radius: 12px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-        max-width: 580px;
+        padding: 10px 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        max-width: 500px;
         margin: 0 auto;
         font-family: 'Arial', sans-serif;
         border: 2px solid #1a3c6e;
@@ -42,38 +41,36 @@ st.markdown("""
     }
     .bono-titulo {
         color: #1a3c6e;
-        font-size: 22px;
+        font-size: 18px;
         font-weight: bold;
         text-align: center;
-        border: 3px solid #1a3c6e;
-        padding: 8px;
-        margin: 8px 0;
-        border-radius: 8px;
-        letter-spacing: 1px;
+        border: 2px solid #1a3c6e;
+        padding: 5px;
+        margin: 5px 0;
+        border-radius: 5px;
         background: #f0f7ff;
     }
     .bono-subtitulo {
         color: #cc0000;
-        font-size: 26px;
+        font-size: 20px;
         font-weight: bold;
         text-align: center;
-        margin: 12px 0;
+        margin: 5px 0;
         text-transform: uppercase;
-        letter-spacing: 2px;
         background: #fef0f0;
-        padding: 6px 0;
+        padding: 4px 0;
         border-radius: 4px;
     }
     .bono-datos {
         background: #f8fafc;
-        padding: 12px 15px;
-        border-radius: 8px;
-        margin: 12px 0;
-        border-left: 5px solid #1a3c6e;
+        padding: 8px 12px;
+        border-radius: 5px;
+        margin: 8px 0;
+        border-left: 4px solid #1a3c6e;
     }
     .bono-datos p {
-        margin: 6px 0;
-        font-size: 15px;
+        margin: 4px 0;
+        font-size: 13px;
         color: #1e293b;
     }
     .bono-datos strong {
@@ -83,56 +80,48 @@ st.markdown("""
         display: flex;
         justify-content: space-around;
         align-items: center;
-        margin-top: 15px;
-        padding-top: 12px;
+        margin-top: 10px;
+        padding-top: 8px;
         border-top: 2px dashed #1a3c6e;
     }
     .bono-sello {
         text-align: center;
         border-top: 2px dashed #1a3c6e;
-        padding-top: 8px;
-        width: 100px;
+        padding-top: 5px;
+        width: 80px;
         color: #1a3c6e;
-        font-size: 13px;
+        font-size: 11px;
         font-weight: bold;
     }
     .bono-firma {
         text-align: center;
         border-top: 2px dashed #1a3c6e;
-        padding-top: 8px;
-        width: 160px;
+        padding-top: 5px;
+        width: 120px;
         color: #1a3c6e;
-        font-size: 13px;
+        font-size: 11px;
         font-weight: bold;
     }
     .bono-qr {
         text-align: center;
-        margin: 6px 0;
+        margin: 4px 0;
     }
     .bono-qr img {
-        width: 70px;
-        height: 70px;
-    }
-    .bono-pie {
-        text-align: center;
-        margin-top: 12px;
-        font-size: 9px;
-        color: #94a3b8;
-        border-top: 1px solid #e2e8f0;
-        padding-top: 8px;
+        width: 55px;
+        height: 55px;
     }
     .bono-fecha-impresion {
-        font-size: 9px;
+        font-size: 8px;
         color: #94a3b8;
         text-align: right;
-        margin-top: 4px;
+        margin-top: 3px;
     }
     .logo-container {
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 5px;
     }
     .logo-container img {
-        width: 180px;  /* LOGO GRANDE */
+        width: 140px;  /* LOGO GRANDE */
         height: auto;
     }
     .no-print { 
@@ -141,11 +130,9 @@ st.markdown("""
     
     /* ====== ESTILOS PARA IMPRESIÓN (papel 21.07 x 18 cm) ====== */
     @media print {
-        /* Ocultar TODO lo que no sea el bono */
         body * {
             visibility: hidden !important;
         }
-        /* Mostrar solo el bono y sus hijos */
         .bono-container, .bono-container * {
             visibility: visible !important;
         }
@@ -157,7 +144,7 @@ st.markdown("""
             max-width: 100% !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 10px 12px !important;
+            padding: 8px 10px !important;
             border-radius: 0 !important;
             background: white !important;
             margin: 0 auto !important;
@@ -171,13 +158,13 @@ st.markdown("""
         header, footer, [data-testid="stSidebar"] {
             display: none !important;
         }
-        /* Ajustar tamaño de fuente para que no se corte */
-        .bono-titulo { font-size: 18px !important; }
-        .bono-subtitulo { font-size: 22px !important; }
-        .bono-datos p { font-size: 13px !important; }
-        .bono-sello, .bono-firma { font-size: 11px !important; }
-        .bono-qr img { width: 60px !important; height: 60px !important; }
-        .logo-container img { width: 150px !important; }
+        /* Ajustar para que quepa */
+        .bono-titulo { font-size: 16px !important; }
+        .bono-subtitulo { font-size: 18px !important; }
+        .bono-datos p { font-size: 11px !important; }
+        .bono-sello, .bono-firma { font-size: 10px !important; }
+        .bono-qr img { width: 45px !important; height: 45px !important; }
+        .logo-container img { width: 120px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -200,7 +187,7 @@ def generar_qr_base64(datos):
     return base64.b64encode(buffered.getvalue()).decode()
 
 def generar_pdf_personalizado(nombre, dni, sector, fecha, qr_base64, logo_base64):
-    """Genera un PDF con tamaño personalizado (21.07 cm x 18 cm) y márgenes ajustados"""
+    """Genera un PDF con tamaño personalizado (21.07 cm x 18 cm) y diseño compacto"""
     # Tamaño de página: 21.07 cm x 18 cm (en mm)
     ancho_mm = 210.7
     alto_mm = 180
@@ -208,8 +195,8 @@ def generar_pdf_personalizado(nombre, dni, sector, fecha, qr_base64, logo_base64
     c = canvas.Canvas(buffer, pagesize=(ancho_mm * mm, alto_mm * mm))
     width, height = ancho_mm * mm, alto_mm * mm
 
-    # Márgenes reducidos (1.5 cm en cada lado) para que quepa más contenido
-    margen = 15 * mm
+    # Márgenes mínimos (1 cm en cada lado)
+    margen = 10 * mm
     contenido_ancho = width - 2 * margen
     contenido_alto = height - 2 * margen
 
@@ -226,54 +213,54 @@ def generar_pdf_personalizado(nombre, dni, sector, fecha, qr_base64, logo_base64
         except:
             pass
 
-    # --- TÍTULO CON RECUADRO ---
+    # --- TÍTULO CON RECUADRO (más compacto) ---
     c.setStrokeColorRGB(0.1, 0.24, 0.43)
     c.setFillColorRGB(0.1, 0.24, 0.43)
-    c.setFont("Helvetica-Bold", 14)  # reducido para que quepa
-    y_titulo = height - margen - 60  # ajustado
-    c.rect(margen, y_titulo - 12, contenido_ancho, 24, stroke=1, fill=0)
+    c.setFont("Helvetica-Bold", 12)
+    y_titulo = height - margen - 50
+    c.rect(margen, y_titulo - 10, contenido_ancho, 20, stroke=1, fill=0)
     c.drawCentredString(width/2, y_titulo, "COSEGURO ODONTOLÓGICO")
 
-    # --- SUBTÍTULO ROJO (más pequeño) ---
+    # --- SUBTÍTULO ROJO (más compacto) ---
     c.setFillColorRGB(0.8, 0, 0)
-    c.setFont("Helvetica-Bold", 18)
-    c.drawCentredString(width/2, y_titulo - 35, "NO AFILIADO AL SEC")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width/2, y_titulo - 28, "NO AFILIADO AL SEC")
     c.setFillColorRGB(0, 0, 0)
 
-    # --- DATOS (fuente más pequeña) ---
-    c.setFont("Helvetica", 10)
-    y_datos = y_titulo - 65
+    # --- DATOS (fuente más pequeña, más junto) ---
+    c.setFont("Helvetica", 9)
+    y_datos = y_titulo - 55
     c.drawString(margen + 10, y_datos, f"NOMBRE: {nombre.upper()}")
-    y_datos -= 18
+    y_datos -= 15
     c.drawString(margen + 10, y_datos, f"DNI: {dni}")
-    y_datos -= 18
+    y_datos -= 15
     c.drawString(margen + 10, y_datos, f"SECTOR: {sector.upper()}")
-    y_datos -= 18
+    y_datos -= 15
     c.drawString(margen + 10, y_datos, f"FECHA EMISIÓN: {fecha.strftime('%d/%m/%Y')}")
 
-    # --- QR (más grande) ---
+    # --- QR (más compacto) ---
     if qr_base64:
         qr_data = base64.b64decode(qr_base64)
         qr_img = ImageReader(BytesIO(qr_data))
-        qr_tam = 60
-        c.drawImage(qr_img, width - margen - qr_tam - 10, y_datos - 35, width=qr_tam, height=qr_tam)
+        qr_tam = 50
+        c.drawImage(qr_img, width - margen - qr_tam - 10, y_datos - 30, width=qr_tam, height=qr_tam)
 
     # --- SELLO Y FIRMA (más juntos) ---
-    y_footer = y_datos - 65
+    y_footer = y_datos - 55
     c.setDash(3, 3)
-    c.line(margen + 10, y_footer, margen + 80, y_footer)
+    c.line(margen + 10, y_footer, margen + 70, y_footer)
     c.setDash()
-    c.setFont("Helvetica-Bold", 10)
-    c.drawCentredString(margen + 45, y_footer - 15, "SELLO")
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(margen + 40, y_footer - 12, "SELLO")
 
     c.setDash(3, 3)
-    c.line(width - margen - 120, y_footer, width - margen - 10, y_footer)
+    c.line(width - margen - 100, y_footer, width - margen - 10, y_footer)
     c.setDash()
-    c.drawCentredString(width - margen - 65, y_footer - 15, "FIRMA")
+    c.drawCentredString(width - margen - 55, y_footer - 12, "FIRMA")
 
     # --- FECHA DE IMPRESIÓN (sin leyenda extra) ---
-    c.setFont("Helvetica", 8)
-    c.drawRightString(width - margen, margen + 10, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    c.setFont("Helvetica", 7)
+    c.drawRightString(width - margen, margen + 5, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
     c.save()
     return buffer.getvalue()
@@ -351,7 +338,7 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # ==================== BONO HTML (para pantalla e impresión) ====================
+    # ==================== BONO HTML (más compacto) ====================
     bono_html = f"""
     <div class="bono-container" id="bono-para-imprimir">
         <div class="logo-container">
@@ -360,10 +347,10 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
         <div class="bono-titulo">COSEGURO ODONTOLÓGICO</div>
         <div class="bono-subtitulo">⚠️ NO AFILIADO AL SEC ⚠️</div>
         <div class="bono-datos">
-            <p><strong>👤 NOMBRE:</strong> {nombre_val.upper()}</p>
-            <p><strong>🆔 DNI:</strong> {dni_val}</p>
-            <p><strong>🏢 SECTOR:</strong> {sector_val.upper()}</p>
-            <p><strong>📅 FECHA EMISIÓN:</strong> {fecha_str} - {hora_str}</p>
+            <p><strong>NOMBRE:</strong> {nombre_val.upper()}</p>
+            <p><strong>DNI:</strong> {dni_val}</p>
+            <p><strong>SECTOR:</strong> {sector_val.upper()}</p>
+            <p><strong>FECHA EMISIÓN:</strong> {fecha_str} - {hora_str}</p>
         </div>
         <div class="bono-qr">
             <img src="data:image/png;base64,{qr_base64}" alt="QR">
