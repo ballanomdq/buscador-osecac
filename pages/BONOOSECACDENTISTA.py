@@ -4,20 +4,30 @@ import base64
 from io import BytesIO
 import qrcode
 import os
+from reportlab.lib.pagesizes import A5
+from reportlab.lib.units import mm
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 
+# Configuración de página
 st.set_page_config(
     page_title="Bono Odontológico - OSECAC",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# CSS para el bono y para ocultar elementos al imprimir
+# ==================== CSS MEJORADO ====================
 st.markdown("""
 <style>
+    /* Ocultar elementos de Streamlit en pantalla */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header {
         display: none !important;
     }
-    .stApp { background-color: #f0f2f6 !important; }
+    .stApp {
+        background-color: #f0f2f6 !important;
+    }
+    
+    /* Contenedor del bono en pantalla */
     .bono-container {
         background: white;
         padding: 20px 25px;
@@ -57,8 +67,14 @@ st.markdown("""
         margin: 10px 0;
         border-left: 4px solid #1a3c6e;
     }
-    .bono-datos p { margin: 6px 0; font-size: 15px; color: #1e293b; }
-    .bono-datos strong { color: #0b2a4a; }
+    .bono-datos p {
+        margin: 6px 0;
+        font-size: 15px;
+        color: #1e293b;
+    }
+    .bono-datos strong {
+        color: #0b2a4a;
+    }
     .bono-footer {
         display: flex;
         justify-content: space-between;
@@ -85,8 +101,14 @@ st.markdown("""
         font-size: 11px;
         color: #1e293b;
     }
-    .bono-qr { text-align: center; margin: 8px 0; }
-    .bono-qr img { width: 70px; height: 70px; }
+    .bono-qr {
+        text-align: center;
+        margin: 8px 0;
+    }
+    .bono-qr img {
+        width: 70px;
+        height: 70px;
+    }
     .bono-pie {
         text-align: center;
         margin-top: 12px;
@@ -101,40 +123,55 @@ st.markdown("""
         text-align: right;
         margin-top: 4px;
     }
-    .logo-container { text-align: center; margin-bottom: 6px; }
-    .logo-container img { width: 100px; height: auto; }
-    .btn-imprimir, .btn-pdf {
-        display: inline-block;
-        background: linear-gradient(145deg, #1a3c6e, #0f2b4f);
-        color: white !important;
-        border: none;
-        border-radius: 10px;
-        padding: 12px 20px;
-        font-size: 16px;
-        font-weight: bold;
-        width: 100%;
+    .logo-container {
         text-align: center;
-        text-decoration: none;
-        cursor: pointer;
-        transition: 0.2s;
-        margin-bottom: 10px;
+        margin-bottom: 6px;
     }
-    .btn-pdf { background: linear-gradient(145deg, #16a34a, #15803d); }
-    .btn-imprimir:hover { transform: scale(1.02); background: #0f2b4f; }
-    .btn-pdf:hover { transform: scale(1.02); background: #15803d; }
-    .no-print { display: block; }
+    .logo-container img {
+        width: 100px;
+        height: auto;
+    }
+    .no-print { 
+        display: block; 
+    }
+    
+    /* ====== ESTILOS PARA IMPRESIÓN ====== */
     @media print {
-        .no-print { display: none !important; }
+        /* Ocultar TODO lo que no sea el bono */
+        body * {
+            visibility: hidden !important;
+        }
+        /* Mostrar solo el bono y sus hijos */
+        .bono-container, .bono-container * {
+            visibility: visible !important;
+        }
         .bono-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
             border: none !important;
             box-shadow: none !important;
-            padding: 10px !important;
+            padding: 15px 20px !important;
+            border-radius: 0 !important;
+            background: white !important;
+        }
+        .no-print {
+            display: none !important;
+        }
+        .stApp {
+            background: white !important;
+        }
+        /* Ocultar el header de Streamlit */
+        header, footer, [data-testid="stSidebar"] {
+            display: none !important;
         }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Funciones auxiliares ---
+# ==================== FUNCIONES AUXILIARES ====================
 def get_image_base64(path):
     try:
         with open(path, "rb") as img_file:
@@ -151,7 +188,70 @@ def generar_qr_base64(datos):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# --- Estado de sesión (sin claves de widgets) ---
+def generar_pdf_reportlab(nombre, dni, sector, fecha, qr_base64, logo_base64):
+    """Genera un PDF del bono usando reportlab (sin dependencias externas)"""
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A5)
+    width, height = A5
+    
+    # Configurar fuente
+    c.setFont("Helvetica-Bold", 14)
+    
+    # --- LOGO ---
+    if logo_base64:
+        try:
+            logo_data = base64.b64decode(logo_base64)
+            logo_img = ImageReader(BytesIO(logo_data))
+            c.drawImage(logo_img, (width - 80)/2, height - 50, width=80, height=30, preserveAspectRatio=True)
+        except:
+            pass
+    
+    # --- TÍTULO ---
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width/2, height - 80, "COSEGURO ODONTOLÓGICO")
+    
+    # --- SUBTÍTULO (rojo) ---
+    c.setFillColorRGB(0.8, 0, 0)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(width/2, height - 110, "⚠️ NO AFILIADO AL SEC ⚠️")
+    c.setFillColorRGB(0, 0, 0)
+    
+    # --- DATOS ---
+    c.setFont("Helvetica", 12)
+    y = height - 150
+    c.drawString(20, y, f"👤 NOMBRE: {nombre.upper()}")
+    y -= 20
+    c.drawString(20, y, f"🆔 DNI: {dni}")
+    y -= 20
+    c.drawString(20, y, f"🏢 SECTOR: {sector.upper()}")
+    y -= 20
+    c.drawString(20, y, f"📅 FECHA EMISIÓN: {fecha.strftime('%d/%m/%Y')}")
+    
+    # --- QR ---
+    if qr_base64:
+        qr_data = base64.b64decode(qr_base64)
+        qr_img = ImageReader(BytesIO(qr_data))
+        c.drawImage(qr_img, width - 80, y - 30, width=60, height=60)
+    
+    # --- SELLO Y FIRMA ---
+    c.setFont("Helvetica", 10)
+    c.rect(20, y - 100, 100, 50, stroke=1, fill=0)
+    c.drawString(30, y - 80, "SELLO")
+    c.drawString(30, y - 70, "(Lugar para el sello)")
+    
+    c.line(width - 180, y - 60, width - 20, y - 60)
+    c.drawString(width - 140, y - 75, "FIRMA DEL AFILIADO")
+    c.drawString(width - 130, y - 65, "(Acepto condiciones)")
+    
+    # --- PIE DE PÁGINA ---
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(width/2, 30, "Válido solo para prestaciones odontológicas. No válido como comprobante de pago.")
+    c.drawRightString(width - 20, 15, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    
+    c.save()
+    return buffer.getvalue()
+
+# ==================== INICIALIZAR ESTADO ====================
 if 'bono_generado' not in st.session_state:
     st.session_state.bono_generado = False
 if 'bono_nombre' not in st.session_state:
@@ -162,18 +262,15 @@ if 'bono_sector' not in st.session_state:
     st.session_state.bono_sector = ''
 if 'bono_fecha' not in st.session_state:
     st.session_state.bono_fecha = datetime.now()
-if 'bono_html' not in st.session_state:
-    st.session_state.bono_html = ''
 
 def limpiar_formulario():
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
-    st.session_state.bono_html = ''
     st.rerun()
 
-# --- Formulario ---
+# ==================== FORMULARIO ====================
 st.markdown('<div class="no-print">', unsafe_allow_html=True)
 st.title("🦷 BONO ODONTOLÓGICO")
 st.markdown("Complete los datos del afiliado para generar el bono.")
@@ -186,10 +283,12 @@ with st.form("form_bono"):
     with col2:
         sector = st.text_input("🏢 Sector / Agencia", placeholder="Ej: Agencia Miramar")
         fecha_emision = st.date_input("📅 Fecha de Emisión", datetime.now())
+    
     generar = st.form_submit_button("📋 GENERAR BONO", use_container_width=True)
+
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- Lógica de generación ---
+# ==================== LÓGICA DE GENERACIÓN ====================
 if generar and nombre and dni and sector:
     st.session_state.bono_nombre = nombre
     st.session_state.bono_dni = dni
@@ -199,23 +298,24 @@ if generar and nombre and dni and sector:
     st.rerun()
 
 if st.session_state.bono_generado and st.session_state.bono_nombre:
+    
     nombre_val = st.session_state.bono_nombre
     dni_val = st.session_state.bono_dni
     sector_val = st.session_state.bono_sector
     fecha_val = st.session_state.bono_fecha
-
+    
     # Generar QR
     qr_data = f"OSECAC|BONO|{nombre_val}|{dni_val}|{sector_val}|{fecha_val}|{datetime.now().timestamp()}"
     qr_base64 = generar_qr_base64(qr_data)
-
+    
     # Logo
     logo_path = "logo osecac.png"
     logo_base64 = get_image_base64(logo_path)
-
+    
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
-
-    # HTML del bono (solo el contenido)
+    
+    # ==================== BONO HTML (para pantalla e impresión) ====================
     bono_html = f"""
     <div class="bono-container" id="bono-para-imprimir">
         <div class="logo-container">
@@ -240,94 +340,62 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
         <div class="bono-fecha-impresion">Impreso: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}</div>
     </div>
     """
-    st.session_state.bono_html = bono_html
-
-    # --- Mostrar bono ---
+    
+    # Mostrar previsualización
     st.markdown("---")
-    st.markdown('<div class="no-print"><h3>📄 Bono generado</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="no-print"><h3>📄 Previsualización del Bono</h3></div>', unsafe_allow_html=True)
     st.markdown(bono_html, unsafe_allow_html=True)
-
-    # --- Botones de acción con JavaScript para imprimir y descargar PDF ---
+    
+    # ==================== BOTONES DE ACCIÓN ====================
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
     with col1:
-        # Botón de impresión directa con window.print()
-        st.components.v1.html("""
-        <button onclick="window.print()" style="
-            width:100%;
-            padding:12px;
-            background:#1a3c6e;
-            color:white;
-            border:none;
-            border-radius:10px;
-            font-size:16px;
-            font-weight:bold;
-            cursor:pointer;
-            transition: 0.2s;
-        " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-            🖨️ IMPRIMIR BONO
-        </button>
-        """, height=60)
-
+        if st.button("🔄 NUEVO BONO", use_container_width=True):
+            limpiar_formulario()
+    
     with col2:
-        # Botón para descargar PDF usando html2pdf.js (librería cliente)
-        st.components.v1.html(f"""
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-        <button id="descargar-pdf" style="
-            width:100%;
-            padding:12px;
-            background:#16a34a;
-            color:white;
-            border:none;
-            border-radius:10px;
-            font-size:16px;
-            font-weight:bold;
-            cursor:pointer;
-            transition: 0.2s;
-        " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-            📄 DESCARGAR PDF
-        </button>
-        <script>
-            document.getElementById('descargar-pdf').addEventListener('click', function() {{
-                var element = document.querySelector('.bono-container');
-                if (element) {{
-                    // Clonar el elemento para evitar conflictos con estilos de Streamlit
-                    var clone = element.cloneNode(true);
-                    // Remover estilos que puedan afectar la generación del PDF
-                    clone.style.margin = '0 auto';
-                    clone.style.padding = '20px';
-                    clone.style.backgroundColor = 'white';
-                    clone.style.boxShadow = 'none';
-                    clone.style.border = '1px solid #ccc';
-                    // Crear un contenedor temporal
-                    var wrapper = document.createElement('div');
-                    wrapper.style.width = '600px';
-                    wrapper.style.margin = '0 auto';
-                    wrapper.appendChild(clone);
-                    document.body.appendChild(wrapper);
-                    // Generar PDF
-                    html2pdf()
-                        .from(wrapper)
-                        .set({{
-                            margin:        [0.5, 0.5, 0.5, 0.5],
-                            filename:     'bono_{nombre_val.replace(' ', '_')}_{dni_val}.pdf',
-                            image:        {{ type: 'jpeg', quality: 0.98 }},
-                            html2canvas:  {{ scale: 2, letterRendering: true, useCORS: true, logging: false }},
-                            jsPDF:        {{ unit: 'in', format: 'a4', orientation: 'portrait' }}
-                        }})
-                        .save()
-                        .then(function() {{
-                            // Limpiar el contenedor temporal
-                            document.body.removeChild(wrapper);
-                        }});
-                }} else {{
-                    alert('No se encontró el bono para descargar.');
-                }}
-            }});
-        </script>
-        """, height=100)
-
+        # BOTÓN DE IMPRESIÓN DIRECTA (CON COMPONENTS.HTML)
+        import streamlit.components.v1 as components
+        components.html("""
+            <button onclick="window.print()" style="
+                width: 100%;
+                padding: 10px;
+                background: #1a3c6e;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: 0.2s;
+            " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                🖨️ IMPRIMIR BONO
+            </button>
+            <script>
+                // Forzar que el botón funcione en Streamlit
+                document.querySelector('button').addEventListener('click', function(e) {
+                    window.print();
+                });
+            </script>
+        """, height=60)
+    
+    with col3:
+        # Generar y descargar PDF con reportlab
+        pdf_bytes = generar_pdf_reportlab(
+            nombre_val, dni_val, sector_val, fecha_val, qr_base64, logo_base64
+        )
+        st.download_button(
+            label="📄 DESCARGAR PDF",
+            data=pdf_bytes,
+            file_name=f"bono_{nombre_val.replace(' ', '_')}_{dni_val}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+    
     st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Mensaje informativo
     st.info("🔒 **Código QR**: Contiene los datos del afiliado y la fecha de emisión. Sirve como verificación de autenticidad.")
 
 else:
