@@ -4,10 +4,11 @@ import base64
 from io import BytesIO
 import qrcode
 import os
-from reportlab.lib.pagesizes import A5
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
+import streamlit.components.v1 as components
 
 # Configuración de página
 st.set_page_config(
@@ -16,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ==================== CSS COMPACTO Y PROFESIONAL ====================
+# ==================== CSS MEJORADO ====================
 st.markdown("""
 <style>
     /* Ocultar elementos de Streamlit */
@@ -27,13 +28,13 @@ st.markdown("""
         background-color: #f0f2f6 !important;
     }
     
-    /* Contenedor del bono en pantalla */
+    /* Contenedor del bono en pantalla - COMPACTO */
     .bono-container {
         background: white;
-        padding: 10px 15px;
-        border-radius: 8px;
+        padding: 12px 15px;
+        border-radius: 10px;
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        max-width: 500px;
+        max-width: 500px;  /* más angosto */
         margin: 0 auto;
         font-family: 'Arial', sans-serif;
         border: 2px solid #1a3c6e;
@@ -46,8 +47,9 @@ st.markdown("""
         text-align: center;
         border: 2px solid #1a3c6e;
         padding: 5px;
-        margin: 5px 0;
-        border-radius: 5px;
+        margin: 6px 0;
+        border-radius: 6px;
+        letter-spacing: 1px;
         background: #f0f7ff;
     }
     .bono-subtitulo {
@@ -55,8 +57,9 @@ st.markdown("""
         font-size: 20px;
         font-weight: bold;
         text-align: center;
-        margin: 5px 0;
+        margin: 8px 0;
         text-transform: uppercase;
+        letter-spacing: 1px;
         background: #fef0f0;
         padding: 4px 0;
         border-radius: 4px;
@@ -64,7 +67,7 @@ st.markdown("""
     .bono-datos {
         background: #f8fafc;
         padding: 8px 12px;
-        border-radius: 5px;
+        border-radius: 6px;
         margin: 8px 0;
         border-left: 4px solid #1a3c6e;
     }
@@ -87,19 +90,19 @@ st.markdown("""
     .bono-sello {
         text-align: center;
         border-top: 2px dashed #1a3c6e;
-        padding-top: 5px;
+        padding-top: 6px;
         width: 80px;
         color: #1a3c6e;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: bold;
     }
     .bono-firma {
         text-align: center;
         border-top: 2px dashed #1a3c6e;
-        padding-top: 5px;
+        padding-top: 6px;
         width: 120px;
         color: #1a3c6e;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: bold;
     }
     .bono-qr {
@@ -107,8 +110,8 @@ st.markdown("""
         margin: 4px 0;
     }
     .bono-qr img {
-        width: 55px;
-        height: 55px;
+        width: 60px;
+        height: 60px;
     }
     .bono-fecha-impresion {
         font-size: 8px;
@@ -118,24 +121,20 @@ st.markdown("""
     }
     .logo-container {
         text-align: center;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
     }
     .logo-container img {
-        width: 140px;  /* LOGO GRANDE */
+        width: 140px;  /* Logo GRANDE pero compacto */
         height: auto;
     }
     .no-print { 
         display: block; 
     }
     
-    /* ====== ESTILOS PARA IMPRESIÓN (papel 21.07 x 18 cm) ====== */
+    /* ====== ESTILOS PARA IMPRESIÓN (A4 o media hoja) ====== */
     @media print {
-        body * {
-            visibility: hidden !important;
-        }
-        .bono-container, .bono-container * {
-            visibility: visible !important;
-        }
+        body * { visibility: hidden !important; }
+        .bono-container, .bono-container * { visibility: visible !important; }
         .bono-container {
             position: absolute !important;
             left: 0 !important;
@@ -149,21 +148,14 @@ st.markdown("""
             background: white !important;
             margin: 0 auto !important;
         }
-        .no-print {
-            display: none !important;
-        }
-        .stApp {
-            background: white !important;
-        }
-        header, footer, [data-testid="stSidebar"] {
-            display: none !important;
-        }
-        /* Ajustar para que quepa */
+        .no-print { display: none !important; }
+        .stApp { background: white !important; }
+        header, footer, [data-testid="stSidebar"] { display: none !important; }
         .bono-titulo { font-size: 16px !important; }
         .bono-subtitulo { font-size: 18px !important; }
-        .bono-datos p { font-size: 11px !important; }
+        .bono-datos p { font-size: 12px !important; }
         .bono-sello, .bono-firma { font-size: 10px !important; }
-        .bono-qr img { width: 45px !important; height: 45px !important; }
+        .bono-qr img { width: 50px !important; height: 50px !important; }
         .logo-container img { width: 120px !important; }
     }
 </style>
@@ -178,7 +170,7 @@ def get_image_base64(path):
         return None
 
 def generar_qr_base64(datos):
-    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=3, border=2)
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=2, border=1)
     qr.add_data(datos)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
@@ -186,71 +178,64 @@ def generar_qr_base64(datos):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-def generar_pdf_personalizado(nombre, dni, sector, fecha, qr_base64, logo_base64):
-    """Genera un PDF con tamaño personalizado (21.07 cm x 18 cm) y diseño compacto"""
-    # Tamaño de página: 21.07 cm x 18 cm (en mm)
-    ancho_mm = 210.7
-    alto_mm = 180
+def generar_pdf_compacto(nombre, dni, sector, fecha, qr_base64, logo_base64):
+    """Genera un PDF compacto (márgenes reducidos, todo junto) que cabe en A4 sin cortes"""
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=(ancho_mm * mm, alto_mm * mm))
-    width, height = ancho_mm * mm, alto_mm * mm
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
 
-    # Márgenes mínimos (1 cm en cada lado)
-    margen = 10 * mm
-    contenido_ancho = width - 2 * margen
-    contenido_alto = height - 2 * margen
+    # Márgenes pequeños (1.2 cm)
+    margen = 12 * mm
 
-    # --- LOGO GRANDE (160 px en PDF) ---
+    # --- LOGO GRANDE (en el PDF) ---
     if logo_base64:
         try:
             logo_data = base64.b64decode(logo_base64)
             logo_img = ImageReader(BytesIO(logo_data))
-            logo_ancho = 160  # más grande
+            logo_ancho = 100  # más grande
             logo_alto = logo_ancho * (logo_img.getHeight() / logo_img.getWidth())
-            # Centrar el logo
             c.drawImage(logo_img, (width - logo_ancho) / 2, height - margen - logo_alto - 5,
                         width=logo_ancho, height=logo_alto, preserveAspectRatio=True)
         except:
             pass
 
-    # --- TÍTULO CON RECUADRO (más compacto) ---
+    # --- TÍTULO ---
     c.setStrokeColorRGB(0.1, 0.24, 0.43)
     c.setFillColorRGB(0.1, 0.24, 0.43)
-    c.setFont("Helvetica-Bold", 12)
-    y_titulo = height - margen - 50
-    c.rect(margen, y_titulo - 10, contenido_ancho, 20, stroke=1, fill=0)
+    c.setFont("Helvetica-Bold", 14)
+    y_titulo = height - margen - 55
+    c.rect(margen, y_titulo - 12, width - 2*margen, 24, stroke=1, fill=0)
     c.drawCentredString(width/2, y_titulo, "COSEGURO ODONTOLÓGICO")
 
-    # --- SUBTÍTULO ROJO (más compacto) ---
+    # --- SUBTÍTULO ---
     c.setFillColorRGB(0.8, 0, 0)
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(width/2, y_titulo - 28, "NO AFILIADO AL SEC")
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(width/2, y_titulo - 35, "NO AFILIADO AL SEC")
     c.setFillColorRGB(0, 0, 0)
 
-    # --- DATOS (fuente más pequeña, más junto) ---
-    c.setFont("Helvetica", 9)
-    y_datos = y_titulo - 55
+    # --- DATOS (más juntos) ---
+    c.setFont("Helvetica", 10)
+    y_datos = y_titulo - 60
     c.drawString(margen + 10, y_datos, f"NOMBRE: {nombre.upper()}")
-    y_datos -= 15
+    y_datos -= 16
     c.drawString(margen + 10, y_datos, f"DNI: {dni}")
-    y_datos -= 15
+    y_datos -= 16
     c.drawString(margen + 10, y_datos, f"SECTOR: {sector.upper()}")
-    y_datos -= 15
+    y_datos -= 16
     c.drawString(margen + 10, y_datos, f"FECHA EMISIÓN: {fecha.strftime('%d/%m/%Y')}")
 
-    # --- QR (más compacto) ---
+    # --- QR ---
     if qr_base64:
         qr_data = base64.b64decode(qr_base64)
         qr_img = ImageReader(BytesIO(qr_data))
-        qr_tam = 50
-        c.drawImage(qr_img, width - margen - qr_tam - 10, y_datos - 30, width=qr_tam, height=qr_tam)
+        c.drawImage(qr_img, width - margen - 55, y_datos - 30, width=50, height=50)
 
     # --- SELLO Y FIRMA (más juntos) ---
     y_footer = y_datos - 55
     c.setDash(3, 3)
     c.line(margen + 10, y_footer, margen + 70, y_footer)
     c.setDash()
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Helvetica-Bold", 10)
     c.drawCentredString(margen + 40, y_footer - 12, "SELLO")
 
     c.setDash(3, 3)
@@ -258,9 +243,9 @@ def generar_pdf_personalizado(nombre, dni, sector, fecha, qr_base64, logo_base64
     c.setDash()
     c.drawCentredString(width - margen - 55, y_footer - 12, "FIRMA")
 
-    # --- FECHA DE IMPRESIÓN (sin leyenda extra) ---
-    c.setFont("Helvetica", 7)
-    c.drawRightString(width - margen, margen + 5, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    # --- FECHA IMPRESIÓN ---
+    c.setFont("Helvetica", 8)
+    c.drawRightString(width - margen, margen + 10, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
     c.save()
     return buffer.getvalue()
@@ -316,11 +301,10 @@ if generar and nombre and dni and sector:
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     qr_base64 = generar_qr_base64(qr_data)
     logo_base64 = get_image_base64("logo osecac.png")
-    # Generar PDF con tamaño personalizado
-    st.session_state.pdf_bytes = generar_pdf_personalizado(
+    # Generar PDF compacto
+    st.session_state.pdf_bytes = generar_pdf_compacto(
         nombre, dni, sector, fecha_emision, qr_base64, logo_base64
     )
-    # Limpiar formulario y recargar para que quede vacío
     st.rerun()
 
 if st.session_state.bono_generado and st.session_state.bono_nombre:
@@ -338,7 +322,7 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # ==================== BONO HTML (más compacto) ====================
+    # ==================== BONO HTML COMPACTO ====================
     bono_html = f"""
     <div class="bono-container" id="bono-para-imprimir">
         <div class="logo-container">
