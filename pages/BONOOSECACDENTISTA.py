@@ -5,22 +5,24 @@ from io import BytesIO
 import qrcode
 import os
 
-# Configuración de la página
+# Configuración de página
 st.set_page_config(
     page_title="Bono Odontológico - OSECAC",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# CSS personalizado
+# CSS personalizado (incluye estilos para impresión)
 st.markdown("""
 <style>
+    /* Ocultar elementos de Streamlit */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header {
         display: none !important;
     }
     .stApp {
         background-color: #f0f2f6 !important;
     }
+    /* Contenedor del bono - se ve bien en pantalla */
     .bono-container {
         background: white;
         padding: 20px 25px;
@@ -182,23 +184,22 @@ def generar_qr_base64(datos):
     return base64.b64encode(buffered.getvalue()).decode()
 
 # --- Inicializar estado de sesión ---
-if 'form_nombre' not in st.session_state:
-    st.session_state.form_nombre = ''
-if 'form_dni' not in st.session_state:
-    st.session_state.form_dni = ''
-if 'form_sector' not in st.session_state:
-    st.session_state.form_sector = ''
-if 'form_fecha' not in st.session_state:
-    st.session_state.form_fecha = datetime.now()
 if 'bono_generado' not in st.session_state:
     st.session_state.bono_generado = False
+if 'bono_nombre' not in st.session_state:
+    st.session_state.bono_nombre = ''
+if 'bono_dni' not in st.session_state:
+    st.session_state.bono_dni = ''
+if 'bono_sector' not in st.session_state:
+    st.session_state.bono_sector = ''
+if 'bono_fecha' not in st.session_state:
+    st.session_state.bono_fecha = datetime.now()
 
 def limpiar_formulario():
-    st.session_state.form_nombre = ''
-    st.session_state.form_dni = ''
-    st.session_state.form_sector = ''
-    st.session_state.form_fecha = datetime.now()
     st.session_state.bono_generado = False
+    st.session_state.bono_nombre = ''
+    st.session_state.bono_dni = ''
+    st.session_state.bono_sector = ''
     st.rerun()
 
 # --- Mostrar formulario ---
@@ -209,11 +210,11 @@ st.markdown("Complete los datos del afiliado para generar el bono.")
 with st.form("form_bono"):
     col1, col2 = st.columns(2)
     with col1:
-        nombre = st.text_input("👤 Nombre del Beneficiario", placeholder="Ej: Juan Pérez", key="form_nombre")
-        dni = st.text_input("🆔 DNI", placeholder="Ej: 30.123.456", key="form_dni")
+        nombre = st.text_input("👤 Nombre del Beneficiario", placeholder="Ej: Juan Pérez")
+        dni = st.text_input("🆔 DNI", placeholder="Ej: 30.123.456")
     with col2:
-        sector = st.text_input("🏢 Sector / Agencia", placeholder="Ej: Agencia Miramar", key="form_sector")
-        fecha_emision = st.date_input("📅 Fecha de Emisión", key="form_fecha")
+        sector = st.text_input("🏢 Sector / Agencia", placeholder="Ej: Agencia Miramar")
+        fecha_emision = st.date_input("📅 Fecha de Emisión", datetime.now())
     
     generar = st.form_submit_button("📋 GENERAR BONO", use_container_width=True)
 
@@ -221,25 +222,32 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Lógica de generación ---
 if generar and nombre and dni and sector:
+    st.session_state.bono_nombre = nombre
+    st.session_state.bono_dni = dni
+    st.session_state.bono_sector = sector
+    st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
     st.rerun()
 
-if st.session_state.bono_generado and st.session_state.form_nombre and st.session_state.form_dni and st.session_state.form_sector:
+if st.session_state.bono_generado and st.session_state.bono_nombre and st.session_state.bono_dni and st.session_state.bono_sector:
     
-    nombre_val = st.session_state.form_nombre
-    dni_val = st.session_state.form_dni
-    sector_val = st.session_state.form_sector
-    fecha_val = st.session_state.form_fecha
+    nombre_val = st.session_state.bono_nombre
+    dni_val = st.session_state.bono_dni
+    sector_val = st.session_state.bono_sector
+    fecha_val = st.session_state.bono_fecha
     
+    # Generar QR
     qr_data = f"OSECAC|BONO|{nombre_val}|{dni_val}|{sector_val}|{fecha_val}|{datetime.now().timestamp()}"
     qr_base64 = generar_qr_base64(qr_data)
     
+    # Logo
     logo_path = "logo osecac.png"
     logo_base64 = get_image_base64(logo_path)
     
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
+    # --- BONO HTML ---
     bono_html = f"""
     <div class="bono-container" id="bono-para-imprimir">
         <div class="logo-container">
@@ -269,19 +277,18 @@ if st.session_state.bono_generado and st.session_state.form_nombre and st.sessio
     st.markdown('<div class="no-print"><h3>📄 Bono generado</h3></div>', unsafe_allow_html=True)
     st.markdown(bono_html, unsafe_allow_html=True)
     
-    # --- Botones de acción (NO se imprimen) ---
+    # --- Botones de acción ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        # Usamos un <a> con href="javascript:window.print()" que es más confiable
+        if st.button("🔄 NUEVO BONO", use_container_width=True):
+            limpiar_formulario()
+    with col2:
         st.markdown("""
         <a href="javascript:window.print()" class="btn-imprimir">
             🖨️ IMPRIMIR BONO
         </a>
         """, unsafe_allow_html=True)
-    with col2:
-        if st.button("🔄 NUEVO BONO", use_container_width=True):
-            limpiar_formulario()
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.info("🔒 **Código QR**: Contiene los datos del afiliado y la fecha de emisión. Sirve como verificación de autenticidad.")
