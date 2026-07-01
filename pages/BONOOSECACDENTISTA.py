@@ -4,6 +4,7 @@ import base64
 from io import BytesIO
 import qrcode
 import os
+from weasyprint import HTML
 
 # Configuración de página
 st.set_page_config(
@@ -126,23 +127,14 @@ st.markdown("""
         width: 100px;
         height: auto;
     }
-    /* Estilos para impresión: ocultar todo excepto el bono */
+    .no-print { display: block; } /* Visible en pantalla */
     @media print {
-        body * { visibility: hidden; }
-        .bono-container, .bono-container * { visibility: visible; }
-        .bono-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            max-width: 100%;
-            border: none;
-            box-shadow: none;
-            padding: 15px 20px;
-            border-radius: 0;
-        }
         .no-print { display: none !important; }
-        .stApp { background: white !important; }
+        .bono-container {
+            border: none !important;
+            box-shadow: none !important;
+            padding: 10px !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -164,6 +156,11 @@ def generar_qr_base64(datos):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
+def generar_pdf(html_string):
+    """Convierte el HTML del bono a PDF usando weasyprint"""
+    pdf_bytes = HTML(string=html_string).write_pdf()
+    return pdf_bytes
+
 # --- Inicializar estado de sesión ---
 if 'bono_generado' not in st.session_state:
     st.session_state.bono_generado = False
@@ -175,15 +172,15 @@ if 'bono_sector' not in st.session_state:
     st.session_state.bono_sector = ''
 if 'bono_fecha' not in st.session_state:
     st.session_state.bono_fecha = datetime.now()
-if 'imprimir' not in st.session_state:
-    st.session_state.imprimir = False
+if 'pdf_bytes' not in st.session_state:
+    st.session_state.pdf_bytes = None
 
 def limpiar_formulario():
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
-    st.session_state.imprimir = False
+    st.session_state.pdf_bytes = None
     st.rerun()
 
 # --- Mostrar formulario ---
@@ -211,10 +208,9 @@ if generar and nombre and dni and sector:
     st.session_state.bono_sector = sector
     st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
-    st.session_state.imprimir = False
     st.rerun()
 
-if st.session_state.bono_generado and st.session_state.bono_nombre and st.session_state.bono_dni and st.session_state.bono_sector:
+if st.session_state.bono_generado and st.session_state.bono_nombre:
     
     nombre_val = st.session_state.bono_nombre
     dni_val = st.session_state.bono_dni
@@ -232,35 +228,140 @@ if st.session_state.bono_generado and st.session_state.bono_nombre and st.sessio
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # --- BONO HTML ---
-    bono_html = f"""
-    <div class="bono-container" id="bono-para-imprimir">
-        <div class="logo-container">
-            {f'<img src="data:image/png;base64,{logo_base64}" alt="OSECAC">' if logo_base64 else '<h2>OSECAC</h2>'}
+    # --- BONO HTML (completo, incluyendo estilos) ---
+    bono_html_completo = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; background: white; }}
+            .bono-container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background: white;
+                padding: 20px 25px;
+                border: 1px solid #d0d7de;
+                border-radius: 12px;
+                box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+            }}
+            .logo-container {{ text-align: center; margin-bottom: 6px; }}
+            .logo-container img {{ width: 100px; height: auto; }}
+            .bono-titulo {{
+                color: #1a3c6e;
+                font-size: 22px;
+                font-weight: bold;
+                text-align: center;
+                border-bottom: 3px solid #1a3c6e;
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+                letter-spacing: 1px;
+            }}
+            .bono-subtitulo {{
+                color: #cc0000;
+                font-size: 26px;
+                font-weight: bold;
+                text-align: center;
+                margin: 10px 0 15px 0;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                background: #fef0f0;
+                padding: 6px 0;
+                border-radius: 4px;
+            }}
+            .bono-datos {{
+                background: #f8fafc;
+                padding: 12px 15px;
+                border-radius: 8px;
+                margin: 10px 0;
+                border-left: 4px solid #1a3c6e;
+            }}
+            .bono-datos p {{ margin: 6px 0; font-size: 15px; color: #1e293b; }}
+            .bono-datos strong {{ color: #0b2a4a; }}
+            .bono-qr {{ text-align: center; margin: 8px 0; }}
+            .bono-qr img {{ width: 70px; height: 70px; }}
+            .bono-footer {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 18px;
+                padding-top: 12px;
+                border-top: 2px dashed #1a3c6e;
+            }}
+            .bono-sello {{
+                border: 2px solid #1a3c6e;
+                padding: 8px 16px;
+                text-align: center;
+                color: #1a3c6e;
+                font-size: 11px;
+                border-radius: 6px;
+                background: #f8fafc;
+                min-width: 100px;
+            }}
+            .bono-firma {{
+                border-top: 2px solid #1a3c6e;
+                width: 180px;
+                text-align: center;
+                padding-top: 6px;
+                font-size: 11px;
+                color: #1e293b;
+            }}
+            .bono-pie {{
+                text-align: center;
+                margin-top: 12px;
+                font-size: 9px;
+                color: #94a3b8;
+                border-top: 1px solid #e2e8f0;
+                padding-top: 8px;
+            }}
+            .bono-fecha-impresion {{
+                font-size: 9px;
+                color: #94a3b8;
+                text-align: right;
+                margin-top: 4px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="bono-container">
+            <div class="logo-container">
+                {f'<img src="data:image/png;base64,{logo_base64}" alt="OSECAC">' if logo_base64 else '<h2>OSECAC</h2>'}
+            </div>
+            <div class="bono-titulo">COSEGURO ODONTOLÓGICO</div>
+            <div class="bono-subtitulo">⚠️ NO AFILIADO AL SEC ⚠️</div>
+            <div class="bono-datos">
+                <p><strong>👤 NOMBRE:</strong> {nombre_val.upper()}</p>
+                <p><strong>🆔 DNI:</strong> {dni_val}</p>
+                <p><strong>🏢 SECTOR:</strong> {sector_val.upper()}</p>
+                <p><strong>📅 FECHA EMISIÓN:</strong> {fecha_str} - {hora_str}</p>
+            </div>
+            <div class="bono-qr">
+                <img src="data:image/png;base64,{qr_base64}" alt="QR">
+            </div>
+            <div class="bono-footer">
+                <div class="bono-sello">SELLO<br><span style="font-size:9px;">(Lugar para el sello)</span></div>
+                <div class="bono-firma">FIRMA DEL AFILIADO<br><span style="font-size:9px;">(Acepto condiciones)</span></div>
+            </div>
+            <div class="bono-pie">Válido solo para prestaciones odontológicas. No válido como comprobante de pago.</div>
+            <div class="bono-fecha-impresion">Impreso: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}</div>
         </div>
-        <div class="bono-titulo">COSEGURO ODONTOLÓGICO</div>
-        <div class="bono-subtitulo">⚠️ NO AFILIADO AL SEC ⚠️</div>
-        <div class="bono-datos">
-            <p><strong>👤 NOMBRE:</strong> {nombre_val.upper()}</p>
-            <p><strong>🆔 DNI:</strong> {dni_val}</p>
-            <p><strong>🏢 SECTOR:</strong> {sector_val.upper()}</p>
-            <p><strong>📅 FECHA EMISIÓN:</strong> {fecha_str} - {hora_str}</p>
-        </div>
-        <div class="bono-qr">
-            <img src="data:image/png;base64,{qr_base64}" alt="QR">
-        </div>
-        <div class="bono-footer">
-            <div class="bono-sello">SELLO<br><span style="font-size:9px;">(Lugar para el sello)</span></div>
-            <div class="bono-firma">FIRMA DEL AFILIADO<br><span style="font-size:9px;">(Acepto condiciones)</span></div>
-        </div>
-        <div class="bono-pie">Válido solo para prestaciones odontológicas. No válido como comprobante de pago.</div>
-        <div class="bono-fecha-impresion">Impreso: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}</div>
-    </div>
+    </body>
+    </html>
     """
     
+    # --- Generar PDF ---
+    if st.session_state.pdf_bytes is None:
+        st.session_state.pdf_bytes = generar_pdf(bono_html_completo)
+    
+    # --- Mostrar previsualización del bono (solo el contenido, sin HTML extra) ---
     st.markdown("---")
-    st.markdown('<div class="no-print"><h3>📄 Bono generado</h3></div>', unsafe_allow_html=True)
-    st.markdown(bono_html, unsafe_allow_html=True)
+    st.markdown('<div class="no-print"><h3>📄 Previsualización del Bono</h3></div>', unsafe_allow_html=True)
+    # Extraemos solo el contenido del bono (sin <html>, <head>, <body>) para mostrarlo en pantalla
+    # Usamos el mismo HTML pero sin el wrapper completo
+    bono_html_pantalla = bono_html_completo.replace('<!DOCTYPE html>', '').replace('<html>', '').replace('</html>', '').replace('<head>', '').replace('</head>', '').replace('<body>', '').replace('</body>', '')
+    # Pero mejor mostramos el bono con st.markdown y el CSS que ya tenemos
+    # Usamos el mismo estilo que antes, pero ahora el HTML está limpio
+    st.markdown(bono_html_pantalla, unsafe_allow_html=True)
     
     # --- Botones de acción ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
@@ -269,21 +370,16 @@ if st.session_state.bono_generado and st.session_state.bono_nombre and st.sessio
         if st.button("🔄 NUEVO BONO", use_container_width=True):
             limpiar_formulario()
     with col2:
-        # Botón de impresión con JavaScript embebido
-        if st.button("🖨️ IMPRIMIR BONO", use_container_width=True):
-            st.session_state.imprimir = True
-            st.rerun()
+        # Botón de descarga del PDF
+        if st.session_state.pdf_bytes:
+            st.download_button(
+                label="📄 DESCARGAR BONO PDF",
+                data=st.session_state.pdf_bytes,
+                file_name=f"bono_{nombre_val.replace(' ', '_')}_{dni_val}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Si se presionó "Imprimir", inyectamos el script de impresión
-    if st.session_state.imprimir:
-        st.markdown("""
-        <script>
-            window.print();
-        </script>
-        """, unsafe_allow_html=True)
-        # Reseteamos el flag para que no se ejecute dos veces
-        st.session_state.imprimir = False
     
     st.info("🔒 **Código QR**: Contiene los datos del afiliado y la fecha de emisión. Sirve como verificación de autenticidad.")
 
