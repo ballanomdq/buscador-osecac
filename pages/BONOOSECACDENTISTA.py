@@ -12,17 +12,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# CSS personalizado (incluye estilos para impresión)
+# CSS personalizado
 st.markdown("""
 <style>
-    /* Ocultar elementos de Streamlit */
     [data-testid="stSidebar"], [data-testid="stSidebarNav"], #MainMenu, footer, header {
         display: none !important;
     }
     .stApp {
         background-color: #f0f2f6 !important;
     }
-    /* Contenedor del bono - se ve bien en pantalla */
     .bono-container {
         background: white;
         padding: 20px 25px;
@@ -126,15 +124,29 @@ st.markdown("""
         width: 100px;
         height: auto;
     }
-
-    /* Estilos para impresión: ocultar todo excepto el bono */
+    /* Botón imprimir */
+    .btn-imprimir {
+        display: inline-block;
+        background: linear-gradient(145deg, #1a3c6e, #0f2b4f);
+        color: white !important;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 20px;
+        font-size: 16px;
+        font-weight: bold;
+        width: 100%;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn-imprimir:hover {
+        transform: scale(1.02);
+        background: linear-gradient(145deg, #0f2b4f, #1a3c6e);
+    }
     @media print {
-        body * {
-            visibility: hidden;
-        }
-        .bono-container, .bono-container * {
-            visibility: visible;
-        }
+        body * { visibility: hidden; }
+        .bono-container, .bono-container * { visibility: visible; }
         .bono-container {
             position: absolute;
             left: 0;
@@ -146,17 +158,13 @@ st.markdown("""
             padding: 15px 20px;
             border-radius: 0;
         }
-        .no-print {
-            display: none !important;
-        }
-        .stApp {
-            background: white !important;
-        }
+        .no-print { display: none !important; }
+        .stApp { background: white !important; }
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Función para obtener logo en base64
+# --- Funciones auxiliares ---
 def get_image_base64(path):
     try:
         with open(path, "rb") as img_file:
@@ -164,14 +172,8 @@ def get_image_base64(path):
     except:
         return None
 
-# Función para generar QR (devuelve base64)
 def generar_qr_base64(datos):
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=3,
-        border=2,
-    )
+    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=3, border=2)
     qr.add_data(datos)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
@@ -179,7 +181,7 @@ def generar_qr_base64(datos):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# ================= INICIALIZAR ESTADO DE SESIÓN PARA LIMPIEZA =================
+# --- Inicializar estado de sesión ---
 if 'form_nombre' not in st.session_state:
     st.session_state.form_nombre = ''
 if 'form_dni' not in st.session_state:
@@ -191,7 +193,6 @@ if 'form_fecha' not in st.session_state:
 if 'bono_generado' not in st.session_state:
     st.session_state.bono_generado = False
 
-# ================= FUNCIÓN PARA LIMPIAR CAMPOS =================
 def limpiar_formulario():
     st.session_state.form_nombre = ''
     st.session_state.form_dni = ''
@@ -200,7 +201,7 @@ def limpiar_formulario():
     st.session_state.bono_generado = False
     st.rerun()
 
-# ================= FORMULARIO (visible solo en pantalla) =================
+# --- Mostrar formulario ---
 st.markdown('<div class="no-print">', unsafe_allow_html=True)
 st.title("🦷 BONO ODONTOLÓGICO")
 st.markdown("Complete los datos del afiliado para generar el bono.")
@@ -208,24 +209,17 @@ st.markdown("Complete los datos del afiliado para generar el bono.")
 with st.form("form_bono"):
     col1, col2 = st.columns(2)
     with col1:
-        nombre = st.text_input("👤 Nombre del Beneficiario", 
-                               placeholder="Ej: Juan Pérez",
-                               key="form_nombre")
-        dni = st.text_input("🆔 DNI", 
-                            placeholder="Ej: 30.123.456",
-                            key="form_dni")
+        nombre = st.text_input("👤 Nombre del Beneficiario", placeholder="Ej: Juan Pérez", key="form_nombre")
+        dni = st.text_input("🆔 DNI", placeholder="Ej: 30.123.456", key="form_dni")
     with col2:
-        sector = st.text_input("🏢 Sector / Agencia", 
-                               placeholder="Ej: Agencia Miramar",
-                               key="form_sector")
-        fecha_emision = st.date_input("📅 Fecha de Emisión", 
-                                       key="form_fecha")
+        sector = st.text_input("🏢 Sector / Agencia", placeholder="Ej: Agencia Miramar", key="form_sector")
+        fecha_emision = st.date_input("📅 Fecha de Emisión", key="form_fecha")
     
     generar = st.form_submit_button("📋 GENERAR BONO", use_container_width=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# ================= GENERACIÓN DEL BONO =================
+# --- Lógica de generación ---
 if generar and nombre and dni and sector:
     st.session_state.bono_generado = True
     st.rerun()
@@ -237,18 +231,15 @@ if st.session_state.bono_generado and st.session_state.form_nombre and st.sessio
     sector_val = st.session_state.form_sector
     fecha_val = st.session_state.form_fecha
     
-    # Datos para el QR (incluye timestamp para unicidad)
     qr_data = f"OSECAC|BONO|{nombre_val}|{dni_val}|{sector_val}|{fecha_val}|{datetime.now().timestamp()}"
     qr_base64 = generar_qr_base64(qr_data)
     
-    # Logo
-    logo_path = "logo osecac.png"  # Asegurate que el archivo exista en la raíz
+    logo_path = "logo osecac.png"
     logo_base64 = get_image_base64(logo_path)
     
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # ====== BONO EN HTML ======
     bono_html = f"""
     <div class="bono-container" id="bono-para-imprimir">
         <div class="logo-container">
@@ -274,44 +265,26 @@ if st.session_state.bono_generado and st.session_state.form_nombre and st.sessio
     </div>
     """
     
-    # Mostrar el bono renderizado
     st.markdown("---")
     st.markdown('<div class="no-print"><h3>📄 Bono generado</h3></div>', unsafe_allow_html=True)
     st.markdown(bono_html, unsafe_allow_html=True)
     
-    # ====== BOTONES DE ACCIÓN (solo en pantalla) ======
+    # --- Botones de acción (NO se imprimen) ---
     st.markdown('<div class="no-print">', unsafe_allow_html=True)
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        # Botón de impresión con JavaScript embebido
+    col1, col2 = st.columns(2)
+    with col1:
+        # Usamos un <a> con href="javascript:window.print()" que es más confiable
         st.markdown("""
-        <script>
-        function imprimirBono() {
-            window.print();
-        }
-        </script>
-        <button onclick="imprimirBono()" style="
-            background: linear-gradient(145deg, #1a3c6e, #0f2b4f);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            padding: 12px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            width: 100%;
-            cursor: pointer;
-            transition: 0.2s;
-        " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+        <a href="javascript:window.print()" class="btn-imprimir">
             🖨️ IMPRIMIR BONO
-        </button>
+        </a>
         """, unsafe_allow_html=True)
-    with col_btn2:
+    with col2:
         if st.button("🔄 NUEVO BONO", use_container_width=True):
             limpiar_formulario()
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Mensaje informativo sobre el QR (no se imprime)
-    st.info("🔒 **Código QR**: Este código contiene los datos del afiliado y la fecha de emisión. Sirve como verificación de autenticidad.")
+    st.info("🔒 **Código QR**: Contiene los datos del afiliado y la fecha de emisión. Sirve como verificación de autenticidad.")
 
 else:
     if generar:
