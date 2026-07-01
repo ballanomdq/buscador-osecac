@@ -126,26 +126,7 @@ st.markdown("""
         width: 100px;
         height: auto;
     }
-    /* Botón imprimir */
-    .btn-imprimir {
-        display: inline-block;
-        background: linear-gradient(145deg, #1a3c6e, #0f2b4f);
-        color: white !important;
-        border: none;
-        border-radius: 10px;
-        padding: 12px 20px;
-        font-size: 16px;
-        font-weight: bold;
-        width: 100%;
-        text-align: center;
-        text-decoration: none;
-        cursor: pointer;
-        transition: 0.2s;
-    }
-    .btn-imprimir:hover {
-        transform: scale(1.02);
-        background: linear-gradient(145deg, #0f2b4f, #1a3c6e);
-    }
+    /* Estilos para impresión: ocultar todo excepto el bono */
     @media print {
         body * { visibility: hidden; }
         .bono-container, .bono-container * { visibility: visible; }
@@ -194,12 +175,15 @@ if 'bono_sector' not in st.session_state:
     st.session_state.bono_sector = ''
 if 'bono_fecha' not in st.session_state:
     st.session_state.bono_fecha = datetime.now()
+if 'imprimir' not in st.session_state:
+    st.session_state.imprimir = False
 
 def limpiar_formulario():
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
+    st.session_state.imprimir = False
     st.rerun()
 
 # --- Mostrar formulario ---
@@ -227,6 +211,7 @@ if generar and nombre and dni and sector:
     st.session_state.bono_sector = sector
     st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
+    st.session_state.imprimir = False
     st.rerun()
 
 if st.session_state.bono_generado and st.session_state.bono_nombre and st.session_state.bono_dni and st.session_state.bono_sector:
@@ -284,12 +269,21 @@ if st.session_state.bono_generado and st.session_state.bono_nombre and st.sessio
         if st.button("🔄 NUEVO BONO", use_container_width=True):
             limpiar_formulario()
     with col2:
-        st.markdown("""
-        <a href="javascript:window.print()" class="btn-imprimir">
-            🖨️ IMPRIMIR BONO
-        </a>
-        """, unsafe_allow_html=True)
+        # Botón de impresión con JavaScript embebido
+        if st.button("🖨️ IMPRIMIR BONO", use_container_width=True):
+            st.session_state.imprimir = True
+            st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Si se presionó "Imprimir", inyectamos el script de impresión
+    if st.session_state.imprimir:
+        st.markdown("""
+        <script>
+            window.print();
+        </script>
+        """, unsafe_allow_html=True)
+        # Reseteamos el flag para que no se ejecute dos veces
+        st.session_state.imprimir = False
     
     st.info("🔒 **Código QR**: Contiene los datos del afiliado y la fecha de emisión. Sirve como verificación de autenticidad.")
 
