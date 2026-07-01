@@ -644,6 +644,16 @@ with st.expander("🔍 9. FISCALIZACIÓN", expanded=False):
     if st.button("📋 PAGINA ACTAS INSPECTORES"):
         st.switch_page("pages/pagactasinspectores.py")
 
+# ================= EXPANDER 10. DENTISTA =================
+with st.expander("🦷 10. DENTISTA", expanded=False):
+    st.markdown("### 🪥 Coseguro no Afiliado al SEC")
+    
+    # Botón que lleva a la página BONOOSECACDENTISTA
+    if st.button("📋 Ver Coseguro", use_container_width=True):
+        st.switch_page("pages/BONOOSECACDENTISTA.py")
+    
+    st.info("💡 Este servicio es exclusivo para afiliados sin cobertura del SEC.")
+
 # --- Modal para la clave de ACTAS ---
 if st.session_state.get('mostrar_clave_actas', False):
     with st.popover("🔐 ACCESO A ACTAS"):
