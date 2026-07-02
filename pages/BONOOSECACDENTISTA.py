@@ -29,33 +29,29 @@ def generar_qr_base64(datos):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# ==================== LIMPIAR TODO ====================
+# ==================== RESET COMPLETO ====================
 def reset_completo():
-    """Limpia absolutamente todo, incluidos los campos del formulario."""
+    """Reset total como F5"""
+    if 'form_version' not in st.session_state:
+        st.session_state.form_version = 0
+    st.session_state.form_version += 1  # Cambia las keys de los inputs
+    
+    # Limpiar todo lo demás
     for key in list(st.session_state.keys()):
-        del st.session_state[key]
-
-    # Recrear variables básicas
+        if key not in ['form_version']:
+            del st.session_state[key]
+    
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
     st.session_state.bono_fecha = datetime.now()
-    st.session_state.qr_base64 = ''
-    st.session_state.logo_base64 = ''
-
-    # Truco clave: cambiamos la "versión" del formulario.
-    # Al usar esta versión como sufijo de las keys de los widgets,
-    # Streamlit los recrea como widgets NUEVOS (sin memoria del valor
-    # anterior en el navegador), y por eso quedan realmente vacíos.
-    st.session_state.form_version = st.session_state.get('form_version', 0) + 1
 
 # ==================== INICIALIZACIÓN ====================
-if 'bono_generado' not in st.session_state:
-    reset_completo()
-
 if 'form_version' not in st.session_state:
     st.session_state.form_version = 0
+if 'bono_generado' not in st.session_state:
+    reset_completo()
 
 # ==================== RESET POR URL ====================
 if st.query_params.get("reset") == "true":
@@ -63,7 +59,7 @@ if st.query_params.get("reset") == "true":
     st.query_params.clear()
     st.rerun()
 
-# ==================== TÍTULO Y BOTÓN NUEVO ====================
+# ==================== INTERFAZ ====================
 col1, col2 = st.columns([4, 1])
 with col1:
     st.title("🦷 GENERADOR DE BONO ODONTOLÓGICO")
@@ -75,33 +71,33 @@ with col2:
 st.markdown("Complete los datos del afiliado para generar el bono.")
 
 # ==================== FORMULARIO CON KEYS DINÁMICAS ====================
-fv = st.session_state.form_version  # sufijo de versión
+version = st.session_state.form_version
 
-with st.form(f"form_bono_{fv}"):
+with st.form("form_bono"):
     col1, col2 = st.columns(2)
     with col1:
         nombre = st.text_input(
-            "👤 Nombre del Beneficiario",
+            "👤 Nombre del Beneficiario", 
             placeholder="Ej: Juan Pérez",
-            key=f"input_nombre_{fv}"
+            key=f"nombre_{version}"
         )
         dni = st.text_input(
-            "🆔 DNI",
+            "🆔 DNI", 
             placeholder="Ej: 30.123.456",
-            key=f"input_dni_{fv}"
+            key=f"dni_{version}"
         )
     with col2:
         sector = st.text_input(
-            "🏢 Sector / Agencia",
+            "🏢 Sector / Agencia", 
             placeholder="Ej: Agencia Miramar",
-            key=f"input_sector_{fv}"
+            key=f"sector_{version}"
         )
         fecha_emision = st.date_input(
-            "📅 Fecha de Emisión",
+            "📅 Fecha de Emisión", 
             datetime.now(),
-            key=f"input_fecha_{fv}"
+            key=f"fecha_{version}"
         )
-
+   
     generar = st.form_submit_button("📋 GENERAR BONO", use_container_width=True)
 
 # ==================== GENERACIÓN ====================
@@ -111,41 +107,45 @@ if generar and nombre and dni and sector:
     st.session_state.bono_sector = sector
     st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
-
+   
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     st.session_state.qr_base64 = generar_qr_base64(qr_data)
-
+   
     logo_path = "LOGOAMEC.png"
     if not os.path.exists(logo_path):
         logo_path = os.path.join(os.path.dirname(__file__), "LOGOAMEC.png")
     st.session_state.logo_base64 = get_image_base64(logo_path)
-
+   
     st.rerun()
 
 # ==================== MOSTRAR BONO ====================
 if st.session_state.get('bono_generado', False):
-
+    # (Mantengo el HTML simplificado)
     bono_html = f"""
     <!DOCTYPE html>
     <html><head><meta charset="UTF-8">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         * {{margin:0;padding:0;box-sizing:border-box;}}
-        body {{background:#f0f2f6; padding:15px; font-family:Arial,sans-serif;}}
-        .bono-container {{background:white; padding:25px; border:2px solid #1a3c6e; border-radius:12px; max-width:580px; margin:auto; box-shadow:0 8px 16px rgba(0,0,0,0.15);}}
+        body {{background:#f0f2f6; padding:20px; font-family:Arial,sans-serif;}}
+        .bono-container {{background:white; padding:25px; border:2px solid #1a3c6e; border-radius:12px; 
+                        max-width:580px; margin:auto; box-shadow:0 8px 16px rgba(0,0,0,0.15);}}
         .logo-container {{text-align:center; margin-bottom:10px;}}
         .logo-container img {{width:180px;}}
-        .bono-titulo {{color:#1a3c6e; font-size:24px; font-weight:bold; text-align:center; border:3px solid #1a3c6e; padding:10px; border-radius:8px; background:#f0f7ff;}}
-        .bono-subtitulo {{color:#cc0000; font-size:27px; font-weight:bold; text-align:center; margin:15px 0; background:#fef0f0; padding:8px; border-radius:4px;}}
+        .bono-titulo {{color:#1a3c6e; font-size:24px; font-weight:bold; text-align:center; 
+                      border:3px solid #1a3c6e; padding:10px; border-radius:8px; background:#f0f7ff;}}
+        .bono-subtitulo {{color:#cc0000; font-size:27px; font-weight:bold; text-align:center; 
+                         margin:15px 0; background:#fef0f0; padding:8px; border-radius:4px;}}
         .bono-datos {{background:#f8fafc; padding:15px; border-radius:8px; border-left:5px solid #1a3c6e; margin:15px 0;}}
         .bono-qr {{text-align:center; margin:15px 0;}}
         .bono-qr img {{width:85px; height:85px;}}
-        .btn-imprimir {{background:#1a3c6e; color:white; border:none; padding:12px 30px; font-size:18px; font-weight:bold; border-radius:8px; width:100%; margin-top:15px; cursor:pointer;}}
+        .btn-imprimir {{background:#1a3c6e; color:white; border:none; padding:12px 30px; font-size:18px; 
+                       font-weight:bold; border-radius:8px; width:100%; margin-top:15px; cursor:pointer;}}
     </style>
     </head><body>
         <div id="bono" class="bono-container">
             <div class="logo-container">
-                {f'<img src="data:image/png;base64,{st.session_state.logo_base64}" alt="Logo">' if st.session_state.get('logo_base64') else '<h2>OSECAC</h2>'}
+                {f'<img src="data:image/png;base64,{st.session_state.get("logo_base64","")}" alt="Logo">' if st.session_state.get("logo_base64") else '<h2>OSECAC</h2>'}
             </div>
             <div class="bono-titulo">COSEGURO ODONTOLÓGICO</div>
             <div class="bono-subtitulo">⚠️ NO AFILIADO AL SEC ⚠️</div>
