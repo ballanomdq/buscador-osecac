@@ -5,7 +5,6 @@ from io import BytesIO
 import qrcode
 import os
 import streamlit.components.v1 as components
-import urllib.parse
 
 # Configuración de página
 st.set_page_config(
@@ -56,14 +55,20 @@ def limpiar_formulario():
     st.session_state.logo_base64 = ''
     st.rerun()
 
-# ==================== LÓGICA DE LIMPIEZA POR URL ====================
+# ==================== DETECTAR PARÁMETRO DE RESET ====================
 # Si la URL tiene ?reset=true, limpiar el estado y redirigir sin el parámetro
 query_params = st.query_params
-if query_params.get("reset") == "true":
-    limpiar_formulario()
-    # Limpiar el parámetro de la URL usando st.query_params.clear()
+if "reset" in query_params and query_params["reset"] == "true":
+    # Limpiar estado
+    st.session_state.bono_generado = False
+    st.session_state.bono_nombre = ''
+    st.session_state.bono_dni = ''
+    st.session_state.bono_sector = ''
+    st.session_state.qr_base64 = ''
+    st.session_state.logo_base64 = ''
+    # Eliminar el parámetro de la URL
     st.query_params.clear()
-    # Forzar recarga sin parámetros (esto reinicia el script)
+    # Recargar la página (sin el parámetro)
     st.rerun()
 
 # ==================== FORMULARIO ====================
@@ -94,10 +99,9 @@ if generar and nombre and dni and sector:
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     st.session_state.qr_base64 = generar_qr_base64(qr_data)
     
-    # Obtener logo (NUEVO LOGO: LOGOAMEC.png)
-    logo_path = "LOGOAMEC.png"  # <--- CAMBIADO A LOGOAMEC.png
+    # Obtener logo (LOGOAMEC.png)
+    logo_path = "LOGOAMEC.png"
     if not os.path.exists(logo_path):
-        # Si no está en la raíz, buscar en el directorio del archivo
         logo_path = os.path.join(os.path.dirname(__file__), "LOGOAMEC.png")
     st.session_state.logo_base64 = get_image_base64(logo_path)
     
@@ -116,7 +120,7 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # Construir el HTML completo del bono (con estilos y botón de impresión dentro del mismo iframe)
+    # Construir el HTML completo del bono
     bono_completo_html = f"""
     <!DOCTYPE html>
     <html>
@@ -330,7 +334,9 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
             
             function nuevoBono() {{
                 // Redirigir a la misma página con ?reset=true para limpiar el estado
-                window.location.href = window.location.href.split('?')[0] + '?reset=true';
+                // Usamos window.location.href para recargar la página completa
+                const url = window.location.href.split('?')[0] + '?reset=true';
+                window.location.href = url;
             }}
         </script>
     </body>
