@@ -6,7 +6,7 @@ import qrcode
 import os
 import streamlit.components.v1 as components
 
-# Configuración de página
+# ==================== CONFIGURACIÓN DE PÁGINA ====================
 st.set_page_config(
     page_title="Bono Odontológico - OSECAC",
     layout="centered",
@@ -18,7 +18,8 @@ def get_image_base64(path):
     try:
         with open(path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
-    except:
+    except Exception as e:
+        print(f"Error al cargar logo: {e}")
         return None
 
 def generar_qr_base64(datos):
@@ -47,28 +48,37 @@ if 'logo_base64' not in st.session_state:
     st.session_state.logo_base64 = ''
 
 def limpiar_formulario():
+    """Limpia TODAS las variables de estado relacionadas con el bono"""
+    for key in list(st.session_state.keys()):
+        if key.startswith('bono_') or key == 'qr_base64' or key == 'logo_base64':
+            del st.session_state[key]
+    # Recrear las variables necesarias con valores por defecto
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
+    st.session_state.bono_fecha = datetime.now()
     st.session_state.qr_base64 = ''
     st.session_state.logo_base64 = ''
-    st.rerun()
 
 # ==================== DETECTAR PARÁMETRO DE RESET ====================
-# Si la URL tiene ?reset=true, limpiar el estado y redirigir sin el parámetro
 query_params = st.query_params
 if "reset" in query_params and query_params["reset"] == "true":
-    # Limpiar estado
+    # Limpiar TODAS las variables que empiecen con 'bono_'
+    for key in list(st.session_state.keys()):
+        if key.startswith('bono_') or key == 'qr_base64' or key == 'logo_base64':
+            del st.session_state[key]
+    # Recrear variables por defecto
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
     st.session_state.bono_sector = ''
+    st.session_state.bono_fecha = datetime.now()
     st.session_state.qr_base64 = ''
     st.session_state.logo_base64 = ''
     # Eliminar el parámetro de la URL
     st.query_params.clear()
-    # Recargar la página (sin el parámetro)
+    # Recargar la página
     st.rerun()
 
 # ==================== FORMULARIO ====================
@@ -107,7 +117,7 @@ if generar and nombre and dni and sector:
     
     st.rerun()
 
-# ==================== MOSTRAR BONO (TODO DENTRO DE components.html) ====================
+# ==================== MOSTRAR BONO ====================
 if st.session_state.bono_generado and st.session_state.bono_nombre:
     
     nombre_val = st.session_state.bono_nombre
@@ -120,7 +130,7 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
     
-    # Construir el HTML completo del bono
+    # ==================== COMPONENTE HTML COMPLETO ====================
     bono_completo_html = f"""
     <!DOCTYPE html>
     <html>
@@ -333,10 +343,12 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
             }}
             
             function nuevoBono() {{
-                // Redirigir a la misma página con ?reset=true para limpiar el estado
-                // Usamos window.location.href para recargar la página completa
-                const url = window.location.href.split('?')[0] + '?reset=true';
-                window.location.href = url;
+                // Recarga completa de la página (como F5) + ?reset=true para limpiar estado
+                window.location.href = window.location.pathname + '?reset=true';
+                // Forzar recarga desde servidor (por si el navegador cachea)
+                setTimeout(() => {{
+                    window.location.reload(true);
+                }}, 100);
             }}
         </script>
     </body>
