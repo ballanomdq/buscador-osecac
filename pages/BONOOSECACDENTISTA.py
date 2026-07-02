@@ -5,6 +5,7 @@ from io import BytesIO
 import qrcode
 import os
 import streamlit.components.v1 as components
+import urllib.parse
 
 # Configuración de página
 st.set_page_config(
@@ -55,6 +56,16 @@ def limpiar_formulario():
     st.session_state.logo_base64 = ''
     st.rerun()
 
+# ==================== LÓGICA DE LIMPIEZA POR URL ====================
+# Si la URL tiene ?reset=true, limpiar el estado y redirigir sin el parámetro
+query_params = st.query_params
+if query_params.get("reset") == "true":
+    limpiar_formulario()
+    # Limpiar el parámetro de la URL usando st.query_params.clear()
+    st.query_params.clear()
+    # Forzar recarga sin parámetros (esto reinicia el script)
+    st.rerun()
+
 # ==================== FORMULARIO ====================
 st.title("🦷 GENERADOR DE BONO ODONTOLÓGICO")
 st.markdown("Complete los datos del afiliado para generar el bono.")
@@ -83,10 +94,11 @@ if generar and nombre and dni and sector:
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     st.session_state.qr_base64 = generar_qr_base64(qr_data)
     
-    # Obtener logo
-    logo_path = "logo osecac.png"
+    # Obtener logo (NUEVO LOGO: LOGOAMEC.png)
+    logo_path = "LOGOAMEC.png"  # <--- CAMBIADO A LOGOAMEC.png
     if not os.path.exists(logo_path):
-        logo_path = os.path.join(os.path.dirname(__file__), "logo osecac.png")
+        # Si no está en la raíz, buscar en el directorio del archivo
+        logo_path = os.path.join(os.path.dirname(__file__), "LOGOAMEC.png")
     st.session_state.logo_base64 = get_image_base64(logo_path)
     
     st.rerun()
@@ -317,8 +329,8 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
             }}
             
             function nuevoBono() {{
-                // Redirigir a la página principal con un parámetro para limpiar
-                window.parent.location.href = window.parent.location.href.split('?')[0] + '?limpiar=true';
+                // Redirigir a la misma página con ?reset=true para limpiar el estado
+                window.location.href = window.location.href.split('?')[0] + '?reset=true';
             }}
         </script>
     </body>
@@ -333,12 +345,3 @@ else:
         st.warning("⚠️ Por favor, complete TODOS los campos.")
     else:
         st.info("📝 Complete los datos y presione 'GENERAR BONO'.")
-
-# ==================== LÓGICA DE LIMPIEZA POR URL ====================
-# Si la URL tiene ?limpiar=true, limpiar el estado
-import urllib.parse
-query_params = st.query_params
-if query_params.get("limpiar") == "true":
-    limpiar_formulario()
-    # Eliminar el parámetro de la URL
-    st.query_params.clear()
