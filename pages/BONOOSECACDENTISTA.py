@@ -6,7 +6,6 @@ import qrcode
 import os
 import streamlit.components.v1 as components
 
-# ==================== CONFIGURACIÓN DE PÁGINA ====================
 st.set_page_config(
     page_title="Bono Odontológico - OSECAC",
     layout="centered",
@@ -18,8 +17,7 @@ def get_image_base64(path):
     try:
         with open(path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
-    except Exception as e:
-        print(f"Error al cargar logo: {e}")
+    except:
         return None
 
 def generar_qr_base64(datos):
@@ -48,11 +46,9 @@ if 'logo_base64' not in st.session_state:
     st.session_state.logo_base64 = ''
 
 def limpiar_formulario():
-    """Limpia completamente el formulario"""
     for key in list(st.session_state.keys()):
         if key.startswith('bono_') or key in ['qr_base64', 'logo_base64']:
             del st.session_state[key]
-    
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
     st.session_state.bono_dni = ''
@@ -61,17 +57,25 @@ def limpiar_formulario():
     st.session_state.qr_base64 = ''
     st.session_state.logo_base64 = ''
 
-# ==================== DETECTAR PARÁMETRO DE RESET ====================
-query_params = st.query_params
-if "reset" in query_params and query_params["reset"] == "true":
+# ==================== RESET ====================
+if st.query_params.get("reset") == "true":
     limpiar_formulario()
     st.query_params.clear()
     st.rerun()
 
-# ==================== FORMULARIO ====================
-st.title("🦷 GENERADOR DE BONO ODONTOLÓGICO")
+# ==================== TÍTULO Y BOTÓN NUEVO ====================
+col_title, col_nuevo = st.columns([4, 1])
+with col_title:
+    st.title("🦷 GENERADOR DE BONO ODONTOLÓGICO")
+
+with col_nuevo:
+    if st.button("🔄 Nuevo Bono", use_container_width=True):
+        limpiar_formulario()
+        st.rerun()
+
 st.markdown("Complete los datos del afiliado para generar el bono.")
 
+# ==================== FORMULARIO ====================
 with st.form("form_bono"):
     col1, col2 = st.columns(2)
     with col1:
@@ -83,7 +87,7 @@ with st.form("form_bono"):
    
     generar = st.form_submit_button("📋 GENERAR BONO", use_container_width=True)
 
-# ==================== LÓGICA DE GENERACIÓN ====================
+# ==================== GENERACIÓN ====================
 if generar and nombre and dni and sector:
     st.session_state.bono_nombre = nombre
     st.session_state.bono_dni = dni
@@ -91,11 +95,9 @@ if generar and nombre and dni and sector:
     st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
    
-    # Generar QR
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     st.session_state.qr_base64 = generar_qr_base64(qr_data)
    
-    # Logo
     logo_path = "LOGOAMEC.png"
     if not os.path.exists(logo_path):
         logo_path = os.path.join(os.path.dirname(__file__), "LOGOAMEC.png")
@@ -105,7 +107,7 @@ if generar and nombre and dni and sector:
 
 # ==================== MOSTRAR BONO ====================
 if st.session_state.bono_generado and st.session_state.bono_nombre:
-   
+    
     nombre_val = st.session_state.bono_nombre
     dni_val = st.session_state.bono_dni
     sector_val = st.session_state.bono_sector
@@ -116,120 +118,36 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
     fecha_str = fecha_val.strftime("%d/%m/%Y")
     hora_str = datetime.now().strftime("%H:%M")
 
-    # ==================== HTML DEL BONO ====================
-    bono_completo_html = f"""
+    bono_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Bono OSECAC</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <style>
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            body {{
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                min-height: 100vh;
-                background-color: #f0f2f6;
-                font-family: Arial, sans-serif;
-                padding: 20px;
-            }}
+            * {{margin:0;padding:0;box-sizing:border-box;}}
+            body {{font-family:Arial,sans-serif; background:#f0f2f6; padding:20px; display:flex; justify-content:center;}}
             .bono-container {{
-                background: white;
-                padding: 25px 30px;
-                border-radius: 12px;
-                box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-                max-width: 580px;
-                width: 100%;
-                border: 2px solid #1a3c6e;
-                margin-bottom: 25px;
+                background:white; padding:25px 30px; border-radius:12px; 
+                box-shadow:0 8px 16px rgba(0,0,0,0.15); max-width:580px; 
+                border:2px solid #1a3c6e;
             }}
-            .logo-container {{ text-align: center; margin-bottom: 10px; }}
-            .logo-container img {{ width: 180px; height: auto; }}
-            .bono-titulo {{
-                color: #1a3c6e;
-                font-size: 24px;
-                font-weight: bold;
-                text-align: center;
-                border: 3px solid #1a3c6e;
-                padding: 10px;
-                margin: 10px 0;
-                border-radius: 8px;
-                background: #f0f7ff;
-            }}
-            .bono-subtitulo {{
-                color: #cc0000;
-                font-size: 28px;
-                font-weight: bold;
-                text-align: center;
-                margin: 15px 0;
-                text-transform: uppercase;
-                background: #fef0f0;
-                padding: 8px 0;
-                border-radius: 4px;
-            }}
-            .bono-datos {{
-                background: #f8fafc;
-                padding: 15px 20px;
-                border-radius: 8px;
-                margin: 15px 0;
-                border-left: 5px solid #1a3c6e;
-            }}
-            .bono-datos p {{ margin: 8px 0; font-size: 16px; color: #1e293b; }}
-            .bono-datos strong {{ color: #0b2a4a; }}
-            .bono-footer {{
-                display: flex;
-                justify-content: space-around;
-                align-items: center;
-                margin-top: 20px;
-                padding-top: 15px;
-                border-top: 2px dashed #1a3c6e;
-            }}
-            .bono-sello, .bono-firma {{
-                text-align: center;
-                border-top: 2px dashed #1a3c6e;
-                padding-top: 10px;
-                width: 120px;
-                color: #1a3c6e;
-                font-size: 14px;
-                font-weight: bold;
-            }}
-            .bono-qr {{ text-align: center; margin: 10px 0; }}
-            .bono-qr img {{ width: 80px; height: 80px; }}
-            .bono-fecha-impresion {{
-                font-size: 10px;
-                color: #94a3b8;
-                text-align: right;
-                margin-top: 8px;
-            }}
-            .btn-imprimir, .btn-nuevo {{
-                border: none;
-                border-radius: 8px;
-                padding: 12px 30px;
-                font-size: 18px;
-                font-weight: bold;
-                cursor: pointer;
-                transition: 0.2s;
-                width: 100%;
-                max-width: 300px;
-                margin: 0 auto;
-                display: block;
-            }}
+            .logo-container {{text-align:center; margin-bottom:10px;}}
+            .logo-container img {{width:180px;}}
+            .bono-titulo {{color:#1a3c6e; font-size:24px; font-weight:bold; text-align:center; 
+                border:3px solid #1a3c6e; padding:10px; margin:10px 0; border-radius:8px; background:#f0f7ff;}}
+            .bono-subtitulo {{color:#cc0000; font-size:28px; font-weight:bold; text-align:center; 
+                margin:15px 0; text-transform:uppercase; background:#fef0f0; padding:8px; border-radius:4px;}}
+            .bono-datos {{background:#f8fafc; padding:15px 20px; border-radius:8px; margin:15px 0; 
+                border-left:5px solid #1a3c6e;}}
+            .bono-qr {{text-align:center; margin:15px 0;}}
+            .bono-qr img {{width:90px; height:90px;}}
+            .bono-footer {{display:flex; justify-content:space-around; margin-top:20px; padding-top:15px; border-top:2px dashed #1a3c6e;}}
             .btn-imprimir {{
-                background: #1a3c6e;
-                color: white;
+                background:#1a3c6e; color:white; border:none; padding:12px 30px; font-size:18px; 
+                font-weight:bold; border-radius:8px; cursor:pointer; margin-top:15px; width:100%;
             }}
-            .btn-imprimir:hover {{ background: #0f2b4f; transform: scale(1.02); }}
-            .btn-nuevo {{
-                background: #6c757d;
-                color: white;
-                margin-top: 10px;
-            }}
-            .btn-nuevo:hover {{ background: #5a6268; transform: scale(1.02); }}
-            .botones {{ display: flex; flex-direction: column; align-items: center; gap: 10px; }}
         </style>
     </head>
     <body>
@@ -249,59 +167,35 @@ if st.session_state.bono_generado and st.session_state.bono_nombre:
                 <img src="data:image/png;base64,{qr_base64}" alt="QR">
             </div>
             <div class="bono-footer">
-                <div class="bono-sello">SELLO</div>
-                <div class="bono-firma">FIRMA</div>
+                <div style="text-align:center; border-top:2px dashed #1a3c6e; padding-top:8px; width:120px;">
+                    SELLO
+                </div>
+                <div style="text-align:center; border-top:2px dashed #1a3c6e; padding-top:8px; width:120px;">
+                    FIRMA
+                </div>
             </div>
-            <div class="bono-fecha-impresion">Impreso: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}</div>
         </div>
-       
-        <div class="botones">
-            <button class="btn-imprimir" onclick="capturarEImprimir()">🖨️ IMPRIMIR BONO</button>
-            <button class="btn-nuevo" onclick="nuevoBono()">🔄 NUEVO BONO</button>
-        </div>
+
+        <button class="btn-imprimir" onclick="capturarEImprimir()">🖨️ IMPRIMIR BONO</button>
 
         <script>
             function capturarEImprimir() {{
-                const element = document.getElementById('bono-para-imprimir');
-                html2canvas(element, {{
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                    allowTaint: true,
-                    logging: false,
-                }}).then(canvas => {{
+                html2canvas(document.getElementById('bono-para-imprimir'), {{scale: 2}}).then(canvas => {{
                     const win = window.open('');
-                    win.document.write('<html><head><title>Imprimir Bono</title></head><body style="margin:0; padding:0; text-align:center;">');
-                    win.document.write('<img src="' + canvas.toDataURL() + '" style="max-width:100%; height:auto;" />');
-                    win.document.write('</body></html>');
+                    win.document.write('<img src="' + canvas.toDataURL() + '" style="max-width:100%;"/>');
                     win.document.close();
-                    setTimeout(() => {{ win.focus(); win.print(); }}, 500);
-                }}).catch(error => {{
-                    alert('Error al capturar el bono. Intente de nuevo.');
-                    console.error(error);
+                    setTimeout(() => win.print(), 500);
                 }});
-            }}
-           
-            function nuevoBono() {{
-                // SOLUCIÓN DEFINITIVA: Afecta la ventana principal de Streamlit
-                const mainWindow = window.top || window.parent || window;
-                const url = mainWindow.location.pathname + '?reset=true';
-                mainWindow.location.href = url;
-                
-                // Backup por si hay caché
-                setTimeout(() => {{
-                    mainWindow.location.reload(true);
-                }}, 200);
             }}
         </script>
     </body>
     </html>
     """
-   
-    components.html(bono_completo_html, height=950, scrolling=True)
-   
+    
+    components.html(bono_html, height=850, scrolling=True)
+
 else:
     if generar:
-        st.warning("⚠️ Por favor, complete TODOS los campos.")
+        st.warning("⚠️ Complete todos los campos.")
     else:
-        st.info("📝 Complete los datos y presione 'GENERAR BONO'.")
+        st.info("Complete los datos y presione GENERAR BONO.")
