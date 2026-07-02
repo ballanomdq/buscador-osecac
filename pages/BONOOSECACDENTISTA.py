@@ -31,10 +31,10 @@ def generar_qr_base64(datos):
 
 # ==================== LIMPIAR TODO ====================
 def reset_completo():
-    """Limpia absolutamente todo como si fuera F5"""
+    """Limpia absolutamente todo, incluidos los campos del formulario."""
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    
+
     # Recrear variables básicas
     st.session_state.bono_generado = False
     st.session_state.bono_nombre = ''
@@ -44,9 +44,18 @@ def reset_completo():
     st.session_state.qr_base64 = ''
     st.session_state.logo_base64 = ''
 
+    # Truco clave: cambiamos la "versión" del formulario.
+    # Al usar esta versión como sufijo de las keys de los widgets,
+    # Streamlit los recrea como widgets NUEVOS (sin memoria del valor
+    # anterior en el navegador), y por eso quedan realmente vacíos.
+    st.session_state.form_version = st.session_state.get('form_version', 0) + 1
+
 # ==================== INICIALIZACIÓN ====================
 if 'bono_generado' not in st.session_state:
     reset_completo()
+
+if 'form_version' not in st.session_state:
+    st.session_state.form_version = 0
 
 # ==================== RESET POR URL ====================
 if st.query_params.get("reset") == "true":
@@ -65,32 +74,34 @@ with col2:
 
 st.markdown("Complete los datos del afiliado para generar el bono.")
 
-# ==================== FORMULARIO CON KEYS ====================
-with st.form("form_bono"):
+# ==================== FORMULARIO CON KEYS DINÁMICAS ====================
+fv = st.session_state.form_version  # sufijo de versión
+
+with st.form(f"form_bono_{fv}"):
     col1, col2 = st.columns(2)
     with col1:
         nombre = st.text_input(
-            "👤 Nombre del Beneficiario", 
+            "👤 Nombre del Beneficiario",
             placeholder="Ej: Juan Pérez",
-            key="input_nombre"
+            key=f"input_nombre_{fv}"
         )
         dni = st.text_input(
-            "🆔 DNI", 
+            "🆔 DNI",
             placeholder="Ej: 30.123.456",
-            key="input_dni"
+            key=f"input_dni_{fv}"
         )
     with col2:
         sector = st.text_input(
-            "🏢 Sector / Agencia", 
+            "🏢 Sector / Agencia",
             placeholder="Ej: Agencia Miramar",
-            key="input_sector"
+            key=f"input_sector_{fv}"
         )
         fecha_emision = st.date_input(
-            "📅 Fecha de Emisión", 
+            "📅 Fecha de Emisión",
             datetime.now(),
-            key="input_fecha"
+            key=f"input_fecha_{fv}"
         )
-   
+
     generar = st.form_submit_button("📋 GENERAR BONO", use_container_width=True)
 
 # ==================== GENERACIÓN ====================
@@ -100,20 +111,20 @@ if generar and nombre and dni and sector:
     st.session_state.bono_sector = sector
     st.session_state.bono_fecha = fecha_emision
     st.session_state.bono_generado = True
-   
+
     qr_data = f"OSECAC|BONO|{nombre}|{dni}|{sector}|{fecha_emision}|{datetime.now().timestamp()}"
     st.session_state.qr_base64 = generar_qr_base64(qr_data)
-   
+
     logo_path = "LOGOAMEC.png"
     if not os.path.exists(logo_path):
         logo_path = os.path.join(os.path.dirname(__file__), "LOGOAMEC.png")
     st.session_state.logo_base64 = get_image_base64(logo_path)
-   
+
     st.rerun()
 
 # ==================== MOSTRAR BONO ====================
 if st.session_state.get('bono_generado', False):
-    
+
     bono_html = f"""
     <!DOCTYPE html>
     <html><head><meta charset="UTF-8">
