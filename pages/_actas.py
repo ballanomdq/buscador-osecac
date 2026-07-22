@@ -590,6 +590,7 @@ def get_dashboard_stats():
         r = supabase.rpc("get_dashboard_stats").execute()
         return r.data if r.data else {}
     except Exception as e:
+        # No mostramos el error en la UI para no molestar, pero lo devolvemos vacío
         return {}
 
 def generar_informe_txt(registros_sin_legajo):
@@ -761,11 +762,12 @@ with tab1:
             st.error(str(e))
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 2 — Gestionar Registros
+# TAB 2 — Gestionar Registros (CON PROTECCIONES)
 # ══════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Gestionar Legajos y Fechas de Vencimiento")
 
+    # --- Estadísticas con protección ---
     stats = get_dashboard_stats()
 
     total_general       = stats.get('total', 0) or 0
@@ -775,10 +777,15 @@ with tab2:
     pendientes_con_mail = stats.get('con_mail', 0) or 0
     finalizados         = stats.get('finalizados', 0) or 0
     
-    # Contar anulados
-    count_anulados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado", "ANULADA").execute()
-    anulados = count_anulados.count if count_anulados.count is not None else 0
-    
+    # --- Contar anulados con protección ---
+    try:
+        count_anulados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado", "ANULADA").execute()
+        anulados = count_anulados.count if count_anulados.count is not None else 0
+    except Exception as e:
+        st.error(f"⚠️ Error al conectar con Supabase (contando anulados): {e}")
+        st.info("💡 Verificá que tus secrets estén bien configurados y que la conexión a Internet sea estable.")
+        anulados = 0
+
     por_inspector       = stats.get('por_inspector') or {}
 
     with st.expander("📊 CONTEO DE REGISTROS", expanded=False):
@@ -861,8 +868,12 @@ with tab2:
     st.markdown("---")
     
     # Botón para eliminar registros FINALIZADOS
-    count_finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute()
-    cantidad_finalizados = count_finalizados.count if count_finalizados.count is not None else 0
+    try:
+        count_finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute()
+        cantidad_finalizados = count_finalizados.count if count_finalizados.count is not None else 0
+    except Exception as e:
+        st.error(f"⚠️ Error al contar finalizados: {e}")
+        cantidad_finalizados = 0
     
     col_elim_cancel1, col_elim_cancel2, col_elim_cancel3 = st.columns([1, 2, 1])
     with col_elim_cancel2:
@@ -1406,7 +1417,7 @@ with tab2:
                 st.info("No se detectaron cambios para guardar.")
 
 # ══════════════════════════════════════════════════════════════════
-# TAB 3 — Subir Actas (VERSIÓN CON DETECCIÓN DE ANULADAS)
+# TAB 3 — Subir Actas (VERSIÓN CON DETECCIÓN DE ANULADAS) (CON PROTECCIÓN)
 # ══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("#### 📋 Subir Actas (CSV o Excel)")
@@ -1912,14 +1923,18 @@ with tab4:
         
         with col_b:
             st.markdown('<p class="campo-label">LEGAJO</p>', unsafe_allow_html=True)
-            inspectores_list = supabase.table("inspectores").select("*").order("legajo").execute()
-            inspectores_opts = {ins['nombre']: ins['legajo'] for ins in inspectores_list.data}
-            inspectores_opts["SIN LEGAJO"] = ""
-            legajo_actual = st.session_state.registro_editado.get('leg', '')
-            inspector_actual_nombre = next((k for k, v in inspectores_opts.items() if str(v) == str(legajo_actual)), "SIN LEGAJO")
-            inspector_index = list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0
-            inspector_seleccionado = st.selectbox("Inspector", options=list(inspectores_opts.keys()), index=inspector_index, key=f"inspector_{key_suffix}")
-            nuevo_legajo = inspectores_opts[inspector_seleccionado] if inspector_seleccionado != "SIN LEGAJO" else None
+            try:
+                inspectores_list = supabase.table("inspectores").select("*").order("legajo").execute()
+                inspectores_opts = {ins['nombre']: ins['legajo'] for ins in inspectores_list.data}
+                inspectores_opts["SIN LEGAJO"] = ""
+                legajo_actual = st.session_state.registro_editado.get('leg', '')
+                inspector_actual_nombre = next((k for k, v in inspectores_opts.items() if str(v) == str(legajo_actual)), "SIN LEGAJO")
+                inspector_index = list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0
+                inspector_seleccionado = st.selectbox("Inspector", options=list(inspectores_opts.keys()), index=inspector_index, key=f"inspector_{key_suffix}")
+                nuevo_legajo = inspectores_opts[inspector_seleccionado] if inspector_seleccionado != "SIN LEGAJO" else None
+            except Exception as e:
+                st.error(f"Error al cargar inspectores: {e}")
+                nuevo_legajo = None
             
             st.markdown('<p class="campo-label">FECHA VTO</p>', unsafe_allow_html=True)
             vto_actual = st.session_state.registro_editado.get('vto', '')
