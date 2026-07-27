@@ -1,4 +1,4 @@
-tengo una pagina con un codigo import streamlit as st
+import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime, date
@@ -590,6 +590,7 @@ def get_dashboard_stats():
         r = supabase.rpc("get_dashboard_stats").execute()
         return r.data if r.data else {}
     except Exception as e:
+        # Si falla, devolvemos un diccionario vacío para que la app no explote
         return {}
 
 def generar_informe_txt(registros_sin_legajo):
@@ -664,7 +665,12 @@ def generar_excel_asignados(registros):
     return output.getvalue()
 
 def generar_excel_por_inspector():
-    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    try:
+        inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    except Exception as e:
+        st.error(f"⚠️ No se pudieron cargar los inspectores: {e}")
+        return None
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         for ins in inspectores.data:
@@ -775,9 +781,13 @@ with tab2:
     pendientes_con_mail = stats.get('con_mail', 0) or 0
     finalizados         = stats.get('finalizados', 0) or 0
     
-    # Contar anulados
-    count_anulados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado", "ANULADA").execute()
-    anulados = count_anulados.count if count_anulados.count is not None else 0
+    # Contar anulados (con protección contra errores de conexión)
+    try:
+        count_anulados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado", "ANULADA").execute()
+        anulados = count_anulados.count if count_anulados.count is not None else 0
+    except Exception as e:
+        st.error(f"⚠️ No se pudo conectar con Supabase (contando anulados): {e}")
+        anulados = 0  # Valor por defecto para que la app no explote
     
     por_inspector       = stats.get('por_inspector') or {}
 
@@ -801,8 +811,14 @@ with tab2:
         with col4:
             st.markdown(f"""<div class="kpi-card kpi-anulado"><div class="kpi-icon">🚫</div><h1>{anulados:,}</h1><p>ANULADOS</p></div>""", unsafe_allow_html=True)
 
-    inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
-    if inspectores.data:
+    # Cargar inspectores con protección
+    try:
+        inspectores = supabase.table("inspectores").select("*").order("legajo").execute()
+    except Exception as e:
+        st.error(f"⚠️ No se pudieron cargar los inspectores: {e}")
+        inspectores = st.empty()  # para que no falle el resto
+    
+    if hasattr(inspectores, 'data') and inspectores.data:
         with st.expander("👥 EMPRESAS POR INSPECTOR", expanded=False):
             cols = st.columns(len(inspectores.data))
             for idx, ins in enumerate(inspectores.data):
@@ -861,8 +877,12 @@ with tab2:
     st.markdown("---")
     
     # Botón para eliminar registros FINALIZADOS
-    count_finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute()
-    cantidad_finalizados = count_finalizados.count if count_finalizados.count is not None else 0
+    try:
+        count_finalizados = supabase.table("padron_deuda_presunta").select("id", count="exact").eq("estado_gestion", "FINALIZADO").execute()
+        cantidad_finalizados = count_finalizados.count if count_finalizados.count is not None else 0
+    except Exception as e:
+        st.error(f"⚠️ No se pudo contar finalizados: {e}")
+        cantidad_finalizados = 0
     
     col_elim_cancel1, col_elim_cancel2, col_elim_cancel3 = st.columns([1, 2, 1])
     with col_elim_cancel2:
@@ -1115,8 +1135,11 @@ with tab2:
     if st.session_state.get('generar_informe_por_inspector'):
         with st.spinner("Generando informe por inspector..."):
             excel_data = generar_excel_por_inspector()
-            st.download_button(label="📥 DESCARGAR EXCEL (POR INSPECTOR)", data=excel_data, file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            st.success("✅ Informe generado - Una hoja por inspector")
+            if excel_data:
+                st.download_button(label="📥 DESCARGAR EXCEL (POR INSPECTOR)", data=excel_data, file_name=f"INFORME_POR_INSPECTOR_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                st.success("✅ Informe generado - Una hoja por inspector")
+            else:
+                st.warning("⚠️ No se pudo generar el informe (error de conexión).")
         st.session_state.generar_informe_por_inspector = False
 
     if st.session_state.get('asignar_legajos'):
@@ -1912,9 +1935,14 @@ with tab4:
         
         with col_b:
             st.markdown('<p class="campo-label">LEGAJO</p>', unsafe_allow_html=True)
-            inspectores_list = supabase.table("inspectores").select("*").order("legajo").execute()
-            inspectores_opts = {ins['nombre']: ins['legajo'] for ins in inspectores_list.data}
-            inspectores_opts["SIN LEGAJO"] = ""
+            try:
+                inspectores_list = supabase.table("inspectores").select("*").order("legajo").execute()
+                inspectores_opts = {ins['nombre']: ins['legajo'] for ins in inspectores_list.data}
+                inspectores_opts["SIN LEGAJO"] = ""
+            except Exception as e:
+                st.error(f"⚠️ No se pudieron cargar los inspectores: {e}")
+                inspectores_opts = {"SIN LEGAJO": ""}
+            
             legajo_actual = st.session_state.registro_editado.get('leg', '')
             inspector_actual_nombre = next((k for k, v in inspectores_opts.items() if str(v) == str(legajo_actual)), "SIN LEGAJO")
             inspector_index = list(inspectores_opts.keys()).index(inspector_actual_nombre) if inspector_actual_nombre in inspectores_opts else 0
