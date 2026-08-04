@@ -171,7 +171,11 @@ def obtener_todos_los_campos():
     fields = reader.get_fields()
     return list(fields.keys()) if fields else []
 
-def obtener_registros_listos(legajo=None):
+def obtener_registros_listos(legajo=None, mes_filtro=None):
+    """
+    Obtiene registros con mail_enviado='SI', leg no nulo, acta no nula, vto no nulo.
+    Si se pasa mes_filtro (número 1-12), filtra por ese mes en la columna vto.
+    """
     query = (
         supabase.table("padron_deuda_presunta")
         .select("*")
@@ -187,8 +191,24 @@ def obtener_registros_listos(legajo=None):
     if not result.data:
         return []
     
-    # ORDENAR POR NÚMERO DE ACTA (de menor a mayor)
     registros = result.data
+    
+    # FILTRO POR MES DE VTO (si se especifica)
+    if mes_filtro is not None:
+        # mes_filtro viene como número 1-12
+        registros_filtrados = []
+        for reg in registros:
+            vto_str = reg.get('vto')
+            if vto_str:
+                try:
+                    fecha_vto = datetime.strptime(vto_str, "%Y-%m-%d")
+                    if fecha_vto.month == mes_filtro:
+                        registros_filtrados.append(reg)
+                except:
+                    pass
+        registros = registros_filtrados
+    
+    # ORDENAR POR NÚMERO DE ACTA (de menor a mayor)
     registros.sort(key=lambda x: int(x.get('acta', 0)) if str(x.get('acta', '0')).isdigit() else 0)
     
     return registros
@@ -282,23 +302,36 @@ inspectores_res = supabase.table("inspectores").select("*").order("legajo").exec
 opciones = {f"{ins['nombre']} (Legajo {ins['legajo']})": ins for ins in inspectores_res.data}
 opciones["TODOS"] = None
 
+# ── Selector de Inspector ──
 inspector_sel = st.selectbox("Inspector", options=list(opciones.keys()))
+
+# ── NUEVO FILTRO POR MES DE VTO ──
+meses = ["TODOS", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+mes_sel = st.selectbox("Filtrar por mes de VTO", meses, index=0)
+
+# Convertir mes seleccionado a número (1-12) o None para "TODOS"
+mes_numero = None
+if mes_sel != "TODOS":
+    mes_numero = meses.index(mes_sel)  # Enero=1, Febrero=2, ...
 
 if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
     inspector = opciones[inspector_sel]
 
     with st.spinner("Buscando registros..."):
         if inspector is None:
-            registros = obtener_registros_listos()
+            # Caso "TODOS" los inspectores
+            registros = obtener_registros_listos(mes_filtro=mes_numero)
             grupos = defaultdict(list)
             for reg in registros:
                 grupos[reg.get("leg")].append(reg)
         else:
-            registros = obtener_registros_listos(inspector["legajo"])
+            # Inspector específico
+            registros = obtener_registros_listos(inspector["legajo"], mes_filtro=mes_numero)
             grupos = {inspector["legajo"]: registros}
 
     if not registros:
-        st.warning("⚠️ No hay registros listos para este inspector.")
+        st.warning("⚠️ No hay registros que coincidan con los filtros seleccionados.")
     else:
         total = sum(len(r) for r in grupos.values())
         st.success(f"✅ {total} registro(s) encontrado(s)")
@@ -306,7 +339,7 @@ if st.button("📄 GENERAR INFORME", type="primary", use_container_width=True):
         with st.spinner("Generando PDFs..."):
             pdfs = []
             for leg, regs in grupos.items():
-                # ORDENAR POR ACTA DENTRO DE CADA GRUPO
+                # ORDENAR POR ACTA DENTRO DE CADA GRUPO (ya ordenados, pero por si acaso)
                 regs.sort(key=lambda x: int(x.get('acta', 0)) if str(x.get('acta', '0')).isdigit() else 0)
                 
                 nombre_insp = next(
