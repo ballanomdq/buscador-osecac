@@ -653,7 +653,13 @@ with st.expander("🦷 10. DENTISTA", expanded=False):
         st.switch_page("pages/BONOOSECACDENTISTA.py")
     
     st.info("💡 Este servicio es exclusivo para afiliados sin cobertura del SEC.")
-
+# ================= EXPANDER 11. PELUQUERÍA SEC =================
+with st.expander("✂️ 11. PELUQUERÍA SEC", expanded=False):
+    st.markdown("### Control de Bonos de Peluquería")
+    st.markdown("Sistema de control de 15 días entre bonos para afiliados.")
+    
+    if st.button("📋 IR A PELUQUERÍA SEC", use_container_width=True):
+        st.switch_page("pages/peluqueria.py")
 # --- Modal para la clave de ACTAS ---
 if st.session_state.get('mostrar_clave_actas', False):
     with st.popover("🔐 ACCESO A ACTAS"):
