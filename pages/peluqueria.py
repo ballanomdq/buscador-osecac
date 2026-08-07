@@ -104,17 +104,21 @@ def conectar_gsheets():
         return None
 
 def obtener_hoja_peluqueria():
-    """Obtiene o crea la hoja de Peluquería"""
+    """
+    Obtiene o crea la hoja de Peluquería.
+    AHORA USA LA HOJA EXCLUSIVA: PELUQUERIA SEC
+    """
     client = conectar_gsheets()
     if not client:
         return None
     
     try:
-        # Usamos la misma hoja que prácticas pero en pestaña "Peluqueria"
-        sheet_url = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit"
+        # NUEVA URL EXCLUSIVA PARA PELUQUERÍA
+        sheet_url = "https://docs.google.com/spreadsheets/d/19qa15tP4Hwgq-bzoo-5n6u8V_2FECll8YQT-PFw_ukc/edit?usp=sharing"
         sheet_id = sheet_url.split('/d/')[1].split('/')[0]
         sh = client.open_by_key(sheet_id)
         
+        # Buscar o crear la hoja "Peluqueria" (pestaña)
         try:
             worksheet = sh.worksheet("Peluqueria")
         except gspread.WorksheetNotFound:
@@ -283,20 +287,15 @@ if st.session_state.dni_consultado:
         """, unsafe_allow_html=True)
         
         # Botón para confirmar entrega (sin nombre)
-        # Bloqueo del botón para evitar doble clic
         if st.session_state.boton_bloqueado:
             st.info("⏳ Procesando... por favor esperá.")
         else:
             if st.button("✅ CONFIRMAR ENTREGA DE BONO", use_container_width=True, key="btn_confirmar"):
-                # Bloquear botón
                 st.session_state.boton_bloqueado = True
-                # Guardar registro con nombre por defecto "AFILIADO"
                 if guardar_registro(worksheet, dni_actual, "AFILIADO"):
                     st.success("✅ ¡Bono registrado exitosamente!")
-                    # Desbloquear después de 1 segundo
                     time.sleep(1)
                     st.session_state.boton_bloqueado = False
-                    # Limpiar estado
                     st.session_state.dni_consultado = None
                     st.session_state.registro_encontrado = None
                     st.session_state.fecha_consulta = None
@@ -330,7 +329,6 @@ if st.session_state.dni_consultado:
             else:
                 if st.button("✅ CONFIRMAR NUEVA ENTREGA", use_container_width=True, key="btn_nueva"):
                     st.session_state.boton_bloqueado = True
-                    # Actualizar fecha
                     fila_idx = df[df["DNI"].astype(str) == dni_actual].index[0]
                     nueva_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     if actualizar_registro(worksheet, fila_idx, dni_actual, nombre, nueva_fecha):
@@ -367,9 +365,9 @@ with st.expander("🔐 ACCESO A BASE DE DATOS (Google Sheets)"):
         
         if acceder and clave == "1839":
             st.success("✅ Acceso concedido.")
-            # Enlace a la hoja de cálculo
-            sheet_url = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=0"
-            st.link_button("📊 IR A GOOGLE SHEETS", sheet_url, use_container_width=True)
+            # Enlace a la hoja de cálculo EXCLUSIVA de peluquería
+            sheet_url = "https://docs.google.com/spreadsheets/d/19qa15tP4Hwgq-bzoo-5n6u8V_2FECll8YQT-PFw_ukc/edit?usp=sharing"
+            st.link_button("📊 IR A GOOGLE SHEETS (PELUQUERÍA)", sheet_url, use_container_width=True)
             st.info("Podés editar o eliminar registros directamente desde la hoja.")
         elif acceder:
             st.error("❌ Clave incorrecta.")
