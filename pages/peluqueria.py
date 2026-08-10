@@ -73,6 +73,18 @@ st.markdown("""
         font-weight: bold;
         font-size: 1.2rem;
     }
+    .boton-confirmar {
+        background: #28a745 !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+        padding: 12px !important;
+        font-size: 1.2rem !important;
+    }
+    .boton-confirmar:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -92,26 +104,38 @@ def conectar_gsheets():
 
 def obtener_hoja_peluqueria():
     """
-    Obtiene o crea la pestaña 'Peluqueria' en la hoja de PELUQUERIA SEC (la que te gusta)
+    Obtiene o crea la hoja de Peluquería.
+    Si los encabezados faltan, los recrea automáticamente.
     """
     client = conectar_gsheets()
     if not client:
         return None
     
     try:
-        # USAMOS TU HOJA DE PELUQUERIA SEC
+        # Usamos la hoja de PELUQUERIA SEC
         sheet_url = "https://docs.google.com/spreadsheets/d/19qa15tP4Hwgq-bzoo-5n6u8V_2FECll8YQT-PFw_ukc/edit?usp=sharing"
         sheet_id = sheet_url.split('/d/')[1].split('/')[0]
         sh = client.open_by_key(sheet_id)
         
-        # Buscar la pestaña "Peluqueria"
+        # Buscar o crear la pestaña "Peluqueria"
         try:
             worksheet = sh.worksheet("Peluqueria")
         except gspread.WorksheetNotFound:
             worksheet = sh.add_worksheet(title="Peluqueria", rows=1000, cols=10)
             headers = ["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"]
             worksheet.append_row(headers)
-            st.success("✅ Pestaña 'Peluqueria' creada correctamente.")
+            return worksheet
+        
+        # Verificar que los encabezados existan en la primera fila
+        try:
+            primera_fila = worksheet.row_values(1)
+            # Si la primera fila está vacía o no tiene los títulos esperados
+            if not primera_fila or primera_fila != ["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"]:
+                # Recrear los encabezados
+                worksheet.update('A1:D1', [["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"]])
+        except:
+            # Si hay error al leer la fila, asumimos que está vacía y ponemos los títulos
+            worksheet.update('A1:D1', [["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"]])
         
         return worksheet
     except Exception as e:
@@ -126,7 +150,6 @@ def cargar_datos(worksheet):
             return pd.DataFrame(columns=["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"])
         df = pd.DataFrame(data[1:], columns=data[0])
         if not df.empty:
-            df["DNI"] = df["DNI"].astype(str).str.strip()  # Limpiar espacios
             df["FECHA_ENTREGA"] = pd.to_datetime(df["FECHA_ENTREGA"], errors="coerce")
             df["FECHA_REGISTRO"] = pd.to_datetime(df["FECHA_REGISTRO"], errors="coerce")
         return df
@@ -138,7 +161,7 @@ def guardar_registro(worksheet, dni, nombre="AFILIADO"):
     """Guarda un nuevo registro con la fecha actual"""
     try:
         ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        fila = [str(dni).strip(), nombre.upper(), ahora, ahora]
+        fila = [str(dni), nombre.upper(), ahora, ahora]
         worksheet.append_row(fila)
         return True
     except Exception as e:
@@ -148,7 +171,7 @@ def guardar_registro(worksheet, dni, nombre="AFILIADO"):
 def actualizar_registro(worksheet, fila_idx, dni, nombre, fecha_entrega):
     """Actualiza un registro existente"""
     try:
-        worksheet.update_cell(fila_idx + 2, 1, str(dni).strip())
+        worksheet.update_cell(fila_idx + 2, 1, str(dni))
         worksheet.update_cell(fila_idx + 2, 2, nombre.upper())
         worksheet.update_cell(fila_idx + 2, 3, fecha_entrega)
         worksheet.update_cell(fila_idx + 2, 4, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -176,9 +199,7 @@ def limpiar_registros_antiguos(worksheet, df):
         filas_a_eliminar = []
         for idx, row in df.iterrows():
             if pd.notna(row["FECHA_ENTREGA"]):
-                # Calcular días pasados correctamente (sin considerar horas)
-                fecha_entrega = row["FECHA_ENTREGA"].date()
-                dias_pasados = (ahora.date() - fecha_entrega).days
+                dias_pasados = (ahora - row["FECHA_ENTREGA"]).days
                 if dias_pasados >= 15:
                     filas_a_eliminar.append(idx)
         
@@ -233,47 +254,39 @@ with st.form("form_consulta"):
     with col2:
         consultar = st.form_submit_button("🔍 Consultar", use_container_width=True)
 
-# ==================== LÓGICA DE CONSULTA (CORREGIDA) ====================
+# ==================== LÓGICA DE CONSULTA ====================
 if consultar and dni_input:
     dni_limpio = dni_input.strip()
     if not dni_limpio.isdigit():
         st.warning("⚠️ El DNI debe contener solo números.")
     else:
-        # Recargar datos frescos desde la hoja
         df = cargar_datos(worksheet)
-        
         if df.empty:
             st.session_state.registro_encontrado = None
             st.session_state.dni_consultado = dni_limpio
             st.session_state.fecha_consulta = None
             st.rerun()
         else:
-            # Buscar por DNI (asegurando que ambos sean strings sin espacios)
-            df["DNI"] = df["DNI"].astype(str).str.strip()
-            registro = df[df["DNI"] == dni_limpio]
-            
+            registro = df[df["DNI"].astype(str) == dni_limpio]
             if registro.empty:
-                # No existe registro
                 st.session_state.registro_encontrado = None
                 st.session_state.dni_consultado = dni_limpio
                 st.session_state.fecha_consulta = None
                 st.rerun()
             else:
-                # Existe registro
                 fila = registro.iloc[0]
                 st.session_state.registro_encontrado = fila
                 st.session_state.dni_consultado = dni_limpio
                 st.session_state.fecha_consulta = fila["FECHA_ENTREGA"]
                 st.rerun()
 
-# ==================== MOSTRAR RESULTADO DE CONSULTA (CORREGIDO) ====================
+# ==================== MOSTRAR RESULTADO DE CONSULTA ====================
 if st.session_state.dni_consultado:
     dni_actual = st.session_state.dni_consultado
     registro = st.session_state.registro_encontrado
     fecha_actual = st.session_state.fecha_consulta
     
     if registro is None:
-        # No existe registro → APTO
         st.markdown(f"""
         <div class="card-apto">
             <h2>✅ AFILIADO APTO PARA RETIRAR BONO</h2>
@@ -300,20 +313,13 @@ if st.session_state.dni_consultado:
                     st.session_state.boton_bloqueado = False
     
     else:
-        # Existe registro → Verificar días CORRECTAMENTE
         fecha_entrega = registro["FECHA_ENTREGA"]
         nombre = registro["NOMBRE"]
         ahora = datetime.now()
-        
-        # Calcular días pasados COMPARANDO FECHAS (sin horas)
-        dias_pasados = (ahora.date() - fecha_entrega.date()).days
+        dias_pasados = (ahora - fecha_entrega).days
         fecha_proxima = fecha_entrega + timedelta(days=15)
         
-        # Mostrar información de depuración (para saber qué está pasando)
-        st.info(f"📊 Depuración: Última entrega: {fecha_entrega.strftime('%d/%m/%Y')} | Días pasados: {dias_pasados} | ¿Apto? {dias_pasados >= 15}")
-        
         if dias_pasados >= 15:
-            # APTO
             st.markdown(f"""
             <div class="card-apto">
                 <h2>✅ AFILIADO APTO PARA RETIRAR BONO</h2>
@@ -329,10 +335,7 @@ if st.session_state.dni_consultado:
             else:
                 if st.button("✅ CONFIRMAR NUEVA ENTREGA", use_container_width=True, key="btn_nueva"):
                     st.session_state.boton_bloqueado = True
-                    # Recargar df para obtener el índice correcto
-                    df = cargar_datos(worksheet)
-                    df["DNI"] = df["DNI"].astype(str).str.strip()
-                    fila_idx = df[df["DNI"] == dni_actual].index[0]
+                    fila_idx = df[df["DNI"].astype(str) == dni_actual].index[0]
                     nueva_fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     if actualizar_registro(worksheet, fila_idx, dni_actual, nombre, nueva_fecha):
                         st.success("✅ ¡Nueva entrega registrada!")
@@ -347,7 +350,6 @@ if st.session_state.dni_consultado:
                         st.session_state.boton_bloqueado = False
         
         else:
-            # NO APTO
             dias_faltantes = 15 - dias_pasados
             st.markdown(f"""
             <div class="card-no-apto">
@@ -360,17 +362,75 @@ if st.session_state.dni_consultado:
             </div>
             """, unsafe_allow_html=True)
 
-# ==================== ACCESO A GOOGLE SHEETS CON CLAVE ====================
-with st.expander("🔐 ACCESO A BASE DE DATOS (Google Sheets)"):
+# ==================== PANEL DE ADMINISTRACIÓN (dentro de la página) ====================
+with st.expander("🔧 PANEL DE ADMINISTRACIÓN - Editar/Eliminar Registros"):
+    st.warning("⚠️ Esta sección es solo para personal autorizado.")
+    
+    df_admin = cargar_datos(worksheet)
+    
+    if df_admin.empty:
+        st.info("📭 No hay registros en la base de datos.")
+    else:
+        st.write(f"📊 Total de registros activos: **{len(df_admin)}**")
+        
+        df_mostrar = df_admin.copy()
+        df_mostrar["FECHA_ENTREGA"] = df_mostrar["FECHA_ENTREGA"].dt.strftime("%d/%m/%Y %H:%M")
+        df_mostrar["FECHA_REGISTRO"] = df_mostrar["FECHA_REGISTRO"].dt.strftime("%d/%m/%Y %H:%M")
+        st.dataframe(df_mostrar, use_container_width=True, height=300)
+        
+        st.markdown("---")
+        st.subheader("✏️ Editar o Eliminar Registro")
+        
+        dni_lista = df_admin["DNI"].astype(str).tolist()
+        dni_seleccionado = st.selectbox("Seleccionar DNI para editar/eliminar:", dni_lista)
+        
+        if dni_seleccionado:
+            registro_editar = df_admin[df_admin["DNI"].astype(str) == dni_seleccionado].iloc[0]
+            fila_idx = df_admin[df_admin["DNI"].astype(str) == dni_seleccionado].index[0]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                nuevo_dni = st.text_input("DNI", value=str(registro_editar["DNI"]))
+                nuevo_nombre = st.text_input("Nombre", value=registro_editar["NOMBRE"])
+            with col2:
+                nueva_fecha = st.date_input(
+                    "Fecha de entrega",
+                    value=registro_editar["FECHA_ENTREGA"].date() if pd.notna(registro_editar["FECHA_ENTREGA"]) else datetime.now().date()
+                )
+                nueva_hora = st.time_input("Hora de entrega", value=datetime.now().time())
+            
+            fecha_completa = datetime.combine(nueva_fecha, nueva_hora).strftime("%Y-%m-%d %H:%M:%S")
+            
+            col_editar, col_eliminar = st.columns(2)
+            with col_editar:
+                if st.button("💾 GUARDAR CAMBIOS", use_container_width=True):
+                    if actualizar_registro(worksheet, fila_idx, nuevo_dni, nuevo_nombre, fecha_completa):
+                        st.success("✅ Registro actualizado correctamente.")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("❌ Error al actualizar.")
+            
+            with col_eliminar:
+                if st.button("🗑️ ELIMINAR REGISTRO", use_container_width=True):
+                    if eliminar_registro(worksheet, fila_idx):
+                        st.success("✅ Registro eliminado correctamente.")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("❌ Error al eliminar.")
+
+# ==================== ACCESO DIRECTO A GOOGLE SHEETS CON CLAVE ====================
+with st.expander("🔐 ACCESO DIRECTO A GOOGLE SHEETS"):
     with st.form("form_clave"):
-        clave = st.text_input("Ingresá la clave para acceder a la base de datos:", type="password")
+        clave = st.text_input("Ingresá la clave para acceder:", type="password")
         acceder = st.form_submit_button("🔓 ACCEDER")
         
         if acceder and clave == "1839":
             st.success("✅ Acceso concedido.")
             sheet_url = "https://docs.google.com/spreadsheets/d/19qa15tP4Hwgq-bzoo-5n6u8V_2FECll8YQT-PFw_ukc/edit?usp=sharing"
             st.link_button("📊 IR A GOOGLE SHEETS (PELUQUERÍA)", sheet_url, use_container_width=True)
-            st.info("Podés editar o eliminar registros directamente desde la hoja.")
+            st.info("La pestaña 'Peluqueria' está en la parte inferior de la hoja.")
         elif acceder:
             st.error("❌ Clave incorrecta.")
 
