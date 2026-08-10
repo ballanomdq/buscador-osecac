@@ -73,7 +73,6 @@ st.markdown("""
         font-weight: bold;
         font-size: 1.2rem;
     }
-    /* Botones */
     .boton-confirmar {
         background: #28a745 !important;
         color: white !important;
@@ -105,26 +104,26 @@ def conectar_gsheets():
 
 def obtener_hoja_peluqueria():
     """
-    Obtiene o crea la hoja de Peluquería.
-    AHORA USA LA HOJA EXCLUSIVA: PELUQUERIA SEC
+    Obtiene o crea la pestaña 'Peluqueria' en la hoja de Prácticas y Especialistas.
     """
     client = conectar_gsheets()
     if not client:
         return None
     
     try:
-        # NUEVA URL EXCLUSIVA PARA PELUQUERÍA
-        sheet_url = "https://docs.google.com/spreadsheets/d/19qa15tP4Hwgq-bzoo-5n6u8V_2FECll8YQT-PFw_ukc/edit?usp=sharing"
+        # Hoja de Prácticas y Especialistas (la que ya funciona)
+        sheet_url = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=0"
         sheet_id = sheet_url.split('/d/')[1].split('/')[0]
         sh = client.open_by_key(sheet_id)
         
-        # Buscar o crear la hoja "Peluqueria" (pestaña)
+        # Buscar la pestaña "Peluqueria"
         try:
             worksheet = sh.worksheet("Peluqueria")
         except gspread.WorksheetNotFound:
             worksheet = sh.add_worksheet(title="Peluqueria", rows=1000, cols=10)
             headers = ["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"]
             worksheet.append_row(headers)
+            st.success("✅ Pestaña 'Peluqueria' creada correctamente.")
         
         return worksheet
     except Exception as e:
@@ -147,7 +146,7 @@ def cargar_datos(worksheet):
         return pd.DataFrame(columns=["DNI", "NOMBRE", "FECHA_ENTREGA", "FECHA_REGISTRO"])
 
 def guardar_registro(worksheet, dni, nombre="AFILIADO"):
-    """Guarda un nuevo registro con la fecha actual (evita duplicados)"""
+    """Guarda un nuevo registro con la fecha actual"""
     try:
         ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fila = [str(dni), nombre.upper(), ahora, ahora]
@@ -249,7 +248,6 @@ if consultar and dni_input:
     if not dni_limpio.isdigit():
         st.warning("⚠️ El DNI debe contener solo números.")
     else:
-        # Buscar en la base de datos
         df = cargar_datos(worksheet)
         if df.empty:
             st.session_state.registro_encontrado = None
@@ -277,7 +275,6 @@ if st.session_state.dni_consultado:
     fecha_actual = st.session_state.fecha_consulta
     
     if registro is None:
-        # No existe registro → APTO
         st.markdown(f"""
         <div class="card-apto">
             <h2>✅ AFILIADO APTO PARA RETIRAR BONO</h2>
@@ -286,7 +283,6 @@ if st.session_state.dni_consultado:
         </div>
         """, unsafe_allow_html=True)
         
-        # Botón para confirmar entrega (sin nombre)
         if st.session_state.boton_bloqueado:
             st.info("⏳ Procesando... por favor esperá.")
         else:
@@ -305,7 +301,6 @@ if st.session_state.dni_consultado:
                     st.session_state.boton_bloqueado = False
     
     else:
-        # Existe registro → Verificar días
         fecha_entrega = registro["FECHA_ENTREGA"]
         nombre = registro["NOMBRE"]
         ahora = datetime.now()
@@ -313,7 +308,6 @@ if st.session_state.dni_consultado:
         fecha_proxima = fecha_entrega + timedelta(days=15)
         
         if dias_pasados >= 15:
-            # APTO
             st.markdown(f"""
             <div class="card-apto">
                 <h2>✅ AFILIADO APTO PARA RETIRAR BONO</h2>
@@ -344,7 +338,6 @@ if st.session_state.dni_consultado:
                         st.session_state.boton_bloqueado = False
         
         else:
-            # NO APTO
             dias_faltantes = 15 - dias_pasados
             st.markdown(f"""
             <div class="card-no-apto">
@@ -365,10 +358,10 @@ with st.expander("🔐 ACCESO A BASE DE DATOS (Google Sheets)"):
         
         if acceder and clave == "1839":
             st.success("✅ Acceso concedido.")
-            # Enlace a la hoja de cálculo EXCLUSIVA de peluquería
-            sheet_url = "https://docs.google.com/spreadsheets/d/19qa15tP4Hwgq-bzoo-5n6u8V_2FECll8YQT-PFw_ukc/edit?usp=sharing"
+            # Enlace a la hoja de Prácticas y Especialistas
+            sheet_url = "https://docs.google.com/spreadsheets/d/1DfdEQPWfbR_IpZa1WWT9MmO7r5I-Tpp2uIZEfXdskR0/edit#gid=0"
             st.link_button("📊 IR A GOOGLE SHEETS (PELUQUERÍA)", sheet_url, use_container_width=True)
-            st.info("Podés editar o eliminar registros directamente desde la hoja.")
+            st.info("La pestaña 'Peluqueria' está en la parte inferior de la hoja.")
         elif acceder:
             st.error("❌ Clave incorrecta.")
 
