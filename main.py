@@ -395,6 +395,10 @@ with st.expander("💊 MEDICAMENTOS", expanded=False):
             st.switch_page("pages/medicamentosonco.py")
 
 with st.expander("📝 2. PEDIDOS", expanded=False):
+    st.markdown(
+    '<a href="https://datastudio.google.com/reporting/73d5ed0d-d4bb-4552-9380-22b90c4d5284" target="_blank" style="display:inline-block; background:#ff69b4; color:white; padding:10px 20px; border-radius:10px; text-decoration:none; font-weight:bold; margin:5px 0;">📊 INFORME DE PEDIDO DE LECHES</a>',
+    unsafe_allow_html=True
+)
     st.link_button("🍼 PEDIDO DE LECHES", "https://docs.google.com/forms/d/e/1FAIpQLSdieAj2BBSfXFwXR_3iLN0dTrCXtMTcQRTM-OElo5i7JsxMkg/viewform")
     st.link_button("📦 PEDIDO SUMINISTROS", "https://docs.google.com/forms/d/e/1FAIpQLSfMlwRSUf6dAwwpl1k8yATOe6g0slMVMV7ulFao0w_XaoLwMA/viewform")
     st.link_button("📊 ESTADO DE PEDIDOS", "https://lookerstudio.google.com/reporting/21d6f3bf-24c1-4621-903c-8bc80f57fc84")
