@@ -13,11 +13,13 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://yjdlzlqedjdevxyjrpsg.supabase.co/rest/v1/padron_deuda_presunta?select=id&limit=1" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}")
+            -H "apikey: ${SUPABASE_ANON_KEY_ACTAS}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY_ACTAS}")
           echo "HTTP status: $STATUS"
           if [ "$STATUS" != "200" ]; then
             echo "❌ Supabase no respondió correctamente (status $STATUS)"
             exit 1
           fi
           echo "✅ Supabase activo"
+        env:
+          SUPABASE_ANON_KEY_ACTAS: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}
