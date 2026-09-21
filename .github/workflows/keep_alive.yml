@@ -1,8 +1,9 @@
 name: Mantener App Despierta
+
 on:
   schedule:
     - cron: '0 */6 * * *' # Se ejecuta cada 6 horas
-  workflow_dispatch: # Permite ejecutarlo manualmente para probar
+  workflow_dispatch:
 
 jobs:
   keep_alive:
@@ -11,9 +12,20 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      # 1. Ping a Supabase (mantiene la base de datos activa)
+      - name: Ping Supabase REST API
+        run: |
+          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --fail --silent --show-error
+          echo "✅ Supabase pinged successfully"
+
+      # 2. Commit vacío (mantiene GitHub Actions activo)
       - name: Commit vacío para generar actividad
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git commit --allow-empty -m "Ping para mantener Streamlit despierto"
+          git commit --allow-empty -m "Ping Supabase + Streamlit"
           git push
