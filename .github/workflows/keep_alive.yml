@@ -1,4 +1,4 @@
-name: Mantener App Despierta
+name: Mantener Supabase Despierto
 
 on:
   schedule:
@@ -8,23 +8,16 @@ on:
 jobs:
   keep_alive:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Ping Supabase REST API
+      - name: Ping Supabase
         run: |
-          curl -X GET "https://yjdizlqedjdevxyirpsg.supabase.co/rest/v1/" \
-            -H "apikey: ${SUPABASE_ANON_KEY_ACTAS}" \
-            --fail --silent --show-error
-          echo "✅ Supabase pinged successfully"
-        env:
-          SUPABASE_ANON_KEY_ACTAS: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}
-
-      - name: Commit vacío para generar actividad
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit --allow-empty -m "Ping Supabase + Streamlit"
-          git push
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://yjdizlqedjdevxyirpsg.supabase.co/rest/v1/padron_deuda_presunta?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}")
+          echo "HTTP status: $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Supabase no respondió correctamente (status $STATUS)"
+            exit 1
+          fi
+          echo "✅ Supabase activo"
