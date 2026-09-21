@@ -2,7 +2,7 @@ name: Mantener App Despierta
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Se ejecuta cada 6 horas
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -13,16 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Ping a Supabase (mantiene la base de datos activa)
       - name: Ping Supabase REST API
         run: |
-          curl -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          echo "URL: ${SUPABASE_URL:0:40}..."
+          echo "KEY: ${SUPABASE_ANON_KEY:0:20}..."
+          curl -X GET "${SUPABASE_URL}/rest/v1/" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
             --fail --silent --show-error
           echo "✅ Supabase pinged successfully"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
-      # 2. Commit vacío (mantiene GitHub Actions activo)
       - name: Commit vacío para generar actividad
         run: |
           git config --local user.email "action@github.com"
