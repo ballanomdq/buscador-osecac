@@ -15,17 +15,11 @@ jobs:
 
       - name: Ping Supabase REST API
         run: |
-          # Limpia la URL: saca https://, http://, espacios y barras al final
-          URL_LIMPIA=$(echo "${SUPABASE_URL_ACTAS}" | sed 's|https://||g' | sed 's|http://||g' | tr -d ' ' | sed 's|/$||')
-          URL_FINAL="https://${URL_LIMPIA}"
-          echo "URL final: ${URL_FINAL}"
-          
-          curl -X GET "${URL_FINAL}/rest/v1/" \
+          curl -X GET "https://yjdizlqedjdevxyirpsg.supabase.co/rest/v1/" \
             -H "apikey: ${SUPABASE_ANON_KEY_ACTAS}" \
             --fail --silent --show-error
           echo "✅ Supabase pinged successfully"
         env:
-          SUPABASE_URL_ACTAS: ${{ secrets.SUPABASE_URL_ACTAS }}
           SUPABASE_ANON_KEY_ACTAS: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}
 
       - name: Commit vacío para generar actividad
