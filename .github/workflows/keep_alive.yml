@@ -15,8 +15,12 @@ jobs:
 
       - name: Ping Supabase REST API
         run: |
-          echo "Pingeando Supabase..."
-          curl -X GET "${SUPABASE_URL_ACTAS}/rest/v1/" \
+          # Limpia la URL: saca https://, http://, espacios y barras al final
+          URL_LIMPIA=$(echo "${SUPABASE_URL_ACTAS}" | sed 's|https://||g' | sed 's|http://||g' | tr -d ' ' | sed 's|/$||')
+          URL_FINAL="https://${URL_LIMPIA}"
+          echo "URL final: ${URL_FINAL}"
+          
+          curl -X GET "${URL_FINAL}/rest/v1/" \
             -H "apikey: ${SUPABASE_ANON_KEY_ACTAS}" \
             --fail --silent --show-error
           echo "✅ Supabase pinged successfully"
