@@ -2,7 +2,6 @@ name: Mantener Supabase y Streamlit Despiertos
 
 on:
   schedule:
-    # Se ejecuta varias veces al día para mantener viva la app
     - cron: '0 */2 * * *'
   workflow_dispatch:
 
@@ -10,6 +9,9 @@ jobs:
   keep_alive:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Ping Supabase
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
@@ -18,15 +20,20 @@ jobs:
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY_ACTAS}")
           echo "HTTP status Supabase: $STATUS"
           if [ "$STATUS" != "200" ]; then
-            echo "⚠️ Supabase respondió con status $STATUS"
-          else
-            echo "✅ Supabase activo"
+            echo "❌ Supabase no respondió correctamente (status $STATUS)"
+            exit 1
           fi
+          echo "✅ Supabase activo"
         env:
           SUPABASE_ANON_KEY_ACTAS: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}
 
-      - name: Ping Streamlit App
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Ping Streamlit App (navegador real)
         run: |
-          STATUS_STREAMLIT=$(curl -s -o /dev/null -w "%{http_code}" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/")
-          echo "HTTP status Streamlit: $STATUS_STREAMLIT"
-          echo "✅ Petición enviada a Streamlit"
+          pip install playwright
+          playwright install --with-deps chromium
+          python keep_alive_streamlit.py
