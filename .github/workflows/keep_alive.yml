@@ -1,8 +1,9 @@
-name: Mantener Supabase Despierto
+name: Mantener Supabase y Streamlit Despiertos
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    # Se ejecuta varias veces al día para mantener viva la app
+    - cron: '0 */2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -15,11 +16,17 @@ jobs:
             "https://yjdlzlqedjdevxyjrpsg.supabase.co/rest/v1/padron_deuda_presunta?select=id&limit=1" \
             -H "apikey: ${SUPABASE_ANON_KEY_ACTAS}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY_ACTAS}")
-          echo "HTTP status: $STATUS"
+          echo "HTTP status Supabase: $STATUS"
           if [ "$STATUS" != "200" ]; then
-            echo "❌ Supabase no respondió correctamente (status $STATUS)"
-            exit 1
+            echo "⚠️ Supabase respondió con status $STATUS"
+          else
+            echo "✅ Supabase activo"
           fi
-          echo "✅ Supabase activo"
         env:
           SUPABASE_ANON_KEY_ACTAS: ${{ secrets.SUPABASE_ANON_KEY_ACTAS }}
+
+      - name: Ping Streamlit App
+        run: |
+          STATUS_STREAMLIT=$(curl -s -o /dev/null -w "%{http_code}" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" "https://buscador-osecac-6jztx7xjhgkvcaubfinn5y.streamlit.app/")
+          echo "HTTP status Streamlit: $STATUS_STREAMLIT"
+          echo "✅ Petición enviada a Streamlit"
