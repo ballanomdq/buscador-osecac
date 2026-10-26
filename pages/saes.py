@@ -94,7 +94,6 @@ else:
             
         if st.session_state.menu_abierto == "med":
             if st.button("↳ Consultas", use_container_width=True):
-                # URL REAL que descubrimos
                 st.session_state.url_destino = "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
                 st.rerun()
                 
@@ -112,17 +111,74 @@ else:
             try:
                 url_completa = BASE_URL + st.session_state.url_destino
                 r = s.get(url_completa, headers=HEADERS)
+                
                 if "txtUser" in r.text:
                     st.error("La sesión expiró. Cerrá sesión y volvé a entrar.")
                 else:
                     soup = BeautifulSoup(r.text, 'html.parser')
                     body = soup.find('body')
+                    
                     if body:
+                        # --- ACÁ INYECTAMOS EL CSS PARA MAQUILLAR ---
+                        estilo_maquillaje = """
+                        <style>
+                            body {
+                                background-color: #f8fafc !important;
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                                color: #0f172a !important;
+                                padding: 20px;
+                            }
+                            /* Agrandar las letras de los labels */
+                            label, .label {
+                                font-size: 16px !important;
+                                font-weight: 600 !important;
+                                color: #0f172a !important;
+                                margin-right: 10px !important;
+                            }
+                            /* Agrandar los inputs de texto */
+                            input[type="text"], select {
+                                font-size: 16px !important;
+                                padding: 8px 12px !important;
+                                border: 1px solid #cbd5e1 !important;
+                                border-radius: 6px !important;
+                                background-color: #ffffff !important;
+                                color: #0f172a !important;
+                                margin-right: 15px !important;
+                            }
+                            /* Agrandar los botones (que son imágenes) */
+                            input[type="image"] {
+                                width: 32px !important;
+                                height: 32px !important;
+                                cursor: pointer !important;
+                                margin-right: 5px !important;
+                                vertical-align: middle !important;
+                            }
+                            /* Arreglar la tabla de resultados si aparece */
+                            table {
+                                width: 100% !important;
+                                border-collapse: collapse !important;
+                                margin-top: 20px !important;
+                            }
+                            td, th {
+                                padding: 10px !important;
+                                border: 1px solid #e2e8f0 !important;
+                                font-size: 15px !important;
+                            }
+                            th {
+                                background-color: #f1f5f9 !important;
+                                color: #0f172a !important;
+                            }
+                        </style>
+                        """
+                        
+                        # Limpiamos el body de scripts viejos pero dejamos el HTML
                         for tag in body(["script", "style", "link", "meta", "iframe", "frame"]):
                             tag.decompose()
-                        html_puro = str(body)
+                            
+                        html_puro = estilo_maquillaje + str(body)
                     else:
                         html_puro = r.text
+                        
                     components.html(html_puro, height=800, scrolling=True)
             except Exception as e:
                 st.error(f"Error al cargar la página: {e}")
@@ -140,7 +196,6 @@ else:
         if buscar:
             with st.spinner("Buscando en SAES..."):
                 try:
-                    # ¡ACÁ ESTÁ LA CLAVE! Usamos la URL con la carpeta exacta
                     url_cons = BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
                     r_cons = s.get(url_cons, headers=HEADERS)
                     soup_cons = BeautifulSoup(r_cons.text, 'html.parser')
