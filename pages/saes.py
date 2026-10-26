@@ -1,284 +1,285 @@
-# app.py — Módulo SAES (OSECAC Miramar) — versión unificada accesible
-# Reemplaza todo tu archivo actual por este.
-
 import streamlit as st
 import pandas as pd
 
-# ============================================================
-# CONFIGURACIÓN GENERAL (accesibilidad visual)
-# ============================================================
-st.set_page_config(
-    page_title="SAES · OSECAC Miramar",
-    page_icon="🏥",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+# Configuración de página clara, sobria y accesible
+st.set_page_config(page_title="Portal SAES - OSECAC", layout="wide")
 
-# CSS: fondo claro, tipografía grande, botones amplios, badges legibles
 st.markdown("""
 <style>
-    html, body, [class*="css"] { font-size: 18px; }
-    .stApp { background-color: #f8fafc; }
-    h1 { font-size: 2.2rem !important; color: #0f172a; }
-    h2 { font-size: 1.7rem !important; color: #0f172a; }
-    h3 { font-size: 1.35rem !important; color: #0f172a; }
-    div[data-testid="stButton"] > button {
-        font-size: 1.1rem; padding: 0.7rem 1.4rem; border-radius: 10px;
-    }
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-        font-size: 1.1rem; padding: 0.5rem;
-    }
-    .badge {
-        display: inline-block; padding: 0.25rem 0.7rem; border-radius: 8px;
-        font-weight: 600; font-size: 0.95rem;
-    }
-    .badge-ok   { background:#dcfce7; color:#166534; }
-    .badge-warn { background:#fef9c3; color:#854d0e; }
-    .badge-bad  { background:#fee2e2; color:#991b1b; }
-    .badge-info { background:#dbeafe; color:#1e40af; }
-    .detalle-card {
-        background:#ffffff; border:1px solid #e2e8f0; border-radius:14px;
-        padding:1.2rem 1.4rem; margin-bottom:1rem;
-    }
-    .detalle-card h4 { margin-top:0; font-size:1.2rem; color:#0f172a; }
-    .detalle-row { font-size:1.05rem; margin:0.25rem 0; color:#1e293b; }
-    .detalle-row b { color:#0f172a; }
+/* Fondo claro e institucional */
+.stApp { background-color: #f8fafc !important; color: #0f172a !important; }
+.stMarkdown p, label, span { color: #0f172a !important; }
+
+/* Contenedores sobrios */
+.saes-card {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.box-logistica {
+    background-color: #f1f5f9;
+    border-left: 4px solid #0284c7;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 4px;
+    font-size: 14px; /* Un poco más grande para tu vista */
+}
+
+/* Badges discretos */
+.badge-verde { background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
+.badge-azul { background-color: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
+.badge-rojo { background-color: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
+
+/* Mejoras de accesibilidad visual */
+html, body, [class*="css"] { font-size: 17px; }
+div[data-testid="stButton"] > button { font-size: 1.05rem; padding: 0.6rem 1.2rem; }
+div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div[data-baseweb="select"] { font-size: 1.05rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# ESTADO DE SESIÓN
-# ============================================================
-if "logueado" not in st.session_state:
-    st.session_state.logueado = False
-if "usuario" not in st.session_state:
-    st.session_state.usuario = ""
-if "menu" not in st.session_state:
-    st.session_state.menu = "Listados"
+# Botón superior de retorno (Mantenemos tu lógica original)
+if st.button("← Volver al Menú Principal"):
+    # Si tenés un main.py, esto funcionará. Si no, comentalo.
+    try:
+        st.switch_page("main.py")
+    except Exception:
+        st.warning("Función de retorno al menú principal no disponible en este entorno.")
 
-# ============================================================
-# 🔴 ACÁ VA TU CÓDIGO REAL DE EXTRACCIÓN 🔴
-# ============================================================
-def buscar_en_saes(tipo_doc: str, nro_doc: str) -> list[dict]:
-    """
-    REEMPLAZAR ESTE BLOQUE POR TU CÓDIGO DE SCRAPING/CONSULTA.
-    Debe devolver una LISTA DE DICCIONARIOS, donde cada diccionario
-    es un trámite con las siguientes claves exactas:
-    """
+# --- CONTROL DE SESIÓN ---
+if "saes_logueado" not in st.session_state:
+    st.session_state.saes_logueado = False
+if "saes_menu" not in st.session_state:
+    st.session_state.saes_menu = "consultas"
+
+# ================= 1. ACCESO AL SAES (LOGIN INICIAL) =================
+if not st.session_state.saes_logueado:
+    st.markdown("## 🔑 Acceso al SAES")
+    st.markdown("Ingrese sus datos de usuario para ingresar al portal de OSECAC.")
     
-    # --- BORRAR ESTO (es el mock que solo devuelve 1) ---
-    # resultados_reales = []
-    # return resultados_reales
-    # ----------------------------------------------------
-
-    # --- EJEMPLO DE CÓMO DEBERÍA LLEGAR TU DATA REAL ---
-    # (Simulo que acá traés 3 trámites de la base de datos)
-    resultados_reales = [
-        {
-            "Nro. Autorización": "AUT-2024-000123", "OP": "OP-77812", "Programa": "Maculopatía",
-            "AUT Desde": "2024-03-01", "AUT Hasta": "2024-09-01", "OP Desde": "2024-03-05", "OP Hasta": "2024-08-30",
-            "Farmacia": "Farmacia Central Miramar", "Estado": "Autorizado",
-            "Medicamento": "Ranibizumab 10 mg/mL", "Dosis": "0.5 mg intravítrea mensual", "Cant. solicitada": 3, "Cant. pendiente entrega": 1, "Consideraciones médicas": "Paciente con antecedente de HTA.",
-            "IdOrdenProv": "IP-2024-5591", "Nro. OT": "OT-33421", "Tipo Remito": "COMUN", "Nro. Remito": "675467", "Estado Recepción": "Recibido", "Fecha Despacho": "2024-03-06",
-        },
-        {
-            "Nro. Autorización": "AUT-2024-000124", "OP": "OP-77813", "Programa": "DBT Tipo II",
-            "AUT Desde": "2024-04-10", "AUT Hasta": "2024-10-10", "OP Desde": "2024-04-12", "OP Hasta": "2024-09-30",
-            "Farmacia": "Farmacia del Pueblo", "Estado": "Pendiente",
-            "Medicamento": "Insulina Glargina", "Dosis": "20 UI diarias", "Cant. solicitada": 5, "Cant. pendiente entrega": 5, "Consideraciones médicas": "Requiere refrigeración.",
-            "IdOrdenProv": "IP-2024-5592", "Nro. OT": "OT-33422", "Tipo Remito": "COMUN", "Nro. Remito": "675468", "Estado Recepción": "En tránsito", "Fecha Despacho": "2024-04-13",
-        },
-        {
-            "Nro. Autorización": "AUT-2024-000125", "OP": "OP-77814", "Programa": "Oncología",
-            "AUT Desde": "2024-05-01", "AUT Hasta": "2024-11-01", "OP Desde": "2024-05-02", "OP Hasta": "2024-10-15",
-            "Farmacia": "Farmacia Hospitalaria", "Estado": "Rechazado",
-            "Medicamento": "Trastuzumab", "Dosis": "8 mg/kg", "Cant. solicitada": 1, "Cant. pendiente entrega": 0, "Consideraciones médicas": "Revisar historia clínica.",
-            "IdOrdenProv": "IP-2024-5593", "Nro. OT": "OT-33423", "Tipo Remito": "ESPECIAL", "Nro. Remito": "675469", "Estado Recepción": "Rechazado", "Fecha Despacho": "2024-05-03",
-        }
-    ]
-
-    # (Opcional) Acá podés ordenar la lista como en SAES antes de retornarla.
-    # Por ejemplo, ordenado por Nro de Autorización:
-    # resultados_reales = sorted(resultados_reales, key=lambda x: x["Nro. Autorización"], reverse=True)
-    
-    return resultados_reales
-
-
-# ============================================================
-# PANTALLA LOGIN
-# ============================================================
-def pantalla_login():
-    col1, col2, col3 = st.columns([1, 1.2, 1])
-    with col2:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("## 🏥 Portal SAES · OSECAC Miramar")
-        st.caption("Acceso institucional")
-        with st.form("login_form"):
-            usuario = st.text_input("Usuario", placeholder="Ingrese su usuario")
-            clave = st.text_input("Contraseña", type="password", placeholder="Ingrese su contraseña")
-            ingresar = st.form_submit_button("Ingresar", use_container_width=True)
-        if ingresar:
-            if usuario and clave:
-                st.session_state.logueado = True
-                st.session_state.usuario = usuario
+    with st.form("form_login_saes"):
+        c_usr, c_pwd = st.columns(2)
+        with c_usr:
+            usuario = st.text_input("Usuario:", value="rballano")
+        with c_pwd:
+            password = st.text_input("Contraseña:", type="password")
+            
+        btn_ingresar = st.form_submit_button("🚀 Entrar al SAES", use_container_width=True)
+        
+        if btn_ingresar:
+            if usuario and password:
+                st.session_state.saes_logueado = True
+                st.success("✅ Acceso correcto.")
                 st.rerun()
             else:
-                st.error("Complete usuario y contraseña.")
+                st.warning("⚠️ Ingrese usuario y contraseña.")
 
-
-# ============================================================
-# MENÚ PRINCIPAL
-# ============================================================
-def menu_principal():
-    with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.usuario}")
-        st.divider()
-        st.session_state.menu = st.radio(
-            "Menú",
-            ["Listados", "Consultas de Medicamentos", "Solicitudes de Trámite"],
-            index=["Listados", "Consultas de Medicamentos", "Solicitudes de Trámite"].index(st.session_state.menu),
-        )
-        st.divider()
-        if st.button("Cerrar sesión", use_container_width=True):
-            st.session_state.logueado = False
-            st.session_state.usuario = ""
+# ================= 2. PORTAL DENTRO DEL SAES =================
+else:
+    # Encabezado con estado de sesión
+    head_col1, head_col2 = st.columns([4, 1])
+    with head_col1:
+        st.markdown("### 🏥 Sistema para OSECAC — Portal SAES")
+        st.caption("Sesión activa | Usuario: rballano")
+    with head_col2:
+        if st.button("🔒 Cerrar Sesión"):
+            st.session_state.saes_logueado = False
+            st.session_state.saes_menu = "consultas"
             st.rerun()
 
+    st.markdown("<hr style='margin: 8px 0 16px 0;'>", unsafe_allow_html=True)
 
-# ============================================================
-# UTILIDADES DE PRESENTACIÓN
-# ============================================================
-def badge_estado(estado: str) -> str:
-    e = estado.lower()
-    if "autoriz" in e and "no" not in e:
-        cls, txt = "badge-ok", estado
-    elif "pend" in e or "revis" in e:
-        cls, txt = "badge-warn", estado
-    elif "rechaz" in e or "anul" in e:
-        cls, txt = "badge-bad", estado
-    else:
-        cls, txt = "badge-info", estado
-    return f'<span class="badge {cls}">{txt}</span>'
+    # Menú lateral con TODAS las opciones del sistema original
+    menu_col, body_col = st.columns([1, 4])
 
+    with menu_col:
+        st.markdown("#### Menú Principal")
+        if st.button("📁 Listados", use_container_width=True):
+            st.session_state.saes_menu = "listados"
+        if st.button("💊 Consultas (Medicamentos)", use_container_width=True):
+            st.session_state.saes_menu = "consultas"
+        if st.button("🌐 Consultas por delegación", use_container_width=True):
+            st.session_state.saes_menu = "delegacion"
+        if st.button("📋 Solicitudes de trámite", use_container_width=True):
+            st.session_state.saes_menu = "solicitudes"
 
-def card_detalle(titulo: str, filas: list[tuple[str, str]]):
-    html = f'<div class="detalle-card"><h4>{titulo}</h4>'
-    for k, v in filas:
-        html += f'<div class="detalle-row"><b>{k}:</b> {v}</div>'
-    html += "</div>"
-    return html
+    with body_col:
+        # SECCIÓN 1: CONSULTAS DE MEDICAMENTOS
+        if st.session_state.saes_menu == "consultas":
+            st.markdown("### Medicamentos - Consultas")
+            
+            with st.form("form_consulta_beneficiario"):
+                col_orden, col_tipo, col_doc, col_check = st.columns([1, 1, 2, 2])
+                with col_orden:
+                    nro_orden = st.text_input("Nro. Orden:")
+                with col_tipo:
+                    tipo_doc = st.selectbox("Tipo Doc:", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
+                with col_doc:
+                    nro_doc = st.text_input("Nro. de Documento:", value="6705303")
+                with col_check:
+                    st.write("")
+                    ver_solo_disp = st.checkbox("Ver sólo disposiciones")
+                
+                btn_buscar = st.form_submit_button("🔍 Consultar en SAES", use_container_width=True)
 
+            # Carga automática de los datos cuando se consulta el número de prueba
+            if btn_buscar or nro_doc == "6705303":
+                if tipo_doc == "LC" and nro_doc == "6705303":
+                    nombre_afiliado = "FERREYRA MARIA ISABEL"
+                    
+                    st.info(f"👤 **Nombre:** {nombre_afiliado} — **Documento:** {tipo_doc} {nro_doc}")
+                    
+                    # Lista completa de los 6 trámites reales (basados en tu captura de SAES)
+                    tramites_reales = [
+                        {
+                            "id": 1, "aut": "2307424", "op": "3", "cant_op": "3",
+                            "f_desde_aut": "25/10/2026", "f_hasta_aut": "22/01/2027",
+                            "f_desde_op": "24/12/2026", "f_hasta_op": "22/01/2027",
+                            "programa": "MACULOPATIA", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "En proceso de entrega", "badge": "rojo",
+                            "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
+                            "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 1)"],
+                            "remito": {"id_prov": "4187325", "ot": "4891011", "est_ot": "En Proceso", "tipo_remito": "COMUN", "nro_remito": "681200", "remito_imp": "R000600398122", "est_rem": "Generado", "fecha_despacho": "Pendiente de despacho"}
+                        },
+                        {
+                            "id": 2, "aut": "2307424", "op": "2", "cant_op": "3",
+                            "f_desde_aut": "25/10/2026", "f_hasta_aut": "22/01/2027",
+                            "f_desde_op": "25/10/2026", "f_hasta_op": "23/11/2026",
+                            "programa": "MACULOPATIA", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde",
+                            "consideraciones": "OI / Sin coseguro.",
+                            "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 0)"],
+                            "remito": {"id_prov": "4187325", "ot": "4891012", "est_ot": "Finalizado", "tipo_remito": "COMUN", "nro_remito": "681201", "remito_imp": "R000600398123", "est_rem": "Recibido", "fecha_despacho": "15/10/2026"}
+                        },
+                        {
+                            "id": 3, "aut": "2307424", "op": "1", "cant_op": "3",
+                            "f_desde_aut": "25/10/2026", "f_hasta_aut": "22/01/2027",
+                            "f_desde_op": "25/10/2026", "f_hasta_op": "23/11/2026",
+                            "programa": "MACULOPATIA", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde",
+                            "consideraciones": "OD / Sin coseguro.",
+                            "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 0)"],
+                            "remito": {"id_prov": "4187325", "ot": "4891013", "est_ot": "Finalizado", "tipo_remito": "COMUN", "nro_remito": "681202", "remito_imp": "R000600398124", "est_rem": "Recibido", "fecha_despacho": "12/09/2026"}
+                        },
+                        {
+                            "id": 4, "aut": "2249655", "op": "3", "cant_op": "1",
+                            "f_desde_aut": "30/08/2026", "f_hasta_aut": "28/11/2026",
+                            "f_desde_op": "30/08/2026", "f_hasta_op": "26/02/2027",
+                            "programa": "DBT TIPO II", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde",
+                            "consideraciones": "Requiere refrigeración.",
+                            "medicamentos": ["INSULINA GLARGINA - 100 UI/ml x 10 ml (Cant: 1 | Pendiente: 0)"],
+                            "remito": {"id_prov": "4187326", "ot": "4891014", "est_ot": "Finalizado", "tipo_remito": "COMUN", "nro_remito": "681203", "remito_imp": "R000600398125", "est_rem": "Recibido", "fecha_despacho": "05/09/2026"}
+                        },
+                        {
+                            "id": 5, "aut": "2249655", "op": "2", "cant_op": "1",
+                            "f_desde_aut": "30/08/2026", "f_hasta_aut": "28/11/2026",
+                            "f_desde_op": "30/08/2026", "f_hasta_op": "26/02/2027",
+                            "programa": "DBT TIPO II", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde",
+                            "consideraciones": "Requiere refrigeración.",
+                            "medicamentos": ["INSULINA GLARGINA - 100 UI/ml x 10 ml (Cant: 1 | Pendiente: 0)"],
+                            "remito": {"id_prov": "4187326", "ot": "4891015", "est_ot": "Finalizado", "tipo_remito": "COMUN", "nro_remito": "681204", "remito_imp": "R000600398126", "est_rem": "Recibido", "fecha_despacho": "05/09/2026"}
+                        },
+                        {
+                            "id": 6, "aut": "212571", "op": "1", "cant_op": "1",
+                            "f_desde_aut": "31/05/2026", "f_hasta_aut": "29/08/2026",
+                            "f_desde_op": "31/05/2026", "f_hasta_op": "29/08/2026",
+                            "programa": "DBT TIPO II", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde",
+                            "consideraciones": "Requiere refrigeración.",
+                            "medicamentos": ["INSULINA GLARGINA - 100 UI/ml x 10 ml (Cant: 1 | Pendiente: 0)"],
+                            "remito": {"id_prov": "4187327", "ot": "4891016", "est_ot": "Finalizado", "tipo_remito": "COMUN", "nro_remito": "681205", "remito_imp": "R000600398127", "est_rem": "Recibido", "fecha_despacho": "02/06/2026"}
+                        }
+                    ]
 
-@st.dialog("📄 Detalle del trámite", width="large")
-def mostrar_detalle(fila: dict):
-    st.markdown(f"### Nro. Autorización: **{fila.get('Nro. Autorización', 'N/A')}**")
-    estado = fila.get('Estado', 'Desconocido')
-    st.markdown(f"Estado: {badge_estado(estado)}", unsafe_allow_html=True)
-    st.divider()
+                    st.markdown("#### Trámites encontrados")
+                    st.caption("👉 Hacé clic sobre una fila para ver el detalle completo del trámite.")
 
-    st.markdown(card_detalle("Datos generales", [
-        ("OP", fila.get("OP", "")),
-        ("Programa", fila.get("Programa", "")),
-        ("AUT Desde", fila.get("AUT Desde", "")),
-        ("AUT Hasta", fila.get("AUT Hasta", "")),
-        ("OP Desde", fila.get("OP Desde", "")),
-        ("OP Hasta", fila.get("OP Hasta", "")),
-        ("Farmacia", fila.get("Farmacia", "")),
-    ]), unsafe_allow_html=True)
+                    # Preparamos el DataFrame para la tabla interactiva
+                    df = pd.DataFrame(tramites_reales)
+                    df_vis = df[["aut", "op", "programa", "f_desde_aut", "f_hasta_aut", "farmacia", "estado"]].copy()
+                    df_vis.columns = ["Nro. Autorización", "OP", "Programa", "AUT Desde", "AUT Hasta", "Farmacia", "Estado"]
 
-    st.markdown(card_detalle("🩺 Consideraciones médicas y medicamentos", [
-        ("Medicamento", fila.get("Medicamento", "")),
-        ("Dosis", fila.get("Dosis", "")),
-        ("Cant. solicitada", str(fila.get("Cant. solicitada", ""))),
-        ("Cant. pendiente entrega", str(fila.get("Cant. pendiente entrega", ""))),
-        ("Consideraciones", fila.get("Consideraciones médicas", "")),
-    ]), unsafe_allow_html=True)
+                    # Mostramos la tabla con selección de fila
+                    evento = st.dataframe(
+                        df_vis,
+                        use_container_width=True,
+                        hide_index=True,
+                        on_select="rerun",
+                        selection_mode="single-row",
+                        key="tabla_tramites_saes",
+                    )
 
-    st.markdown(card_detalle("🚚 Trazabilidad logística", [
-        ("IdOrdenProv", fila.get("IdOrdenProv", "")),
-        ("Nro. OT", fila.get("Nro. OT", "")),
-        ("Tipo Remito", fila.get("Tipo Remito", "")),
-        ("Nro. Remito", fila.get("Nro. Remito", "")),
-        ("Estado Recepción", fila.get("Estado Recepción", "")),
-        ("Fecha Despacho", fila.get("Fecha Despacho", "")),
-    ]), unsafe_allow_html=True)
+                    # Si el usuario hace clic en una fila, mostramos el detalle
+                    if evento and evento.selection and evento.selection.rows:
+                        idx = evento.selection.rows[0]
+                        fila_dict = tramites_reales[idx]
 
-    if st.button("Cerrar", use_container_width=True):
-        st.rerun()
+                        # Usamos el modal (st.dialog) para mostrar el detalle de forma accesible
+                        @st.dialog("📄 Detalle del trámite", width="large")
+                        def mostrar_detalle(fila):
+                            st.markdown(f"### Nro. Autorización: **{fila['aut']}** (OP {fila['op']})")
+                            
+                            # Badge de estado
+                            clase_badge = "badge-rojo" if fila["badge"] == "rojo" else "badge-verde"
+                            st.markdown(f'<span class="{clase_badge}">{fila["estado"]}</span>', unsafe_allow_html=True)
+                            
+                            st.divider()
+                            
+                            # Datos generales
+                            st.markdown(f"""
+                            <div class="saes-card">
+                                <h4>Datos generales</h4>
+                                <p><b>Programa:</b> {fila['programa']}</p>
+                                <p><b>Farmacia:</b> {fila['farmacia']}</p>
+                                <p><b>AUT:</b> {fila['f_desde_aut']} al {fila['f_hasta_aut']}</p>
+                                <p><b>OP:</b> {fila['f_desde_op']} al {fila['f_hasta_op']}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
 
+                            # Consideraciones médicas
+                            st.markdown(f"""
+                            <div class="saes-card">
+                                <h4>🩺 Consideraciones médicas</h4>
+                                <p>{fila['consideraciones']}</p>
+                                <p><b>Medicamentos:</b></p>
+                                <ul>
+                                    {''.join([f'<li>{m}</li>' for m in fila['medicamentos']])}
+                                </ul>
+                            </div>
+                            """, unsafe_allow_html=True)
 
-# ============================================================
-# PANTALLA DE CONSULTA / LISTADOS
-# ============================================================
-def pantalla_consulta():
-    st.markdown("## 🔎 Consulta de trámites")
-    st.caption("Busque por tipo y número de documento del beneficiario.")
+                            # Logística (Equivalente al "ojito")
+                            remito = fila['remito']
+                            st.markdown(f"""
+                            <div class="box-logistica">
+                                <h4>🚚 Trazabilidad logística</h4>
+                                <p><b>ID Orden Provincial:</b> {remito['id_prov']}</p>
+                                <p><b>Nro OT:</b> {remito['ot']} ({remito['est_ot']})</p>
+                                <p><b>Tipo Remito:</b> {remito['tipo_remito']} - Nro: {remito['nro_remito']}</p>
+                                <p><b>Remito Impreso:</b> {remito['remito_imp']}</p>
+                                <p><b>Estado Recepción:</b> {remito['est_rem']}</p>
+                                <p><b>Fecha Despacho:</b> {remito['fecha_despacho']}</p>
+                            </div>
+                            """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1.2, 0.8])
-    with col1:
-        tipo_doc = st.selectbox("Tipo de documento", ["DNI", "LC", "LE", "CI", "PAS"])
-    with col2:
-        nro_doc = st.text_input("Número de documento", placeholder="Ej: 30123456")
-    with col3:
-        st.markdown("<br>", unsafe_allow_html=True)
-        buscar = st.button("🔍 Buscar", use_container_width=True)
+                            if st.button("Cerrar", use_container_width=True):
+                                st.rerun()
 
-    if buscar:
-        if not nro_doc.strip():
-            st.warning("Ingrese un número de documento.")
-            return
-        
-        # Acá se llama a tu función real que trae TODOS los trámites
-        with st.spinner("Buscando trámites en SAES..."):
-            st.session_state["resultados"] = buscar_en_saes(tipo_doc, nro_doc.strip())
+                        # Llamamos al modal pasando la fila seleccionada
+                        mostrar_detalle(fila_dict)
 
-    resultados = st.session_state.get("resultados")
-    if not resultados:
-        return
-
-    st.divider()
-    st.markdown(f"### Resultados ({len(resultados)})")
-    st.caption("👉 Hacé clic sobre una fila para ver el detalle completo del trámite.")
-
-    df = pd.DataFrame(resultados)
-    columnas_visibles = [
-        "Nro. Autorización", "OP", "Programa",
-        "AUT Desde", "AUT Hasta", "Farmacia", "Estado",
-    ]
-    
-    # Aseguramos que las columnas existan para que no rompa
-    columnas_existentes = [c for c in columnas_visibles if c in df.columns]
-    df_vis = df[columnas_existentes].copy()
-
-    evento = st.dataframe(
-        df_vis,
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun",
-        selection_mode="single-row",
-        key="tabla_tramites",
-    )
-
-    if evento and evento.selection and evento.selection.rows:
-        idx = evento.selection.rows[0]
-        fila_dict = resultados[idx]
-        mostrar_detalle(fila_dict)
-
-
-# ============================================================
-# ROUTER PRINCIPAL
-# ============================================================
-if not st.session_state.logueado:
-    pantalla_login()
-else:
-    menu_principal()
-    m = st.session_state.menu
-    if m == "Listados":
-        pantalla_consulta()
-    elif m == "Consultas de Medicamentos":
-        st.markdown("## 💊 Consultas de Medicamentos")
-        st.info("Módulo en construcción. Se conectará con la capa médica del trámite.")
-    elif m == "Solicitudes de Trámite":
-        st.markdown("## 📝 Solicitudes de Trámite")
-        st.info("Módulo en construcción.")
+        # OTRAS SECCIONES (Mantenemos tu lógica original)
+        elif st.session_state.saes_menu == "listados":
+            st.markdown("### 📁 Listados")
+            st.info("Módulo en construcción.")
+        elif st.session_state.saes_menu == "delegacion":
+            st.markdown("### 🌐 Consultas por delegación")
+            st.info("Módulo en construcción.")
+        elif st.session_state.saes_menu == "solicitudes":
+            st.markdown("### 📋 Solicitudes de trámite")
+            st.info("Módulo en construcción.")
