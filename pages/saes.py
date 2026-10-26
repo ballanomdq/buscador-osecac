@@ -30,7 +30,6 @@ if "session" not in st.session_state:
     st.session_state.session = None
 if "current_url" not in st.session_state:
     st.session_state.current_url = "http://portal.gmssa.com.ar/saes/welcome.aspx"
-# Variable para saber qué menú está abierto
 if "menu_abierto" not in st.session_state:
     st.session_state.menu_abierto = None
 
@@ -87,18 +86,18 @@ if not st.session_state.saes_logueado:
                         else:
                             st.error("❌ Usuario o contraseña incorrectos.")
                     except Exception as e:
-                        st.error(f"💥 Error inesperado: {e}")
+                        st.error(f"💥 Error inesperado al conectar: {e}")
             else:
                 st.warning("⚠️ Ingrese usuario y contraseña.")
 
 # ============================================================
-# 2. PORTAL ESPEJO (CON SUBMENÚS)
+# 2. PORTAL ESPEJO (CON LOS SUBMENÚS REALES)
 # ============================================================
 else:
     session = st.session_state.session
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
-    # --- BARRA LATERAL CON EL MENÚ Y SUBMENÚS ---
+    # --- BARRA LATERAL CON EL MENÚ Y SUBMENÚS (COPIADOS DEL HTML REAL) ---
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.get('usuario', 'rballano')}")
         st.divider()
@@ -112,15 +111,12 @@ else:
             st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
             if st.button("↳ Consultas y Listados", use_container_width=True):
                 st.session_state.current_url = "http://portal.gmssa.com.ar/saes/AutorizacionConsultas.aspx"
-                st.session_state.menu_abierto = None
                 st.rerun()
             if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/Autorizacion.aspx"
-                st.session_state.menu_abierto = None
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/Autorizaciones.aspx"
                 st.rerun()
             if st.button("↳ Listados por Período", use_container_width=True):
                 st.session_state.current_url = "http://portal.gmssa.com.ar/saes/AutorizacionListados.aspx"
-                st.session_state.menu_abierto = None
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -130,17 +126,17 @@ else:
             
         if st.session_state.menu_abierto == "medicamentos":
             st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
-            if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosConsultas.aspx"
-                st.session_state.menu_abierto = None
-                st.rerun()
-            if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosAutorizaciones.aspx"
-                st.session_state.menu_abierto = None
-                st.rerun()
-            if st.button("↳ Listados por Período", use_container_width=True):
+            if st.button("↳ Listados", use_container_width=True):
                 st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosListados.aspx"
-                st.session_state.menu_abierto = None
+                st.rerun()
+            if st.button("↳ Consultas", use_container_width=True):
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosConsultas.aspx"
+                st.rerun()
+            if st.button("↳ Consultas por delegación", use_container_width=True):
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosConsultasDelegacion.aspx"
+                st.rerun()
+            if st.button("↳ Solicitudes de trámite", use_container_width=True):
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosSolicitudes.aspx"
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
                 
