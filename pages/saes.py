@@ -3,7 +3,6 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-# Configuración de página clara, sobria y accesible
 st.set_page_config(page_title="Portal SAES - OSECAC", layout="wide")
 
 st.markdown("""
@@ -11,7 +10,6 @@ st.markdown("""
 .stApp { background-color: #f8fafc !important; color: #0f172a !important; }
 .stMarkdown p, label, span { color: #0f172a !important; }
 .saes-card { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-top: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.box-logistica { background-color: #f1f5f9; border-left: 4px solid #0284c7; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 14px; }
 .badge-verde { background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
 .badge-rojo { background-color: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
 html, body, [class*="css"] { font-size: 17px; }
@@ -26,7 +24,6 @@ if st.button("← Volver al Menú Principal"):
     except Exception:
         st.warning("Función de retorno al menú principal no disponible en este entorno.")
 
-# --- CONTROL DE SESIÓN ---
 if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "saes_menu" not in st.session_state:
@@ -34,7 +31,7 @@ if "saes_menu" not in st.session_state:
 if "session_cookies" not in st.session_state:
     st.session_state.session_cookies = None
 
-# ================= 1. LOGIN REAL =================
+# ================= 1. LOGIN REAL (CON DISFRAZ) =================
 if not st.session_state.saes_logueado:
     st.markdown("## 🔑 Acceso al SAES")
     st.markdown("Ingrese sus datos de usuario para ingresar al portal de OSECAC.")
@@ -50,206 +47,61 @@ if not st.session_state.saes_logueado:
         
         if btn_ingresar:
             if usuario and password:
-                # ACÁ HACEMOS EL LOGIN REAL CON REQUESTS
-                with st.spinner("Conectando con SAES..."):
+                with st.spinner("Conectando con SAES... (Paso 1: Obteniendo página)"):
                     session = requests.Session()
-                    # 1. Vamos a la página de login para obtener el token de seguridad (__VIEWSTATE)
+                    # Disfrazamos la petición para que SAES crea que somos Google Chrome
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                        "Accept-Language": "es-AR,es;q=0.8,en-US;q=0.5,en;q=0.3",
+                    }
                     login_url = "https://portal.gmssa.com.ar/saes/Login.aspx"
-                    r = session.get(login_url)
-                    soup = BeautifulSoup(r.text, 'html.parser')
                     
-                    # 2. Extraemos los campos ocultos que ASP.NET necesita para el login
-                    viewstate = soup.find('input', {'name': '__VIEWSTATE'})
-                    viewstategenerator = soup.find('input', {'name': '__VIEWSTATEGENERATOR'})
-                    eventvalidation = soup.find('input', {'name': '__EVENTVALIDATION'})
-                    
-                    if not viewstate:
-                        st.error("No se pudo leer la página de login. Fijate si la URL cambió.")
-                    else:
-                        # 3. Armamos el formulario para enviar el usuario y contraseña
+                    try:
+                        # timeout=15 significa: si en 15 segundos no responde, cortá.
+                        r = session.get(login_url, headers=headers, timeout=15)
+                        soup = BeautifulSoup(r.text, 'html.parser')
+                        
+                        # Verificamos qué encontramos en la página
+                        st.info(f"Página obtenida. Código HTTP: {r.status_code}")
+                        
+                        viewstate = soup.find('input', {'name': '__VIEWSTATE'})
+                        txt_user = soup.find('input', {'name': 'txtUsuario'})
+                        
+                        if not viewstate or not txt_user:
+                            st.error("⚠️ No se encontraron los campos del formulario. La página de login cambió o bloqueó la conexión.")
+                            st.write("Campos encontrados en la página:")
+                            st.write([i.get('name') for i in soup.find_all('input')][:20]) # Mostramos los primeros 20 inputs
+                            st.stop()
+                        
+                        # Si encontramos los campos, seguimos
                         payload = {
                             '__VIEWSTATE': viewstate['value'],
-                            '__VIEWSTATEGENERATOR': viewstategenerator['value'] if viewstategenerator else '',
-                            '__EVENTVALIDATION': eventvalidation['value'] if eventvalidation else '',
                             'txtUsuario': usuario,
                             'txtPassword': password,
                             'btnIngresar': 'Ingresar'
                         }
                         
-                        # 4. Hacemos el POST (el clic en "Ingresar")
-                        r_post = session.post(login_url, data=payload)
-                        
-                        # Verificamos si entramos (si el título de la página cambió, o si no dice "Login")
-                        if "Login" not in r_post.text and r_post.status_code == 200:
-                            st.session_state.saes_logueado = True
-                            st.session_state.usuario = usuario
-                            st.session_state.password = password
-                            st.session_state.session_cookies = session.cookies
-                            st.success("✅ Acceso correcto.")
-                            st.rerun()
-                        else:
-                            st.error("❌ Usuario o contraseña incorrectos.")
+                        with st.spinner("Paso 2: Enviando credenciales..."):
+                            r_post = session.post(login_url, data=payload, headers=headers, timeout=15)
+                            
+                            # Verificamos si entramos
+                            if "Login" not in r_post.text and r_post.status_code == 200:
+                                st.session_state.saes_logueado = True
+                                st.session_state.usuario = usuario
+                                st.session_state.password = password
+                                st.session_state.session_cookies = session.cookies
+                                st.success("✅ Acceso correcto.")
+                                st.rerun()
+                            else:
+                                st.error(f"❌ Falló el login. Código HTTP: {r_post.status_code}")
+                                st.write("Posiblemente el usuario o la contraseña sean incorrectos, o el botón de login se llame distinto.")
+                                st.write("Nombre del botón de login real:")
+                                st.write([i.get('name') for i in soup.find_all('input', type='submit')])
+                                
+                    except requests.exceptions.Timeout:
+                        st.error("⏳ El servidor de SAES tardó demasiado en responder (Timeout). Puede estar caído.")
+                    except Exception as e:
+                        st.error(f"💥 Error inesperado: {e}")
             else:
                 st.warning("⚠️ Ingrese usuario y contraseña.")
-
-# ================= 2. PORTAL =================
-else:
-    head_col1, head_col2 = st.columns([4, 1])
-    with head_col1:
-        st.markdown("### 🏥 Sistema para OSECAC — Portal SAES")
-        st.caption(f"Sesión activa | Usuario: {st.session_state.get('usuario', 'rballano')}")
-    with head_col2:
-        if st.button("🔒 Cerrar Sesión"):
-            st.session_state.saes_logueado = False
-            st.session_state.saes_menu = "consultas"
-            st.session_state.session_cookies = None
-            st.rerun()
-
-    st.markdown("<hr style='margin: 8px 0 16px 0;'>", unsafe_allow_html=True)
-
-    menu_col, body_col = st.columns([1, 4])
-
-    with menu_col:
-        st.markdown("#### Menú Principal")
-        if st.button("📁 Listados", use_container_width=True):
-            st.session_state.saes_menu = "listados"
-        if st.button("💊 Consultas (Medicamentos)", use_container_width=True):
-            st.session_state.saes_menu = "consultas"
-        if st.button("🌐 Consultas por delegación", use_container_width=True):
-            st.session_state.saes_menu = "delegacion"
-        if st.button("📋 Solicitudes de trámite", use_container_width=True):
-            st.session_state.saes_menu = "solicitudes"
-
-    with body_col:
-        if st.session_state.saes_menu == "consultas":
-            st.markdown("### Medicamentos - Consultas")
-            
-            with st.form("form_consulta_beneficiario"):
-                col_orden, col_tipo, col_doc, col_check = st.columns([1, 1, 2, 2])
-                with col_orden:
-                    nro_orden = st.text_input("Nro. Orden:")
-                with col_tipo:
-                    tipo_doc = st.selectbox("Tipo Doc:", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
-                with col_doc:
-                    nro_doc = st.text_input("Nro. de Documento:", value="6705303")
-                with col_check:
-                    st.write("")
-                    ver_solo_disp = st.checkbox("Ver sólo disposiciones")
-                
-                btn_buscar = st.form_submit_button("🔍 Consultar en SAES", use_container_width=True)
-
-            if btn_buscar:
-                with st.spinner("Buscando en el servidor real de SAES... (esto puede tardar)"):
-                    # 1. Usamos la sesión que guardamos del login
-                    session = requests.Session()
-                    session.cookies.update(st.session_state.session_cookies)
-                    
-                    # 2. Vamos a la página de consulta de medicamentos
-                    consulta_url = "https://portal.gmssa.com.ar/saes/MedicamentosConsultas.aspx"
-                    r = session.get(consulta_url)
-                    soup = BeautifulSoup(r.text, 'html.parser')
-                    
-                    # 3. Extraemos los campos ocultos (ASP.NET los pide en cada página)
-                    viewstate = soup.find('input', {'name': '__VIEWSTATE'})
-                    
-                    if viewstate:
-                        # 4. Armamos el formulario de búsqueda
-                        payload = {
-                            '__VIEWSTATE': viewstate['value'],
-                            'ddlTipoDocumento': tipo_doc,
-                            'txtNroDocumento': nro_doc,
-                            'btnBuscar': 'Buscar'
-                        }
-                        
-                        # 5. Hacemos la búsqueda
-                        r_resultado = session.post(consulta_url, data=payload)
-                        soup_res = BeautifulSoup(r_resultado.text, 'html.parser')
-                        
-                        # 6. Buscamos la tabla de resultados (dgBusquedaBenef)
-                        tabla = soup_res.find('table', {'id': 'dgBusquedaBenef'})
-                        
-                        tramites_reales = []
-                        if tabla:
-                            filas = tabla.find_all('tr')
-                            for fila in filas[1:]: # Saltamos el encabezado
-                                celdas = fila.find_all('td')
-                                if len(celdas) >= 9:
-                                    aut = celdas[1].text.strip()
-                                    op = celdas[2].text.strip()
-                                    f_desde_aut = celdas[3].text.strip()
-                                    f_hasta_aut = celdas[4].text.strip()
-                                    f_desde_op = celdas[5].text.strip()
-                                    f_hasta_op = celdas[6].text.strip()
-                                    programa = celdas[7].text.strip()
-                                    farmacia = celdas[8].text.strip()
-                                    
-                                    tramites_reales.append({
-                                        "id": len(tramites_reales)+1,
-                                        "aut": aut, "op": op, "cant_op": "1",
-                                        "f_desde_aut": f_desde_aut, "f_hasta_aut": f_hasta_aut,
-                                        "f_desde_op": f_desde_op, "f_hasta_op": f_hasta_op,
-                                        "programa": programa, "farmacia": farmacia,
-                                        "estado": "Ver detalle", "badge": "verde",
-                                        "consideraciones": "Extraído de SAES",
-                                        "medicamentos": ["Ver en sistema original"],
-                                        "remito": {"id_prov": "-", "ot": "-", "est_ot": "-", "tipo_remito": "-", "nro_remito": "-", "remito_imp": "-", "est_rem": "-", "fecha_despacho": "-"}
-                                    })
-                        
-                        if tramites_reales:
-                            st.session_state['resultados_reales'] = tramites_reales
-                            st.success(f"Se encontraron {len(tramites_reales)} trámites reales.")
-                        else:
-                            st.warning("No se encontraron trámites para ese documento o la página cambió su diseño.")
-                            st.session_state['resultados_reales'] = []
-                    else:
-                        st.error("Error de sesión. Volvé a loguearte.")
-
-            if st.session_state.get('resultados_reales'):
-                tramites = st.session_state['resultados_reales']
-                df = pd.DataFrame(tramites)
-                df_vis = df[["aut", "op", "programa", "f_desde_aut", "f_hasta_aut", "farmacia", "estado"]].copy()
-                df_vis.columns = ["Nro. Autorización", "OP", "Programa", "AUT Desde", "AUT Hasta", "Farmacia", "Estado"]
-
-                evento = st.dataframe(
-                    df_vis,
-                    use_container_width=True,
-                    hide_index=True,
-                    on_select="rerun",
-                    selection_mode="single-row",
-                    key="tabla_tramites_saes",
-                )
-
-                if evento and evento.selection and evento.selection.rows:
-                    idx = evento.selection.rows[0]
-                    fila_dict = tramites[idx]
-
-                    @st.dialog("📄 Detalle del trámite", width="large")
-                    def mostrar_detalle(fila):
-                        st.markdown(f"### Nro. Autorización: **{fila['aut']}** (OP {fila['op']})")
-                        st.divider()
-                        st.markdown(f"""
-                        <div class="saes-card">
-                            <h4>Datos generales</h4>
-                            <p><b>Programa:</b> {fila['programa']}</p>
-                            <p><b>Farmacia:</b> {fila['farmacia']}</p>
-                            <p><b>AUT:</b> {fila['f_desde_aut']} al {fila['f_hasta_aut']}</p>
-                            <p><b>OP:</b> {fila['f_desde_op']} al {fila['f_hasta_op']}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        st.info("Los datos médicos y logísticos (el 'ojito') se extraerán en el próximo paso.")
-
-                        if st.button("Cerrar", use_container_width=True):
-                            st.rerun()
-
-                    mostrar_detalle(fila_dict)
-
-        elif st.session_state.saes_menu == "listados":
-            st.markdown("### 📁 Listados")
-            st.info("Módulo en construcción.")
-        elif st.session_state.saes_menu == "delegacion":
-            st.markdown("### 🌐 Consultas por delegación")
-            st.info("Módulo en construcción.")
-        elif st.session_state.saes_menu == "solicitudes":
-            st.markdown("### 📋 Solicitudes de trámite")
-            st.info("Módulo en construcción.")
