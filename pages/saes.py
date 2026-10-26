@@ -12,54 +12,50 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🔐 Módulo de Acceso y Consulta SAES")
+st.title("🔐 Consulta Automática de Autorizaciones SAES")
 st.markdown("---")
 
 if st.button("⬅️ Volver al Menú Principal"):
-    st.switch_page("main.py")  # Cambia por el nombre de tu archivo principal si es distinto
+    st.switch_page("main.py")
 
-# PASO 1: Credenciales de acceso
-st.subheader("1️⃣ Credenciales de SAES")
-col1, col2 = st.columns(2)
-with col1:
-    usuario_saes = st.text_input("Usuario:")
-with col2:
-    pass_saes = st.text_input("Contraseña:", type="password")
-
-# Botón para simular / realizar el login
-if st.button("🔑 Conectar e Iniciar Sesión"):
-    if usuario_saes and pass_saes:
-        st.session_state["saes_conectado"] = True
-        st.success("✅ Conectado a SAES correctamente. Ya puedes buscar por DNI.")
-    else:
-        st.warning("⚠️ Debes ingresar usuario y contraseña.")
-
-# PASO 2: Búsqueda por DNI (se activa solo si está conectado)
-if st.session_state.get("saes_conectado", False):
+# Formulario unificado de consulta
+with st.form("form_saes"):
+    st.subheader("📋 Datos de Acceso y Consulta")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        # Puedes dejar tu usuario predeterminado para no tipear de más
+        usuario_saes = st.text_input("Usuario SAES:", value="rballano")
+    with col2:
+        pass_saes = st.text_input("Contraseña SAES:", type="password")
+    
     st.markdown("---")
-    st.subheader("2️⃣ Consulta de Beneficiario")
+    dni_ingresado = st.text_input("🔍 DNI del Beneficiario a consultar:")
     
-    dni_ingresado = st.text_input("Ingrese DNI a buscar:")
-    
-    if st.button("🔍 Buscar en SAES"):
-        if dni_ingresado:
-            with st.spinner(f"Consultando DNI {dni_ingresado} en el portal..."):
-                
-                # --- AQUÍ ES DONDE SE CONECTARÁ EL AUTOMATIZADOR ---
-                # Simulamos la respuesta para que veas cómo se dibuja la tabla en pantalla:
-                
-                datos_simulados = {
-                    "DNI": [dni_ingresado],
-                    "Beneficiario": ["PEREZ JUAN CARLOS"],
-                    "Prestación / Medicamento": ["EPILEPSIA - TRATAMIENTO PROLONGADO"],
-                    "Estado SAES": ["AUTORIZADO"],
-                    "Nro. Solicitud": ["OP-998231"],
-                    "Fecha Actualización": ["2026-10-26"]
-                }
-                df_res = pd.DataFrame(datos_simulados)
-                
-                st.markdown("### 📋 Datos extraídos del portal:")
-                st.dataframe(df_res, use_container_width=True)
-                st.success("¡Datos recuperados con éxito!")
-        else:
-            st.warning("Escribe un DNI para realizar la búsqueda.")
+    btn_consultar = st.form_submit_button("🚀 CONSULTAR EN SAES", use_container_width=True)
+
+# Al presionar el botón de consulta
+if btn_consultar:
+    if not usuario_saes or not pass_saes:
+        st.error("❌ Por favor completa el usuario y la contraseña.")
+    elif not dni_ingresado:
+        st.warning("⚠️ Por favor ingresa un DNI para buscar.")
+    else:
+        with st.spinner(f"Conectando a SAES con usuario '{usuario_saes}' y buscando DNI {dni_ingresado}..."):
+            
+            # --- AQUÍ CONECTAREMOS EL RASPADO/PLAYWRIGHT ---
+            # Por ahora simulamos la lectura para ver el resultado en pantalla:
+            
+            datos_simulados = {
+                "DNI": [dni_ingresado],
+                "Beneficiario": ["PEREZ JUAN CARLOS"],
+                "Programa": ["EPILEPSIA"],
+                "Estado en SAES": ["AUTORIZADO"],
+                "Nro. Solicitud / OP": ["OP-998231"],
+                "Fecha Autorización": ["26/10/2026"]
+            }
+            
+            df_res = pd.DataFrame(datos_simulados)
+            
+            st.success("✅ Datos recuperados de SAES correctamente:")
+            st.dataframe(df_res, use_container_width=True)
