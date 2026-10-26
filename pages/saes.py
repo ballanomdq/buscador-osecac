@@ -1,50 +1,5 @@
-import streamlit as st
-import pandas as pd
-import requests
-from bs4 import BeautifulSoup
+# ... (todo el código anterior se mantiene igual hasta el bloque de login)
 
-st.set_page_config(page_title="Portal SAES - OSECAC", layout="wide")
-
-st.markdown("""
-<style>
-.stApp { background-color: #f8fafc !important; color: #0f172a !important; }
-.stMarkdown p, label, span { color: #0f172a !important; }
-.saes-card { background-color: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-top: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.badge-verde { background-color: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
-.badge-rojo { background-color: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 13px; }
-html, body, [class*="css"] { font-size: 17px; }
-div[data-testid="stButton"] > button { font-size: 1.05rem; padding: 0.6rem 1.2rem; }
-div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] div[data-baseweb="select"] { font-size: 1.05rem; }
-</style>
-""", unsafe_allow_html=True)
-
-if st.button("← Volver al Menú Principal"):
-    try:
-        st.switch_page("main.py")
-    except Exception:
-        st.warning("Función de retorno al menú principal no disponible en este entorno.")
-
-if "saes_logueado" not in st.session_state:
-    st.session_state.saes_logueado = False
-if "saes_menu" not in st.session_state:
-    st.session_state.saes_menu = "consultas"
-if "session_cookies" not in st.session_state:
-    st.session_state.session_cookies = None
-
-# ================= 1. LOGIN REAL (CON TODOS LOS TOKENS) =================
-if not st.session_state.saes_logueado:
-    st.markdown("## 🔑 Acceso al SAES")
-    st.markdown("Ingrese sus datos de usuario para ingresar al portal de OSECAC.")
-    
-    with st.form("form_login_saes"):
-        c_usr, c_pwd = st.columns(2)
-        with c_usr:
-            usuario = st.text_input("Usuario:", value="rballano")
-        with c_pwd:
-            password = st.text_input("Contraseña:", type="password")
-            
-        btn_ingresar = st.form_submit_button("🚀 Entrar al SAES", use_container_width=True)
-        
         if btn_ingresar:
             if usuario and password:
                 with st.spinner("Conectando con SAES..."):
@@ -57,30 +12,42 @@ if not st.session_state.saes_logueado:
                     login_url = "http://portal.gmssa.com.ar/saes/Login.aspx"
                     
                     try:
-                        # 1. Obtenemos la página
+                        # 1. GET inicial para obtener la página y los tokens
                         r = session.get(login_url, headers=headers, timeout=30)
                         soup = BeautifulSoup(r.text, 'html.parser')
                         
-                        # 2. Extraemos TODOS los campos ocultos (ViewState, EventValidation, etc.)
+                        # 2. Extraer TODOS los inputs (no solo los hidden)
                         payload = {}
-                        for input_tag in soup.find_all('input', type='hidden'):
-                            if input_tag.get('name'):
-                                payload[input_tag.get('name')] = input_tag.get('value', '')
+                        for input_tag in soup.find_all('input'):
+                            name = input_tag.get('name')
+                            if name:
+                                payload[name] = input_tag.get('value', '')
                         
-                        # 3. Agregamos usuario y clave
+                        # 3. Agregar credenciales
                         payload['txtUsuario'] = usuario
                         payload['txtPassword'] = password
-                        # A veces el botón tiene un name distinto, probamos los más comunes
-                        if soup.find('input', {'name': 'btnIngresar'}):
-                            payload['btnIngresar'] = 'Ingresar'
-                        elif soup.find('input', {'name': 'btnAceptar'}):
-                            payload['btnAceptar'] = 'Aceptar'
                         
-                        # 4. Hacemos el POST con todos los campos
+                        # 4. Identificar el botón de login para el __EVENTTARGET
+                        # Buscamos un input de tipo submit o button que contenga 'Ingresar' o 'Aceptar'
+                        boton_login = None
+                        for input_tag in soup.find_all(['input', 'a']):
+                            if input_tag.get('type') in ['submit', 'button'] or input_tag.name == 'a':
+                                value = input_tag.get('value', '') or input_tag.text
+                                if 'ingresar' in value.lower() or 'aceptar' in value.lower() or 'login' in value.lower():
+                                    boton_login = input_tag
+                                    break
+                        
+                        if boton_login:
+                            # En ASP.NET, el __EVENTTARGET suele ser el 'name' del botón
+                            nombre_boton = boton_login.get('name')
+                            if nombre_boton:
+                                payload['__EVENTTARGET'] = nombre_boton
+                                payload['__EVENTARGUMENT'] = ''
+                        
+                        # 5. POST con todos los datos
                         r_post = session.post(login_url, data=payload, headers=headers, timeout=30)
                         
-                        # 5. Verificamos si entramos
-                        # Si la página resultante NO tiene el input de password, es porque entramos
+                        # 6. Verificar si entramos (buscando si sigue apareciendo el input de password)
                         soup_post = BeautifulSoup(r_post.text, 'html.parser')
                         if not soup_post.find('input', {'type': 'password'}):
                             st.session_state.saes_logueado = True
@@ -90,17 +57,14 @@ if not st.session_state.saes_logueado:
                             st.success("✅ Acceso correcto.")
                             st.rerun()
                         else:
-                            st.error("❌ El servidor de SAES rechazó las credenciales. Puede haber un CAPTCHA o un token extra.")
-                            # Mostramos ayuda para depurar
-                            with st.expander("Ver detalles técnicos del error"):
+                            st.error("❌ SAES rechazó el formulario. Puede faltar un token de seguridad.")
+                            with st.expander("Ver detalles técnicos"):
                                 st.write("Código de estado:", r_post.status_code)
                                 st.write("URL final:", r_post.url)
-                                st.write("¿Hay captcha en la página?", "sí" if soup_post.find('img', {'id': 'captcha'}) else "no")
+                                # Mostramos los campos que enviamos para ver si falta alguno
+                                st.write("Campos enviados:", list(payload.keys()))
                                 
-                    except requests.exceptions.Timeout:
-                        st.error("⏳ El servidor de SAES tardó demasiado en responder.")
                     except Exception as e:
                         st.error(f"💥 Error inesperado: {e}")
             else:
                 st.warning("⚠️ Ingrese usuario y contraseña.")
-# El resto del código (el portal) sigue igual que antes...
