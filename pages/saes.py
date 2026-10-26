@@ -28,8 +28,6 @@ if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "session" not in st.session_state:
     st.session_state.session = None
-if "menu_items" not in st.session_state:
-    st.session_state.menu_items = []
 if "current_url" not in st.session_state:
     st.session_state.current_url = "http://portal.gmssa.com.ar/saes/welcome.aspx"
 
@@ -85,21 +83,6 @@ if not st.session_state.saes_logueado:
                             st.session_state.saes_logueado = True
                             st.session_state.session = session
                             st.session_state.usuario = usuario
-                            
-                            # 4. Extraemos el menú real de SAES desde la barra de navegación (¡EL CAMBIO CLAVE!)
-                            try:
-                                # En vez de ir a welcome.aspx, vamos a NavigBar.aspx
-                                r_menu = session.get("http://portal.gmssa.com.ar/saes/NavigBar.aspx", headers=headers, timeout=30)
-                                soup_menu = BeautifulSoup(r_menu.text, 'html.parser')
-                                menu = []
-                                for a in soup_menu.find_all('a'):
-                                    if a.text.strip() and 'href' in a.attrs:
-                                        menu.append({"texto": a.text.strip(), "href": a['href']})
-                                st.session_state.menu_items = menu
-                            except Exception as e:
-                                print(f"Error al extraer menú: {e}")
-                                st.session_state.menu_items = []
-                                
                             st.rerun()
                         else:
                             st.error("❌ Usuario o contraseña incorrectos.")
@@ -115,32 +98,30 @@ else:
     session = st.session_state.session
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
-    # --- BARRA LATERAL CON EL MENÚ DE SAES ---
+    # --- BARRA LATERAL CON EL MENÚ (A MANO) ---
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.get('usuario', 'rballano')}")
         st.divider()
         st.markdown("#### Módulos SAES")
         
-        # Mostramos los botones del menú
-        if not st.session_state.menu_items:
-            st.warning("No se pudieron cargar los módulos del menú. Revisá la conexión.")
-        else:
-            for item in st.session_state.menu_items:
-                if st.button(f"📂 {item['texto']}", use_container_width=True):
-                    # Armar la URL completa (si viene con ../ o similar)
-                    url_base = "http://portal.gmssa.com.ar/saes/"
-                    st.session_state.current_url = url_base + item['href'].replace("../", "")
-                    st.rerun()
+        # ACÁ ESTÁN LOS BOTONES REALES QUE ENCONTRAMOS EN TU ARCHIVO HTML
+        # Al hacer clic, cambiamos la URL que se va a mostrar a la derecha
+        if st.button("📂 Autorización", use_container_width=True):
+            st.session_state.current_url = "http://portal.gmssa.com.ar/saes/Autorizacion.aspx"
+            st.rerun()
+            
+        if st.button("📂 Adm. de Medicamentos", use_container_width=True):
+            st.session_state.current_url = "http://portal.gmssa.com.ar/saes/Medicamentos.aspx"
+            st.rerun()
                 
         st.divider()
         if st.button("🔒 Cerrar Sesión", use_container_width=True):
             st.session_state.saes_logueado = False
             st.session_state.session = None
-            st.session_state.menu_items = []
             st.rerun()
 
     # --- CUERPO CENTRAL (MOSTRANDO LA PÁGINA REAL DE SAES) ---
-    st.markdown(f"### 🏥 Visualizando módulo SAES")
+    st.markdown(f"### 🏥 Visualizando: {st.session_state.current_url.split('/')[-1]}")
     
     with st.spinner("Cargando página de SAES..."):
         try:
