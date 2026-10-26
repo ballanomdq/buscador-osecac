@@ -1,10 +1,8 @@
 # app.py — Módulo SAES (OSECAC Miramar) — versión unificada accesible
 # Reemplaza todo tu archivo actual por este.
-# Requiere: streamlit >= 1.35
 
 import streamlit as st
 import pandas as pd
-from datetime import date
 
 # ============================================================
 # CONFIGURACIÓN GENERAL (accesibilidad visual)
@@ -60,39 +58,51 @@ if "menu" not in st.session_state:
     st.session_state.menu = "Listados"
 
 # ============================================================
-# MOCK DE DATOS (reemplazar por búsqueda real en SAES)
+# 🔴 ACÁ VA TU CÓDIGO REAL DE EXTRACCIÓN 🔴
 # ============================================================
 def buscar_en_saes(tipo_doc: str, nro_doc: str) -> list[dict]:
     """
-    DEVOLVER: lista de dicts con la estructura de dgBusquedaBenef
-    + capas ocultas (medicamentos y logística).
-    Reemplazar esta función por tu scraping/consulta real.
+    REEMPLAZAR ESTE BLOQUE POR TU CÓDIGO DE SCRAPING/CONSULTA.
+    Debe devolver una LISTA DE DICCIONARIOS, donde cada diccionario
+    es un trámite con las siguientes claves exactas:
     """
-    base = {
-        "Nro. Autorización": "AUT-2024-000123",
-        "OP": "OP-77812",
-        "Programa": "Maculopatía",
-        "AUT Desde": "2024-03-01",
-        "AUT Hasta": "2024-09-01",
-        "OP Desde": "2024-03-05",
-        "OP Hasta": "2024-08-30",
-        "Farmacia": "Farmacia Central Miramar",
-        "Estado": "Autorizado",
-        # --- capa médica / medicamentos ---
-        "Medicamento": "Ranibizumab 10 mg/mL",
-        "Dosis": "0.5 mg intravítrea mensual",
-        "Cant. solicitada": 3,
-        "Cant. pendiente entrega": 1,
-        "Consideraciones médicas": "Paciente con antecedente de HTA. Control semanal.",
-        # --- capa logística ("ojito") ---
-        "IdOrdenProv": "IP-2024-5591",
-        "Nro. OT": "OT-33421",
-        "Tipo Remito": "COMUN",
-        "Nro. Remito": "675467",
-        "Estado Recepción": "Recibido",
-        "Fecha Despacho": "2024-03-06",
-    }
-    return [base]
+    
+    # --- BORRAR ESTO (es el mock que solo devuelve 1) ---
+    # resultados_reales = []
+    # return resultados_reales
+    # ----------------------------------------------------
+
+    # --- EJEMPLO DE CÓMO DEBERÍA LLEGAR TU DATA REAL ---
+    # (Simulo que acá traés 3 trámites de la base de datos)
+    resultados_reales = [
+        {
+            "Nro. Autorización": "AUT-2024-000123", "OP": "OP-77812", "Programa": "Maculopatía",
+            "AUT Desde": "2024-03-01", "AUT Hasta": "2024-09-01", "OP Desde": "2024-03-05", "OP Hasta": "2024-08-30",
+            "Farmacia": "Farmacia Central Miramar", "Estado": "Autorizado",
+            "Medicamento": "Ranibizumab 10 mg/mL", "Dosis": "0.5 mg intravítrea mensual", "Cant. solicitada": 3, "Cant. pendiente entrega": 1, "Consideraciones médicas": "Paciente con antecedente de HTA.",
+            "IdOrdenProv": "IP-2024-5591", "Nro. OT": "OT-33421", "Tipo Remito": "COMUN", "Nro. Remito": "675467", "Estado Recepción": "Recibido", "Fecha Despacho": "2024-03-06",
+        },
+        {
+            "Nro. Autorización": "AUT-2024-000124", "OP": "OP-77813", "Programa": "DBT Tipo II",
+            "AUT Desde": "2024-04-10", "AUT Hasta": "2024-10-10", "OP Desde": "2024-04-12", "OP Hasta": "2024-09-30",
+            "Farmacia": "Farmacia del Pueblo", "Estado": "Pendiente",
+            "Medicamento": "Insulina Glargina", "Dosis": "20 UI diarias", "Cant. solicitada": 5, "Cant. pendiente entrega": 5, "Consideraciones médicas": "Requiere refrigeración.",
+            "IdOrdenProv": "IP-2024-5592", "Nro. OT": "OT-33422", "Tipo Remito": "COMUN", "Nro. Remito": "675468", "Estado Recepción": "En tránsito", "Fecha Despacho": "2024-04-13",
+        },
+        {
+            "Nro. Autorización": "AUT-2024-000125", "OP": "OP-77814", "Programa": "Oncología",
+            "AUT Desde": "2024-05-01", "AUT Hasta": "2024-11-01", "OP Desde": "2024-05-02", "OP Hasta": "2024-10-15",
+            "Farmacia": "Farmacia Hospitalaria", "Estado": "Rechazado",
+            "Medicamento": "Trastuzumab", "Dosis": "8 mg/kg", "Cant. solicitada": 1, "Cant. pendiente entrega": 0, "Consideraciones médicas": "Revisar historia clínica.",
+            "IdOrdenProv": "IP-2024-5593", "Nro. OT": "OT-33423", "Tipo Remito": "ESPECIAL", "Nro. Remito": "675469", "Estado Recepción": "Rechazado", "Fecha Despacho": "2024-05-03",
+        }
+    ]
+
+    # (Opcional) Acá podés ordenar la lista como en SAES antes de retornarla.
+    # Por ejemplo, ordenado por Nro de Autorización:
+    # resultados_reales = sorted(resultados_reales, key=lambda x: x["Nro. Autorización"], reverse=True)
+    
+    return resultados_reales
 
 
 # ============================================================
@@ -162,38 +172,36 @@ def card_detalle(titulo: str, filas: list[tuple[str, str]]):
 
 @st.dialog("📄 Detalle del trámite", width="large")
 def mostrar_detalle(fila: dict):
-    st.markdown(f"### Nro. Autorización: **{fila['Nro. Autorización']}**")
-    st.markdown(f"Estado: {badge_estado(fila['Estado'])}", unsafe_allow_html=True)
+    st.markdown(f"### Nro. Autorización: **{fila.get('Nro. Autorización', 'N/A')}**")
+    estado = fila.get('Estado', 'Desconocido')
+    st.markdown(f"Estado: {badge_estado(estado)}", unsafe_allow_html=True)
     st.divider()
 
-    # Datos generales
     st.markdown(card_detalle("Datos generales", [
-        ("OP", fila["OP"]),
-        ("Programa", fila["Programa"]),
-        ("AUT Desde", fila["AUT Desde"]),
-        ("AUT Hasta", fila["AUT Hasta"]),
-        ("OP Desde", fila["OP Desde"]),
-        ("OP Hasta", fila["OP Hasta"]),
-        ("Farmacia", fila["Farmacia"]),
+        ("OP", fila.get("OP", "")),
+        ("Programa", fila.get("Programa", "")),
+        ("AUT Desde", fila.get("AUT Desde", "")),
+        ("AUT Hasta", fila.get("AUT Hasta", "")),
+        ("OP Desde", fila.get("OP Desde", "")),
+        ("OP Hasta", fila.get("OP Hasta", "")),
+        ("Farmacia", fila.get("Farmacia", "")),
     ]), unsafe_allow_html=True)
 
-    # Capa médica
     st.markdown(card_detalle("🩺 Consideraciones médicas y medicamentos", [
-        ("Medicamento", fila["Medicamento"]),
-        ("Dosis", fila["Dosis"]),
-        ("Cant. solicitada", str(fila["Cant. solicitada"])),
-        ("Cant. pendiente entrega", str(fila["Cant. pendiente entrega"])),
-        ("Consideraciones", fila["Consideraciones médicas"]),
+        ("Medicamento", fila.get("Medicamento", "")),
+        ("Dosis", fila.get("Dosis", "")),
+        ("Cant. solicitada", str(fila.get("Cant. solicitada", ""))),
+        ("Cant. pendiente entrega", str(fila.get("Cant. pendiente entrega", ""))),
+        ("Consideraciones", fila.get("Consideraciones médicas", "")),
     ]), unsafe_allow_html=True)
 
-    # Capa logística
     st.markdown(card_detalle("🚚 Trazabilidad logística", [
-        ("IdOrdenProv", fila["IdOrdenProv"]),
-        ("Nro. OT", fila["Nro. OT"]),
-        ("Tipo Remito", fila["Tipo Remito"]),
-        ("Nro. Remito", fila["Nro. Remito"]),
-        ("Estado Recepción", fila["Estado Recepción"]),
-        ("Fecha Despacho", fila["Fecha Despacho"]),
+        ("IdOrdenProv", fila.get("IdOrdenProv", "")),
+        ("Nro. OT", fila.get("Nro. OT", "")),
+        ("Tipo Remito", fila.get("Tipo Remito", "")),
+        ("Nro. Remito", fila.get("Nro. Remito", "")),
+        ("Estado Recepción", fila.get("Estado Recepción", "")),
+        ("Fecha Despacho", fila.get("Fecha Despacho", "")),
     ]), unsafe_allow_html=True)
 
     if st.button("Cerrar", use_container_width=True):
@@ -220,7 +228,10 @@ def pantalla_consulta():
         if not nro_doc.strip():
             st.warning("Ingrese un número de documento.")
             return
-        st.session_state["resultados"] = buscar_en_saes(tipo_doc, nro_doc.strip())
+        
+        # Acá se llama a tu función real que trae TODOS los trámites
+        with st.spinner("Buscando trámites en SAES..."):
+            st.session_state["resultados"] = buscar_en_saes(tipo_doc, nro_doc.strip())
 
     resultados = st.session_state.get("resultados")
     if not resultados:
@@ -230,15 +241,16 @@ def pantalla_consulta():
     st.markdown(f"### Resultados ({len(resultados)})")
     st.caption("👉 Hacé clic sobre una fila para ver el detalle completo del trámite.")
 
-    # DataFrame visible (columnas principales)
     df = pd.DataFrame(resultados)
     columnas_visibles = [
         "Nro. Autorización", "OP", "Programa",
         "AUT Desde", "AUT Hasta", "Farmacia", "Estado",
     ]
-    df_vis = df[columnas_visibles].copy()
+    
+    # Aseguramos que las columnas existan para que no rompa
+    columnas_existentes = [c for c in columnas_visibles if c in df.columns]
+    df_vis = df[columnas_existentes].copy()
 
-    # Tabla con selección de fila (clic para abrir detalle)
     evento = st.dataframe(
         df_vis,
         use_container_width=True,
