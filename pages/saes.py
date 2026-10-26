@@ -91,7 +91,7 @@ if not st.session_state.saes_logueado:
                 st.warning("⚠️ Ingrese usuario y contraseña.")
 
 # ============================================================
-# 2. PORTAL ESPEJO (CON BOTONES FIJOS Y URLS CORREGIDAS)
+# 2. PORTAL ESPEJO (CON BOTONES FIJOS Y URLS REALES)
 # ============================================================
 else:
     session = st.session_state.session
@@ -110,13 +110,15 @@ else:
         if st.session_state.menu_abierto == "autorizacion":
             st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
             if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/consultas.aspx"
+                # El archivo real es frmBrowserConsulta.aspx
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
                 st.rerun()
             if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/autorizaciones.aspx"
+                # Intentamos con la misma lógica, pero este puede variar
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserAutorizacion.aspx"
                 st.rerun()
             if st.button("↳ Listados por Período", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/listados.aspx"
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserListados.aspx"
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
 
@@ -127,16 +129,17 @@ else:
         if st.session_state.menu_abierto == "medicamentos":
             st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
             if st.button("↳ Listados", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/listados_med.aspx"
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserListados.aspx"
                 st.rerun()
             if st.button("↳ Consultas", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/consultas_med.aspx"
+                # ACÁ ES DONDE VA LA URL REAL DE LA PANTALLA DE CONSULTAS
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
                 st.rerun()
             if st.button("↳ Consultas por delegación", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/consultas_delegacion.aspx"
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserConsultaDelegacion.aspx"
                 st.rerun()
             if st.button("↳ Solicitudes de trámite", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/solicitudes.aspx"
+                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/frmBrowserSolicitudes.aspx"
                 st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
                 
