@@ -1,8 +1,8 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import re
 import pandas as pd
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Portal SAES - OSECAC", layout="wide")
 
@@ -16,10 +16,15 @@ div[data-testid="stTextInput"] input { font-size: 1.05rem; }
 </style>
 """, unsafe_allow_html=True)
 
+# ============================================================
+# ESTADO DE LA SESIÓN
+# ============================================================
 if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "session" not in st.session_state:
     st.session_state.session = None
+if "usuario" not in st.session_state:
+    st.session_state.usuario = "rballano"
 if "menu_abierto" not in st.session_state:
     st.session_state.menu_abierto = None
 if "url_destino" not in st.session_state:
@@ -64,42 +69,42 @@ else:
     s = st.session_state.session
     h = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+    # --- BARRA LATERAL CON LOS MENÚS ---
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.usuario}")
         st.divider()
         st.markdown("#### Módulos SAES")
         
-        # --- MENÚ 1: AUTORIZACIÓN ---
         if st.button("📂 Autorización", use_container_width=True):
             st.session_state.menu_abierto = "auto" if st.session_state.menu_abierto != "auto" else None
         
         if st.session_state.menu_abierto == "auto":
             if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.session_state.url_destino = "auto_consultas"
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/AutorizacionConsultas.aspx"
                 st.rerun()
             if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.url_destino = "auto_autorizaciones"
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/Autorizaciones.aspx"
                 st.rerun()
             if st.button("↳ Listados por Período", use_container_width=True):
-                st.session_state.url_destino = "auto_listados"
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/AutorizacionListados.aspx"
                 st.rerun()
 
-        # --- MENÚ 2: MEDICAMENTOS ---
         if st.button("📂 Adm. de Medicamentos", use_container_width=True):
             st.session_state.menu_abierto = "med" if st.session_state.menu_abierto != "med" else None
             
         if st.session_state.menu_abierto == "med":
             if st.button("↳ Listados", use_container_width=True):
-                st.session_state.url_destino = "med_listados"
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/MedicamentosListados.aspx"
                 st.rerun()
             if st.button("↳ Consultas", use_container_width=True):
-                st.session_state.url_destino = "med_consultas"
+                # La URL que nos dio el frameset real
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
                 st.rerun()
             if st.button("↳ Consultas por delegación", use_container_width=True):
-                st.session_state.url_destino = "med_delegacion"
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/MedicamentosConsultasDelegacion.aspx"
                 st.rerun()
             if st.button("↳ Solicitudes de trámite", use_container_width=True):
-                st.session_state.url_destino = "med_solicitudes"
+                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/MedicamentosSolicitudes.aspx"
                 st.rerun()
                 
         st.divider()
@@ -108,68 +113,83 @@ else:
             st.session_state.url_destino = None
             st.rerun()
 
-    # --- CUERPO CENTRAL (BÚSQUEDA Y TABLA) ---
+    # --- CUERPO CENTRAL ---
     st.markdown("## 🔎 Consulta de Trámites (Medicamentos)")
     
-    with st.form("busqueda"):
-        c1, c2, c3 = st.columns([1, 2, 1])
-        with c1: tipo = st.selectbox("Tipo Doc", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
-        with c2: dni = st.text_input("Nro. de Documento", value="6705303")
-        with c3:
-            st.markdown("<br>", unsafe_allow_html=True)
-            buscar = st.form_submit_button("🔍 Buscar en SAES", use_container_width=True)
-    
-    if buscar:
-        with st.spinner("Conectando con SAES..."):
+    # Si el usuario eligió una opción del menú, la mostramos
+    if st.session_state.url_destino:
+        with st.spinner("Cargando página de SAES..."):
             try:
-                # 1. Vamos a la página principal de SAES para obtener el menú
-                r_main = s.get("http://portal.gmssa.com.ar/saes/welcome.aspx", headers=h)
-                soup_main = BeautifulSoup(r_main.text, 'html.parser')
-                
-                # Buscamos el frame de WorkSpace (que contiene la página de consultas)
-                frames = soup_main.find_all("frame")
-                url_workspace = None
-                for f in frames:
-                    if f.get("name") == "WorkSpace" or "frmBrowser" in f.get("src", ""):
-                        url_workspace = f.get("src")
-                        break
-                
-                if not url_workspace:
-                    st.error("No se encontró el frame de trabajo.")
+                r = s.get(st.session_state.url_destino, headers=h)
+                if "txtUser" in r.text:
+                    st.error("La sesión expiró. Cerrá sesión y volvé a entrar.")
                 else:
-                    # Armamos la URL completa
-                    if not url_workspace.startswith("http"):
-                        url_workspace = "http://portal.gmssa.com.ar/saes/" + url_workspace.lstrip("/")
-                    
-                    # 2. Pedimos la página de consultas
-                    r_consulta = s.get(url_workspace, headers=h)
-                    soup_consulta = BeautifulSoup(r_consulta.text, 'html.parser')
-                    
-                    # 3. Buscamos el formulario dentro de esa página
-                    viewstate = soup_consulta.find('input', {'name': '__VIEWSTATE'})
-                    eventval = soup_consulta.find('input', {'name': '__EVENTVALIDATION'})
-                    
-                    if not viewstate:
-                        st.error(f"No se encontró el formulario en: {url_workspace}")
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    body = soup.find('body')
+                    if body:
+                        for tag in body(["script", "style", "link", "meta", "iframe", "frame"]):
+                            tag.decompose()
+                        html_puro = str(body)
                     else:
-                        # 4. Armamos el POST de búsqueda
+                        html_puro = r.text
+                    components.html(html_puro, height=800, scrolling=True)
+            except Exception as e:
+                st.error(f"Error: {e}")
+    else:
+        # Si no eligió nada, mostramos el formulario de búsqueda
+        st.info("👈 Seleccioná una opción del menú o buscá un DNI directamente abajo.")
+        
+        with st.form("busqueda"):
+            c1, c2, c3 = st.columns([1, 2, 1])
+            with c1: tipo = st.selectbox("Tipo Doc", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
+            with c2: dni = st.text_input("Nro. de Documento", value="6705303")
+            with c3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                buscar = st.form_submit_button("🔍 Buscar en SAES", use_container_width=True)
+        
+        if buscar:
+            with st.spinner("Buscando en SAES..."):
+                try:
+                    # 1. Vamos a welcome para leer el frameset
+                    r_main = s.get("http://portal.gmssa.com.ar/saes/welcome.aspx", headers=h)
+                    soup_main = BeautifulSoup(r_main.text, 'html.parser')
+                    
+                    # 2. Buscamos el frame de WorkSpace
+                    frame_ws = soup_main.find('frame', {'name': 'WorkSpace'})
+                    if not frame_ws:
+                        # Si no hay frame, probamos con la URL por defecto
+                        url_ws = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
+                    else:
+                        url_ws = frame_ws.get('src')
+                        if not url_ws.startswith("http"):
+                            url_ws = "http://portal.gmssa.com.ar/saes/" + url_ws.lstrip("/")
+                    
+                    # 3. Pedimos la página de consultas
+                    r_cons = s.get(url_ws, headers=h)
+                    soup_cons = BeautifulSoup(r_cons.text, 'html.parser')
+                    
+                    # 4. Extraemos los tokens
+                    vs = soup_cons.find('input', {'name': '__VIEWSTATE'})
+                    ev = soup_cons.find('input', {'name': '__EVENTVALIDATION'})
+                    
+                    if not vs:
+                        st.error("No se encontró el formulario de búsqueda.")
+                    else:
+                        # 5. Armamos el POST
                         payload = {
-                            "__EVENTTARGET": "",
-                            "__EVENTARGUMENT": "",
-                            "__VIEWSTATE": viewstate['value'],
+                            "__EVENTTARGET": "", "__EVENTARGUMENT": "",
+                            "__VIEWSTATE": vs['value'],
                             "cboTipoDoc": tipo,
                             "txtDocumento": dni,
-                            "imgConsultar.x": "10",
-                            "imgConsultar.y": "10"
+                            "imgConsultar.x": "10", "imgConsultar.y": "10"
                         }
-                        if eventval:
-                            payload["__EVENTVALIDATION"] = eventval['value']
+                        if ev: payload["__EVENTVALIDATION"] = ev['value']
                         
-                        # 5. Hacemos la búsqueda
-                        r_resultado = s.post(url_workspace, data=payload, headers=h)
-                        soup_res = BeautifulSoup(r_resultado.text, 'html.parser')
+                        # 6. Buscamos
+                        r_res = s.post(url_ws, data=payload, headers=h)
+                        soup_res = BeautifulSoup(r_res.text, 'html.parser')
                         
-                        # 6. Extraemos la tabla
+                        # 7. Extraemos la tabla
                         tabla = soup_res.find('table', {'id': 'dgBusquedaBenef'})
                         if tabla:
                             filas = tabla.find_all('tr')
@@ -187,13 +207,12 @@ else:
                                         "Programa": celdas[7].text.strip(),
                                         "Farmacia": celdas[8].text.strip(),
                                     })
-                            
                             if datos:
                                 st.success(f"Se encontraron {len(datos)} trámites.")
                                 st.dataframe(pd.DataFrame(datos), use_container_width=True, hide_index=True)
                             else:
-                                st.warning("No se encontraron resultados.")
+                                st.warning("No se encontraron resultados para ese documento.")
                         else:
                             st.warning("No se pudo leer la tabla de resultados.")
-            except Exception as e:
-                st.error(f"Error: {e}")
+                except Exception as e:
+                    st.error(f"Error al buscar: {e}")
