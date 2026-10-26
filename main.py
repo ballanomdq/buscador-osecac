@@ -309,7 +309,11 @@ if os.path.exists('logo original.jpg'):
 
 st.markdown('</div></div>', unsafe_allow_html=True)
 st.markdown("---")
+# ================= ACCESO DIRECTO DESTACADO SAES =================
+if st.button("📦 ACCEDER A SAES / RECLAMOS", use_container_width=True):
+    st.switch_page("pages/saes.py")
 
+st.markdown("---")
 # ================= EXPANDERS =================
 
 with st.expander("📂 1. NOMENCLADORES", expanded=False):
