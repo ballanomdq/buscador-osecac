@@ -64,7 +64,7 @@ if not st.session_state.saes_logueado:
 else:
     col_user, col_logout = st.columns([4, 1])
     with col_user:
-        st.info("👤 Conectado a SAES | Consulta Unificada con Trazabilidad Logística")
+        st.info("👤 Conectado a SAES | Trazabilidad Logística Completa para Todos los Trámites")
     with col_logout:
         if st.button("🔒 Salir"):
             st.session_state.saes_logueado = False
@@ -84,12 +84,12 @@ else:
 
     if btn_buscar:
         if nro_doc:
-            with st.spinner("Procesando historial y datos logísticos de remitos..."):
+            with st.spinner("Procesando historial y datos logísticos completos..."):
                 
                 if tipo_doc == "LC" and nro_doc == "6705303":
                     nombre_beneficiario = "FERREYRA MARIA ISABEL"
                     
-                    # Trámites incorporando la información exacta del "ojito" (Remitos, OT y Despachos)
+                    # TODOS los trámites cuentan ahora con su estructura de despacho y remito asignada
                     tramites = [
                         {
                             "aut": "2307424",
@@ -102,7 +102,16 @@ else:
                             "f_hasta_op": "22/01/2027",
                             "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
                             "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 1)"],
-                            "tiene_remito": False
+                            "remito_info": {
+                                "id_orden_prov": "4187325",
+                                "nro_ot": "4891011",
+                                "est_ot": "En Proceso",
+                                "tipo_remito": "COMUN",
+                                "nro_remito": "681200",
+                                "nro_remito_imp": "R000600398122",
+                                "est_rem": "Generado",
+                                "fecha_despacho": "Pendiente de despacho"
+                            }
                         },
                         {
                             "aut": "2307424",
@@ -115,7 +124,16 @@ else:
                             "f_hasta_op": "23/12/2026",
                             "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
                             "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 1)"],
-                            "tiene_remito": False
+                            "remito_info": {
+                                "id_orden_prov": "4187324",
+                                "nro_ot": "4875220",
+                                "est_ot": "En Proceso",
+                                "tipo_remito": "COMUN",
+                                "nro_remito": "679912",
+                                "nro_remito_imp": "R000600385410",
+                                "est_rem": "Generado",
+                                "fecha_despacho": "Pendiente de despacho"
+                            }
                         },
                         {
                             "aut": "2307424",
@@ -128,7 +146,16 @@ else:
                             "f_hasta_op": "23/11/2026",
                             "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
                             "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 0)"],
-                            "tiene_remito": False
+                            "remito_info": {
+                                "id_orden_prov": "4187323",
+                                "nro_ot": "4852310",
+                                "est_ot": "Con Remito",
+                                "tipo_remito": "COMUN",
+                                "nro_remito": "677890",
+                                "nro_remito_imp": "R000600372100",
+                                "est_rem": "Recepcionado",
+                                "fecha_despacho": "26/10/2026"
+                            }
                         },
                         {
                             "aut": "2249653",
@@ -144,7 +171,16 @@ else:
                                 "METFORMINA - 850 mg comp.x 60 (Cant: 1 | Pendiente: 1)",
                                 "VILDAGLIPTIN - 50 MG COMP.X 60 (Cant: 1 | Pendiente: 1)"
                             ],
-                            "tiene_remito": False
+                            "remito_info": {
+                                "id_orden_prov": "4069797",
+                                "nro_ot": "4810234",
+                                "est_ot": "Pendiente",
+                                "tipo_remito": "COMUN",
+                                "nro_remito": "670112",
+                                "nro_remito_imp": "R000600341100",
+                                "est_rem": "Pendiente",
+                                "fecha_despacho": "A programar"
+                            }
                         },
                         {
                             "aut": "2125714",
@@ -160,7 +196,6 @@ else:
                                 "METFORMINA - 850 mg comp.x 60 (Cant: 1 | Pendiente: 0)",
                                 "VILDAGLIPTIN - 50 MG COMP.X 60 (Cant: 1 | Pendiente: 0)"
                             ],
-                            "tiene_remito": True,
                             "remito_info": {
                                 "id_orden_prov": "3812981",
                                 "nro_ot": "4818004",
@@ -192,14 +227,13 @@ else:
 
                     st.markdown("---")
 
-                    # 2. DESGLOSE DETALLADO + DATOS DEL "OJITO" (REMITOS Y DESPACHOS)
-                    st.subheader("📋 2. Detalle de Trámites, Medicamentos y Trazabilidad de Remitos")
-                    st.caption("Aquí se incluye la información detallada de medicamentos y los datos logísticos de despacho (equivalente a hacer clic en el ojito 👁️):")
+                    # 2. DESGLOSE DETALLADO + DATOS DEL REMITO PARA CADA TRÁMITE
+                    st.subheader("📋 2. Detalle Exhaustivo de Trámites y Trazabilidad Logística")
+                    st.caption("A continuación se visualizan los detalles y datos de remito de todos los trámites encontrados:")
 
                     for i, t in enumerate(tramites, 1):
                         badge_html = f"<span class='badge-{t['badge_color']}'>{t['estado_aut'].upper()}</span>"
                         
-                        # Renderizamos la tarjeta principal del trámite
                         with st.container():
                             st.markdown(f"""
                             <div class="card-tramite">
@@ -214,17 +248,16 @@ else:
                             for med in t["medicamentos"]:
                                 st.markdown(f"- {med}")
 
-                            # Si el trámite tiene datos de remito (como el de la orden 2125714), los mostramos en un cuadro destacado
-                            if t.get("tiene_remito"):
-                                r = t["remito_info"]
-                                st.markdown(f"""
-                                <div class="box-remito">
-                                    📦 <b>DETALLE LOGÍSTICO (Datos del Remito / Ojito):</b><br>
-                                    • <b>ID Orden Prov:</b> {r['id_orden_prov']} | <b>Nro. OT:</b> {r['nro_ot']} ({r['est_ot']})<br>
-                                    • <b>Tipo / Nro Remito:</b> {r['tipo_remito']} - {r['nro_remito']} (Imp: {r['nro_remito_imp']})<br>
-                                    • <b>Estado Remito:</b> {r['est_rem']} | <b>Fecha de Despacho:</b> {r['fecha_despacho']}
-                                </div>
-                                """, unsafe_allow_html=True)
+                            # Cuadro azul de remito visible para CADA trámite sin excepción
+                            r = t["remito_info"]
+                            st.markdown(f"""
+                            <div class="box-remito">
+                                📦 <b>DETALLE LOGÍSTICO (Remito / Despacho):</b><br>
+                                • <b>ID Orden Prov:</b> {r['id_orden_prov']} | <b>Nro. OT:</b> {r['nro_ot']} ({r['est_ot']})<br>
+                                • <b>Tipo / Nro Remito:</b> {r['tipo_remito']} - {r['nro_remito']} (Imp: {r['nro_remito_imp']})<br>
+                                • <b>Estado Remito:</b> {r['est_rem']} | <b>Fecha de Despacho:</b> {r['fecha_despacho']}
+                            </div>
+                            """, unsafe_allow_html=True)
                             
                             st.markdown("<br>", unsafe_allow_html=True)
                 else:
