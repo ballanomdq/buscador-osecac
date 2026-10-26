@@ -1,3 +1,4 @@
+
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -30,8 +31,37 @@ if "session" not in st.session_state:
     st.session_state.session = None
 if "current_url" not in st.session_state:
     st.session_state.current_url = "http://portal.gmssa.com.ar/saes/welcome.aspx"
-if "menu_abierto" not in st.session_state:
-    st.session_state.menu_abierto = None
+# Diccionario para guardar los enlaces reales
+if "menu_urls" not in st.session_state:
+    st.session_state.menu_urls = {}
+
+# ============================================================
+# FUNCIÓN PARA EXTRAER LOS ENLACES REALES
+# ============================================================
+def obtener_urls_reales(session, headers):
+    try:
+        # Vamos a la página principal donde está el menú
+        r = session.get("http://portal.gmssa.com.ar/saes/welcome.aspx", headers=headers, timeout=30)
+        soup = BeautifulSoup(r.text, 'html.parser')
+        
+        urls = {}
+        # Buscamos todos los enlaces <a> y guardamos su texto y su href
+        for a in soup.find_all('a'):
+            texto = a.text.strip()
+            href = a.get('href', '')
+            # Solo guardamos los que tengan un link válido
+            if texto and href and 'javascript' not in href:
+                # Armamos la URL completa
+                if href.startswith('http'):
+                    url_completa = href
+                else:
+                    url_completa = "http://portal.gmssa.com.ar/saes/" + href
+                urls[texto] = url_completa
+                
+        return urls
+    except Exception as e:
+        st.error(f"No se pudieron leer los enlaces del menú: {e}")
+        return {}
 
 # ============================================================
 # 1. PANTALLA DE LOGIN
@@ -82,6 +112,11 @@ if not st.session_state.saes_logueado:
                             st.session_state.saes_logueado = True
                             st.session_state.session = session
                             st.session_state.usuario = usuario
+                            
+                            # ACÁ EXTRAEMOS LAS URLS REALES
+                            with st.spinner("Leyendo el menú de SAES..."):
+                                st.session_state.menu_urls = obtener_urls_reales(session, headers)
+                            
                             st.rerun()
                         else:
                             st.error("❌ Usuario o contraseña incorrectos.")
@@ -91,64 +126,37 @@ if not st.session_state.saes_logueado:
                 st.warning("⚠️ Ingrese usuario y contraseña.")
 
 # ============================================================
-# 2. PORTAL ESPEJO (CON LOS SUBMENÚS REALES)
+# 2. PORTAL ESPEJO (CON ENLACES REALES)
 # ============================================================
 else:
     session = st.session_state.session
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     
-    # --- BARRA LATERAL CON EL MENÚ Y SUBMENÚS (COPIADOS DEL HTML REAL) ---
+    # --- BARRA LATERAL CON EL MENÚ REAL ---
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.get('usuario', 'rballano')}")
         st.divider()
         st.markdown("#### Módulos SAES")
         
-        # --- MENÚ 1: AUTORIZACIÓN ---
-        if st.button("📂 Autorización", use_container_width=True):
-            st.session_state.menu_abierto = "autorizacion" if st.session_state.menu_abierto != "autorizacion" else None
-        
-        if st.session_state.menu_abierto == "autorizacion":
-            st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
-            if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/AutorizacionConsultas.aspx"
-                st.rerun()
-            if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/Autorizaciones.aspx"
-                st.rerun()
-            if st.button("↳ Listados por Período", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/AutorizacionListados.aspx"
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # --- MENÚ 2: ADM. DE MEDICAMENTOS ---
-        if st.button("📂 Adm. de Medicamentos", use_container_width=True):
-            st.session_state.menu_abierto = "medicamentos" if st.session_state.menu_abierto != "medicamentos" else None
-            
-        if st.session_state.menu_abierto == "medicamentos":
-            st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
-            if st.button("↳ Listados", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosListados.aspx"
-                st.rerun()
-            if st.button("↳ Consultas", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosConsultas.aspx"
-                st.rerun()
-            if st.button("↳ Consultas por delegación", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosConsultasDelegacion.aspx"
-                st.rerun()
-            if st.button("↳ Solicitudes de trámite", use_container_width=True):
-                st.session_state.current_url = "http://portal.gmssa.com.ar/saes/MedicamentosSolicitudes.aspx"
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+        if not st.session_state.menu_urls:
+            st.warning("No se pudieron cargar los enlaces del menú. Cerrá sesión y volvé a entrar.")
+        else:
+            # Creamos dos columnas para simular el menú de la izquierda
+            for texto, url in st.session_state.menu_urls.items():
+                # Mostramos el botón con el texto real del link
+                if st.button(f"📂 {texto}", use_container_width=True):
+                    st.session_state.current_url = url
+                    st.rerun()
                 
         st.divider()
         if st.button("🔒 Cerrar Sesión", use_container_width=True):
             st.session_state.saes_logueado = False
             st.session_state.session = None
-            st.session_state.menu_abierto = None
+            st.session_state.menu_urls = {}
             st.rerun()
 
     # --- CUERPO CENTRAL (MOSTRANDO LA PÁGINA REAL DE SAES) ---
-    st.markdown(f"### 🏥 Visualizando: {st.session_state.current_url.split('/')[-1]}")
+    st.markdown(f"### 🏥 Visualizando módulo SAES")
     
     with st.spinner("Cargando página de SAES..."):
         try:
