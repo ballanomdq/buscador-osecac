@@ -86,16 +86,18 @@ if not st.session_state.saes_logueado:
                             st.session_state.session = session
                             st.session_state.usuario = usuario
                             
-                            # 4. Extraemos el menú real de SAES para la barra lateral
+                            # 4. Extraemos el menú real de SAES desde la barra de navegación (¡EL CAMBIO CLAVE!)
                             try:
-                                r_welcome = session.get("http://portal.gmssa.com.ar/saes/welcome.aspx", headers=headers, timeout=30)
-                                soup_welcome = BeautifulSoup(r_welcome.text, 'html.parser')
+                                # En vez de ir a welcome.aspx, vamos a NavigBar.aspx
+                                r_menu = session.get("http://portal.gmssa.com.ar/saes/NavigBar.aspx", headers=headers, timeout=30)
+                                soup_menu = BeautifulSoup(r_menu.text, 'html.parser')
                                 menu = []
-                                for a in soup_welcome.find_all('a'):
-                                    if a.text.strip() and 'href' in a.attrs and "javascript" not in a['href']:
+                                for a in soup_menu.find_all('a'):
+                                    if a.text.strip() and 'href' in a.attrs:
                                         menu.append({"texto": a.text.strip(), "href": a['href']})
                                 st.session_state.menu_items = menu
-                            except Exception:
+                            except Exception as e:
+                                print(f"Error al extraer menú: {e}")
                                 st.session_state.menu_items = []
                                 
                             st.rerun()
@@ -121,11 +123,13 @@ else:
         
         # Mostramos los botones del menú
         if not st.session_state.menu_items:
-            st.info("No se pudieron cargar los módulos del menú.")
+            st.warning("No se pudieron cargar los módulos del menú. Revisá la conexión.")
         else:
             for item in st.session_state.menu_items:
                 if st.button(f"📂 {item['texto']}", use_container_width=True):
-                    st.session_state.current_url = "http://portal.gmssa.com.ar/saes/" + item['href']
+                    # Armar la URL completa (si viene con ../ o similar)
+                    url_base = "http://portal.gmssa.com.ar/saes/"
+                    st.session_state.current_url = url_base + item['href'].replace("../", "")
                     st.rerun()
                 
         st.divider()
