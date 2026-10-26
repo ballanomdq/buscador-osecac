@@ -21,3 +21,5 @@ pypdf
 qrcode==7.4.2
 requests
 beautifulsoup4
+selenium
+webdriver-manager
