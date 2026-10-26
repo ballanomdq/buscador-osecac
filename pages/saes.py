@@ -1,177 +1,52 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import streamlit.components.v1 as components
 
-# ============================================================
-# CONFIGURACIÓN GENERAL (ACCESIBILIDAD VISUAL)
-# ============================================================
-st.set_page_config(page_title="Portal SAES - OSECAC", layout="wide")
+st.set_page_config(page_title="Diagnóstico Login SAES", layout="wide")
+st.title("🔍 Diagnóstico de Login")
 
-st.markdown("""
-<style>
-/* Fondo claro e institucional */
-.stApp { background-color: #f8fafc !important; color: #0f172a !important; }
-.stMarkdown p, label, span { color: #0f172a !important; }
+BASE = "http://portal.gmssa.com.ar/saes/"
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
-/* Mejoras de accesibilidad visual */
-html, body, [class*="css"] { font-size: 17px; }
-div[data-testid="stButton"] > button { font-size: 1.05rem; padding: 0.6rem 1.2rem; margin-bottom: 5px; width: 100%; text-align: left;}
-div[data-testid="stTextInput"] input { font-size: 1.05rem; }
-</style>
-""", unsafe_allow_html=True)
+if st.button("Ejecutar Diagnóstico"):
+    with st.spinner("Conectando..."):
+        s = requests.Session()
+        s.headers.update({"User-Agent": UA})
 
-# ============================================================
-# ESTADO DE LA SESIÓN Y NAVEGACIÓN
-# ============================================================
-if "saes_logueado" not in st.session_state:
-    st.session_state.saes_logueado = False
-if "session" not in st.session_state:
-    st.session_state.session = None
-if "menu_abierto" not in st.session_state:
-    st.session_state.menu_abierto = None
-# Acá guardamos el HTML que queremos mostrar en el cuerpo central
-if "html_a_mostrar" not in st.session_state:
-    st.session_state.html_a_mostrar = ""
+        # 1) GET previo
+        r = s.get(BASE + "Login.aspx", timeout=30)
+        soup = BeautifulSoup(r.text, "html.parser")
+        data = {i["name"]: i.get("value", "") for i in soup.find_all("input", {"type": "hidden"}) if i.get("name")}
 
-# ============================================================
-# 1. PANTALLA DE LOGIN
-# ============================================================
-if not st.session_state.saes_logueado:
-    st.markdown("## 🔑 Acceso al SAES")
-    st.markdown("Ingrese sus datos de usuario para ingresar al portal de OSECAC.")
-    
-    with st.form("form_login_saes"):
-        c_usr, c_pwd = st.columns(2)
-        with c_usr:
-            usuario = st.text_input("Usuario:", value="rballano")
-        with c_pwd:
-            password = st.text_input("Contraseña:", type="password")
-            
-        btn_ingresar = st.form_submit_button("🚀 Entrar al SAES", use_container_width=True)
-        
-        if btn_ingresar:
-            if usuario and password:
-                with st.spinner("Conectando con SAES..."):
-                    session = requests.Session()
-                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                    login_url = "http://portal.gmssa.com.ar/saes/Login.aspx"
-                    
-                    try:
-                        r = session.get(login_url, headers=headers, timeout=30)
-                        soup = BeautifulSoup(r.text, 'html.parser')
-                        viewstate = soup.find('input', {'name': '__VIEWSTATE'})
-                        
-                        if not viewstate:
-                            st.error("No se pudo cargar la página de login.")
-                            st.stop()
-                            
-                        payload = {
-                            "__EVENTTARGET": "",
-                            "__EVENTARGUMENT": "",
-                            "__VIEWSTATE": viewstate['value'],
-                            "txtUser": usuario,
-                            "txtPassword": password,
-                            "imgbtnSend.x": "0",
-                            "imgbtnSend.y": "0"
-                        }
-                        
-                        r_post = session.post(login_url, data=payload, headers=headers, timeout=30)
-                        soup_post = BeautifulSoup(r_post.text, 'html.parser')
-                        
-                        if not soup_post.find('input', {'type': 'password'}):
-                            st.session_state.saes_logueado = True
-                            st.session_state.session = session
-                            st.session_state.usuario = usuario
-                            st.rerun()
-                        else:
-                            st.error("❌ Usuario o contraseña incorrectos.")
-                    except Exception as e:
-                        st.error(f"💥 Error inesperado al conectar: {e}")
+        st.write("### 1. Hidden fields encontrados en Login.aspx")
+        st.write(list(data.keys()))
+
+        # 2) Completar credenciales
+        data.update({
+            "txtUser": "rballano",
+            "txtPassword": "654321",
+            "imgbtnSend.x": "10",
+            "imgbtnSend.y": "10",
+        })
+
+        # 3) POST SIN seguir redirects
+        r2 = s.post(BASE + "Login.aspx", data=data, headers={"Referer": BASE + "Login.aspx"}, allow_redirects=False, timeout=30)
+
+        st.write("### 2. Resultado del POST al login")
+        st.write(f"**Status code:** `{r2.status_code}` (esperamos 302)")
+        st.write(f"**Location:** `{r2.headers.get('Location')}`")
+        st.write(f"**Set-Cookie:** `{r2.headers.get('Set-Cookie')}`")
+
+        st.write("### 3. Cookies de la sesión")
+        for c in s.cookies:
+            st.write(f"- Nombre: `{c.name}` | Secure: `{c.secure}` | Domain: `{c.domain}` | Path: `{c.path}`")
+
+        if r2.status_code == 200:
+            st.warning("⚠️ El login devolvió 200 (fallido). Buscando mensajes de error...")
+            soup_err = BeautifulSoup(r2.text, "html.parser")
+            errores = soup_err.find_all(string=lambda t: t and ("error" in t.lower() or "incorrect" in t.lower() or "usuario" in t.lower()))
+            if errores:
+                for err in errores[:5]:
+                    st.write(f"- `{err.strip()}`")
             else:
-                st.warning("⚠️ Ingrese usuario y contraseña.")
-
-# ============================================================
-# 2. PORTAL ESPEJO (CON BOTONES Y FRAME INTEGRADO)
-# ============================================================
-else:
-    session = st.session_state.session
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-    
-    # --- BARRA LATERAL CON EL MENÚ ---
-    with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.get('usuario', 'rballano')}")
-        st.divider()
-        st.markdown("#### Módulos SAES")
-        
-        # --- MENÚ 1: AUTORIZACIÓN ---
-        if st.button("📂 Autorización", use_container_width=True):
-            st.session_state.menu_abierto = "autorizacion" if st.session_state.menu_abierto != "autorizacion" else None
-        
-        if st.session_state.menu_abierto == "autorizacion":
-            st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
-            if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/AutorizacionConsultas.aspx"
-                st.rerun()
-            if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/Autorizaciones.aspx"
-                st.rerun()
-            if st.button("↳ Listados por Período", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/AutorizacionListados.aspx"
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # --- MENÚ 2: ADM. DE MEDICAMENTOS ---
-        if st.button("📂 Adm. de Medicamentos", use_container_width=True):
-            st.session_state.menu_abierto = "medicamentos" if st.session_state.menu_abierto != "medicamentos" else None
-            
-        if st.session_state.menu_abierto == "medicamentos":
-            st.markdown("<div style='margin-left: 20px;'>", unsafe_allow_html=True)
-            if st.button("↳ Listados", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/frmBrowserListados.aspx"
-                st.rerun()
-            if st.button("↳ Consultas", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
-                st.rerun()
-            if st.button("↳ Consultas por delegación", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/frmBrowserConsultaDelegacion.aspx"
-                st.rerun()
-            if st.button("↳ Solicitudes de trámite", use_container_width=True):
-                st.session_state.html_a_mostrar = "http://portal.gmssa.com.ar/saes/frmBrowserSolicitudes.aspx"
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-                
-        st.divider()
-        if st.button("🔒 Cerrar Sesión", use_container_width=True):
-            st.session_state.saes_logueado = False
-            st.session_state.session = None
-            st.session_state.menu_abierto = None
-            st.session_state.html_a_mostrar = ""
-            st.rerun()
-
-    # --- CUERPO CENTRAL (MOSTRANDO LA PÁGINA REAL) ---
-    st.markdown(f"### 🏥 Visualizando módulo SAES")
-    
-    if not st.session_state.html_a_mostrar:
-        st.info("👈 Seleccioná una opción del menú de la izquierda para comenzar.")
-    else:
-        with st.spinner("Cargando página de SAES..."):
-            try:
-                # Hacemos el GET a la URL que seleccionaste
-                r = session.get(st.session_state.html_a_mostrar, headers=headers, timeout=30)
-                soup = BeautifulSoup(r.text, 'html.parser')
-                body_content = soup.find('body')
-                
-                if body_content:
-                    # Limpiamos las etiquetas que rompen Streamlit
-                    for tag in body_content(["script", "style", "link", "meta", "iframe", "frame"]):
-                        tag.decompose()
-                    html_puro = str(body_content)
-                else:
-                    html_puro = r.text
-                    
-                # Mostramos el HTML
-                components.html(html_puro, height=800, scrolling=True)
-                
-            except Exception as e:
-                st.error(f"Error al cargar la página de SAES: {e}")
+                st.write("No se encontraron mensajes de error visibles. Puede ser bloqueo por IP o falta un campo.")
