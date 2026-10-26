@@ -19,7 +19,7 @@ reportlab
 PyMuPDF
 pypdf
 qrcode==7.4.2
-
 beautifulsoup4
 selenium
-webdriver-manager
+
+
