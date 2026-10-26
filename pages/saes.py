@@ -16,9 +16,9 @@ div[data-testid="stTextInput"] input { font-size: 1.05rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# ESTADO DE LA SESIÓN
-# ============================================================
+BASE_URL = "http://portal.gmssa.com.ar/SAES/"
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
 if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "session" not in st.session_state:
@@ -42,23 +42,30 @@ if not st.session_state.saes_logueado:
         if st.form_submit_button("🚀 Entrar", use_container_width=True):
             if user and pwd:
                 s = requests.Session()
-                h = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                r = s.get("http://portal.gmssa.com.ar/saes/Login.aspx", headers=h)
-                soup = BeautifulSoup(r.text, 'html.parser')
-                payload = {
-                    "__EVENTTARGET": "", "__EVENTARGUMENT": "",
-                    "__VIEWSTATE": soup.find('input', {'name': '__VIEWSTATE'})['value'],
-                    "txtUser": user, "txtPassword": pwd,
-                    "imgbtnSend.x": "0", "imgbtnSend.y": "0"
-                }
-                r2 = s.post("http://portal.gmssa.com.ar/saes/Login.aspx", data=payload, headers=h)
-                if "txtUser" not in r2.text:
-                    st.session_state.saes_logueado = True
-                    st.session_state.session = s
-                    st.session_state.usuario = user
-                    st.rerun()
-                else:
-                    st.error("Usuario o clave incorrectos.")
+                try:
+                    r = s.get(BASE_URL + "Login.aspx", headers=HEADERS)
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    vs = soup.find('input', {'name': '__VIEWSTATE'})
+                    
+                    if vs:
+                        payload = {
+                            "__EVENTTARGET": "", "__EVENTARGUMENT": "",
+                            "__VIEWSTATE": vs['value'],
+                            "txtUser": user, "txtPassword": pwd,
+                            "imgbtnSend.x": "0", "imgbtnSend.y": "0"
+                        }
+                        r2 = s.post(BASE_URL + "Login.aspx", data=payload, headers=HEADERS)
+                        if "txtUser" not in r2.text:
+                            st.session_state.saes_logueado = True
+                            st.session_state.session = s
+                            st.session_state.usuario = user
+                            st.rerun()
+                        else:
+                            st.error("Usuario o clave incorrectos.")
+                    else:
+                        st.error("No se pudo conectar con el formulario de login.")
+                except Exception as e:
+                    st.error(f"Error de conexión: {e}")
             else:
                 st.warning("Completá los datos.")
 
@@ -67,7 +74,6 @@ if not st.session_state.saes_logueado:
 # ============================================================
 else:
     s = st.session_state.session
-    h = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
     # --- BARRA LATERAL CON LOS MENÚS ---
     with st.sidebar:
@@ -80,31 +86,16 @@ else:
         
         if st.session_state.menu_abierto == "auto":
             if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/AutorizacionConsultas.aspx"
-                st.rerun()
-            if st.button("↳ Autorizaciones", use_container_width=True):
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/Autorizaciones.aspx"
-                st.rerun()
-            if st.button("↳ Listados por Período", use_container_width=True):
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/AutorizacionListados.aspx"
+                st.session_state.url_destino = "Autorizaciones/Consulta/frmBrowserConsulta.aspx"
                 st.rerun()
 
         if st.button("📂 Adm. de Medicamentos", use_container_width=True):
             st.session_state.menu_abierto = "med" if st.session_state.menu_abierto != "med" else None
             
         if st.session_state.menu_abierto == "med":
-            if st.button("↳ Listados", use_container_width=True):
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/MedicamentosListados.aspx"
-                st.rerun()
             if st.button("↳ Consultas", use_container_width=True):
-                # La URL que nos dio el frameset real
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
-                st.rerun()
-            if st.button("↳ Consultas por delegación", use_container_width=True):
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/MedicamentosConsultasDelegacion.aspx"
-                st.rerun()
-            if st.button("↳ Solicitudes de trámite", use_container_width=True):
-                st.session_state.url_destino = "http://portal.gmssa.com.ar/saes/MedicamentosSolicitudes.aspx"
+                # URL REAL que descubrimos
+                st.session_state.url_destino = "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
                 st.rerun()
                 
         st.divider()
@@ -116,11 +107,11 @@ else:
     # --- CUERPO CENTRAL ---
     st.markdown("## 🔎 Consulta de Trámites (Medicamentos)")
     
-    # Si el usuario eligió una opción del menú, la mostramos
     if st.session_state.url_destino:
-        with st.spinner("Cargando página de SAES..."):
+        with st.spinner("Cargando sección de SAES..."):
             try:
-                r = s.get(st.session_state.url_destino, headers=h)
+                url_completa = BASE_URL + st.session_state.url_destino
+                r = s.get(url_completa, headers=HEADERS)
                 if "txtUser" in r.text:
                     st.error("La sesión expiró. Cerrá sesión y volvé a entrar.")
                 else:
@@ -134,10 +125,9 @@ else:
                         html_puro = r.text
                     components.html(html_puro, height=800, scrolling=True)
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error al cargar la página: {e}")
     else:
-        # Si no eligió nada, mostramos el formulario de búsqueda
-        st.info("👈 Seleccioná una opción del menú o buscá un DNI directamente abajo.")
+        st.info("👈 Seleccioná una opción del menú lateral o realizá una consulta directa por documento.")
         
         with st.form("busqueda"):
             c1, c2, c3 = st.columns([1, 2, 1])
@@ -150,32 +140,17 @@ else:
         if buscar:
             with st.spinner("Buscando en SAES..."):
                 try:
-                    # 1. Vamos a welcome para leer el frameset
-                    r_main = s.get("http://portal.gmssa.com.ar/saes/welcome.aspx", headers=h)
-                    soup_main = BeautifulSoup(r_main.text, 'html.parser')
-                    
-                    # 2. Buscamos el frame de WorkSpace
-                    frame_ws = soup_main.find('frame', {'name': 'WorkSpace'})
-                    if not frame_ws:
-                        # Si no hay frame, probamos con la URL por defecto
-                        url_ws = "http://portal.gmssa.com.ar/saes/frmBrowserConsulta.aspx"
-                    else:
-                        url_ws = frame_ws.get('src')
-                        if not url_ws.startswith("http"):
-                            url_ws = "http://portal.gmssa.com.ar/saes/" + url_ws.lstrip("/")
-                    
-                    # 3. Pedimos la página de consultas
-                    r_cons = s.get(url_ws, headers=h)
+                    # ¡ACÁ ESTÁ LA CLAVE! Usamos la URL con la carpeta exacta
+                    url_cons = BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
+                    r_cons = s.get(url_cons, headers=HEADERS)
                     soup_cons = BeautifulSoup(r_cons.text, 'html.parser')
                     
-                    # 4. Extraemos los tokens
                     vs = soup_cons.find('input', {'name': '__VIEWSTATE'})
                     ev = soup_cons.find('input', {'name': '__EVENTVALIDATION'})
                     
                     if not vs:
-                        st.error("No se encontró el formulario de búsqueda.")
+                        st.error("No se pudo obtener el formulario de consulta del servidor.")
                     else:
-                        # 5. Armamos el POST
                         payload = {
                             "__EVENTTARGET": "", "__EVENTARGUMENT": "",
                             "__VIEWSTATE": vs['value'],
@@ -185,11 +160,9 @@ else:
                         }
                         if ev: payload["__EVENTVALIDATION"] = ev['value']
                         
-                        # 6. Buscamos
-                        r_res = s.post(url_ws, data=payload, headers=h)
+                        r_res = s.post(url_cons, data=payload, headers=HEADERS)
                         soup_res = BeautifulSoup(r_res.text, 'html.parser')
                         
-                        # 7. Extraemos la tabla
                         tabla = soup_res.find('table', {'id': 'dgBusquedaBenef'})
                         if tabla:
                             filas = tabla.find_all('tr')
@@ -213,6 +186,6 @@ else:
                             else:
                                 st.warning("No se encontraron resultados para ese documento.")
                         else:
-                            st.warning("No se pudo leer la tabla de resultados.")
+                            st.warning("No se pudo leer la tabla de resultados de la consulta.")
                 except Exception as e:
-                    st.error(f"Error al buscar: {e}")
+                    st.error(f"Error al realizar la búsqueda: {e}")
