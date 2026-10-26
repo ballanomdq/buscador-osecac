@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Configuración de la página
-st.set_page_config(page_title="Módulo SAES - Vista Integral y Logística", layout="wide")
+st.set_page_config(page_title="Módulo SAES - Estilo Original", layout="wide")
 
 st.markdown("""
 <style>
@@ -11,30 +11,22 @@ st.markdown("""
 .stMarkdown p, label { color: #ffffff !important; }
 
 /* Estilos de badges para estados */
-.badge-verde { background-color: #15803d; color: white; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; }
-.badge-azul { background-color: #1d4ed8; color: white; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; }
-.badge-rojo { background-color: #b91c1c; color: white; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; }
+.badge-verde { background-color: #15803d; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+.badge-azul { background-color: #1d4ed8; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
+.badge-rojo { background-color: #b91c1c; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 11px; }
 
-/* Tarjeta para desglosar trámites */
-.card-tramite {
+/* Tarjeta estilo SAES */
+.saes-card {
     background-color: #1e293b;
     border: 1px solid #334155;
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
-}
-.box-remito {
-    background-color: #0f172a;
-    border-left: 4px solid #3b82f6;
-    padding: 10px;
+    border-radius: 6px;
+    padding: 12px;
     margin-top: 10px;
-    font-size: 13px;
-    border-radius: 4px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("💊 Módulo SAES - Resumen Integral y Logística de Envíos")
+st.title("💊 Portal SAES - Consulta por Programa y Fechas")
 st.markdown("---")
 
 if st.button("⬅️ Volver al Menú Principal"):
@@ -60,11 +52,11 @@ if not st.session_state.saes_logueado:
         else:
             st.warning("⚠️ Ingresa usuario y contraseña.")
 
-# 2. PANEL DE CONSULTA INTEGRAL
+# 2. PANEL DE CONSULTA
 else:
     col_user, col_logout = st.columns([4, 1])
     with col_user:
-        st.info("👤 Conectado a SAES | Trazabilidad Logística Completa para Todos los Trámites")
+        st.info("👤 Conectado a SAES | Estilo Clásico Organizado por Programas y Entregas")
     with col_logout:
         if st.button("🔒 Salir"):
             st.session_state.saes_logueado = False
@@ -72,195 +64,100 @@ else:
 
     st.markdown("---")
 
-    with st.form("form_consulta_integral"):
+    with st.form("form_consulta_saes"):
         c1, c2, c3 = st.columns([1, 2, 2])
         with c1:
             tipo_doc = st.selectbox("Tipo Doc:", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
         with c2:
             nro_doc = st.text_input("Nro. Documento:", value="6705303")
         with c3:
-            st.write("") # Espaciador
-            btn_buscar = st.form_submit_button("🔍 BUSCAR Y VER DETALLE COMPLETO", use_container_width=True)
+            st.write("")
+            btn_buscar = st.form_submit_button("🔍 CONSULTAR", use_container_width=True)
 
     if btn_buscar:
         if nro_doc:
-            with st.spinner("Procesando historial y datos logísticos completos..."):
+            with st.spinner("Consultando registros..."):
                 
                 if tipo_doc == "LC" and nro_doc == "6705303":
                     nombre_beneficiario = "FERREYRA MARIA ISABEL"
                     
-                    # TODOS los trámites cuentan ahora con su estructura de despacho y remito asignada
+                    # Trámites organizados tal cual las entregas de SAES
                     tramites = [
                         {
-                            "aut": "2307424",
-                            "op": "3 / 3",
-                            "estado_aut": "En proceso de entrega",
-                            "badge_color": "rojo",
-                            "programa": "MACULOPATIA",
-                            "farmacia": "S.E.C. (MAR DEL PLATA)",
-                            "f_desde_op": "24/12/2026",
-                            "f_hasta_op": "22/01/2027",
-                            "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
-                            "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 1)"],
-                            "remito_info": {
-                                "id_orden_prov": "4187325",
-                                "nro_ot": "4891011",
-                                "est_ot": "En Proceso",
-                                "tipo_remito": "COMUN",
-                                "nro_remito": "681200",
-                                "nro_remito_imp": "R000600398122",
-                                "est_rem": "Generado",
-                                "fecha_despacho": "Pendiente de despacho"
-                            }
+                            "id": 1, "aut": "2307424", "op": "3 / 3", "programa": "MACULOPATIA",
+                            "f_desde": "24/12/2026", "f_hasta": "22/01/2027", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "En proceso", "badge": "rojo", "med": "BEVACIZUMAB (Cant: 1 | Pendiente: 1)",
+                            "remito": "Común - 681200 | Estado: Generado | Despacho: Pendiente"
                         },
                         {
-                            "aut": "2307424",
-                            "op": "2 / 3",
-                            "estado_aut": "En proceso de entrega",
-                            "badge_color": "rojo",
-                            "programa": "MACULOPATIA",
-                            "farmacia": "S.E.C. (MAR DEL PLATA)",
-                            "f_desde_op": "24/11/2026",
-                            "f_hasta_op": "23/12/2026",
-                            "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
-                            "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 1)"],
-                            "remito_info": {
-                                "id_orden_prov": "4187324",
-                                "nro_ot": "4875220",
-                                "est_ot": "En Proceso",
-                                "tipo_remito": "COMUN",
-                                "nro_remito": "679912",
-                                "nro_remito_imp": "R000600385410",
-                                "est_rem": "Generado",
-                                "fecha_despacho": "Pendiente de despacho"
-                            }
+                            "id": 2, "aut": "2307424", "op": "2 / 3", "programa": "MACULOPATIA",
+                            "f_desde": "24/11/2026", "f_hasta": "23/12/2026", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "En proceso", "badge": "rojo", "med": "BEVACIZUMAB (Cant: 1 | Pendiente: 1)",
+                            "remito": "Común - 679912 | Estado: Generado | Despacho: Pendiente"
                         },
                         {
-                            "aut": "2307424",
-                            "op": "1 / 3",
-                            "estado_aut": "Entrega Total",
-                            "badge_color": "verde",
-                            "programa": "MACULOPATIA",
-                            "farmacia": "S.E.C. (MAR DEL PLATA)",
-                            "f_desde_op": "25/10/2026",
-                            "f_hasta_op": "23/11/2026",
-                            "consideraciones": "OD / Abona coseguro vía App Mi Osecac.",
-                            "medicamentos": ["BEVACIZUMAB - 0.2 ml/5 mg vial x 1 (Cant: 1 | Pendiente: 0)"],
-                            "remito_info": {
-                                "id_orden_prov": "4187323",
-                                "nro_ot": "4852310",
-                                "est_ot": "Con Remito",
-                                "tipo_remito": "COMUN",
-                                "nro_remito": "677890",
-                                "nro_remito_imp": "R000600372100",
-                                "est_rem": "Recepcionado",
-                                "fecha_despacho": "26/10/2026"
-                            }
+                            "id": 3, "aut": "2307424", "op": "1 / 3", "programa": "MACULOPATIA",
+                            "f_desde": "25/10/2026", "f_hasta": "23/11/2026", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde", "med": "BEVACIZUMAB (Cant: 1 | Pendiente: 0)",
+                            "remito": "Común - 677890 | Estado: Recepcionado | Despacho: 26/10/2026"
                         },
                         {
-                            "aut": "2249653",
-                            "op": "1 / 1",
-                            "estado_aut": "Pendiente",
-                            "badge_color": "rojo",
-                            "programa": "DBT TIPO II",
-                            "farmacia": "S.E.C. (MAR DEL PLATA)",
-                            "f_desde_op": "28/11/2026",
-                            "f_hasta_op": "26/02/2027",
-                            "consideraciones": "Sin observaciones especiales.",
-                            "medicamentos": [
-                                "METFORMINA - 850 mg comp.x 60 (Cant: 1 | Pendiente: 1)",
-                                "VILDAGLIPTIN - 50 MG COMP.X 60 (Cant: 1 | Pendiente: 1)"
-                            ],
-                            "remito_info": {
-                                "id_orden_prov": "4069797",
-                                "nro_ot": "4810234",
-                                "est_ot": "Pendiente",
-                                "tipo_remito": "COMUN",
-                                "nro_remito": "670112",
-                                "nro_remito_imp": "R000600341100",
-                                "est_rem": "Pendiente",
-                                "fecha_despacho": "A programar"
-                            }
+                            "id": 4, "aut": "2249653", "op": "1 / 1", "programa": "DBT TIPO II",
+                            "f_desde": "28/11/2026", "f_hasta": "26/02/2027", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Pendiente", "badge": "rojo", "med": "METFORMINA y VILDAGLIPTIN (Pendientes)",
+                            "remito": "Común - 670112 | Estado: Pendiente | Despacho: A programar"
                         },
                         {
-                            "aut": "2125714",
-                            "op": "1 / 1",
-                            "estado_aut": "Entrega Total",
-                            "badge_color": "verde",
-                            "programa": "DBT TIPO II",
-                            "farmacia": "S.E.C. (MAR DEL PLATA)",
-                            "f_desde_op": "31/05/2026",
-                            "f_hasta_op": "29/08/2026",
-                            "consideraciones": "Entrega completada correctamente.",
-                            "medicamentos": [
-                                "METFORMINA - 850 mg comp.x 60 (Cant: 1 | Pendiente: 0)",
-                                "VILDAGLIPTIN - 50 MG COMP.X 60 (Cant: 1 | Pendiente: 0)"
-                            ],
-                            "remito_info": {
-                                "id_orden_prov": "3812981",
-                                "nro_ot": "4818004",
-                                "est_ot": "Con Remito",
-                                "tipo_remito": "COMUN",
-                                "nro_remito": "675467",
-                                "nro_remito_imp": "R000600354626",
-                                "est_rem": "Recepcionado",
-                                "fecha_despacho": "01/06/2026"
-                            }
+                            "id": 5, "aut": "2125714", "op": "1 / 1", "programa": "DBT TIPO II",
+                            "f_desde": "31/05/2026", "f_hasta": "29/08/2026", "farmacia": "S.E.C. (MAR DEL PLATA)",
+                            "estado": "Entregado", "badge": "verde", "med": "METFORMINA y VILDAGLIPTIN (Entregados)",
+                            "remito": "Común - 675467 | Estado: Recepcionado | Despacho: 01/06/2026"
                         }
                     ]
 
-                    st.success(f"👤 Beneficiario: **{nombre_beneficiario}** | Doc: **{tipo_doc} {nro_doc}**")
+                    st.success(f"Afiliado: **{nombre_beneficiario}** (LC: {nro_doc})[cite: 12]")
                     
-                    # 1. TABLA RESUMEN
-                    st.subheader("📊 1. Resumen General de Autorizaciones")
-                    df_resumen = pd.DataFrame([
+                    st.markdown("### 📋 Listado de Autorizaciones y Entregas")
+                    st.caption("Seleccione el número de trámite abajo para ver su detalle específico de medicamentos y remito:")
+
+                    # Mostramos una tabla resumen limpia (sin columna DNI repetida)
+                    df_tabla = pd.DataFrame([
                         {
-                            "Nro. Autorización": t["aut"],
-                            "Nro OP": t["op"],
+                            "Item": t["id"],
                             "Programa": t["programa"],
-                            "Estado": t["estado_aut"],
-                            "Vigencia OP": f"{t['f_desde_op']} al {t['f_hasta_op']}",
-                            "Farmacia": t["farmacia"]
+                            "Nro. Autoriz.": t["aut"],
+                            "Entrega OP": t["op"],
+                            "Vigencia Desde": t["f_desde"],
+                            "Vigencia Hasta": t["f_hasta"],
+                            "Estado": t["estado"]
                         } for t in tramites
                     ])
-                    st.dataframe(df_resumen, use_container_width=True)
+                    st.dataframe(df_tabla, use_container_width=True, hide_index=True)
 
+                    # Selector limpio tipo menú desplegable de SAES para ver el detalle de un renglón puntual
                     st.markdown("---")
+                    opcion_elegida = st.selectbox(
+                        "📌 Seleccione el trámite para ver el detalle del remito y medicamentos:",
+                        options=tramites,
+                        format_func=lambda x: f"Trámite #{x['id']} — Programa: {x['programa']} (Autorización N° {x['aut']} - OP {x['op']})"
+                    )
 
-                    # 2. DESGLOSE DETALLADO + DATOS DEL REMITO PARA CADA TRÁMITE
-                    st.subheader("📋 2. Detalle Exhaustivo de Trámites y Trazabilidad Logística")
-                    st.caption("A continuación se visualizan los detalles y datos de remito de todos los trámites encontrados:")
-
-                    for i, t in enumerate(tramites, 1):
-                        badge_html = f"<span class='badge-{t['badge_color']}'>{t['estado_aut'].upper()}</span>"
+                    # Tarjeta compacta que muestra la información al hacer clic en el renglón
+                    if opcion_elegida:
+                        t = opcion_elegida
+                        badge_html = f"<span class='badge-{t['badge']}'>{t['estado'].upper()}</span>"
                         
-                        with st.container():
-                            st.markdown(f"""
-                            <div class="card-tramite">
-                                <h4>Trámite #{i} - Autorización N° {t['aut']} (OP {t['op']}) &nbsp;&nbsp; {badge_html}</h4>
-                                <p><strong>Programa:</strong> {t['programa']} | <strong>Farmacia:</strong> {t['farmacia']}</p>
-                                <p><strong>Vigencia OP:</strong> Desde {t['f_desde_op']} hasta {t['f_hasta_op']}</p>
-                                <p><strong>Consideraciones Médicas:</strong> <em>{t['consideraciones']}</em></p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            st.write("💊 **Medicamentos solicitados / estado:**")
-                            for med in t["medicamentos"]:
-                                st.markdown(f"- {med}")
+                        st.markdown(f"""
+                        <div class="saes-card">
+                            <h4 style="margin: 0; color: #60a5fa;">Detalle del Trámite #{t['id']} &nbsp;&nbsp; {badge_html}</h4>
+                            <hr style="margin: 8px 0; border-color: #334155;">
+                            <p style="margin: 4px 0;"><b>Programa:</b> {t['programa']} | <b>Farmacia:</b> {t['farmacia']}</p>
+                            <p style="margin: 4px 0;"><b>Medicamento / Cantidad:</b> {t['med']}</p>
+                            <p style="margin: 4px 0;"><b>📦 Datos de Logística / Remito:</b> {t['remito']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
-                            # Cuadro azul de remito visible para CADA trámite sin excepción
-                            r = t["remito_info"]
-                            st.markdown(f"""
-                            <div class="box-remito">
-                                📦 <b>DETALLE LOGÍSTICO (Remito / Despacho):</b><br>
-                                • <b>ID Orden Prov:</b> {r['id_orden_prov']} | <b>Nro. OT:</b> {r['nro_ot']} ({r['est_ot']})<br>
-                                • <b>Tipo / Nro Remito:</b> {r['tipo_remito']} - {r['nro_remito']} (Imp: {r['nro_remito_imp']})<br>
-                                • <b>Estado Remito:</b> {r['est_rem']} | <b>Fecha de Despacho:</b> {r['fecha_despacho']}
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
                 else:
-                    st.warning(f"No se encontraron registros de prueba para el documento {nro_doc}.")
+                    st.warning("No se encontraron registros para este documento.")
         else:
-            st.warning("⚠️ Ingresa un número de documento.")
+            st.warning("⚠️ Ingrese un número de documento.")
