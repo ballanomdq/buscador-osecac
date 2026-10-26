@@ -31,7 +31,7 @@ if "saes_menu" not in st.session_state:
 if "session_cookies" not in st.session_state:
     st.session_state.session_cookies = None
 
-# ================= 1. LOGIN REAL (CORREGIDO) =================
+# ================= 1. LOGIN REAL (AHORA SÍ) =================
 if not st.session_state.saes_logueado:
     st.markdown("## 🔑 Acceso al SAES")
     st.markdown("Ingrese sus datos de usuario para ingresar al portal de OSECAC.")
@@ -61,36 +61,23 @@ if not st.session_state.saes_logueado:
                         r = session.get(login_url, headers=headers, timeout=30)
                         soup = BeautifulSoup(r.text, 'html.parser')
                         
-                        # 2. Extraer TODOS los inputs (no solo los hidden)
-                        payload = {}
-                        for input_tag in soup.find_all('input'):
-                            name = input_tag.get('name')
-                            if name:
-                                payload[name] = input_tag.get('value', '')
+                        # 2. Armar el payload EXACTO que pide SAES
+                        payload = {
+                            "__EVENTTARGET": "",
+                            "__EVENTARGUMENT": "",
+                            "__VIEWSTATE": soup.find('input', {'name': '__VIEWSTATE'})['value'],
+                            "__VIEWSTATEGENERATOR": soup.find('input', {'name': '__VIEWSTATEGENERATOR'})['value'] if soup.find('input', {'name': '__VIEWSTATEGENERATOR'}) else "",
+                            "__EVENTVALIDATION": soup.find('input', {'name': '__EVENTVALIDATION'})['value'] if soup.find('input', {'name': '__EVENTVALIDATION'}) else "",
+                            "txtUser": usuario,        # Campo correcto de usuario
+                            "txtPassword": password,   # Campo correcto de clave
+                            "imgbtnSend.x": "0",       # Coordenada X del clic en el botón imagen
+                            "imgbtnSend.y": "0"        # Coordenada Y del clic en el botón imagen
+                        }
                         
-                        # 3. Agregar credenciales
-                        payload['txtUsuario'] = usuario
-                        payload['txtPassword'] = password
-                        
-                        # 4. Identificar el botón de login para el __EVENTTARGET
-                        boton_login = None
-                        for input_tag in soup.find_all(['input', 'a']):
-                            if input_tag.get('type') in ['submit', 'button'] or input_tag.name == 'a':
-                                value = input_tag.get('value', '') or input_tag.text
-                                if 'ingresar' in value.lower() or 'aceptar' in value.lower() or 'login' in value.lower():
-                                    boton_login = input_tag
-                                    break
-                        
-                        if boton_login:
-                            nombre_boton = boton_login.get('name')
-                            if nombre_boton:
-                                payload['__EVENTTARGET'] = nombre_boton
-                                payload['__EVENTARGUMENT'] = ''
-                        
-                        # 5. POST con todos los datos
+                        # 3. POST con los datos correctos
                         r_post = session.post(login_url, data=payload, headers=headers, timeout=30)
                         
-                        # 6. Verificar si entramos
+                        # 4. Verificar si entramos
                         soup_post = BeautifulSoup(r_post.text, 'html.parser')
                         if not soup_post.find('input', {'type': 'password'}):
                             st.session_state.saes_logueado = True
@@ -100,10 +87,11 @@ if not st.session_state.saes_logueado:
                             st.success("✅ Acceso correcto.")
                             st.rerun()
                         else:
-                            st.error("❌ SAES rechazó el formulario. Puede faltar un token de seguridad.")
+                            st.error("❌ SAES rechazó las credenciales. Verificá tu usuario y contraseña.")
                             with st.expander("Ver detalles técnicos"):
                                 st.write("Código de estado:", r_post.status_code)
                                 st.write("URL final:", r_post.url)
+                                st.write("Título de la página resultante:", soup_post.title.string if soup_post.title else "Sin título")
                                 st.write("Campos enviados:", list(payload.keys()))
                                 
                     except requests.exceptions.Timeout:
@@ -173,31 +161,23 @@ else:
                         r = session.get(consulta_url, headers=headers, timeout=30)
                         soup = BeautifulSoup(r.text, 'html.parser')
                         
-                        payload_busqueda = {}
-                        for input_tag in soup.find_all('input'):
-                            name = input_tag.get('name')
-                            if name:
-                                payload_busqueda[name] = input_tag.get('value', '')
-                                
-                        payload_busqueda['ddlTipoDocumento'] = tipo_doc
-                        payload_busqueda['txtNroDocumento'] = nro_doc
-                        
-                        # Intentar encontrar el botón buscar
-                        boton_buscar = None
-                        for input_tag in soup.find_all(['input', 'a']):
-                            if input_tag.get('type') in ['submit', 'button'] or input_tag.name == 'a':
-                                value = input_tag.get('value', '') or input_tag.text
-                                if 'buscar' in value.lower() or 'consultar' in value.lower():
-                                    boton_buscar = input_tag
-                                    break
-                        
-                        if boton_buscar and boton_buscar.get('name'):
-                            payload_busqueda['__EVENTTARGET'] = boton_buscar.get('name')
-                            payload_busqueda['__EVENTARGUMENT'] = ''
+                        payload_busqueda = {
+                            "__EVENTTARGET": "",
+                            "__EVENTARGUMENT": "",
+                            "__VIEWSTATE": soup.find('input', {'name': '__VIEWSTATE'})['value'],
+                            "__VIEWSTATEGENERATOR": soup.find('input', {'name': '__VIEWSTATEGENERATOR'})['value'] if soup.find('input', {'name': '__VIEWSTATEGENERATOR'}) else "",
+                            "__EVENTVALIDATION": soup.find('input', {'name': '__EVENTVALIDATION'})['value'] if soup.find('input', {'name': '__EVENTVALIDATION'}) else "",
+                            "ddlTipoDocumento": tipo_doc,
+                            "txtNroDocumento": nro_doc,
+                            "btnBuscar": "Buscar"
+                        }
 
                         r_resultado = session.post(consulta_url, data=payload_busqueda, headers=headers, timeout=30)
                         soup_res = BeautifulSoup(r_resultado.text, 'html.parser')
+                        
                         tabla = soup_res.find('table', {'id': 'dgBusquedaBenef'})
+                        if not tabla:
+                            tabla = soup_res.find('table', class_='grid')
                         
                         tramites_reales = []
                         if tabla:
