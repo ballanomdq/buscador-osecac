@@ -20,9 +20,6 @@ div[data-testid="stTextInput"] input { font-size: 1.05rem; }
 BASE_URL = "http://portal.gmssa.com.ar/SAES/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-# ============================================================
-# FUNCIÓN PARA EXTRAER CAMPOS DEL FORMULARIO
-# ============================================================
 def form_payload(html):
     soup = BeautifulSoup(html, "html.parser")
     form = soup.find("form")
@@ -47,9 +44,7 @@ def form_payload(html):
             data[name] = el.get("value", "")
     return data, form.get("action", "")
 
-# ============================================================
-# ESTADO
-# ============================================================
+# --- ESTADO ---
 if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "session" not in st.session_state:
@@ -59,9 +54,7 @@ if "usuario" not in st.session_state:
 if "resultados" not in st.session_state:
     st.session_state.resultados = None
 
-# ============================================================
-# 1. LOGIN
-# ============================================================
+# --- LOGIN ---
 if not st.session_state.saes_logueado:
     st.markdown("## 🔑 Acceso al SAES")
     with st.form("login"):
@@ -97,13 +90,10 @@ if not st.session_state.saes_logueado:
             else:
                 st.warning("Completá los datos.")
 
-# ============================================================
-# 2. PORTAL (BÚSQUEDA CON EL EVENTTARGET CORRECTO)
-# ============================================================
+# --- PORTAL ---
 else:
     s = st.session_state.session
 
-    # Barra lateral
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.usuario}")
         st.divider()
@@ -129,20 +119,21 @@ else:
                 r_cons = s.get(url_cons, headers=HEADERS)
                 data, action = form_payload(r_cons.text)
                 
-                # Completar los campos de búsqueda con el __EVENTTARGET correcto
+                # --- LA CLAVE: FORZAR NotReload A False ---
                 data.update({
-                    "__EVENTTARGET": "imgConsultarOT",  # <--- EL BOTÓN DE IMAGEN
+                    "__EVENTTARGET": "",
                     "__EVENTARGUMENT": "",
                     "txtDocumento": dni,
                     "cboTipoDoc": tipo,
                     "txtNroOp": "",
-                    # No enviamos imgConsultarOT.x/y porque va como __EVENTTARGET
+                    "dgBusquedaBenef_NotReload": "False",  # <--- ACÁ
+                    "imgConsultarOT.x": "5",
+                    "imgConsultarOT.y": "5",
                 })
                 
                 post_url = urljoin(url_cons, action)
                 r_res = s.post(post_url, data=data, headers={"Referer": url_cons})
                 
-                # Extraer la tabla
                 soup_res = BeautifulSoup(r_res.text, 'html.parser')
                 grid = soup_res.find(id="dgBusquedaBenef")
                 
@@ -162,7 +153,6 @@ else:
             except Exception as e:
                 st.error(f"Error al buscar: {e}")
     
-    # Mostrar resultados si existen
     if st.session_state.resultados is not None:
         if isinstance(st.session_state.resultados, pd.DataFrame):
             st.dataframe(st.session_state.resultados, use_container_width=True, hide_index=True)
