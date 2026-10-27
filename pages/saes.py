@@ -69,7 +69,7 @@ if not st.session_state.saes_logueado:
                 st.warning("Completá los datos.")
 
 # ============================================================
-# 2. PORTAL (CON MENÚS Y BÚSQUEDA POR ENTER)
+# 2. PORTAL
 # ============================================================
 else:
     s = st.session_state.session
@@ -85,11 +85,11 @@ else:
         
         if st.session_state.menu_abierto == "auto":
             if st.button("↳ Consultas y Listados", use_container_width=True):
-                st.info("Módulo Autorización - Consultas")
+                st.info("Módulo Autorización - Consultas (en desarrollo)")
             if st.button("↳ Autorizaciones", use_container_width=True):
-                st.info("Módulo Autorización - Autorizaciones")
+                st.info("Módulo Autorización - Autorizaciones (en desarrollo)")
             if st.button("↳ Listados por Período", use_container_width=True):
-                st.info("Módulo Autorización - Listados")
+                st.info("Módulo Autorización - Listados (en desarrollo)")
 
         if st.button("📂 Adm. de Medicamentos", use_container_width=True):
             st.session_state.menu_abierto = "med" if st.session_state.menu_abierto != "med" else None
@@ -98,18 +98,18 @@ else:
             if st.button("↳ Consultas", use_container_width=True):
                 st.info("Usá el formulario de abajo para buscar el DNI.")
             if st.button("↳ Listados", use_container_width=True):
-                st.info("Módulo Medicamentos - Listados")
+                st.info("Módulo Medicamentos - Listados (en desarrollo)")
             if st.button("↳ Consultas por delegación", use_container_width=True):
-                st.info("Módulo Medicamentos - Delegación")
+                st.info("Módulo Medicamentos - Delegación (en desarrollo)")
             if st.button("↳ Solicitudes de trámite", use_container_width=True):
-                st.info("Módulo Medicamentos - Solicitudes")
+                st.info("Módulo Medicamentos - Solicitudes (en desarrollo)")
                 
         st.divider()
         if st.button("🔒 Cerrar Sesión", use_container_width=True):
             st.session_state.saes_logueado = False
             st.rerun()
 
-    # --- CUERPO CENTRAL (BÚSQUEDA) ---
+    # --- CUERPO CENTRAL ---
     st.markdown("## 🔎 Consulta de Trámites (Medicamentos)")
     
     with st.form("busqueda"):
@@ -135,14 +135,17 @@ else:
                 if not vs:
                     st.error("No se pudo obtener el formulario de consulta del servidor.")
                 else:
-                    # 2. Armamos el POST simulando la tecla Enter
-                    # El __EVENTTARGET es "txtDocumento" (el nombre del campo)
+                    # 2. Armamos el POST simulando el Enter (o el clic en el botón)
+                    # El botón de búsqueda es "imgConsultarOT" y se envía con .x e .y
                     payload = {
-                        "__EVENTTARGET": "txtDocumento",
+                        "__EVENTTARGET": "",  # El Enter no usa __EVENTTARGET, sino que envía directo
                         "__EVENTARGUMENT": "",
                         "__VIEWSTATE": vs['value'],
                         "cboTipoDoc": tipo,
                         "txtDocumento": dni,
+                        "txtNroOp": "",
+                        "imgConsultarOT.x": "10",
+                        "imgConsultarOT.y": "10"
                     }
                     if ev: payload["__EVENTVALIDATION"] = ev['value']
                     
