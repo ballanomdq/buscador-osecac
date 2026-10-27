@@ -16,6 +16,7 @@ html, body, [class*="css"] { font-size: 17px; }
 BASE_URL = "http://portal.gmssa.com.ar/SAES/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+# --- ESTADO ---
 if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "session" not in st.session_state:
@@ -62,12 +63,12 @@ if not st.session_state.saes_logueado:
                 st.warning("Completá los datos.")
 
 # ============================================================
-# 2. PORTAL (DOS IFRAMES: MENÚ Y CONTENIDO)
+# 2. PORTAL (CON EL IFRAME Y LOS TOKENS REALES)
 # ============================================================
 else:
     s = st.session_state.session
 
-    # --- BARRA LATERAL (INFO) ---
+    # Barra lateral
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.usuario}")
         st.divider()
@@ -75,33 +76,71 @@ else:
             st.session_state.saes_logueado = False
             st.rerun()
 
-    # --- CUERPO CENTRAL (DOS IFRAMES) ---
-    st.markdown("## 🏥 Portal SAES")
-    
-    col_menu, col_content = st.columns([1, 4])
-    
-    with col_menu:
-        st.markdown("### Menú")
-        try:
-            # Cargamos NavigBar.aspx (el menú de la izquierda)
-            r_menu = s.get(BASE_URL + "NavigBar.aspx", headers=HEADERS)
-            if "txtUser" in r_menu.text:
-                st.error("Sesión expirada.")
-            else:
-                # Mostramos el menú en un iframe
-                components.html(r_menu.text, height=600, scrolling=True)
-        except Exception as e:
-            st.error(f"Error al cargar menú: {e}")
-    
-    with col_content:
-        st.markdown("### Contenido")
-        try:
-            # Cargamos frmBrowserConsulta.aspx (la página de consultas)
-            r_content = s.get(BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx", headers=HEADERS)
-            if "txtUser" in r_content.text:
-                st.error("Sesión expirada.")
-            else:
-                # Mostramos la página de consultas en un iframe
-                components.html(r_content.text, height=600, scrolling=True)
-        except Exception as e:
-            st.error(f"Error al cargar contenido: {e}")
+    st.markdown("## 🏥 Portal SAES - Consultas")
+
+    try:
+        # 1. Obtenemos la página de consultas REAL (con sus tokens)
+        url_cons = BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
+        r_cons = s.get(url_cons, headers=HEADERS)
+        soup_cons = BeautifulSoup(r_cons.text, 'html.parser')
+        
+        vs = soup_cons.find('input', {'name': '__VIEWSTATE'})
+        ev = soup_cons.find('input', {'name': '__EVENTVALIDATION'})
+
+        if not vs:
+            st.error("No se pudo cargar el formulario.")
+        else:
+            # 2. Construimos el HTML que vamos a inyectar en el iframe
+            #    Este HTML contiene el formulario con los tokens reales
+            #    y su acción apunta a la URL correcta.
+            html_form = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    body {{ background-color: #f8fafc; font-family: sans-serif; color: #0f172a; padding: 20px; }}
+                    label {{ font-size: 16px; font-weight: 600; margin-right: 10px; }}
+                    input[type="text"], select {{ font-size: 16px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; margin-right: 15px; }}
+                    input[type="submit"] {{ font-size: 16px; padding: 10px 20px; background: #0284c7; color: white; border: none; border-radius: 6px; cursor: pointer; }}
+                    table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+                    td, th {{ padding: 10px; border: 1px solid #e2e8f0; font-size: 15px; }}
+                    th {{ background-color: #f1f5f9; color: #0f172a; }}
+                </style>
+            </head>
+            <body>
+                <form method="post" action="{url_cons}">
+                    <input type="hidden" name="__VIEWSTATE" value="{vs['value']}">
+                    <input type="hidden" name="__EVENTVALIDATION" value="{ev['value'] if ev else ''}">
+                    <input type="hidden" name="__EVENTTARGET" value="txtDocumento">
+                    <input type="hidden" name="__EVENTARGUMENT" value="">
+                    
+                    <label>Nro. Orden:</label>
+                    <input type="text" name="txtNroOp" value="">
+                    
+                    <label>Nro. Documento:</label>
+                    <select name="cboTipoDoc">
+                        <option value="1">DNI</option>
+                        <option value="2" selected>LC</option>
+                        <option value="3">LE</option>
+                        <option value="4">CI</option>
+                        <option value="5">PAS</option>
+                        <option value="6">S/D</option>
+                    </select>
+                    <input type="text" name="txtDocumento" value="6705303">
+                    
+                    <label>Ver sólo disposiciones:</label>
+                    <input type="checkbox" name="chkSoloDisposiciones">
+                    
+                    <br><br>
+                    <input type="submit" value="🔍 Buscar">
+                </form>
+            </body>
+            </html>
+            """
+            
+            # 3. Mostramos el iframe con el formulario inyectado
+            components.html(html_form, height=600, scrolling=True)
+
+    except Exception as e:
+        st.error(f"Error al cargar el formulario: {e}")
