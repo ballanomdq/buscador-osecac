@@ -106,7 +106,7 @@ else:
     
     with st.form("busqueda"):
         c1, c2, c3 = st.columns([1, 2, 1])
-        with c1: tipo = st.selectbox("Tipo Doc", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
+        with c1: tipo_label = st.selectbox("Tipo Doc", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
         with c2: dni = st.text_input("Nro. de Documento", value="6705303")
         with c3:
             st.markdown("<br>", unsafe_allow_html=True)
@@ -119,14 +119,27 @@ else:
                 r_cons = s.get(url_cons, headers=HEADERS)
                 data, action = form_payload(r_cons.text)
                 
-                # --- LA CLAVE: FORZAR NotReload A False ---
+                # --- MAPEAR LA ETIQUETA AL VALOR REAL ---
+                soup_c = BeautifulSoup(r_cons.text, "html.parser")
+                sel = soup_c.find("select", {"name": "cboTipoDoc"})
+                if sel:
+                    opciones = {o.get_text(strip=True).upper(): o.get("value", "") for o in sel.find_all("option")}
+                    st.write("Opciones de tipo doc:", opciones)  # Para depuración
+                    tipo_val = opciones.get(tipo_label.upper())
+                    if tipo_val is None:
+                        st.error(f"'{tipo_label}' no existe en el combo del portal. Opciones: {list(opciones)}")
+                        st.stop()
+                else:
+                    tipo_val = "2"  # fallback
+                
+                # --- ACTUALIZAR CON EL VALOR CORRECTO ---
                 data.update({
                     "__EVENTTARGET": "",
                     "__EVENTARGUMENT": "",
                     "txtDocumento": dni,
-                    "cboTipoDoc": tipo,
+                    "cboTipoDoc": tipo_val,  # <--- VALOR REAL (ej: "2")
                     "txtNroOp": "",
-                    "dgBusquedaBenef_NotReload": "False",  # <--- ACÁ
+                    "dgBusquedaBenef_NotReload": "False",
                     "imgConsultarOT.x": "5",
                     "imgConsultarOT.y": "5",
                 })
