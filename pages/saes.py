@@ -29,6 +29,8 @@ if "usuario" not in st.session_state:
     st.session_state.usuario = "rballano"
 if "url_destino" not in st.session_state:
     st.session_state.url_destino = None
+if "menu_abierto" not in st.session_state:
+    st.session_state.menu_abierto = None
 
 # ============================================================
 # 1. LOGIN
@@ -58,6 +60,7 @@ if not st.session_state.saes_logueado:
                             st.session_state.saes_logueado = True
                             st.session_state.session = s
                             st.session_state.usuario = user
+                            # Por defecto, arrancamos en consultas de medicamentos
                             st.session_state.url_destino = "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
                             st.rerun()
                         else:
@@ -74,27 +77,55 @@ if not st.session_state.saes_logueado:
 # ============================================================
 else:
     s = st.session_state.session
-    
-    # Barra lateral
+
+    # --- BARRA LATERAL CON LOS MENÚS ---
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.usuario}")
         st.divider()
         st.markdown("#### Módulos SAES")
+        
         if st.button("📂 Autorización", use_container_width=True):
-            st.session_state.url_destino = "Autorizaciones/Consulta/frmBrowserConsulta.aspx"
-            st.rerun()
+            st.session_state.menu_abierto = "auto" if st.session_state.menu_abierto != "auto" else None
+        
+        if st.session_state.menu_abierto == "auto":
+            if st.button("↳ Consultas y Listados", use_container_width=True):
+                st.session_state.url_destino = "Autorizaciones/Consulta/frmBrowserConsulta.aspx"
+                st.rerun()
+            if st.button("↳ Autorizaciones", use_container_width=True):
+                st.session_state.url_destino = "Autorizaciones/Autorizacion/frmBrowserAutorizacion.aspx"
+                st.rerun()
+            if st.button("↳ Listados por Período", use_container_width=True):
+                st.session_state.url_destino = "Autorizaciones/Listados/frmBrowserListados.aspx"
+                st.rerun()
+
         if st.button("📂 Adm. de Medicamentos", use_container_width=True):
-            st.session_state.url_destino = "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
-            st.rerun()
+            st.session_state.menu_abierto = "med" if st.session_state.menu_abierto != "med" else None
+            
+        if st.session_state.menu_abierto == "med":
+            if st.button("↳ Listados", use_container_width=True):
+                st.session_state.url_destino = "Medicamentos/Listados/frmBrowserListados.aspx"
+                st.rerun()
+            if st.button("↳ Consultas", use_container_width=True):
+                st.session_state.url_destino = "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
+                st.rerun()
+            if st.button("↳ Consultas por delegación", use_container_width=True):
+                st.session_state.url_destino = "Medicamentos/ConsultasDelegacion/frmBrowserConsultaDelegacion.aspx"
+                st.rerun()
+            if st.button("↳ Solicitudes de trámite", use_container_width=True):
+                st.session_state.url_destino = "Medicamentos/Solicitudes/frmBrowserSolicitudes.aspx"
+                st.rerun()
+                
         st.divider()
         if st.button("🔒 Cerrar Sesión", use_container_width=True):
             st.session_state.saes_logueado = False
             st.session_state.url_destino = None
             st.rerun()
 
-    # Cuerpo central
+    # --- CUERPO CENTRAL ---
+    st.markdown("## 🔎 Consulta de Trámites (Medicamentos)")
+    
     if st.session_state.url_destino:
-        with st.spinner("Cargando SAES..."):
+        with st.spinner("Cargando sección de SAES..."):
             try:
                 url_completa = BASE_URL + st.session_state.url_destino
                 r = s.get(url_completa, headers=HEADERS)
@@ -106,7 +137,7 @@ else:
                     body = soup.find('body')
                     
                     if body:
-                        # Inyectamos CSS para maquillar el formulario
+                        # --- MAQUILLAJE VISUAL ---
                         estilo = """
                         <style>
                             body { background-color: #f8fafc !important; font-family: sans-serif !important; color: #0f172a !important; padding: 20px; }
@@ -118,29 +149,39 @@ else:
                             th { background-color: #f1f5f9 !important; color: #0f172a !important; }
                         </style>
                         """
-                        # Limpiamos scripts viejos
                         for tag in body(["script", "style", "link", "meta"]):
                             tag.decompose()
                         html_puro = estilo + str(body)
                     else:
                         html_puro = r.text
                     
-                    # INYECTAMOS JS PARA QUE EL FORMULARIO ENVÍE LOS DATOS AL SERVIDOR REAL
-                    # Esto hace que el navegador del cliente haga el POST, no nuestro backend.
-                    script_post = """
-                    <script>
+                    # INYECTAMOS JS PARA QUE EL FORMULARIO HAGA EL POST REAL A SAES
+                    # Esto hace que el navegador del cliente (Chrome) haga la búsqueda,
+                    # usando las cookies de la sesión que ya tenemos abiertas.
+                    html_puro = html_puro.replace(
+                        "</body>",
+                        """
+                        <script>
                         document.addEventListener('DOMContentLoaded', function() {
-                            // Buscamos el formulario y le cambiamos el target para que se envíe a sí mismo
+                            // Buscamos el formulario de búsqueda
                             var form = document.forms[0];
                             if (form) {
-                                // Aquí podríamos agregar lógica adicional si es necesario
-                                // Por defecto, el formulario ya apunta a la URL correcta
+                                // Le decimos al formulario que su acción es la misma página
+                                form.action = window.location.href;
+                                // Hacemos que el submit funcione con Enter
+                                form.onsubmit = function(e) {
+                                    // Permitimos que el envío sea normal
+                                    return true;
+                                }
                             }
                         });
-                    </script>
-                    """
-                    html_puro += script_post
+                        </script>
+                        </body>
+                        """
+                    )
                     
                     components.html(html_puro, height=800, scrolling=True)
             except Exception as e:
                 st.error(f"Error al cargar la página: {e}")
+    else:
+        st.info("👈 Seleccioná una opción del menú lateral para comenzar.")
