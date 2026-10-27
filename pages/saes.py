@@ -5,12 +5,24 @@ from urllib.parse import urljoin
 from io import StringIO
 import pandas as pd
 
-st.set_page_config(page_title="Diagnóstico SAES v5", layout="wide")
-st.title("🔍 Diagnóstico de POST real - Paso 3")
+st.set_page_config(page_title="Portal SAES - OSECAC", layout="wide")
+
+st.markdown("""
+<style>
+.stApp { background-color: #f8fafc !important; color: #0f172a !important; }
+.stMarkdown p, label, span { color: #0f172a !important; }
+html, body, [class*="css"] { font-size: 17px; }
+div[data-testid="stButton"] > button { font-size: 1.05rem; padding: 0.6rem 1.2rem; margin-bottom: 5px; width: 100%; text-align: left;}
+div[data-testid="stTextInput"] input { font-size: 1.05rem; }
+</style>
+""", unsafe_allow_html=True)
 
 BASE_URL = "http://portal.gmssa.com.ar/SAES/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+# ============================================================
+# FUNCIÓN PARA EXTRAER CAMPOS DEL FORMULARIO
+# ============================================================
 def form_payload(html):
     soup = BeautifulSoup(html, "html.parser")
     form = soup.find("form")
@@ -35,71 +47,133 @@ def form_payload(html):
             data[name] = el.get("value", "")
     return data, form.get("action", "")
 
-if st.button("Ejecutar Diagnóstico"):
-    with st.spinner("Conectando..."):
-        s = requests.Session()
-        
-        # 1. LOGIN
-        r = s.get(BASE_URL + "Login.aspx", headers=HEADERS)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        vs = soup.find('input', {'name': '__VIEWSTATE'})
-        payload_login = {
-            "__EVENTTARGET": "", "__EVENTARGUMENT": "",
-            "__VIEWSTATE": vs['value'],
-            "txtUser": "rballano", "txtPassword": "654321",
-            "imgbtnSend.x": "0", "imgbtnSend.y": "0"
-        }
-        r2 = s.post(BASE_URL + "Login.aspx", data=payload_login, headers=HEADERS)
-        st.write(f"Login exitoso: `{'txtUser' not in r2.text}`")
-        
-        # 2. GET a la página de consultas
-        url_cons = BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
-        r_cons = s.get(url_cons, headers=HEADERS)
-        
-        # 3. Extraer campos
-        data, action = form_payload(r_cons.text)
-        st.write(f"**Action del form:** `{action}`")
-        st.write(f"**Cantidad de campos extraídos:** `{len(data)}`")
-        
-        # 4. Completar búsqueda
-        data.update({
-            "__EVENTTARGET": "",
-            "__EVENTARGUMENT": "",
-            "txtDocumento": "6705303",
-            "cboTipoDoc": "2",  # LC
-            "txtNroOp": "",
-            "imgConsultarOT.x": "5",
-            "imgConsultarOT.y": "5",
-        })
-        
-        # 5. POST real
-        post_url = urljoin(url_cons, action)
-        r_res = s.post(post_url, data=data, headers={"Referer": url_cons})
-        
-        # 6. Analizar respuesta
-        st.write(f"**Status:** `{r_res.status_code}`")
-        st.write(f"**Largo de la respuesta:** `{len(r_res.text)}` caracteres")
-        st.write(f"**¿Tiene 'txtUser' (es login)?** `{'txtUser' in r_res.text}`")
-        
-        soup_res = BeautifulSoup(r_res.text, 'html.parser')
-        
-        # Buscar todas las tablas y mostrar sus IDs
-        tablas = soup_res.find_all('table')
-        st.write(f"**Cantidad de tablas encontradas:** `{len(tablas)}`")
-        for i, t in enumerate(tablas):
-            st.write(f"- Tabla {i}: id=`{t.get('id')}`, class=`{t.get('class')}`")
-        
-        # Si no hay tabla, mostrar el HTML de la respuesta
-        if not any(t.get('id') == 'dgBusquedaBenef' for t in tablas):
-            st.warning("No se encontró la tabla 'dgBusquedaBenef'. Mostrando HTML de la respuesta:")
-            st.code(r_res.text[:3000])
-        
-        # Si hay tabla, mostrar el DataFrame
-        grid = soup_res.find(id="dgBusquedaBenef")
-        if grid:
+# ============================================================
+# ESTADO
+# ============================================================
+if "saes_logueado" not in st.session_state:
+    st.session_state.saes_logueado = False
+if "session" not in st.session_state:
+    st.session_state.session = None
+if "usuario" not in st.session_state:
+    st.session_state.usuario = "rballano"
+if "resultados" not in st.session_state:
+    st.session_state.resultados = None
+
+# ============================================================
+# 1. LOGIN
+# ============================================================
+if not st.session_state.saes_logueado:
+    st.markdown("## 🔑 Acceso al SAES")
+    with st.form("login"):
+        c1, c2 = st.columns(2)
+        with c1: user = st.text_input("Usuario:", value="rballano")
+        with c2: pwd = st.text_input("Contraseña:", type="password")
+        if st.form_submit_button("🚀 Entrar", use_container_width=True):
+            if user and pwd:
+                s = requests.Session()
+                try:
+                    r = s.get(BASE_URL + "Login.aspx", headers=HEADERS)
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    vs = soup.find('input', {'name': '__VIEWSTATE'})
+                    if vs:
+                        payload = {
+                            "__EVENTTARGET": "", "__EVENTARGUMENT": "",
+                            "__VIEWSTATE": vs['value'],
+                            "txtUser": user, "txtPassword": pwd,
+                            "imgbtnSend.x": "0", "imgbtnSend.y": "0"
+                        }
+                        r2 = s.post(BASE_URL + "Login.aspx", data=payload, headers=HEADERS)
+                        if "txtUser" not in r2.text:
+                            st.session_state.saes_logueado = True
+                            st.session_state.session = s
+                            st.session_state.usuario = user
+                            st.rerun()
+                        else:
+                            st.error("Usuario o clave incorrectos.")
+                    else:
+                        st.error("No se pudo conectar con el formulario de login.")
+                except Exception as e:
+                    st.error(f"Error de conexión: {e}")
+            else:
+                st.warning("Completá los datos.")
+
+# ============================================================
+# 2. PORTAL (BÚSQUEDA CON ASYNCPOST)
+# ============================================================
+else:
+    s = st.session_state.session
+
+    # Barra lateral
+    with st.sidebar:
+        st.markdown(f"### 👤 {st.session_state.usuario}")
+        st.divider()
+        if st.button("🔒 Cerrar Sesión", use_container_width=True):
+            st.session_state.saes_logueado = False
+            st.session_state.resultados = None
+            st.rerun()
+
+    st.markdown("## 🏥 Portal SAES - Consultas")
+    
+    with st.form("busqueda"):
+        c1, c2, c3 = st.columns([1, 2, 1])
+        with c1: tipo = st.selectbox("Tipo Doc", ["DNI", "LC", "LE", "CI", "PAS", "S/D"], index=1)
+        with c2: dni = st.text_input("Nro. de Documento", value="6705303")
+        with c3:
+            st.markdown("<br>", unsafe_allow_html=True)
+            buscar = st.form_submit_button("🔍 Buscar en SAES", use_container_width=True)
+    
+    if buscar:
+        with st.spinner("Buscando en SAES..."):
             try:
-                df = pd.read_html(StringIO(str(grid)))[0]
-                st.write("**Tabla encontrada:**")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                url_cons = BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx"
+                r_cons = s.get(url_cons, headers=HEADERS)
+                data, action = form_payload(r_cons.text)
+                
+                # Completar los campos de búsqueda
+                data.update({
+                    "__EVENTTARGET": "",
+                    "__EVENTARGUMENT": "",
+                    "txtDocumento": dni,
+                    "cboTipoDoc": tipo,
+                    "txtNroOp": "",
+                    "imgConsultarOT.x": "5",
+                    "imgConsultarOT.y": "5",
+                    # --- CLAVES DEL UPDATEPANEL ---
+                    "__ASYNCPOST": "true",
+                    "ScriptManager1": "UpdatePanel1|imgConsultarOT",
+                })
+                
+                # Headers especiales para el UpdatePanel
+                headers_ajax = HEADERS.copy()
+                headers_ajax["X-MicrosoftAjax"] = "Delta=true"
+                headers_ajax["Referer"] = url_cons
+                
+                post_url = urljoin(url_cons, action)
+                r_res = s.post(post_url, data=data, headers=headers_ajax)
+                
+                # Extraer la tabla
+                soup_res = BeautifulSoup(r_res.text, 'html.parser')
+                grid = soup_res.find(id="dgBusquedaBenef")
+                
+                if grid:
+                    try:
+                        df = pd.read_html(StringIO(str(grid)))[0]
+                        st.session_state.resultados = df
+                        st.success(f"Se encontraron {len(df)} trámites.")
+                    except Exception:
+                        st.session_state.resultados = "no_data"
+                        st.warning("La tabla no tiene datos legibles.")
+                else:
+                    st.session_state.resultados = None
+                    st.warning("No se encontró la tabla de resultados. Revisá el HTML de la respuesta.")
+                    st.code(r_res.text[:3000])
+                    
             except Exception as e:
-                st.error(f"No se pudo convertir a DataFrame: {e}")
+                st.error(f"Error al buscar: {e}")
+    
+    # Mostrar resultados si existen
+    if st.session_state.resultados is not None:
+        if isinstance(st.session_state.resultados, pd.DataFrame):
+            st.dataframe(st.session_state.resultados, use_container_width=True, hide_index=True)
+        else:
+            st.info("No se encontraron resultados para ese documento.")
