@@ -10,17 +10,12 @@ st.markdown("""
 .stApp { background-color: #f8fafc !important; color: #0f172a !important; }
 .stMarkdown p, label, span { color: #0f172a !important; }
 html, body, [class*="css"] { font-size: 17px; }
-div[data-testid="stButton"] > button { font-size: 1.05rem; padding: 0.6rem 1.2rem; margin-bottom: 5px; width: 100%; text-align: left;}
-div[data-testid="stTextInput"] input { font-size: 1.05rem; }
 </style>
 """, unsafe_allow_html=True)
 
 BASE_URL = "http://portal.gmssa.com.ar/SAES/"
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-# ============================================================
-# ESTADO
-# ============================================================
 if "saes_logueado" not in st.session_state:
     st.session_state.saes_logueado = False
 if "session" not in st.session_state:
@@ -67,39 +62,46 @@ if not st.session_state.saes_logueado:
                 st.warning("Completá los datos.")
 
 # ============================================================
-# 2. PORTAL
+# 2. PORTAL (DOS IFRAMES: MENÚ Y CONTENIDO)
 # ============================================================
 else:
     s = st.session_state.session
 
-    # Barra lateral
+    # --- BARRA LATERAL (INFO) ---
     with st.sidebar:
         st.markdown(f"### 👤 {st.session_state.usuario}")
-        st.divider()
-        st.markdown("#### Módulos SAES")
-        st.info("Navegá dentro del portal usando la página de la derecha.")
         st.divider()
         if st.button("🔒 Cerrar Sesión", use_container_width=True):
             st.session_state.saes_logueado = False
             st.rerun()
 
-    # Cuerpo central: mostramos el frameset real de SAES
+    # --- CUERPO CENTRAL (DOS IFRAMES) ---
     st.markdown("## 🏥 Portal SAES")
     
-    with st.spinner("Cargando portal SAES..."):
+    col_menu, col_content = st.columns([1, 4])
+    
+    with col_menu:
+        st.markdown("### Menú")
         try:
-            # Cargamos welcome.aspx, que es el frameset con los dos frames
-            r = s.get(BASE_URL + "welcome.aspx", headers=HEADERS)
-            
-            # Inyectamos una base href para que las URLs relativas funcionen
-            # y estilos para que el iframe ocupe todo el ancho
-            html_puro = r.text.replace(
-                "<head>",
-                f'<head><base href="{BASE_URL}">'
-            )
-            
-            # Mostramos el HTML del frameset
-            components.html(html_puro, height=800, scrolling=True)
-            
+            # Cargamos NavigBar.aspx (el menú de la izquierda)
+            r_menu = s.get(BASE_URL + "NavigBar.aspx", headers=HEADERS)
+            if "txtUser" in r_menu.text:
+                st.error("Sesión expirada.")
+            else:
+                # Mostramos el menú en un iframe
+                components.html(r_menu.text, height=600, scrolling=True)
         except Exception as e:
-            st.error(f"Error al cargar el portal: {e}")
+            st.error(f"Error al cargar menú: {e}")
+    
+    with col_content:
+        st.markdown("### Contenido")
+        try:
+            # Cargamos frmBrowserConsulta.aspx (la página de consultas)
+            r_content = s.get(BASE_URL + "Medicamentos/ConsultaOrdenes/frmBrowserConsulta.aspx", headers=HEADERS)
+            if "txtUser" in r_content.text:
+                st.error("Sesión expirada.")
+            else:
+                # Mostramos la página de consultas en un iframe
+                components.html(r_content.text, height=600, scrolling=True)
+        except Exception as e:
+            st.error(f"Error al cargar contenido: {e}")
