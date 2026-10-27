@@ -98,7 +98,7 @@ if not st.session_state.saes_logueado:
                 st.warning("Completá los datos.")
 
 # ============================================================
-# 2. PORTAL (BÚSQUEDA CON ASYNCPOST)
+# 2. PORTAL (BÚSQUEDA CON EL EVENTTARGET CORRECTO)
 # ============================================================
 else:
     s = st.session_state.session
@@ -129,27 +129,18 @@ else:
                 r_cons = s.get(url_cons, headers=HEADERS)
                 data, action = form_payload(r_cons.text)
                 
-                # Completar los campos de búsqueda
+                # Completar los campos de búsqueda con el __EVENTTARGET correcto
                 data.update({
-                    "__EVENTTARGET": "",
+                    "__EVENTTARGET": "imgConsultarOT",  # <--- EL BOTÓN DE IMAGEN
                     "__EVENTARGUMENT": "",
                     "txtDocumento": dni,
                     "cboTipoDoc": tipo,
                     "txtNroOp": "",
-                    "imgConsultarOT.x": "5",
-                    "imgConsultarOT.y": "5",
-                    # --- CLAVES DEL UPDATEPANEL ---
-                    "__ASYNCPOST": "true",
-                    "ScriptManager1": "UpdatePanel1|imgConsultarOT",
+                    # No enviamos imgConsultarOT.x/y porque va como __EVENTTARGET
                 })
                 
-                # Headers especiales para el UpdatePanel
-                headers_ajax = HEADERS.copy()
-                headers_ajax["X-MicrosoftAjax"] = "Delta=true"
-                headers_ajax["Referer"] = url_cons
-                
                 post_url = urljoin(url_cons, action)
-                r_res = s.post(post_url, data=data, headers=headers_ajax)
+                r_res = s.post(post_url, data=data, headers={"Referer": url_cons})
                 
                 # Extraer la tabla
                 soup_res = BeautifulSoup(r_res.text, 'html.parser')
